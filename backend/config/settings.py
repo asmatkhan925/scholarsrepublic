@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "apps.users",
     "apps.profiles",
+    "apps.opportunities",
     "apps.scholarships",
     "apps.applications",
     "apps.services",

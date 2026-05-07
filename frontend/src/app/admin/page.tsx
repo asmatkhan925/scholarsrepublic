@@ -15,14 +15,14 @@ function AdminDashboardContent() {
       description={`Welcome, ${user?.full_name ?? "Admin"}. Scholarship, service request, and blog management will be added next.`}
     >
       <PlaceholderPanel
-        title="Management areas coming next"
+        title="Opportunity management foundation is ready"
         items={[
-          "Scholarship management",
+          "Opportunity management is available in Django Admin for now",
+          "Create scholarship opportunities with opportunity_type = scholarship",
+          "Only published opportunities appear on public pages",
           "Service request review",
           "Blog publishing",
-          "Student account visibility",
-          "Manual payment status",
-          "Verification workflow",
+          "Custom admin opportunity UI will be built later",
         ]}
       />
     </DashboardShell>

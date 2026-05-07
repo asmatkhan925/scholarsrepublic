@@ -54,6 +54,7 @@ Then run:
 ```bash
 python manage.py makemigrations
 python manage.py migrate
+python manage.py seed_opportunities
 python manage.py createsuperuser
 python manage.py runserver
 ```
@@ -101,6 +102,7 @@ python manage.py migrate
 python manage.py test
 python manage.py test apps.users
 python manage.py test apps.profiles
+python manage.py test apps.opportunities
 ```
 
 Frontend:
@@ -115,7 +117,7 @@ npm run build
 
 1. Authentication
 2. Student profile
-3. Scholarship database
+3. Opportunity database foundation
 4. Search and filters
 5. Rule-based match score
 6. Saved scholarships
@@ -181,6 +183,37 @@ Profile endpoints:
 
 Admin users do not need student profiles and receive `403` on profile endpoints.
 
+## Opportunity Database
+
+Phase 4 adds the `opportunities` backend app. Scholarships are stored as
+opportunities with `opportunity_type = scholarship`, which keeps the platform
+ready for future jobs, internships, fellowships, exchange programs, admissions,
+competitions, training, research positions, and mentorship programs.
+
+Public browsing endpoints:
+
+- `GET /api/opportunities/`
+- `GET /api/opportunities/{slug}/`
+- `GET /api/scholarships/`
+- `GET /api/scholarships/{slug}/`
+
+The `/api/scholarships/` endpoints are a convenience alias that returns only
+published scholarship opportunities. Draft opportunities are never shown on
+public endpoints.
+
+Admin management endpoints:
+
+- `GET|POST /api/admin/opportunities/`
+- `GET|PUT|PATCH|DELETE /api/admin/opportunities/{id}/`
+
+Django Admin can be used for opportunity management first. Seed local sample
+scholarship opportunities with:
+
+```bash
+cd backend
+python manage.py seed_opportunities
+```
+
 ## Development Roadmap
 
 1. Initial project setup
@@ -204,10 +237,11 @@ Completed:
 - Phase 1.5 setup stabilization
 - Phase 2 authentication and access modes
 - Phase 3 student profile and scholarship readiness
+- Phase 4 opportunity database foundation
 
 Next phase:
 
-- Phase 4 opportunity database foundation, starting with scholarship opportunities
+- Phase 5 rule-based opportunity match score
 
 ## License
 

@@ -199,10 +199,93 @@ zero and the response includes the core missing fields/documents.
 }
 ```
 
+## Phase 4
+
+Phase 4 introduces a flexible opportunity database. Scholarships are stored as
+opportunities with `opportunity_type = "scholarship"`.
+
+Public endpoints return only `status = "published"` records. Draft and archived
+records are hidden publicly.
+
+### Public Opportunities
+
+`GET /api/opportunities/`
+
+Query params:
+
+- `opportunity_type`
+- `country`
+- `degree_level`
+- `field`
+- `funding_type`
+- `verified=true`
+- `featured=true`
+- `no_ielts=true`
+- `no_application_fee=true`
+- `hec_required=true`
+- `remote=true`
+- `search`
+- `ordering=deadline|-deadline|created_at|-created_at|published_at|-published_at`
+
+Paginated response:
+
+```json
+{
+  "count": 10,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 1,
+      "title": "Chinese Government Scholarship",
+      "slug": "chinese-government-scholarship",
+      "opportunity_type": "scholarship",
+      "status": "published",
+      "featured": true,
+      "verified_status": false,
+      "provider_name": "Chinese Scholarship Council",
+      "country": "China",
+      "funding_type": "fully_funded",
+      "degree_levels": ["Undergraduate", "Master", "PhD"],
+      "deadline": "2026-09-04",
+      "is_expired": false,
+      "days_until_deadline": 120
+    }
+  ]
+}
+```
+
+`GET /api/opportunities/{slug}/`
+
+Returns full opportunity details for a published opportunity.
+
+### Public Scholarship Alias
+
+`GET /api/scholarships/`
+
+Returns only published opportunities where `opportunity_type = "scholarship"`.
+Supports the same filters as `/api/opportunities/`.
+
+`GET /api/scholarships/{slug}/`
+
+Returns full details for a published scholarship opportunity.
+
+### Admin Opportunity API
+
+Admin users only:
+
+- `GET /api/admin/opportunities/`
+- `POST /api/admin/opportunities/`
+- `GET /api/admin/opportunities/{id}/`
+- `PUT /api/admin/opportunities/{id}/`
+- `PATCH /api/admin/opportunities/{id}/`
+- `DELETE /api/admin/opportunities/{id}/`
+
+Admin create/update supports all `Opportunity` model fields. Public users and
+student users cannot create, update, or delete opportunities.
+
 ## Planned MVP Endpoints
 
-- `GET /api/scholarships/`
-- `GET /api/scholarships/{slug}/`
 - `GET /api/scholarships/recommended/`
 - `GET /api/scholarships/{id}/match-score/`
 - `GET|POST /api/saved-scholarships/`

@@ -1,0 +1,292 @@
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
+from django.utils.text import slugify
+
+
+class Opportunity(models.Model):
+    class OpportunityType(models.TextChoices):
+        SCHOLARSHIP = "scholarship", "Scholarship"
+        JOB = "job", "Job"
+        INTERNSHIP = "internship", "Internship"
+        FELLOWSHIP = "fellowship", "Fellowship"
+        EXCHANGE_PROGRAM = "exchange_program", "Exchange program"
+        RESEARCH_POSITION = "research_position", "Research position"
+        ADMISSION = "admission", "Admission"
+        COMPETITION = "competition", "Competition"
+        TRAINING = "training", "Training"
+        MENTORSHIP_PROGRAM = "mentorship_program", "Mentorship program"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        ARCHIVED = "archived", "Archived"
+
+    class OrganizationType(models.TextChoices):
+        UNIVERSITY = "university", "University"
+        GOVERNMENT = "government", "Government"
+        COMPANY = "company", "Company"
+        NGO = "ngo", "NGO"
+        FOUNDATION = "foundation", "Foundation"
+        INTERNATIONAL = "international_organization", "International organization"
+        PRIVATE_PROVIDER = "private_provider", "Private provider"
+        OTHER = "other", "Other"
+
+    class LocationType(models.TextChoices):
+        ON_SITE = "on_site", "On-site"
+        REMOTE = "remote", "Remote"
+        HYBRID = "hybrid", "Hybrid"
+        NOT_APPLICABLE = "not_applicable", "Not applicable"
+
+    class GenderEligibility(models.TextChoices):
+        ALL = "all", "All"
+        WOMEN_ONLY = "women_only", "Women only"
+        MEN_ONLY = "men_only", "Men only"
+        NOT_SPECIFIED = "not_specified", "Not specified"
+
+    class FundingType(models.TextChoices):
+        FULLY_FUNDED = "fully_funded", "Fully funded"
+        PARTIALLY_FUNDED = "partially_funded", "Partially funded"
+        TUITION_WAIVER = "tuition_waiver", "Tuition waiver"
+        STIPEND_ONLY = "stipend_only", "Stipend only"
+        NEED_BASED = "need_based", "Need based"
+        MERIT_BASED = "merit_based", "Merit based"
+        SELF_FUNDED = "self_funded", "Self funded"
+        OTHER = "other", "Other"
+
+    class EmploymentType(models.TextChoices):
+        FULL_TIME = "full_time", "Full time"
+        PART_TIME = "part_time", "Part time"
+        CONTRACT = "contract", "Contract"
+        INTERNSHIP = "internship", "Internship"
+        VOLUNTEER = "volunteer", "Volunteer"
+        FREELANCE = "freelance", "Freelance"
+        TEMPORARY = "temporary", "Temporary"
+        NOT_APPLICABLE = "not_applicable", "Not applicable"
+
+    class ExperienceLevel(models.TextChoices):
+        ENTRY_LEVEL = "entry_level", "Entry level"
+        STUDENT = "student", "Student"
+        FRESH_GRADUATE = "fresh_graduate", "Fresh graduate"
+        MID_LEVEL = "mid_level", "Mid level"
+        SENIOR = "senior", "Senior"
+        NOT_APPLICABLE = "not_applicable", "Not applicable"
+
+    class ApplicationMethod(models.TextChoices):
+        OFFICIAL_WEBSITE = "official_website", "Official website"
+        EMAIL = "email", "Email"
+        HEC_PORTAL = "hec_portal", "HEC portal"
+        UNIVERSITY_PORTAL = "university_portal", "University portal"
+        COMPANY_PORTAL = "company_portal", "Company portal"
+        EXTERNAL_FORM = "external_form", "External form"
+        OTHER = "other", "Other"
+
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=280, unique=True, blank=True)
+    opportunity_type = models.CharField(
+        max_length=50,
+        choices=OpportunityType.choices,
+        default=OpportunityType.SCHOLARSHIP,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    featured = models.BooleanField(default=False, db_index=True)
+    verified_status = models.BooleanField(default=False, db_index=True)
+    verification_note = models.CharField(max_length=255, blank=True)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+
+    provider_name = models.CharField(max_length=255, blank=True)
+    organization_type = models.CharField(
+        max_length=80, choices=OrganizationType.choices, blank=True
+    )
+    university_name = models.CharField(max_length=255, blank=True)
+    company_name = models.CharField(max_length=255, blank=True)
+    country = models.CharField(max_length=100, blank=True, db_index=True)
+    city = models.CharField(max_length=120, blank=True)
+    location_type = models.CharField(
+        max_length=50, choices=LocationType.choices, blank=True
+    )
+
+    short_description = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+    benefits = models.TextField(blank=True)
+    eligibility = models.TextField(blank=True)
+    how_to_apply = models.TextField(blank=True)
+    official_link = models.URLField(blank=True)
+    source_url = models.URLField(blank=True)
+    source_name = models.CharField(max_length=255, blank=True)
+
+    eligible_countries = models.JSONField(default=list, blank=True)
+    degree_levels = models.JSONField(default=list, blank=True)
+    fields_of_study = models.JSONField(default=list, blank=True)
+    target_regions = models.JSONField(default=list, blank=True)
+    gender_eligibility = models.CharField(
+        max_length=50,
+        choices=GenderEligibility.choices,
+        default=GenderEligibility.NOT_SPECIFIED,
+        blank=True,
+    )
+    min_cgpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    min_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    min_education_level = models.CharField(max_length=80, blank=True)
+
+    funding_type = models.CharField(
+        max_length=80, choices=FundingType.choices, blank=True, db_index=True
+    )
+    funding_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    funding_currency = models.CharField(max_length=10, blank=True)
+    application_fee_required = models.BooleanField(default=False)
+    application_fee_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    application_fee_currency = models.CharField(max_length=10, blank=True)
+    hec_required = models.BooleanField(default=False)
+    ielts_required = models.BooleanField(default=False)
+    toefl_required = models.BooleanField(default=False)
+    duolingo_required = models.BooleanField(default=False)
+    hsk_required = models.BooleanField(default=False)
+    english_proficiency_certificate_accepted = models.BooleanField(default=False)
+
+    employment_type = models.CharField(
+        max_length=80, choices=EmploymentType.choices, blank=True
+    )
+    experience_level = models.CharField(
+        max_length=80, choices=ExperienceLevel.choices, blank=True
+    )
+    min_experience_years = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    required_skills = models.JSONField(default=list, blank=True)
+    salary_min = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    salary_max = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    salary_currency = models.CharField(max_length=10, blank=True)
+
+    deadline = models.DateField(null=True, blank=True, db_index=True)
+    is_rolling_deadline = models.BooleanField(default=False)
+    application_open_date = models.DateField(null=True, blank=True)
+    application_method = models.CharField(
+        max_length=80, choices=ApplicationMethod.choices, blank=True
+    )
+    required_documents = models.JSONField(default=list, blank=True)
+
+    tags = models.JSONField(default=list, blank=True)
+    search_keywords = models.TextField(blank=True)
+
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-featured", "deadline", "-published_at")
+        indexes = [
+            models.Index(fields=["opportunity_type"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["country"]),
+            models.Index(fields=["deadline"]),
+            models.Index(fields=["featured"]),
+            models.Index(fields=["verified_status"]),
+            models.Index(fields=["funding_type"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+    @property
+    def is_published(self):
+        return self.status == self.Status.PUBLISHED
+
+    @property
+    def is_expired(self):
+        if self.status == self.Status.ARCHIVED:
+            return True
+        if self.is_rolling_deadline or not self.deadline:
+            return False
+        return self.deadline < timezone.localdate()
+
+    @property
+    def days_until_deadline(self):
+        if not self.deadline:
+            return None
+        return (self.deadline - timezone.localdate()).days
+
+    @property
+    def is_scholarship(self):
+        return self.opportunity_type == self.OpportunityType.SCHOLARSHIP
+
+    @property
+    def is_job(self):
+        return self.opportunity_type == self.OpportunityType.JOB
+
+    @property
+    def is_internship(self):
+        return self.opportunity_type == self.OpportunityType.INTERNSHIP
+
+    def clean(self):
+        errors = {}
+
+        if self.salary_min is not None and self.salary_max is not None:
+            if self.salary_min > self.salary_max:
+                errors["salary_min"] = "Minimum salary cannot exceed maximum salary."
+
+        for field_name in [
+            "min_cgpa",
+            "application_fee_amount",
+            "funding_amount",
+            "salary_min",
+            "salary_max",
+            "min_experience_years",
+        ]:
+            value = getattr(self, field_name)
+            if value is not None and value < 0:
+                errors[field_name] = "Cannot be negative."
+
+        if self.min_percentage is not None and not (0 <= self.min_percentage <= 100):
+            errors["min_percentage"] = "Must be between 0 and 100."
+
+        for field_name in [
+            "eligible_countries",
+            "degree_levels",
+            "fields_of_study",
+            "target_regions",
+            "required_skills",
+            "required_documents",
+            "tags",
+        ]:
+            if not isinstance(getattr(self, field_name), list):
+                errors[field_name] = "Must be a list."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title)[:250] or "opportunity"
+            slug = base_slug
+            counter = 2
+            while Opportunity.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"[:280]
+                counter += 1
+            self.slug = slug
+
+        now = timezone.now()
+        if self.status == self.Status.PUBLISHED and self.published_at is None:
+            self.published_at = now
+        if self.verified_status and self.last_verified_at is None:
+            self.last_verified_at = now
+
+        self.full_clean()
+        super().save(*args, **kwargs)

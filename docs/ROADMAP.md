@@ -40,7 +40,7 @@ Status: complete.
 
 Status: complete.
 
-## Phase 4: Scholarship Database
+## Phase 4: Opportunity Database Foundation
 
 - Prefer an `opportunities` app/model instead of scholarship-only architecture
 - Start with `opportunity_type = scholarship`
@@ -48,7 +48,7 @@ Status: complete.
 - Admin opportunity CRUD
 - Seed sample scholarship opportunities
 
-Status: next.
+Status: complete.
 
 Long-term note: Scholars Republic should become a flexible student opportunity
 platform. Scholarships are the first opportunity type; later types can include
@@ -58,7 +58,7 @@ training, research positions, and mentorship programs.
 ## Later MVP Phases
 
 - Search and filters
-- Match score
+- Rule-based opportunity match score
 - Saved scholarships
 - Application tracker
 - Document checklist

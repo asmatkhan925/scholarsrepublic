@@ -11,6 +11,12 @@ import type {
   StudentProfile,
   StudentProfilePayload,
 } from "@/types/profile";
+import type {
+  OpportunityAdminPayload,
+  OpportunityDetail,
+  OpportunityListResponse,
+  OpportunityQueryParams,
+} from "@/types/opportunity";
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api",
@@ -80,4 +86,69 @@ export async function patchStudentProfile(payload: Partial<StudentProfilePayload
 export async function getProfileCompletion() {
   const response = await api.get<ProfileCompletion>("/profile/completion/");
   return response.data;
+}
+
+export async function getOpportunities(params?: OpportunityQueryParams) {
+  const response = await api.get<OpportunityListResponse>("/opportunities/", {
+    params,
+  });
+  return response.data;
+}
+
+export async function getOpportunity(slug: string) {
+  const response = await api.get<OpportunityDetail>(`/opportunities/${slug}/`);
+  return response.data;
+}
+
+export async function getScholarships(params?: OpportunityQueryParams) {
+  const response = await api.get<OpportunityListResponse>("/scholarships/", {
+    params,
+  });
+  return response.data;
+}
+
+export async function getScholarship(slug: string) {
+  const response = await api.get<OpportunityDetail>(`/scholarships/${slug}/`);
+  return response.data;
+}
+
+export async function getAdminOpportunities(params?: OpportunityQueryParams) {
+  const response = await api.get<OpportunityListResponse>("/admin/opportunities/", {
+    params,
+  });
+  return response.data;
+}
+
+export async function createAdminOpportunity(payload: OpportunityAdminPayload) {
+  const response = await api.post<OpportunityDetail>(
+    "/admin/opportunities/",
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateAdminOpportunity(
+  id: number,
+  payload: OpportunityAdminPayload,
+) {
+  const response = await api.put<OpportunityDetail>(
+    `/admin/opportunities/${id}/`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function patchAdminOpportunity(
+  id: number,
+  payload: Partial<OpportunityAdminPayload>,
+) {
+  const response = await api.patch<OpportunityDetail>(
+    `/admin/opportunities/${id}/`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function deleteAdminOpportunity(id: number) {
+  await api.delete(`/admin/opportunities/${id}/`);
 }

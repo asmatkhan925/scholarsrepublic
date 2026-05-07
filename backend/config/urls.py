@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/health/", health_check, name="api-health"),
     path("api/auth/", include("apps.users.urls")),
     path("api/profile/", include("apps.profiles.urls")),
+    path("api/", include("apps.opportunities.urls")),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token-obtain-pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

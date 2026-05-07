@@ -1,6 +1,6 @@
 # Scholars Republic — Agent Instructions
 
-You are working on Scholars Republic, a Pakistan-first scholarship matching and study-abroad guidance platform.
+You are working on Scholars Republic, a Pakistan-first scholarship matching and study-abroad guidance platform that is growing into a broader student opportunity platform.
 
 ## Stack
 - Backend: Django + Django REST Framework + PostgreSQL
@@ -12,7 +12,7 @@ You are working on Scholars Republic, a Pakistan-first scholarship matching and 
 Build the MVP first:
 1. Authentication
 2. Student profile
-3. Scholarship database
+3. Opportunity database foundation, starting with scholarships
 4. Search and filters
 5. Rule-based match score
 6. Saved scholarships
@@ -21,7 +21,7 @@ Build the MVP first:
 9. Service requests
 10. Blog/guides
 
-Do not add jobs, internships, AI chatbot, mobile app, or payment gateway unless explicitly requested.
+Do not add jobs, internships UI, AI chatbot, mobile app, or payment gateway unless explicitly requested. Keep the opportunity architecture flexible enough for those modules later.
 
 ## Development Rules
 - Keep changes small and phase-based.
