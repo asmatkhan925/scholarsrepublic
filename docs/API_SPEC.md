@@ -118,10 +118,86 @@ Response `200`:
 }
 ```
 
+## Phase 3
+
+All profile endpoints require JWT authentication. Admin users receive `403`
+because admin accounts do not need student profiles.
+
+### Student Profile
+
+`GET /api/profile/`
+
+Returns the current student's scholarship readiness profile. If the student has
+not created a profile yet, the API returns `404`:
+
+```json
+{
+  "detail": "Student profile has not been created yet."
+}
+```
+
+`POST /api/profile/`
+
+Creates the current student's profile. The `user` field is always taken from the
+authenticated request and cannot be assigned by the client.
+
+`PUT /api/profile/`
+
+Creates or fully updates the current student's profile.
+
+`PATCH /api/profile/`
+
+Creates or partially updates the current student's profile.
+
+Profile responses include the saved profile fields plus computed readiness
+fields:
+
+```json
+{
+  "id": 1,
+  "user": 1,
+  "nationality": "Pakistan",
+  "city": "Lahore",
+  "current_education_level": "Bachelor",
+  "target_degree_level": "Master",
+  "target_countries": ["China", "Taiwan"],
+  "has_passport": true,
+  "has_transcript": true,
+  "has_cv": true,
+  "completion_percentage": 72,
+  "scholarship_readiness_score": 65,
+  "readiness_level": "Medium",
+  "missing_profile_fields": ["Preferred intake"],
+  "missing_core_documents": ["Recommendation Letters"],
+  "created_at": "2026-05-07T00:00:00Z",
+  "updated_at": "2026-05-07T00:00:00Z"
+}
+```
+
+### Profile Completion
+
+`GET /api/profile/completion/`
+
+Returns completion and readiness summary. If no profile exists yet, scores are
+zero and the response includes the core missing fields/documents.
+
+```json
+{
+  "completion_percentage": 0,
+  "scholarship_readiness_score": 0,
+  "readiness_level": "Low",
+  "missing_profile_fields": [
+    "City",
+    "Province",
+    "Target degree level",
+    "Target countries"
+  ],
+  "missing_core_documents": ["CNIC", "Domicile", "Passport", "Transcript", "CV"]
+}
+```
+
 ## Planned MVP Endpoints
 
-- `GET|POST|PUT|PATCH /api/profile/`
-- `GET /api/profile/completion/`
 - `GET /api/scholarships/`
 - `GET /api/scholarships/{slug}/`
 - `GET /api/scholarships/recommended/`

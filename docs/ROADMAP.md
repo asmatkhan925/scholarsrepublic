@@ -29,10 +29,16 @@ Status: complete.
 
 ## Phase 3: Student Profile
 
-- Profile model
+- Comprehensive scholarship readiness profile model
 - Profile APIs
-- Completion score
-- Frontend profile form
+- Completion percentage
+- Scholarship readiness score
+- Missing profile fields
+- Missing core documents
+- Protected frontend profile form
+- Dashboard readiness card
+
+Status: complete.
 
 ## Phase 4: Scholarship Database
 
@@ -40,6 +46,8 @@ Status: complete.
 - Public scholarship APIs
 - Admin scholarship management
 - Seed data
+
+Status: next.
 
 ## Later MVP Phases
 

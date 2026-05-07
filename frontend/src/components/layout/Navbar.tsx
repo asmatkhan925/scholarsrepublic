@@ -22,8 +22,19 @@ export function Navbar() {
     router.push("/");
   }
 
-  const dashboardHref = user?.role === "admin" ? "/admin" : "/dashboard";
-  const dashboardLabel = user?.role === "admin" ? "Admin" : "Dashboard";
+  const authLinks =
+    user?.role === "admin"
+      ? [
+          { label: "Admin", href: "/admin" },
+          { label: "Scholarships", href: "/scholarships" },
+        ]
+      : [
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Profile", href: "/dashboard/profile" },
+          { label: "Scholarships", href: "/scholarships" },
+        ];
+  const primaryHref = user?.role === "admin" ? "/admin" : "/dashboard";
+  const primaryLabel = user?.role === "admin" ? "Admin" : "Dashboard";
 
   return (
     <header className="sticky top-0 z-20 border-b border-ink/10 bg-white/90 backdrop-blur">
@@ -36,7 +47,7 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium text-ink/75 md:flex">
-          {publicLinks.map((item) => (
+          {(isAuthenticated ? authLinks : publicLinks).map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -45,14 +56,6 @@ export function Navbar() {
               {item.label}
             </Link>
           ))}
-          {isAuthenticated && (
-            <Link
-              href={dashboardHref}
-              className={pathname === dashboardHref ? "text-pine" : "hover:text-pine"}
-            >
-              {dashboardLabel}
-            </Link>
-          )}
         </nav>
 
         <div className="flex items-center gap-2 text-sm font-semibold">
@@ -61,10 +64,10 @@ export function Navbar() {
           ) : isAuthenticated ? (
             <>
               <Link
-                href={dashboardHref}
+                href={primaryHref}
                 className="hidden rounded px-3 py-2 text-ink hover:bg-ink/5 sm:inline-flex"
               >
-                {dashboardLabel}
+                {primaryLabel}
               </Link>
               <button
                 type="button"

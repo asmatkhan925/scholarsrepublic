@@ -17,8 +17,19 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const navItems =
     mode === "admin"
-      ? ["Scholarships", "Users", "Service Requests", "Blog"]
-      : ["Profile", "Recommendations", "Saved", "Applications", "Documents"];
+      ? [
+          { label: "Scholarships", href: "/admin" },
+          { label: "Users", href: "/admin" },
+          { label: "Service Requests", href: "/admin" },
+          { label: "Blog", href: "/admin" },
+        ]
+      : [
+          { label: "Profile", href: "/dashboard/profile" },
+          { label: "Recommendations", href: "/dashboard" },
+          { label: "Saved", href: "/dashboard" },
+          { label: "Applications", href: "/dashboard" },
+          { label: "Documents", href: "/dashboard" },
+        ];
 
   return (
     <div className="min-h-screen bg-skyglass">
@@ -32,9 +43,13 @@ export function DashboardShell({
           </Link>
           <nav className="mt-8 grid gap-1 text-sm font-medium text-ink/75">
             {navItems.map((item) => (
-              <span key={item} className="rounded px-3 py-2 hover:bg-mint">
-                {item}
-              </span>
+              <Link
+                key={item.label}
+                href={item.href}
+                className="rounded px-3 py-2 hover:bg-mint"
+              >
+                {item.label}
+              </Link>
             ))}
           </nav>
         </aside>
