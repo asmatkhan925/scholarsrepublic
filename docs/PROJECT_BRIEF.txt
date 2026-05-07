@@ -1,0 +1,20 @@
+Scholars Republic is a Pakistan-first scholarship matching and study-abroad guidance platform.
+
+MVP focus:
+- Authentication
+- Student profile
+- Scholarship database
+- Search and filters
+- Rule-based match score
+- Saved scholarships
+- Application tracker
+- Document checklist
+- Service requests
+- Blog/guides
+
+Do not build jobs, internships, AI chatbot, mobile app, automated payments, consultant dashboard, university dashboard, community features, or ML recommendations in the MVP.
+
+Primary positioning:
+"A Pakistan-first scholarship and study-abroad matching platform where students create a profile, discover verified scholarships, check eligibility, track deadlines, prepare documents, and apply with confidence."
+
+This repository is developed phase by phase. Phase 1 creates the Django backend, Next.js frontend, documentation, environment examples, and health check endpoint.
