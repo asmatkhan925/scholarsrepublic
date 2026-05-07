@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Save } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -186,6 +186,174 @@ function joinCommaList(value: string[]) {
   return value.join(", ");
 }
 
+function TextField({
+  label,
+  type = "text",
+  helper,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  type?: string;
+  helper?: string;
+  placeholder?: string;
+  value: StudentProfilePayload[FieldName];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-ink">
+      {label}
+      <input
+        type={type}
+        value={value === null ? "" : String(value)}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="rounded border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-pine"
+      />
+      {helper && <span className="text-xs font-normal text-ink/55">{helper}</span>}
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: StudentProfilePayload[FieldName];
+  options: Array<string | { label: string; value: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-ink">
+      {label}
+      <select
+        value={String(value ?? "")}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-pine"
+      >
+        <option value="">Select</option>
+        {options.map((option) => {
+          const optionValue = typeof option === "string" ? option : option.value;
+          const labelText = typeof option === "string" ? option : option.label;
+          return (
+            <option key={optionValue} value={optionValue}>
+              {labelText}
+            </option>
+          );
+        })}
+      </select>
+    </label>
+  );
+}
+
+function BooleanField({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded border border-ink/10 bg-skyglass px-3 py-2 text-sm text-ink/75">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 h-4 w-4 accent-pine"
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function MultiCheckboxField({
+  label,
+  values,
+  options,
+  helper,
+  onToggle,
+}: {
+  label: string;
+  values: string[];
+  options: string[];
+  helper?: string;
+  onToggle: (value: string) => void;
+}) {
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="text-sm font-semibold text-ink">{label}</legend>
+      {helper && <p className="text-sm text-ink/60">{helper}</p>}
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {options.map((option) => (
+          <label
+            key={option}
+            className="flex items-start gap-3 rounded border border-ink/10 bg-white px-3 py-2 text-sm text-ink/75"
+          >
+            <input
+              type="checkbox"
+              checked={values.includes(option)}
+              onChange={() => onToggle(option)}
+              className="mt-1 h-4 w-4 accent-pine"
+            />
+            <span>{option}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function CommaField({
+  label,
+  values,
+  helper,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  helper: string;
+  onChange: (value: string[]) => void;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-ink">
+      {label}
+      <textarea
+        rows={3}
+        value={joinCommaList(values)}
+        onChange={(event) => onChange(splitCommaList(event.target.value))}
+        className="rounded border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-pine"
+      />
+      <span className="text-xs font-normal text-ink/55">{helper}</span>
+    </label>
+  );
+}
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
+      <div className="max-w-3xl">
+        <h2 className="text-xl font-semibold text-ink">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-ink/65">{description}</p>
+      </div>
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
 function ProfilePageContent() {
   const [form, setForm] = useState<StudentProfilePayload>(EMPTY_PROFILE);
   const [profileExists, setProfileExists] = useState(false);
@@ -246,6 +414,34 @@ function ProfilePageContent() {
     });
   }
 
+  function textField(name: FieldName) {
+    return {
+      value: form[name],
+      onChange: (value: string) => setField(name, value as never),
+    };
+  }
+
+  function booleanField(name: FieldName) {
+    return {
+      checked: Boolean(form[name]),
+      onChange: (value: boolean) => setField(name, value as never),
+    };
+  }
+
+  function multiField(name: ArrayField) {
+    return {
+      values: form[name],
+      onToggle: (value: string) => toggleArrayValue(name, value),
+    };
+  }
+
+  function commaField(name: ArrayField) {
+    return {
+      values: form[name],
+      onChange: (value: string[]) => setField(name, value as never),
+    };
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -280,160 +476,6 @@ function ProfilePageContent() {
 
     return "bg-red-50 text-red-700";
   }, [completion.readiness_level]);
-
-  function TextField({
-    label,
-    name,
-    type = "text",
-    helper,
-    placeholder,
-  }: {
-    label: string;
-    name: FieldName;
-    type?: string;
-    helper?: string;
-    placeholder?: string;
-  }) {
-    const value = form[name];
-
-    return (
-      <label className="grid gap-2 text-sm font-medium text-ink">
-        {label}
-        <input
-          type={type}
-          value={value === null ? "" : String(value)}
-          onChange={(event) => setField(name, event.target.value as never)}
-          placeholder={placeholder}
-          className="rounded border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-pine"
-        />
-        {helper && <span className="text-xs font-normal text-ink/55">{helper}</span>}
-      </label>
-    );
-  }
-
-  function SelectField({
-    label,
-    name,
-    options,
-  }: {
-    label: string;
-    name: FieldName;
-    options: Array<string | { label: string; value: string }>;
-  }) {
-    return (
-      <label className="grid gap-2 text-sm font-medium text-ink">
-        {label}
-        <select
-          value={String(form[name] ?? "")}
-          onChange={(event) => setField(name, event.target.value as never)}
-          className="rounded border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-pine"
-        >
-          <option value="">Select</option>
-          {options.map((option) => {
-            const value = typeof option === "string" ? option : option.value;
-            const labelText = typeof option === "string" ? option : option.label;
-            return (
-              <option key={value} value={value}>
-                {labelText}
-              </option>
-            );
-          })}
-        </select>
-      </label>
-    );
-  }
-
-  function BooleanField({ label, name }: { label: string; name: FieldName }) {
-    return (
-      <label className="flex items-start gap-3 rounded border border-ink/10 bg-skyglass px-3 py-2 text-sm text-ink/75">
-        <input
-          type="checkbox"
-          checked={Boolean(form[name])}
-          onChange={(event) => setField(name, event.target.checked as never)}
-          className="mt-1 h-4 w-4 accent-pine"
-        />
-        <span>{label}</span>
-      </label>
-    );
-  }
-
-  function MultiCheckboxField({
-    label,
-    name,
-    options,
-    helper,
-  }: {
-    label: string;
-    name: ArrayField;
-    options: string[];
-    helper?: string;
-  }) {
-    return (
-      <fieldset className="grid gap-3">
-        <legend className="text-sm font-semibold text-ink">{label}</legend>
-        {helper && <p className="text-sm text-ink/60">{helper}</p>}
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {options.map((option) => (
-            <label
-              key={option}
-              className="flex items-start gap-3 rounded border border-ink/10 bg-white px-3 py-2 text-sm text-ink/75"
-            >
-              <input
-                type="checkbox"
-                checked={form[name].includes(option)}
-                onChange={() => toggleArrayValue(name, option)}
-                className="mt-1 h-4 w-4 accent-pine"
-              />
-              <span>{option}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-    );
-  }
-
-  function CommaField({
-    label,
-    name,
-    helper,
-  }: {
-    label: string;
-    name: ArrayField;
-    helper: string;
-  }) {
-    return (
-      <label className="grid gap-2 text-sm font-medium text-ink">
-        {label}
-        <textarea
-          rows={3}
-          value={joinCommaList(form[name])}
-          onChange={(event) => setField(name, splitCommaList(event.target.value) as never)}
-          className="rounded border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-pine"
-        />
-        <span className="text-xs font-normal text-ink/55">{helper}</span>
-      </label>
-    );
-  }
-
-  function Section({
-    title,
-    description,
-    children,
-  }: {
-    title: string;
-    description: string;
-    children: React.ReactNode;
-  }) {
-    return (
-      <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
-        <div className="max-w-3xl">
-          <h2 className="text-xl font-semibold text-ink">{title}</h2>
-          <p className="mt-2 text-sm leading-6 text-ink/65">{description}</p>
-        </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">{children}</div>
-      </section>
-    );
-  }
 
   if (loading) {
     return (
@@ -493,14 +535,14 @@ function ProfilePageContent() {
           title="Basic Information"
           description="Contact and Pakistan-first location details used for eligibility and support communication."
         >
-          <TextField label="Phone number" name="phone_number" />
-          <TextField label="WhatsApp number" name="whatsapp_number" />
-          <TextField label="Date of birth" name="date_of_birth" type="date" />
-          <TextField label="Nationality" name="nationality" />
-          <TextField label="Current country" name="current_country" />
-          <TextField label="City" name="city" />
-          <SelectField label="Province" name="province" options={PROVINCES} />
-          <TextField label="Domicile" name="domicile" />
+          <TextField label="Phone number" {...textField("phone_number")} />
+          <TextField label="WhatsApp number" {...textField("whatsapp_number")} />
+          <TextField label="Date of birth" {...textField("date_of_birth")} type="date" />
+          <TextField label="Nationality" {...textField("nationality")} />
+          <TextField label="Current country" {...textField("current_country")} />
+          <TextField label="City" {...textField("city")} />
+          <SelectField label="Province" {...textField("province")} options={PROVINCES} />
+          <TextField label="Domicile" {...textField("domicile")} />
         </Section>
 
         <Section
@@ -509,29 +551,29 @@ function ProfilePageContent() {
         >
           <SelectField
             label="Current education level"
-            name="current_education_level"
+            {...textField("current_education_level")}
             options={EDUCATION_LEVELS}
           />
-          <TextField label="Current institution" name="current_institution" />
+          <TextField label="Current institution" {...textField("current_institution")} />
           <TextField
             label="Current field of study"
-            name="current_field_of_study"
+            {...textField("current_field_of_study")}
             placeholder="Computer Science"
           />
-          <TextField label="Graduation year" name="graduation_year" type="number" />
+          <TextField label="Graduation year" {...textField("graduation_year")} type="number" />
           <SelectField
             label="Result status"
-            name="result_status"
+            {...textField("result_status")}
             options={RESULT_STATUSES}
           />
           <SelectField
             label="Grading system"
-            name="grading_system"
+            {...textField("grading_system")}
             options={GRADING_SYSTEMS}
           />
-          <TextField label="CGPA" name="cgpa" type="number" />
-          <TextField label="Percentage" name="percentage" type="number" />
-          <TextField label="Division" name="division" placeholder="First Division" />
+          <TextField label="CGPA" {...textField("cgpa")} type="number" />
+          <TextField label="Percentage" {...textField("percentage")} type="number" />
+          <TextField label="Division" {...textField("division")} placeholder="First Division" />
         </Section>
 
         <Section
@@ -540,41 +582,41 @@ function ProfilePageContent() {
         >
           <SelectField
             label="Target degree level"
-            name="target_degree_level"
+            {...textField("target_degree_level")}
             options={TARGET_DEGREE_LEVELS}
           />
-          <TextField label="Preferred intake" name="preferred_intake" />
+          <TextField label="Preferred intake" {...textField("preferred_intake")} />
           <SelectField
             label="Study mode preference"
-            name="study_mode_preference"
+            {...textField("study_mode_preference")}
             options={STUDY_MODE_PREFERENCES}
           />
           <SelectField
             label="Funding preference"
-            name="funding_preference"
+            {...textField("funding_preference")}
             options={FUNDING_PREFERENCES}
           />
           <SelectField
             label="Application fee preference"
-            name="application_fee_preference"
+            {...textField("application_fee_preference")}
             options={APPLICATION_FEE_PREFERENCES}
           />
           <SelectField
             label="Language instruction preference"
-            name="language_instruction_preference"
+            {...textField("language_instruction_preference")}
             options={LANGUAGE_INSTRUCTION_PREFERENCES}
           />
           <div className="lg:col-span-2">
             <MultiCheckboxField
               label="Target countries"
-              name="target_countries"
+              {...multiField("target_countries")}
               options={COUNTRIES}
             />
           </div>
           <div className="lg:col-span-2">
             <MultiCheckboxField
               label="Target fields"
-              name="target_fields"
+              {...multiField("target_fields")}
               options={COMMON_FIELDS_OF_STUDY}
             />
           </div>
@@ -584,23 +626,23 @@ function ProfilePageContent() {
           title="Tests and Language"
           description="Language test information is optional now, but it strongly affects future scholarship readiness."
         >
-          <BooleanField label="I have IELTS" name="has_ielts" />
-          <TextField label="IELTS score" name="ielts_score" type="number" />
-          <BooleanField label="I have TOEFL" name="has_toefl" />
-          <TextField label="TOEFL score" name="toefl_score" type="number" />
-          <BooleanField label="I have Duolingo" name="has_duolingo" />
-          <TextField label="Duolingo score" name="duolingo_score" type="number" />
-          <BooleanField label="I have PTE" name="has_pte" />
-          <TextField label="PTE score" name="pte_score" type="number" />
-          <BooleanField label="I have HSK" name="has_hsk" />
-          <TextField label="HSK level" name="hsk_level" placeholder="HSK4" />
-          <BooleanField label="I have GRE" name="has_gre" />
-          <TextField label="GRE score" name="gre_score" type="number" />
-          <BooleanField label="I have GMAT" name="has_gmat" />
-          <TextField label="GMAT score" name="gmat_score" type="number" />
+          <BooleanField label="I have IELTS" {...booleanField("has_ielts")} />
+          <TextField label="IELTS score" {...textField("ielts_score")} type="number" />
+          <BooleanField label="I have TOEFL" {...booleanField("has_toefl")} />
+          <TextField label="TOEFL score" {...textField("toefl_score")} type="number" />
+          <BooleanField label="I have Duolingo" {...booleanField("has_duolingo")} />
+          <TextField label="Duolingo score" {...textField("duolingo_score")} type="number" />
+          <BooleanField label="I have PTE" {...booleanField("has_pte")} />
+          <TextField label="PTE score" {...textField("pte_score")} type="number" />
+          <BooleanField label="I have HSK" {...booleanField("has_hsk")} />
+          <TextField label="HSK level" {...textField("hsk_level")} placeholder="HSK4" />
+          <BooleanField label="I have GRE" {...booleanField("has_gre")} />
+          <TextField label="GRE score" {...textField("gre_score")} type="number" />
+          <BooleanField label="I have GMAT" {...booleanField("has_gmat")} />
+          <TextField label="GMAT score" {...textField("gmat_score")} type="number" />
           <BooleanField
             label="I have an English proficiency certificate"
-            name="english_proficiency_certificate"
+            {...booleanField("english_proficiency_certificate")}
           />
         </Section>
 
@@ -608,42 +650,42 @@ function ProfilePageContent() {
           title="Documents"
           description="These documents are used to show missing requirements and readiness for fully funded applications."
         >
-          <BooleanField label="CNIC ready" name="has_cnic" />
-          <BooleanField label="Domicile ready" name="has_domicile" />
-          <BooleanField label="Passport ready" name="has_passport" />
+          <BooleanField label="CNIC ready" {...booleanField("has_cnic")} />
+          <BooleanField label="Domicile ready" {...booleanField("has_domicile")} />
+          <BooleanField label="Passport ready" {...booleanField("has_passport")} />
           <TextField
             label="Passport expiry date"
-            name="passport_expiry_date"
+            {...textField("passport_expiry_date")}
             type="date"
           />
-          <BooleanField label="Transcript ready" name="has_transcript" />
-          <BooleanField label="Degree ready" name="has_degree" />
-          <BooleanField label="CV ready" name="has_cv" />
-          <BooleanField label="SOP ready" name="has_sop" />
-          <BooleanField label="Study plan ready" name="has_study_plan" />
+          <BooleanField label="Transcript ready" {...booleanField("has_transcript")} />
+          <BooleanField label="Degree ready" {...booleanField("has_degree")} />
+          <BooleanField label="CV ready" {...booleanField("has_cv")} />
+          <BooleanField label="SOP ready" {...booleanField("has_sop")} />
+          <BooleanField label="Study plan ready" {...booleanField("has_study_plan")} />
           <BooleanField
             label="Recommendation letters ready"
-            name="has_recommendation_letters"
+            {...booleanField("has_recommendation_letters")}
           />
           <TextField
             label="Recommendation letters count"
-            name="recommendation_letters_count"
+            {...textField("recommendation_letters_count")}
             type="number"
           />
-          <BooleanField label="Research proposal ready" name="has_research_proposal" />
-          <BooleanField label="Publications available" name="has_publications" />
+          <BooleanField label="Research proposal ready" {...booleanField("has_research_proposal")} />
+          <BooleanField label="Publications available" {...booleanField("has_publications")} />
           <BooleanField
             label="English proficiency letter ready"
-            name="has_english_proficiency_letter"
+            {...booleanField("has_english_proficiency_letter")}
           />
-          <BooleanField label="Income certificate ready" name="has_income_certificate" />
-          <BooleanField label="Bank statement ready" name="has_bank_statement" />
-          <BooleanField label="Police clearance ready" name="has_police_clearance" />
-          <BooleanField label="Medical certificate ready" name="has_medical_certificate" />
+          <BooleanField label="Income certificate ready" {...booleanField("has_income_certificate")} />
+          <BooleanField label="Bank statement ready" {...booleanField("has_bank_statement")} />
+          <BooleanField label="Police clearance ready" {...booleanField("has_police_clearance")} />
+          <BooleanField label="Medical certificate ready" {...booleanField("has_medical_certificate")} />
           <div className="lg:col-span-2">
             <MultiCheckboxField
               label="Additional documents"
-              name="additional_documents"
+              {...multiField("additional_documents")}
               options={DOCUMENT_OPTIONS}
               helper="Select any extra documents or test reports you already have."
             />
@@ -656,36 +698,36 @@ function ProfilePageContent() {
         >
           <CommaField
             label="Research interests"
-            name="research_interests"
+            {...commaField("research_interests")}
             helper="Comma-separated, for example: machine learning, education policy."
           />
           <BooleanField
             label="I have research experience"
-            name="has_research_experience"
+            {...booleanField("has_research_experience")}
           />
-          <TextField label="Publications count" name="publications_count" type="number" />
+          <TextField label="Publications count" {...textField("publications_count")} type="number" />
           <BooleanField
             label="I have supervisor acceptance"
-            name="has_supervisor_acceptance"
+            {...booleanField("has_supervisor_acceptance")}
           />
-          <TextField label="Supervisor country" name="supervisor_country" />
-          <TextField label="Supervisor university" name="supervisor_university" />
+          <TextField label="Supervisor country" {...textField("supervisor_country")} />
+          <TextField label="Supervisor university" {...textField("supervisor_university")} />
           <BooleanField
             label="I have internship experience"
-            name="has_internship_experience"
+            {...booleanField("has_internship_experience")}
           />
           <TextField
             label="Work experience years"
-            name="work_experience_years"
+            {...textField("work_experience_years")}
             type="number"
           />
-          <TextField label="LinkedIn URL" name="linkedin_url" type="url" />
-          <TextField label="Portfolio URL" name="portfolio_url" type="url" />
-          <TextField label="GitHub URL" name="github_url" type="url" />
+          <TextField label="LinkedIn URL" {...textField("linkedin_url")} type="url" />
+          <TextField label="Portfolio URL" {...textField("portfolio_url")} type="url" />
+          <TextField label="GitHub URL" {...textField("github_url")} type="url" />
           <div className="lg:col-span-2">
             <MultiCheckboxField
               label="Skills"
-              name="skills"
+              {...multiField("skills")}
               options={COMMON_SKILLS}
             />
           </div>
@@ -697,25 +739,25 @@ function ProfilePageContent() {
         >
           <BooleanField
             label="I need need-based support"
-            name="need_based_support_required"
+            {...booleanField("need_based_support_required")}
           />
           <BooleanField
             label="I can pay application fees"
-            name="can_pay_application_fee"
+            {...booleanField("can_pay_application_fee")}
           />
           <TextField
             label="Maximum application fee in USD"
-            name="max_application_fee_usd"
+            {...textField("max_application_fee_usd")}
             type="number"
           />
           <BooleanField
             label="I can self-fund partially"
-            name="can_self_fund_partial"
+            {...booleanField("can_self_fund_partial")}
           />
           <div className="lg:col-span-2">
             <MultiCheckboxField
               label="Special scholarship categories"
-              name="special_scholarship_categories"
+              {...multiField("special_scholarship_categories")}
               options={SPECIAL_SCHOLARSHIP_CATEGORIES}
             />
           </div>
@@ -725,11 +767,11 @@ function ProfilePageContent() {
           title="Alerts and Consent"
           description="We use this information only to recommend scholarships, improve your application readiness, and help generate documents if you choose AI tools later."
         >
-          <BooleanField label="Email alerts enabled" name="email_alerts_enabled" />
-          <BooleanField label="WhatsApp alerts enabled" name="whatsapp_alerts_enabled" />
+          <BooleanField label="Email alerts enabled" {...booleanField("email_alerts_enabled")} />
+          <BooleanField label="WhatsApp alerts enabled" {...booleanField("whatsapp_alerts_enabled")} />
           <BooleanField
             label="I agree that my profile data can be used for scholarship recommendations inside Scholars Republic"
-            name="profile_data_consent"
+            {...booleanField("profile_data_consent")}
           />
         </Section>
 
