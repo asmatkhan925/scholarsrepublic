@@ -116,6 +116,7 @@ const EMPTY_PROFILE: StudentProfilePayload = {
   has_internship_experience: false,
   linkedin_url: "",
   portfolio_url: "",
+  github_url: "",
   need_based_support_required: false,
   can_pay_application_fee: false,
   max_application_fee_usd: null,
@@ -124,6 +125,8 @@ const EMPTY_PROFILE: StudentProfilePayload = {
   email_alerts_enabled: true,
   whatsapp_alerts_enabled: false,
   profile_data_consent: false,
+  profile_source: "manual",
+  ai_autofill_reviewed: false,
 };
 
 const nullableFields: FieldName[] = [
@@ -448,7 +451,7 @@ function ProfilePageContent() {
   return (
     <DashboardShell
       title="Scholarship Readiness Profile"
-      description="Complete your profile so Scholars Republic can recommend the best scholarships and show what documents you still need."
+      description="Complete your profile so Scholars Republic can recommend the best scholarships and future opportunities."
     >
       <form onSubmit={handleSubmit} className="grid gap-6">
         <section className="grid gap-4 rounded border border-ink/10 bg-white p-5 shadow-soft lg:grid-cols-3">
@@ -649,7 +652,7 @@ function ProfilePageContent() {
 
         <Section
           title="Research, Skills, and Career"
-          description="Useful for MS, MPhil, PhD, and future internship or career modules."
+          description="Useful for MS, MPhil, PhD, future opportunity matching, internship modules, and CV generation."
         >
           <CommaField
             label="Research interests"
@@ -678,6 +681,7 @@ function ProfilePageContent() {
           />
           <TextField label="LinkedIn URL" name="linkedin_url" type="url" />
           <TextField label="Portfolio URL" name="portfolio_url" type="url" />
+          <TextField label="GitHub URL" name="github_url" type="url" />
           <div className="lg:col-span-2">
             <MultiCheckboxField
               label="Skills"
@@ -719,7 +723,7 @@ function ProfilePageContent() {
 
         <Section
           title="Alerts and Consent"
-          description="We use this information only to recommend scholarships and show your application readiness."
+          description="We use this information only to recommend scholarships, improve your application readiness, and help generate documents if you choose AI tools later."
         >
           <BooleanField label="Email alerts enabled" name="email_alerts_enabled" />
           <BooleanField label="WhatsApp alerts enabled" name="whatsapp_alerts_enabled" />

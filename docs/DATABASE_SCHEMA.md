@@ -124,6 +124,7 @@ Research, skills, and career:
 - `has_internship_experience`
 - `linkedin_url`
 - `portfolio_url`
+- `github_url`
 
 Financial preferences and eligibility categories:
 
@@ -138,6 +139,11 @@ Communication and consent:
 - `email_alerts_enabled`
 - `whatsapp_alerts_enabled`
 - `profile_data_consent`
+
+AI-ready metadata:
+
+- `profile_source`: `manual`, `cv_imported`, `admin_created`, or `mixed`
+- `ai_autofill_reviewed`
 
 Computed outputs:
 

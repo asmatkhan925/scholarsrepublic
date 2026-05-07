@@ -2,6 +2,12 @@
 
 Pakistan-first scholarship matching and study-abroad guidance platform.
 
+Long-term direction: Scholars Republic should grow into an AI-powered student
+opportunity platform for scholarships, jobs, internships, admissions,
+fellowships, exchange programs, competitions, training, mentorship, and career
+support. Scholarships are the first MVP module, but new architecture should keep
+future opportunity types in mind.
+
 ## Tech Stack
 
 - Frontend: Next.js, TypeScript, Tailwind CSS
@@ -155,6 +161,7 @@ Students can complete profile sections for:
 - Research, skills, and career details
 - Financial preferences and scholarship categories
 - Alerts and profile data consent
+- AI-ready metadata for future CV import and reviewed autofill workflows
 
 The backend computes:
 
@@ -180,7 +187,7 @@ Admin users do not need student profiles and receive `403` on profile endpoints.
 2. Setup stabilization
 3. Users and authentication
 4. Student profile
-5. Scholarship database
+5. Opportunity database foundation
 6. Search and filters
 7. Match score
 8. Saved scholarships and application tracker
@@ -200,7 +207,7 @@ Completed:
 
 Next phase:
 
-- Phase 4 scholarship database
+- Phase 4 opportunity database foundation, starting with scholarship opportunities
 
 ## License
 

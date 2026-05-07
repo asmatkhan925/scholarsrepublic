@@ -14,6 +14,7 @@ class StudentProfileAdmin(admin.ModelAdmin):
         "target_degree_level",
         "current_field_of_study",
         "funding_preference",
+        "profile_source",
         "completion_percentage_display",
         "scholarship_readiness_score_display",
         "updated_at",
@@ -36,6 +37,8 @@ class StudentProfileAdmin(admin.ModelAdmin):
         "has_ielts",
         "need_based_support_required",
         "email_alerts_enabled",
+        "profile_source",
+        "ai_autofill_reviewed",
     )
     readonly_fields = (
         "completion_percentage_display",

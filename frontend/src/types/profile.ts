@@ -81,6 +81,7 @@ export type StudentProfilePayload = {
   has_internship_experience: boolean;
   linkedin_url: string;
   portfolio_url: string;
+  github_url: string;
   need_based_support_required: boolean;
   can_pay_application_fee: boolean;
   max_application_fee_usd: NullableInput;
@@ -89,6 +90,8 @@ export type StudentProfilePayload = {
   email_alerts_enabled: boolean;
   whatsapp_alerts_enabled: boolean;
   profile_data_consent: boolean;
+  profile_source: "manual" | "cv_imported" | "admin_created" | "mixed" | "";
+  ai_autofill_reviewed: boolean;
 };
 
 export type StudentProfile = StudentProfilePayload &

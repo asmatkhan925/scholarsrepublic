@@ -73,6 +73,12 @@ class StudentProfile(models.Model):
         GERMAN = "German Acceptable", "German Acceptable"
         ANY = "Any", "Any"
 
+    class ProfileSource(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        CV_IMPORTED = "cv_imported", "CV imported"
+        ADMIN_CREATED = "admin_created", "Admin created"
+        MIXED = "mixed", "Mixed"
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -176,6 +182,7 @@ class StudentProfile(models.Model):
     has_internship_experience = models.BooleanField(default=False)
     linkedin_url = models.URLField(blank=True)
     portfolio_url = models.URLField(blank=True)
+    github_url = models.URLField(blank=True)
 
     need_based_support_required = models.BooleanField(default=False)
     can_pay_application_fee = models.BooleanField(default=False)
@@ -187,11 +194,19 @@ class StudentProfile(models.Model):
     whatsapp_alerts_enabled = models.BooleanField(default=False)
     profile_data_consent = models.BooleanField(default=False)
 
+    profile_source = models.CharField(
+        max_length=50,
+        choices=ProfileSource.choices,
+        default=ProfileSource.MANUAL,
+        blank=True,
+    )
+    ai_autofill_reviewed = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
-        return f"{self.user.email} scholarship profile"
+        return f"{self.user.email} opportunity profile"
 
     def _has_academic_score(self):
         return bool(self.cgpa or self.percentage or self.division)
@@ -271,6 +286,7 @@ class StudentProfile(models.Model):
             3
             if self.linkedin_url
             or self.portfolio_url
+            or self.github_url
             or self.publications_count
             or self.has_supervisor_acceptance
             else 0
@@ -290,7 +306,11 @@ class StudentProfile(models.Model):
             10
             if self.has_degree
             or self.result_status
-            in [self.ResultStatus.IN_PROGRESS, self.ResultStatus.FINAL_YEAR]
+            in [
+                self.ResultStatus.IN_PROGRESS,
+                self.ResultStatus.FINAL_YEAR,
+                self.ResultStatus.WAITING,
+            ]
             else 0
         )
         score += 15 if self.has_cv else 0
@@ -358,7 +378,7 @@ class StudentProfile(models.Model):
             missing.append("English Proficiency / IELTS / TOEFL / Duolingo / PTE")
         if (
             self.target_degree_level
-            in [self.TargetDegree.PHD, self.TargetDegree.MASTER]
+            in [self.TargetDegree.PHD, self.TargetDegree.MASTER, "MS/MPhil"]
             and not self.has_research_proposal
         ):
             missing.append("Research Proposal")

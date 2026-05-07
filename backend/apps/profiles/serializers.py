@@ -89,6 +89,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             "recommendation_letters_count",
             "publications_count",
             "work_experience_years",
+            "max_application_fee_usd",
         ]:
             value = attrs.get(field_name)
             if value is not None and value < 0:

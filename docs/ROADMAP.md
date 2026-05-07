@@ -42,12 +42,18 @@ Status: complete.
 
 ## Phase 4: Scholarship Database
 
-- Scholarship model
-- Public scholarship APIs
-- Admin scholarship management
-- Seed data
+- Prefer an `opportunities` app/model instead of scholarship-only architecture
+- Start with `opportunity_type = scholarship`
+- Public opportunity listing/detail APIs
+- Admin opportunity CRUD
+- Seed sample scholarship opportunities
 
 Status: next.
+
+Long-term note: Scholars Republic should become a flexible student opportunity
+platform. Scholarships are the first opportunity type; later types can include
+jobs, internships, fellowships, exchange programs, admissions, competitions,
+training, research positions, and mentorship programs.
 
 ## Later MVP Phases
 

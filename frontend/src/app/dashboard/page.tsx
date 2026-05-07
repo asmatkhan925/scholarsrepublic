@@ -145,7 +145,7 @@ function StudentDashboardContent() {
       <div className="mt-6 grid gap-5 md:grid-cols-3">
         {[
           "Recommended scholarships coming soon",
-          "Saved scholarships coming soon",
+          "Saved opportunities coming soon",
           "Application tracker coming soon",
         ].map((item) => (
           <section
