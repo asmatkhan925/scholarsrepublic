@@ -1,24 +1,38 @@
+"use client";
+
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { PlaceholderPanel } from "@/components/placeholder-panel";
 
-export default function AdminPage() {
+function AdminDashboardContent() {
+  const { user } = useAuth();
+
   return (
     <DashboardShell
       mode="admin"
-      title="Admin control room"
-      description="Django Admin is the first management surface. This custom dashboard will become useful after scholarships, services, users, and blog APIs are implemented."
+      title="Admin Dashboard"
+      description={`Welcome, ${user?.full_name ?? "Admin"}. Scholarship, service request, and blog management will be added next.`}
     >
       <PlaceholderPanel
-        title="Planned admin modules"
+        title="Management areas coming next"
         items={[
-          "Scholarship CRUD",
-          "Student management",
+          "Scholarship management",
           "Service request review",
-          "Manual payment status",
           "Blog publishing",
+          "Student account visibility",
+          "Manual payment status",
           "Verification workflow",
         ]}
       />
     </DashboardShell>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <ProtectedRoute allowedRoles={["admin"]}>
+      <AdminDashboardContent />
+    </ProtectedRoute>
   );
 }

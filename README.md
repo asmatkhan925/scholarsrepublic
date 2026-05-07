@@ -58,6 +58,12 @@ Backend URLs:
 - Django Admin: `http://localhost:8000/admin/`
 - API docs: `http://localhost:8000/api/docs/`
 
+Create an admin user when you need Django Admin or the protected frontend admin placeholder:
+
+```bash
+python manage.py createsuperuser
+```
+
 ## Frontend Setup
 
 ```bash
@@ -85,7 +91,9 @@ Backend:
 ```bash
 cd backend
 python manage.py check
+python manage.py migrate
 python manage.py test
+python manage.py test apps.users
 ```
 
 Frontend:
@@ -109,6 +117,30 @@ npm run build
 9. Service requests
 10. Blog/guides
 
+## Access Modes
+
+Guest users can browse public pages such as the homepage, scholarship placeholder page, services, blog, login, and register pages. Protected actions such as dashboard access, saving scholarships, applying, tracking applications, match scores, and service requests require login.
+
+Student users can access `/dashboard`. Profile, recommendations, saved scholarships, and application tracking are planned for later phases.
+
+Admin users can access `/admin`. Scholarship, service request, and blog management are planned for later phases.
+
+## Auth API
+
+Platform auth endpoints:
+
+- `POST /api/auth/register/`
+- `POST /api/auth/login/`
+- `GET /api/auth/me/`
+- `POST /api/auth/logout/`
+
+SimpleJWT utility endpoints are also available:
+
+- `POST /api/auth/token/`
+- `POST /api/auth/token/refresh/`
+
+Frontend auth stores JWT tokens in `localStorage` for MVP development. This can move to httpOnly cookies later.
+
 ## Development Roadmap
 
 1. Initial project setup
@@ -130,10 +162,11 @@ Completed:
 
 - Phase 1 initial structure
 - Phase 1.5 setup stabilization
+- Phase 2 authentication and access modes
 
 Next phase:
 
-- Phase 2 users and authentication APIs
+- Phase 3 student profile
 
 ## License
 

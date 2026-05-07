@@ -21,6 +21,11 @@
 - Current user API
 - JWT token handling
 - Protected frontend routes
+- Public guest mode
+- Protected student dashboard placeholder
+- Protected admin dashboard placeholder
+
+Status: complete.
 
 ## Phase 3: Student Profile
 

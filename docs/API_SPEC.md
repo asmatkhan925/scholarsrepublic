@@ -17,12 +17,109 @@ Response:
 }
 ```
 
+## Phase 2
+
+### Register Student
+
+`POST /api/auth/register/`
+
+Request:
+
+```json
+{
+  "full_name": "Ali Khan",
+  "email": "ali@example.com",
+  "password": "StrongPassword123!",
+  "password_confirm": "StrongPassword123!"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "user": {
+    "id": 1,
+    "email": "ali@example.com",
+    "full_name": "Ali Khan",
+    "role": "student",
+    "is_active": true,
+    "date_joined": "2026-05-07T00:00:00Z"
+  },
+  "tokens": {
+    "access": "...",
+    "refresh": "..."
+  }
+}
+```
+
+### Login
+
+`POST /api/auth/login/`
+
+Request:
+
+```json
+{
+  "email": "ali@example.com",
+  "password": "StrongPassword123!"
+}
+```
+
+Response `200`:
+
+```json
+{
+  "user": {
+    "id": 1,
+    "email": "ali@example.com",
+    "full_name": "Ali Khan",
+    "role": "student",
+    "is_active": true,
+    "date_joined": "2026-05-07T00:00:00Z"
+  },
+  "tokens": {
+    "access": "...",
+    "refresh": "..."
+  }
+}
+```
+
+### Current User
+
+`GET /api/auth/me/`
+
+Requires JWT authentication.
+
+Response `200`:
+
+```json
+{
+  "id": 1,
+  "email": "ali@example.com",
+  "full_name": "Ali Khan",
+  "role": "student",
+  "is_active": true,
+  "date_joined": "2026-05-07T00:00:00Z"
+}
+```
+
+### Logout
+
+`POST /api/auth/logout/`
+
+Requires JWT authentication. JWT logout is client-side for the MVP.
+
+Response `200`:
+
+```json
+{
+  "detail": "Logged out successfully."
+}
+```
+
 ## Planned MVP Endpoints
 
-- `POST /api/auth/register/`
-- `POST /api/auth/login/`
-- `POST /api/auth/logout/`
-- `GET /api/auth/me/`
 - `GET|POST|PUT|PATCH /api/profile/`
 - `GET /api/profile/completion/`
 - `GET /api/scholarships/`

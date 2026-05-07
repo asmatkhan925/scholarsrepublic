@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   BadgeCheck,
   ClipboardCheck,
-  FileText,
   Search,
   Sparkles,
   UserRoundCheck,
@@ -32,10 +31,10 @@ const featuredScholarships = [
 ];
 
 const steps = [
-  { label: "Create profile", icon: UserRoundCheck },
-  { label: "Get match score", icon: Sparkles },
+  { label: "Browse scholarships", icon: Search },
+  { label: "Create free profile", icon: UserRoundCheck },
+  { label: "Check eligibility", icon: Sparkles },
   { label: "Track applications", icon: ClipboardCheck },
-  { label: "Request expert help", icon: FileText },
 ];
 
 export default function Home() {
@@ -63,13 +62,23 @@ export default function Home() {
               eligibility, and apply with confidence.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/register" className="rounded bg-saffron px-5 py-3 text-center font-semibold text-ink hover:bg-saffron/90">
+              <Link
+                href="/register"
+                className="rounded bg-saffron px-5 py-3 text-center font-semibold text-ink hover:bg-saffron/90"
+              >
                 Create Free Profile
               </Link>
-              <Link href="/scholarships" className="rounded border border-white/60 px-5 py-3 text-center font-semibold text-white hover:bg-white/10">
+              <Link
+                href="/scholarships"
+                className="rounded border border-white/60 px-5 py-3 text-center font-semibold text-white hover:bg-white/10"
+              >
                 Browse Scholarships
               </Link>
             </div>
+            <p className="mt-5 max-w-2xl text-sm leading-6 text-white/75">
+              Browsing is public. Saving, applying, match scores, and tracking
+              require a free student account.
+            </p>
           </div>
         </div>
       </section>
@@ -91,10 +100,15 @@ export default function Home() {
 
       <section className="mx-auto grid max-w-7xl gap-10 px-4 pb-16 sm:px-6 lg:px-8">
         <div>
-          <h2 className="text-2xl font-semibold text-ink">Featured scholarships</h2>
+          <h2 className="text-2xl font-semibold text-ink">
+            Featured scholarships
+          </h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {featuredScholarships.map((scholarship) => (
-              <article key={scholarship.title} className="rounded border border-ink/10 bg-white p-5 shadow-soft">
+              <article
+                key={scholarship.title}
+                className="rounded border border-ink/10 bg-white p-5 shadow-soft"
+              >
                 <div className="mb-4 inline-flex items-center gap-2 rounded bg-mint px-3 py-1 text-xs font-semibold text-pine">
                   <BadgeCheck size={14} aria-hidden="true" />
                   Verified sample
@@ -106,6 +120,20 @@ export default function Home() {
                 <p className="mt-4 text-sm font-medium text-ink">
                   Deadline: {scholarship.deadline}
                 </p>
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  <Link
+                    href="/scholarships"
+                    className="rounded border border-ink/15 px-4 py-2 text-center text-sm font-semibold text-ink hover:bg-ink/5"
+                  >
+                    Browse
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="rounded bg-pine px-4 py-2 text-center text-sm font-semibold text-white hover:bg-pine/90"
+                  >
+                    Check Eligibility
+                  </Link>
+                </div>
               </article>
             ))}
           </div>
@@ -117,7 +145,10 @@ export default function Home() {
             {steps.map((step) => {
               const Icon = step.icon;
               return (
-                <div key={step.label} className="rounded border border-ink/10 bg-white p-5">
+                <div
+                  key={step.label}
+                  className="rounded border border-ink/10 bg-white p-5"
+                >
                   <Icon className="text-pine" size={24} aria-hidden="true" />
                   <p className="mt-4 font-semibold text-ink">{step.label}</p>
                 </div>
