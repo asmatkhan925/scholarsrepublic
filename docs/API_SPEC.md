@@ -12,7 +12,8 @@ Response:
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "message": "Scholars Republic API is running"
 }
 ```
 

@@ -9,6 +9,7 @@ export const api = axios.create({
 
 export type HealthResponse = {
   status: "ok";
+  message: string;
 };
 
 export async function getHealth(): Promise<HealthResponse> {

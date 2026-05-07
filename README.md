@@ -15,16 +15,37 @@ Pakistan-first scholarship matching and study-abroad guidance platform.
 - `frontend/` - Next.js App Router application
 - `docs/` - product brief, API notes, schema notes, and roadmap
 
-## Local Setup
-
-### Backend
+## Backend Setup
 
 ```bash
 cd backend
 python -m venv venv
+```
+
+Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+Linux/Mac:
+
+```bash
 source venv/bin/activate
+```
+
+Install dependencies and create your local environment file:
+
+```bash
 pip install -r requirements.txt
 cp .env.example .env
+```
+
+Before running migrations, create a PostgreSQL database named `scholars_republic` or update `backend/.env` with your own database credentials.
+
+Then run:
+
+```bash
 python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
@@ -35,8 +56,9 @@ Backend URLs:
 
 - API health: `http://localhost:8000/api/health/`
 - Django Admin: `http://localhost:8000/admin/`
+- API docs: `http://localhost:8000/api/docs/`
 
-### Frontend
+## Frontend Setup
 
 ```bash
 cd frontend
@@ -56,6 +78,24 @@ Use the example files as starting points:
 - `backend/.env.example`
 - `frontend/.env.example`
 
+## Test Commands
+
+Backend:
+
+```bash
+cd backend
+python manage.py check
+python manage.py test
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
 ## MVP Modules
 
 1. Authentication
@@ -72,16 +112,28 @@ Use the example files as starting points:
 ## Development Roadmap
 
 1. Initial project setup
-2. Users and authentication
-3. Student profile
-4. Scholarship database
-5. Search and filters
-6. Match score
-7. Saved scholarships and application tracker
-8. Document checklist
-9. Service requests
-10. Blog and guides
-11. Polish and deployment prep
+2. Setup stabilization
+3. Users and authentication
+4. Student profile
+5. Scholarship database
+6. Search and filters
+7. Match score
+8. Saved scholarships and application tracker
+9. Document checklist
+10. Service requests
+11. Blog and guides
+12. Polish and deployment prep
+
+## Current Project Status
+
+Completed:
+
+- Phase 1 initial structure
+- Phase 1.5 setup stabilization
+
+Next phase:
+
+- Phase 2 users and authentication APIs
 
 ## License
 
