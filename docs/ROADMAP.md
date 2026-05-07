@@ -50,16 +50,32 @@ Status: complete.
 
 Status: complete.
 
+## Phase 4.5: Repository Consistency Cleanup
+
+- Verify opportunities app registration and URL inclusion
+- Confirm migrations and seed command are committed
+- Re-run backend tests and frontend lint/build
+- Clean documentation wording before match-score work
+
+Status: complete.
+
 Long-term note: Scholars Republic should become a flexible student opportunity
 platform. Scholarships are the first opportunity type; later types can include
 jobs, internships, fellowships, exchange programs, admissions, competitions,
 training, research positions, and mentorship programs.
 
+## Phase 5: Rule-Based Opportunity Match Score
+
+- Connect `StudentProfile` and `Opportunity`
+- Return match score, reasons, missing requirements, and warnings
+- Keep scoring explainable before any future AI layer
+
+Status: next.
+
 ## Later MVP Phases
 
 - Search and filters
-- Rule-based opportunity match score
-- Saved scholarships
+- Saved opportunities
 - Application tracker
 - Document checklist
 - Service requests

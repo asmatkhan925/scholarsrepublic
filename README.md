@@ -120,7 +120,7 @@ npm run build
 3. Opportunity database foundation
 4. Search and filters
 5. Rule-based match score
-6. Saved scholarships
+6. Saved opportunities
 7. Application tracker
 8. Document checklist
 9. Service requests
@@ -128,11 +128,11 @@ npm run build
 
 ## Access Modes
 
-Guest users can browse public pages such as the homepage, scholarship placeholder page, services, blog, login, and register pages. Protected actions such as dashboard access, saving scholarships, applying, tracking applications, match scores, and service requests require login.
+Guest users can browse public pages such as the homepage, scholarship opportunity listing, services, blog, login, and register pages. Protected actions such as dashboard access, saving opportunities, applying, tracking applications, match scores, and service requests require login.
 
-Student users can access `/dashboard` and `/dashboard/profile`. Recommendations, saved scholarships, and application tracking are planned for later phases.
+Student users can access `/dashboard` and `/dashboard/profile`. Recommendations, saved opportunities, and application tracking are planned for later phases.
 
-Admin users can access `/admin`. Scholarship, service request, and blog management are planned for later phases.
+Admin users can access `/admin`. Opportunity management is available in Django Admin, while custom service request and blog management are planned for later phases.
 
 ## Auth API
 
@@ -223,7 +223,7 @@ python manage.py seed_opportunities
 5. Opportunity database foundation
 6. Search and filters
 7. Match score
-8. Saved scholarships and application tracker
+8. Saved opportunities and application tracker
 9. Document checklist
 10. Service requests
 11. Blog and guides
@@ -241,7 +241,7 @@ Completed:
 
 Next phase:
 
-- Phase 5 rule-based opportunity match score
+- Phase 5: Rule-Based Opportunity Match Score
 
 ## License
 

@@ -12,7 +12,7 @@ function AdminDashboardContent() {
     <DashboardShell
       mode="admin"
       title="Admin Dashboard"
-      description={`Welcome, ${user?.full_name ?? "Admin"}. Scholarship, service request, and blog management will be added next.`}
+      description={`Welcome, ${user?.full_name ?? "Admin"}. Opportunity management is available in Django Admin; service request and blog management will be added next.`}
     >
       <PlaceholderPanel
         title="Opportunity management foundation is ready"

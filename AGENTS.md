@@ -15,13 +15,15 @@ Build the MVP first:
 3. Opportunity database foundation, starting with scholarships
 4. Search and filters
 5. Rule-based match score
-6. Saved scholarships
+6. Saved opportunities
 7. Application tracker
 8. Document checklist
 9. Service requests
 10. Blog/guides
 
 Do not add jobs, internships UI, AI chatbot, mobile app, or payment gateway unless explicitly requested. Keep the opportunity architecture flexible enough for those modules later.
+
+Prefer `apps.opportunities.Opportunity` for scholarship/opportunity data. Do not create a separate production scholarship model unless the user explicitly changes the architecture.
 
 ## Development Rules
 - Keep changes small and phase-based.

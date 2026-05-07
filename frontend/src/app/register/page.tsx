@@ -48,7 +48,7 @@ export default function RegisterPage() {
           </h1>
           <p className="mt-2 text-sm leading-6 text-ink/65">
             Register as a student to unlock protected dashboard access. Profile,
-            recommendations, saved scholarships, and tracking come next.
+            recommendations, saved opportunities, and tracking come next.
           </p>
 
           {error && (

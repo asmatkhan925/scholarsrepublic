@@ -1,20 +1,22 @@
-Scholars Republic is a Pakistan-first scholarship matching and study-abroad guidance platform.
+Scholars Republic is a Pakistan-first scholarship matching and study-abroad guidance platform that is being built as a flexible student opportunity platform.
+
+Scholarships are the first MVP opportunity type. Future opportunity types can include jobs, internships, fellowships, exchange programs, admissions, competitions, training, mentorship programs, and research positions.
 
 MVP focus:
 - Authentication
 - Student profile
-- Scholarship database
+- Opportunity database foundation
 - Search and filters
 - Rule-based match score
-- Saved scholarships
+- Saved opportunities
 - Application tracker
 - Document checklist
 - Service requests
 - Blog/guides
 
-Do not build jobs, internships, AI chatbot, mobile app, automated payments, consultant dashboard, university dashboard, community features, or ML recommendations in the MVP.
+Do not build jobs UI, internships UI, AI chatbot, mobile app, automated payments, consultant dashboard, university dashboard, community features, or ML recommendations in the MVP.
 
 Primary positioning:
 "A Pakistan-first scholarship and study-abroad matching platform where students create a profile, discover verified scholarships, check eligibility, track deadlines, prepare documents, and apply with confidence."
 
-This repository is developed phase by phase. Phase 1 creates the Django backend, Next.js frontend, documentation, environment examples, and health check endpoint.
+This repository is developed phase by phase. Phase 4 completed the opportunity database foundation with scholarships stored as opportunity records.
