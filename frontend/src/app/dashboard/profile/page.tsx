@@ -205,6 +205,7 @@ function TextField({
     <label className="grid gap-2 text-sm font-medium text-ink">
       {label}
       <input
+        aria-label={label}
         type={type}
         value={value === null ? "" : String(value)}
         onChange={(event) => onChange(event.target.value)}
@@ -231,6 +232,7 @@ function SelectField({
     <label className="grid gap-2 text-sm font-medium text-ink">
       {label}
       <select
+        aria-label={label}
         value={String(value ?? "")}
         onChange={(event) => onChange(event.target.value)}
         className="rounded border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-pine"
@@ -262,6 +264,7 @@ function BooleanField({
   return (
     <label className="flex items-start gap-3 rounded border border-ink/10 bg-skyglass px-3 py-2 text-sm text-ink/75">
       <input
+        aria-label={label}
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
@@ -296,6 +299,7 @@ function MultiCheckboxField({
             className="flex items-start gap-3 rounded border border-ink/10 bg-white px-3 py-2 text-sm text-ink/75"
           >
             <input
+              aria-label={option}
               type="checkbox"
               checked={values.includes(option)}
               onChange={() => onToggle(option)}
@@ -324,6 +328,7 @@ function CommaField({
     <label className="grid gap-2 text-sm font-medium text-ink">
       {label}
       <textarea
+        aria-label={label}
         rows={3}
         value={joinCommaList(values)}
         onChange={(event) => onChange(splitCommaList(event.target.value))}

@@ -113,6 +113,13 @@ npm run lint
 npm run build
 ```
 
+End-to-end browser tests:
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
 ## MVP Modules
 
 1. Authentication
@@ -214,6 +221,70 @@ cd backend
 python manage.py seed_opportunities
 ```
 
+## End-to-End Testing
+
+Playwright covers the main browser behaviors before the match-score phase:
+guest browsing, register/login/logout, protected dashboard/profile/admin routes,
+scholarship listing/detail pages, profile form controls, validation messages,
+and frontend/backend integration.
+
+Prerequisites:
+
+- PostgreSQL running
+- Backend migrations applied
+- Sample opportunities seeded
+- Backend running at `http://localhost:8000`
+- Frontend running at `http://localhost:3000` or Playwright starts it
+
+Backend:
+
+```bash
+cd backend
+source venv/bin/activate
+python manage.py migrate
+python manage.py seed_opportunities
+python manage.py runserver
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+E2E:
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+UI mode:
+
+```bash
+npm run test:e2e:ui
+```
+
+Headed:
+
+```bash
+npm run test:e2e:headed
+```
+
+If Playwright browsers are missing, install them with:
+
+```bash
+npx playwright install --with-deps
+```
+
+If your WSL environment cannot install system dependencies, install Chromium only:
+
+```bash
+npx playwright install chromium
+```
+
 ## Development Roadmap
 
 1. Initial project setup
@@ -238,6 +309,8 @@ Completed:
 - Phase 2 authentication and access modes
 - Phase 3 student profile and scholarship readiness
 - Phase 4 opportunity database foundation
+- Phase 4.5 repository consistency cleanup
+- Phase 4.6 UI behavior QA and E2E testing foundation
 
 Next phase:
 

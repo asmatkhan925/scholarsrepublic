@@ -99,6 +99,55 @@ class StudentProfileAPITests(APITestCase):
         self.assertEqual(response.data["city"], "Islamabad")
         self.assertEqual(response.data["target_countries"], ["China"])
 
+    def test_patch_updates_checkbox_fields(self):
+        StudentProfile.objects.create(user=self.student)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.patch(
+            "/api/profile/",
+            {
+                "has_passport": True,
+                "has_cv": True,
+                "has_transcript": True,
+                "has_ielts": True,
+                "profile_data_consent": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["has_passport"])
+        self.assertTrue(response.data["has_cv"])
+        self.assertTrue(response.data["has_transcript"])
+        self.assertTrue(response.data["has_ielts"])
+        self.assertTrue(response.data["profile_data_consent"])
+
+    def test_json_list_fields_save_correctly(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {
+                "target_countries": ["China", "Taiwan"],
+                "target_fields": ["Computer Science", "Data Science"],
+                "skills": ["Python", "Research"],
+                "additional_documents": ["IELTS", "Bank Statement"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["target_countries"], ["China", "Taiwan"])
+        self.assertEqual(
+            response.data["target_fields"],
+            ["Computer Science", "Data Science"],
+        )
+        self.assertEqual(response.data["skills"], ["Python", "Research"])
+        self.assertEqual(
+            response.data["additional_documents"],
+            ["IELTS", "Bank Statement"],
+        )
+
     def test_put_creates_or_replaces_profile(self):
         self.client.force_authenticate(self.student)
 

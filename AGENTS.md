@@ -34,6 +34,7 @@ Prefer `apps.opportunities.Opportunity` for scholarship/opportunity data. Do not
 - Prefer readable, maintainable code.
 - Add tests for backend business logic.
 - Run tests/build/lint when possible.
+- Before adding major new features, run backend tests, frontend lint/build, and E2E tests when UI behavior is affected.
 - Summarize all changed files after each task.
 
 ## Local Commands
@@ -46,4 +47,5 @@ Frontend:
 cd frontend
 npm run lint
 npm run build
+npm run test:e2e
 npm run dev

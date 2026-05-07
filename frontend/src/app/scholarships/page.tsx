@@ -226,6 +226,7 @@ export default function ScholarshipsPage() {
           className="mt-8 grid gap-3 rounded border border-ink/10 bg-white p-4 shadow-soft lg:grid-cols-[1.4fr_1fr_1fr_auto]"
         >
           <label className="flex items-center gap-3 rounded border border-ink/10 bg-skyglass px-3 py-2">
+            <span className="sr-only">Search scholarships</span>
             <Search size={18} className="text-pine" aria-hidden="true" />
             <input
               value={search}
@@ -234,30 +235,36 @@ export default function ScholarshipsPage() {
               className="w-full bg-transparent text-sm outline-none"
             />
           </label>
-          <select
-            value={country}
-            onChange={(event) => setCountry(event.target.value)}
-            className="rounded border border-ink/10 bg-white px-3 py-2 text-sm"
-          >
-            <option value="">All countries</option>
-            {COUNTRIES.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-          <select
-            value={fundingType}
-            onChange={(event) => setFundingType(event.target.value)}
-            className="rounded border border-ink/10 bg-white px-3 py-2 text-sm"
-          >
-            <option value="">All funding</option>
-            {FUNDING_TYPES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+          <label className="grid gap-1 text-xs font-semibold text-ink/60">
+            <span className="sr-only">Country</span>
+            <select
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+              className="rounded border border-ink/10 bg-white px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="">All countries</option>
+              {COUNTRIES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-ink/60">
+            <span className="sr-only">Funding type</span>
+            <select
+              value={fundingType}
+              onChange={(event) => setFundingType(event.target.value)}
+              className="rounded border border-ink/10 bg-white px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="">All funding</option>
+              {FUNDING_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="submit"
             className="rounded bg-pine px-5 py-2 text-sm font-semibold text-white hover:bg-pine/90"

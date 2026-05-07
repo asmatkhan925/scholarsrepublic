@@ -27,6 +27,16 @@ class AuthenticationAPITests(APITestCase):
         self.assertIn("access", response.data["tokens"])
         self.assertIn("refresh", response.data["tokens"])
 
+    def test_register_requires_core_fields(self):
+        for field_name in ["full_name", "email", "password", "password_confirm"]:
+            payload = self.register_payload(email=f"{field_name}@example.com")
+            payload.pop(field_name)
+
+            response = self.client.post(reverse("register"), payload, format="json")
+
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn(field_name, response.data)
+
     def test_register_password_mismatch(self):
         payload = self.register_payload()
         payload["password_confirm"] = "DifferentPassword123!"

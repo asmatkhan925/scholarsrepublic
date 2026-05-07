@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { GraduationCap } from "lucide-react";
 
+import { DashboardLogoutButton } from "@/components/dashboard-logout-button";
+
 type DashboardShellProps = {
   title: string;
   description: string;
@@ -52,6 +54,7 @@ export function DashboardShell({
               </Link>
             ))}
           </nav>
+          <DashboardLogoutButton />
         </aside>
         <main className="p-4 sm:p-8">
           <div className="mb-8">

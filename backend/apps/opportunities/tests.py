@@ -137,6 +137,35 @@ class OpportunityAPITests(APITestCase):
         self.assertIn(no_fee.slug, slugs)
         self.assertNotIn("fee-required", slugs)
 
+    def test_filter_verified(self):
+        verified = self.opportunity(slug="verified-opportunity", verified_status=True)
+        self.opportunity(slug="unverified-opportunity", verified_status=False)
+
+        response = self.client.get("/api/opportunities/?verified=true")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(verified.slug, slugs)
+        self.assertNotIn("unverified-opportunity", slugs)
+
+    def test_search_filters_opportunities(self):
+        china = self.opportunity(
+            slug="china-search-opportunity",
+            title="China Search Scholarship",
+            search_keywords="china asia fully funded",
+        )
+        self.opportunity(
+            slug="turkey-search-opportunity",
+            title="Turkey Search Scholarship",
+            country="Turkey",
+            search_keywords="turkey europe",
+        )
+
+        response = self.client.get("/api/opportunities/?search=china")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(china.slug, slugs)
+        self.assertNotIn("turkey-search-opportunity", slugs)
+
     def test_admin_can_create_opportunity(self):
         self.client.force_authenticate(self.admin)
 

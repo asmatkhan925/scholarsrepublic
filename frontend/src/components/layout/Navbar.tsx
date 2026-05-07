@@ -89,7 +89,7 @@ export function Navbar() {
                 href="/register"
                 className="rounded bg-pine px-4 py-2 text-white hover:bg-pine/90"
               >
-                Create Profile
+                Create Free Profile
               </Link>
             </>
           )}

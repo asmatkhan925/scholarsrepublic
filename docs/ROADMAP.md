@@ -59,6 +59,16 @@ Status: complete.
 
 Status: complete.
 
+## Phase 4.6: UI Behavior QA and E2E Testing Foundation
+
+- Add Playwright browser tests for guest browsing and navigation
+- Cover register, login, logout, and protected route behavior
+- Cover profile form sections, dropdowns, checkboxes, validation, save, and persistence
+- Cover scholarship listing/detail pages backed by opportunity data
+- Re-run backend tests, frontend lint/build, and E2E tests before match-score work
+
+Status: complete.
+
 Long-term note: Scholars Republic should become a flexible student opportunity
 platform. Scholarships are the first opportunity type; later types can include
 jobs, internships, fellowships, exchange programs, admissions, competitions,
