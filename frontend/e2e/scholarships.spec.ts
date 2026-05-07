@@ -17,9 +17,7 @@ test("search filter updates scholarship results", async ({ page }) => {
 
   await page.getByLabel("Search scholarships").fill("definitely-no-result-xyz");
   await page.getByRole("button", { name: "Apply Filters" }).click();
-  await expect(
-    page.getByText("No published scholarships match these filters yet."),
-  ).toBeVisible();
+  await expect(page.getByText("No published scholarships match these filters yet.")).toBeVisible();
 });
 
 test("country and checkbox filters do not block public browsing", async ({ page }) => {
@@ -44,15 +42,11 @@ test("country and checkbox filters do not block public browsing", async ({ page 
 test("detail page shows important scholarship fields", async ({ page }) => {
   await page.goto("/scholarships/chinese-government-scholarship");
 
-  await expect(
-    page.getByRole("heading", { name: "Chinese Government Scholarship" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Chinese Government Scholarship" })).toBeVisible();
   await expect(page.getByText("Country")).toBeVisible();
   await expect(page.getByText("Funding")).toBeVisible();
   await expect(page.getByText("Deadline")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Eligibility", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Eligibility", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Required Documents" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "How to Apply" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Official Link/i })).toBeVisible();

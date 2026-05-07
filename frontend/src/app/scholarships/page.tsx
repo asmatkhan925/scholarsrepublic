@@ -28,9 +28,7 @@ function humanize(value: string) {
     return "Not specified";
   }
 
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatDate(value: string | null) {
@@ -84,15 +82,11 @@ function ScholarshipCard({ scholarship }: { scholarship: OpportunityListItem }) 
         </div>
         <div className="flex justify-between gap-3">
           <dt>Funding</dt>
-          <dd className="font-medium text-ink">
-            {humanize(scholarship.funding_type)}
-          </dd>
+          <dd className="font-medium text-ink">{humanize(scholarship.funding_type)}</dd>
         </div>
         <div className="flex justify-between gap-3">
           <dt>Deadline</dt>
-          <dd className="text-right font-medium text-ink">
-            {formatDate(scholarship.deadline)}
-          </dd>
+          <dd className="text-right font-medium text-ink">{formatDate(scholarship.deadline)}</dd>
         </div>
       </dl>
 
@@ -208,16 +202,13 @@ export default function ScholarshipsPage() {
       <SiteHeader />
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase text-pine">
-            Public scholarship browsing
-          </p>
+          <p className="text-sm font-semibold uppercase text-pine">Public scholarship browsing</p>
           <h1 className="mt-3 text-3xl font-semibold text-ink">
             Scholarships for Pakistani Students
           </h1>
           <p className="mt-3 text-ink/70">
-            Browse published scholarship opportunities from the backend
-            database. Create a free profile to check eligibility and save
-            opportunities in the next phases.
+            Browse published scholarship opportunities from the backend database. Create a free
+            profile to check eligibility and save opportunities in the next phases.
           </p>
         </div>
 

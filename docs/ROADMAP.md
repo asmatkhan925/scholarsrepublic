@@ -69,6 +69,16 @@ Status: complete.
 
 Status: complete.
 
+## Phase 4.8: Quality Gate Before Match Score
+
+- Add backend formatting tools with Black and isort
+- Add frontend formatting tools with Prettier
+- Make Playwright frontend startup portable and avoid NVM-specific config
+- Document formatting and quality-gate commands
+- Re-run backend checks/tests, frontend format/lint/build, and E2E tests
+
+Status: complete.
+
 Long-term note: Scholars Republic should become a flexible student opportunity
 platform. Scholarships are the first opportunity type; later types can include
 jobs, internships, fellowships, exchange programs, admissions, competitions,

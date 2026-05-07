@@ -32,19 +32,29 @@ Prefer `apps.opportunities.Opportunity` for scholarship/opportunity data. Do not
 - Use environment variables for secrets.
 - Write clear setup instructions.
 - Prefer readable, maintainable code.
+- Always keep code formatted.
+- Use Black and isort for backend Python.
+- Use Prettier for frontend TypeScript, TSX, CSS, JSON, and Markdown.
 - Add tests for backend business logic.
 - Run tests/build/lint when possible.
 - Before adding major new features, run backend tests, frontend lint/build, and E2E tests when UI behavior is affected.
+- Do not proceed to Phase 5 unless the quality gate passes.
 - Summarize all changed files after each task.
 
 ## Local Commands
 Backend:
 cd backend
+black .
+isort .
+python manage.py check
+python manage.py makemigrations --check
+python manage.py migrate
 python manage.py test
 python manage.py runserver
 
 Frontend:
 cd frontend
+npm run format:check
 npm run lint
 npm run build
 npm run test:e2e

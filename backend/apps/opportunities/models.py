@@ -108,9 +108,7 @@ class Opportunity(models.Model):
     company_name = models.CharField(max_length=255, blank=True)
     country = models.CharField(max_length=100, blank=True, db_index=True)
     city = models.CharField(max_length=120, blank=True)
-    location_type = models.CharField(
-        max_length=50, choices=LocationType.choices, blank=True
-    )
+    location_type = models.CharField(max_length=50, choices=LocationType.choices, blank=True)
 
     short_description = models.TextField(blank=True)
     description = models.TextField(blank=True)
@@ -132,17 +130,13 @@ class Opportunity(models.Model):
         blank=True,
     )
     min_cgpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
-    min_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True
-    )
+    min_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     min_education_level = models.CharField(max_length=80, blank=True)
 
     funding_type = models.CharField(
         max_length=80, choices=FundingType.choices, blank=True, db_index=True
     )
-    funding_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True
-    )
+    funding_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     funding_currency = models.CharField(max_length=10, blank=True)
     application_fee_required = models.BooleanField(default=False)
     application_fee_amount = models.DecimalField(
@@ -156,22 +150,14 @@ class Opportunity(models.Model):
     hsk_required = models.BooleanField(default=False)
     english_proficiency_certificate_accepted = models.BooleanField(default=False)
 
-    employment_type = models.CharField(
-        max_length=80, choices=EmploymentType.choices, blank=True
-    )
-    experience_level = models.CharField(
-        max_length=80, choices=ExperienceLevel.choices, blank=True
-    )
+    employment_type = models.CharField(max_length=80, choices=EmploymentType.choices, blank=True)
+    experience_level = models.CharField(max_length=80, choices=ExperienceLevel.choices, blank=True)
     min_experience_years = models.DecimalField(
         max_digits=4, decimal_places=1, null=True, blank=True
     )
     required_skills = models.JSONField(default=list, blank=True)
-    salary_min = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True
-    )
-    salary_max = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True
-    )
+    salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     salary_currency = models.CharField(max_length=10, blank=True)
 
     deadline = models.DateField(null=True, blank=True, db_index=True)

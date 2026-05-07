@@ -109,6 +109,7 @@ Frontend:
 
 ```bash
 cd frontend
+npm run format:check
 npm run lint
 npm run build
 ```
@@ -285,6 +286,57 @@ If your WSL environment cannot install system dependencies, install Chromium onl
 npx playwright install chromium
 ```
 
+## Code Formatting
+
+Backend formatting uses Black and isort. Runtime dependencies stay in
+`backend/requirements.txt`; development tools live in `backend/requirements-dev.txt`.
+
+```bash
+cd backend
+source venv/bin/activate
+pip install -r requirements-dev.txt
+black .
+isort .
+```
+
+Frontend formatting uses Prettier:
+
+```bash
+cd frontend
+npm run format
+npm run format:check
+```
+
+## Quality Gate Before New Features
+
+Before starting major feature phases, run the full quality gate.
+
+Backend:
+
+```bash
+cd backend
+source venv/bin/activate
+python manage.py check
+python manage.py makemigrations --check
+python manage.py migrate
+python manage.py test
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run format:check
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+For E2E tests, the backend must already be running at
+`http://localhost:8000`. Playwright starts the frontend at
+`http://localhost:3000` when needed, or it can reuse an existing frontend dev
+server.
+
 ## Development Roadmap
 
 1. Initial project setup
@@ -311,6 +363,7 @@ Completed:
 - Phase 4 opportunity database foundation
 - Phase 4.5 repository consistency cleanup
 - Phase 4.6 UI behavior QA and E2E testing foundation
+- Phase 4.8 quality gate before match score
 
 Next phase:
 

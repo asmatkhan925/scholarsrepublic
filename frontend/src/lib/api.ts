@@ -1,16 +1,7 @@
 import axios from "axios";
 
-import type {
-  AuthResponse,
-  LoginPayload,
-  RegisterPayload,
-  User,
-} from "@/types/auth";
-import type {
-  ProfileCompletion,
-  StudentProfile,
-  StudentProfilePayload,
-} from "@/types/profile";
+import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types/auth";
+import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
 import type {
   OpportunityAdminPayload,
   OpportunityDetail,
@@ -120,32 +111,17 @@ export async function getAdminOpportunities(params?: OpportunityQueryParams) {
 }
 
 export async function createAdminOpportunity(payload: OpportunityAdminPayload) {
-  const response = await api.post<OpportunityDetail>(
-    "/admin/opportunities/",
-    payload,
-  );
+  const response = await api.post<OpportunityDetail>("/admin/opportunities/", payload);
   return response.data;
 }
 
-export async function updateAdminOpportunity(
-  id: number,
-  payload: OpportunityAdminPayload,
-) {
-  const response = await api.put<OpportunityDetail>(
-    `/admin/opportunities/${id}/`,
-    payload,
-  );
+export async function updateAdminOpportunity(id: number, payload: OpportunityAdminPayload) {
+  const response = await api.put<OpportunityDetail>(`/admin/opportunities/${id}/`, payload);
   return response.data;
 }
 
-export async function patchAdminOpportunity(
-  id: number,
-  payload: Partial<OpportunityAdminPayload>,
-) {
-  const response = await api.patch<OpportunityDetail>(
-    `/admin/opportunities/${id}/`,
-    payload,
-  );
+export async function patchAdminOpportunity(id: number, payload: Partial<OpportunityAdminPayload>) {
+  const response = await api.patch<OpportunityDetail>(`/admin/opportunities/${id}/`, payload);
   return response.data;
 }
 

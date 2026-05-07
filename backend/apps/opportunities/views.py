@@ -57,8 +57,7 @@ class OpportunityFilterMixin:
         field = params.get("field")
         if field:
             queryset = queryset.filter(
-                Q(fields_of_study__contains=[field])
-                | Q(fields_of_study__contains=["All Fields"])
+                Q(fields_of_study__contains=[field]) | Q(fields_of_study__contains=["All Fields"])
             )
 
         funding_type = params.get("funding_type")
@@ -88,9 +87,9 @@ class OpportunityFilterMixin:
         remote = parse_bool(params.get("remote"))
         if remote is not None:
             queryset = queryset.filter(
-                location_type=Opportunity.LocationType.REMOTE
-                if remote
-                else Opportunity.LocationType.ON_SITE
+                location_type=(
+                    Opportunity.LocationType.REMOTE if remote else Opportunity.LocationType.ON_SITE
+                )
             )
 
         search = params.get("search")
@@ -137,15 +136,15 @@ class PublicOpportunityDetailView(generics.RetrieveAPIView):
 
 class PublicScholarshipListView(PublicOpportunityListView):
     def get_queryset(self):
-        return super().get_queryset().filter(
-            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP
+        return (
+            super().get_queryset().filter(opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP)
         )
 
 
 class PublicScholarshipDetailView(PublicOpportunityDetailView):
     def get_queryset(self):
-        return super().get_queryset().filter(
-            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP
+        return (
+            super().get_queryset().filter(opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP)
         )
 
 

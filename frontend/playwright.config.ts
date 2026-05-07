@@ -1,5 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
 
+function withLocalhostNoProxy(value: string | undefined) {
+  const existing = value
+    ? value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+  return Array.from(new Set([...existing, "127.0.0.1", "localhost"])).join(",");
+}
+
+process.env.NO_PROXY = withLocalhostNoProxy(process.env.NO_PROXY);
+process.env.no_proxy = withLocalhostNoProxy(process.env.no_proxy);
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 45_000,
@@ -14,7 +28,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "bash -lc 'source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && npm run dev'",
+    command: "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 120_000,

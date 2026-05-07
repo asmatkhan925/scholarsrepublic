@@ -43,12 +43,10 @@ export default function RegisterPage() {
       <SiteHeader />
       <section className="mx-auto grid min-h-[calc(100vh-65px)] max-w-xl content-center px-4 py-12">
         <div className="rounded border border-ink/10 bg-white p-6 shadow-soft">
-          <h1 className="text-2xl font-semibold text-ink">
-            Create Free Profile
-          </h1>
+          <h1 className="text-2xl font-semibold text-ink">Create Free Profile</h1>
           <p className="mt-2 text-sm leading-6 text-ink/65">
-            Register as a student to unlock protected dashboard access. Profile,
-            recommendations, saved opportunities, and tracking come next.
+            Register as a student to unlock protected dashboard access. Profile, recommendations,
+            saved opportunities, and tracking come next.
           </p>
 
           {error && (

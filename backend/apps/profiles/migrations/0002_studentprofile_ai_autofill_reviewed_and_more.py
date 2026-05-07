@@ -6,23 +6,33 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('profiles', '0001_initial'),
+        ("profiles", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='studentprofile',
-            name='ai_autofill_reviewed',
+            model_name="studentprofile",
+            name="ai_autofill_reviewed",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='studentprofile',
-            name='github_url',
+            model_name="studentprofile",
+            name="github_url",
             field=models.URLField(blank=True),
         ),
         migrations.AddField(
-            model_name='studentprofile',
-            name='profile_source',
-            field=models.CharField(blank=True, choices=[('manual', 'Manual'), ('cv_imported', 'CV imported'), ('admin_created', 'Admin created'), ('mixed', 'Mixed')], default='manual', max_length=50),
+            model_name="studentprofile",
+            name="profile_source",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("manual", "Manual"),
+                    ("cv_imported", "CV imported"),
+                    ("admin_created", "Admin created"),
+                    ("mixed", "Mixed"),
+                ],
+                default="manual",
+                max_length=50,
+            ),
         ),
     ]

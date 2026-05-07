@@ -1,11 +1,5 @@
 import Link from "next/link";
-import {
-  BadgeCheck,
-  ClipboardCheck,
-  Search,
-  Sparkles,
-  UserRoundCheck,
-} from "lucide-react";
+import { BadgeCheck, ClipboardCheck, Search, Sparkles, UserRoundCheck } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
 
@@ -58,8 +52,8 @@ export default function Home() {
               Find the Right Scholarship for Your Profile
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-white/88">
-              Create your free profile, discover verified scholarships, check
-              eligibility, and apply with confidence.
+              Create your free profile, discover verified scholarships, check eligibility, and apply
+              with confidence.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -76,8 +70,8 @@ export default function Home() {
               </Link>
             </div>
             <p className="mt-5 max-w-2xl text-sm leading-6 text-white/75">
-              Browsing is public. Saving, applying, match scores, and tracking
-              require a free student account.
+              Browsing is public. Saving, applying, match scores, and tracking require a free
+              student account.
             </p>
           </div>
         </div>
@@ -100,9 +94,7 @@ export default function Home() {
 
       <section className="mx-auto grid max-w-7xl gap-10 px-4 pb-16 sm:px-6 lg:px-8">
         <div>
-          <h2 className="text-2xl font-semibold text-ink">
-            Featured scholarships
-          </h2>
+          <h2 className="text-2xl font-semibold text-ink">Featured scholarships</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {featuredScholarships.map((scholarship) => (
               <article
@@ -145,10 +137,7 @@ export default function Home() {
             {steps.map((step) => {
               const Icon = step.icon;
               return (
-                <div
-                  key={step.label}
-                  className="rounded border border-ink/10 bg-white p-5"
-                >
+                <div key={step.label} className="rounded border border-ink/10 bg-white p-5">
                   <Icon className="text-pine" size={24} aria-hidden="true" />
                   <p className="mt-4 font-semibold text-ink">{step.label}</p>
                 </div>

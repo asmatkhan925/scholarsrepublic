@@ -14,8 +14,7 @@
 body {
   margin: 0;
   background:
-    linear-gradient(180deg, rgba(237, 247, 251, 0.7), rgba(247, 250, 248, 0) 360px),
-    #f7faf8;
+    linear-gradient(180deg, rgba(237, 247, 251, 0.7), rgba(247, 250, 248, 0) 360px), #f7faf8;
   color: #16211f;
   font-family: Arial, Helvetica, sans-serif;
 }

@@ -12,9 +12,7 @@ test("student can access profile page and sections render", async ({ page }) => 
   await registerStudent(page);
   await page.goto("/dashboard/profile");
 
-  await expect(
-    page.getByRole("heading", { name: "Scholarship Readiness Profile" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scholarship Readiness Profile" })).toBeVisible();
   for (const section of [
     "Basic Information",
     "Current Education",
@@ -75,9 +73,7 @@ test("profile dropdowns, checkboxes, multi-selects, save, and persistence work",
 
   await page.goto("/dashboard");
   await expect(page.getByText("Profile completion")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Scholarship readiness" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scholarship readiness" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Update Profile" })).toBeVisible();
 });
 

@@ -15,9 +15,7 @@ test("student cannot access admin", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
 });
 
-test("admin can access admin placeholder when credentials are provided", async ({
-  page,
-}) => {
+test("admin can access admin placeholder when credentials are provided", async ({ page }) => {
   const email = process.env.E2E_ADMIN_EMAIL;
   const password = process.env.E2E_ADMIN_PASSWORD ?? E2E_PASSWORD;
 

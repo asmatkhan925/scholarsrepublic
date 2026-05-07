@@ -16,9 +16,7 @@ function humanize(value: string) {
     return "Not specified";
   }
 
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatDate(value: string | null) {
@@ -41,9 +39,7 @@ function TextSection({ title, content }: { title: string; content: string }) {
   return (
     <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
       <h2 className="text-xl font-semibold text-ink">{title}</h2>
-      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/70">
-        {content}
-      </p>
+      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/70">{content}</p>
     </section>
   );
 }
@@ -145,30 +141,20 @@ export default function ScholarshipDetailPage() {
                     </span>
                   )}
                   {scholarship.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded bg-skyglass px-3 py-1 text-xs text-ink/70"
-                    >
+                    <span key={tag} className="rounded bg-skyglass px-3 py-1 text-xs text-ink/70">
                       {tag}
                     </span>
                   ))}
                 </div>
 
-                <h1 className="mt-5 text-3xl font-semibold text-ink">
-                  {scholarship.title}
-                </h1>
-                <p className="mt-3 max-w-3xl text-ink/70">
-                  {scholarship.short_description}
-                </p>
+                <h1 className="mt-5 text-3xl font-semibold text-ink">{scholarship.title}</h1>
+                <p className="mt-3 max-w-3xl text-ink/70">{scholarship.short_description}</p>
               </section>
 
               <TextSection title="Description" content={scholarship.description} />
               <TextSection title="Benefits" content={scholarship.benefits} />
               <TextSection title="Eligibility" content={scholarship.eligibility} />
-              <ListSection
-                title="Required Documents"
-                items={scholarship.required_documents}
-              />
+              <ListSection title="Required Documents" items={scholarship.required_documents} />
               <TextSection title="How to Apply" content={scholarship.how_to_apply} />
             </div>
 
@@ -256,12 +242,9 @@ export default function ScholarshipDetailPage() {
                   </>
                 ) : (
                   <>
-                    <h2 className="font-semibold text-ink">
-                      Check your eligibility
-                    </h2>
+                    <h2 className="font-semibold text-ink">Check your eligibility</h2>
                     <p className="mt-3 text-sm leading-6 text-ink/70">
-                      Create a free profile to check your eligibility and save this
-                      opportunity.
+                      Create a free profile to check your eligibility and save this opportunity.
                     </p>
                     <div className="mt-5 grid gap-2">
                       <Link

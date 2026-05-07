@@ -45,11 +45,7 @@ export function DashboardShell({
           </Link>
           <nav className="mt-8 grid gap-1 text-sm font-medium text-ink/75">
             {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="rounded px-3 py-2 hover:bg-mint"
-              >
+              <Link key={item.label} href={item.href} className="rounded px-3 py-2 hover:bg-mint">
                 {item.label}
               </Link>
             ))}

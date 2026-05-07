@@ -99,27 +99,17 @@ class StudentProfile(models.Model):
     current_institution = models.CharField(max_length=200, blank=True)
     current_field_of_study = models.CharField(max_length=150, blank=True)
     graduation_year = models.PositiveIntegerField(null=True, blank=True)
-    result_status = models.CharField(
-        max_length=50, choices=ResultStatus.choices, blank=True
-    )
-    grading_system = models.CharField(
-        max_length=30, choices=GradingSystem.choices, blank=True
-    )
+    result_status = models.CharField(max_length=50, choices=ResultStatus.choices, blank=True)
+    grading_system = models.CharField(max_length=30, choices=GradingSystem.choices, blank=True)
     cgpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
-    percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True
-    )
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     division = models.CharField(max_length=50, blank=True)
 
-    target_degree_level = models.CharField(
-        max_length=50, choices=TargetDegree.choices, blank=True
-    )
+    target_degree_level = models.CharField(max_length=50, choices=TargetDegree.choices, blank=True)
     target_fields = models.JSONField(default=list, blank=True)
     target_countries = models.JSONField(default=list, blank=True)
     preferred_intake = models.CharField(max_length=100, blank=True)
-    study_mode_preference = models.CharField(
-        max_length=50, choices=StudyMode.choices, blank=True
-    )
+    study_mode_preference = models.CharField(max_length=50, choices=StudyMode.choices, blank=True)
     funding_preference = models.CharField(
         max_length=60, choices=FundingPreference.choices, blank=True
     )
@@ -131,9 +121,7 @@ class StudentProfile(models.Model):
     )
 
     has_ielts = models.BooleanField(default=False)
-    ielts_score = models.DecimalField(
-        max_digits=3, decimal_places=1, null=True, blank=True
-    )
+    ielts_score = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
     has_toefl = models.BooleanField(default=False)
     toefl_score = models.PositiveIntegerField(null=True, blank=True)
     has_duolingo = models.BooleanField(default=False)

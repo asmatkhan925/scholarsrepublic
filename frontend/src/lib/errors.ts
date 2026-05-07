@@ -1,10 +1,6 @@
 import axios from "axios";
 
-type ErrorDetail =
-  | string
-  | string[]
-  | Record<string, string | string[]>
-  | undefined;
+type ErrorDetail = string | string[] | Record<string, string | string[]> | undefined;
 
 function flattenErrorDetail(detail: ErrorDetail): string | null {
   if (!detail) {

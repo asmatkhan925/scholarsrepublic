@@ -26,12 +26,7 @@ import {
   saveTokens,
   saveUser,
 } from "@/lib/auth";
-import type {
-  AuthResponse,
-  LoginPayload,
-  RegisterPayload,
-  User,
-} from "@/types/auth";
+import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types/auth";
 
 type AuthContextValue = {
   user: User | null;

@@ -38,8 +38,8 @@ export default function LoginPage() {
         <div className="rounded border border-ink/10 bg-white p-6 shadow-soft">
           <h1 className="text-2xl font-semibold text-ink">Login</h1>
           <p className="mt-2 text-sm leading-6 text-ink/65">
-            Sign in to access your student dashboard, saved opportunities, and
-            future application tracking.
+            Sign in to access your student dashboard, saved opportunities, and future application
+            tracking.
           </p>
 
           {error && (

@@ -62,9 +62,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             self.validate_range(attrs, field_name, minimum, maximum)
 
         cgpa = attrs.get("cgpa")
-        grading_system = attrs.get("grading_system") or getattr(
-            self.instance, "grading_system", ""
-        )
+        grading_system = attrs.get("grading_system") or getattr(self.instance, "grading_system", "")
         if cgpa is not None:
             if cgpa < 0:
                 raise serializers.ValidationError({"cgpa": "Cannot be negative."})
@@ -75,15 +73,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
         graduation_year = attrs.get("graduation_year")
         if graduation_year is not None and not (1970 <= graduation_year <= 2100):
-            raise serializers.ValidationError(
-                {"graduation_year": "Must be between 1970 and 2100."}
-            )
+            raise serializers.ValidationError({"graduation_year": "Must be between 1970 and 2100."})
 
         hsk_level = attrs.get("hsk_level")
         if hsk_level and hsk_level not in [f"HSK{i}" for i in range(1, 7)]:
-            raise serializers.ValidationError(
-                {"hsk_level": "Must be HSK1 to HSK6 or blank."}
-            )
+            raise serializers.ValidationError({"hsk_level": "Must be HSK1 to HSK6 or blank."})
 
         for field_name in [
             "recommendation_letters_count",
@@ -93,8 +87,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         ]:
             value = attrs.get(field_name)
             if value is not None and value < 0:
-                raise serializers.ValidationError(
-                    {field_name: "Cannot be negative."}
-                )
+                raise serializers.ValidationError({field_name: "Cannot be negative."})
 
         return attrs

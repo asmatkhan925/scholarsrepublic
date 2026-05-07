@@ -56,14 +56,9 @@ function StudentDashboardContent() {
             <Gauge size={22} aria-hidden="true" />
             <h2 className="font-semibold text-ink">Profile completion</h2>
           </div>
-          <p className="mt-5 text-4xl font-semibold text-ink">
-            {completionPercent}%
-          </p>
+          <p className="mt-5 text-4xl font-semibold text-ink">{completionPercent}%</p>
           <div className="mt-4 h-2 rounded bg-skyglass">
-            <div
-              className="h-2 rounded bg-pine"
-              style={{ width: `${completionPercent}%` }}
-            />
+            <div className="h-2 rounded bg-pine" style={{ width: `${completionPercent}%` }} />
           </div>
         </section>
 
@@ -76,9 +71,7 @@ function StudentDashboardContent() {
             {readinessScore}
             <span className="text-lg text-ink/55">/100</span>
           </p>
-          <p className="mt-2 text-sm font-semibold text-pine">
-            {readinessLevel} readiness
-          </p>
+          <p className="mt-2 text-sm font-semibold text-pine">{readinessLevel} readiness</p>
         </section>
 
         <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
@@ -87,8 +80,8 @@ function StudentDashboardContent() {
             <h2 className="font-semibold text-ink">Next best step</h2>
           </div>
           <p className="mt-4 text-sm leading-6 text-ink/70">
-            Add your education, target countries, documents, and consent to
-            improve future scholarship recommendations.
+            Add your education, target countries, documents, and consent to improve future
+            scholarship recommendations.
           </p>
           <Link
             href="/dashboard/profile"
@@ -118,9 +111,7 @@ function StudentDashboardContent() {
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-ink/70">
-              Your key profile fields are complete.
-            </p>
+            <p className="mt-4 text-sm text-ink/70">Your key profile fields are complete.</p>
           )}
         </section>
 

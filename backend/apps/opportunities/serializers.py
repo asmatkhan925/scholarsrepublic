@@ -112,9 +112,7 @@ class OpportunityAdminSerializer(serializers.ModelSerializer):
 
         min_percentage = attrs.get("min_percentage")
         if min_percentage is not None and not (0 <= min_percentage <= 100):
-            raise serializers.ValidationError(
-                {"min_percentage": "Must be between 0 and 100."}
-            )
+            raise serializers.ValidationError({"min_percentage": "Must be between 0 and 100."})
 
         salary_min = attrs.get(
             "salary_min",
