@@ -1,0 +1,14 @@
+[Unit]
+Description=Scholars Republic Django Backend
+After=network.target postgresql.service
+
+[Service]
+User=scholarsrepublic
+Group=www-data
+WorkingDirectory=/home/scholarsrepublic/scholarsrepublic/backend
+Environment="PATH=/home/scholarsrepublic/scholarsrepublic/backend/venv/bin"
+ExecStart=/home/scholarsrepublic/scholarsrepublic/backend/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

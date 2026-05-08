@@ -8,14 +8,37 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
-def env_list(name: str, default: str = "") -> list[str]:
-    value = os.getenv(name, default)
+def env_list(name: str, default: str | list[str] | None = None) -> list[str]:
+    value = os.getenv(name)
+    if value is None:
+        if default is None:
+            return []
+        if isinstance(default, list):
+            return default
+        value = default
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
-DEBUG = os.getenv("DEBUG", "True").lower() == "true"
-ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+def env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return default
+    return int(value)
+
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", os.getenv("SECRET_KEY", "dev-only-insecure-key"))
+DEBUG = env_bool("DJANGO_DEBUG", env_bool("DEBUG", True))
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS",
+    env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver"),
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -76,8 +99,9 @@ DATABASES = {
         "PASSWORD": os.getenv("DATABASE_PASSWORD", "postgres"),
         "HOST": os.getenv("DATABASE_HOST", "localhost"),
         "PORT": os.getenv("DATABASE_PORT", "5432"),
+        "CONN_MAX_AGE": env_int("DATABASE_CONN_MAX_AGE", 60),
         "OPTIONS": {
-            "connect_timeout": int(os.getenv("DATABASE_CONNECT_TIMEOUT_SECONDS", "5")),
+            "connect_timeout": env_int("DATABASE_CONNECT_TIMEOUT_SECONDS", 5),
         },
     }
 }
@@ -94,14 +118,38 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = os.getenv("STATIC_URL", "/static/")
+STATIC_ROOT = Path(
+    os.getenv(
+        "STATIC_ROOT",
+        "/var/www/scholarsrepublic/staticfiles" if not DEBUG else str(BASE_DIR / "staticfiles"),
+    )
+)
 MEDIA_URL = os.getenv("MEDIA_URL", "/media/")
-MEDIA_ROOT = BASE_DIR / os.getenv("MEDIA_ROOT", "media")
+MEDIA_ROOT = Path(
+    os.getenv(
+        "MEDIA_ROOT",
+        "/var/www/scholarsrepublic/media" if not DEBUG else str(BASE_DIR / "media"),
+    )
+)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 
-CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    ["http://localhost:3000"] if DEBUG else [],
+)
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", [])
+
+if env_bool("SECURE_PROXY_SSL_HEADER_ENABLED", not DEBUG):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+USE_X_FORWARDED_HOST = env_bool("USE_X_FORWARDED_HOST", not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
