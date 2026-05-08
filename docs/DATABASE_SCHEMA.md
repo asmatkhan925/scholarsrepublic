@@ -291,3 +291,56 @@ Rules:
 - Only student users can save opportunities through the API
 - Only published opportunities can be saved
 - The model is opportunity-based, not scholarship-specific
+
+## `applications.OpportunityApplication`
+
+Opportunity application tracker records let students track preparation and
+application progress for saved or published opportunities. The tracker is
+opportunity-based and can support scholarships now and other opportunity types
+later.
+
+Relationships:
+
+- `user`: foreign key to `users.User`, related name `opportunity_applications`
+- `opportunity`: foreign key to `opportunities.Opportunity`, related name
+  `application_trackers`
+- `saved_opportunity`: nullable foreign key to `applications.SavedOpportunity`,
+  related name `application_trackers`
+
+Fields:
+
+- `status`: preparing, documents pending, documents ready, applied, interview,
+  result waiting, selected, rejected, withdrawn, deferred
+- `priority`: low, medium, high
+- `notes`
+- `next_step`
+- `reminder_at`
+- `submitted_at`
+- `decision_at`
+- `personal_deadline`
+- `checklist_snapshot`: lightweight list of user-entered checklist items for
+  now; the full document checklist module comes later
+- `created_at`
+- `updated_at`
+
+Constraints:
+
+- Unique application tracker per `user` and `opportunity`
+
+Indexes:
+
+- `user`
+- `opportunity`
+- `status`
+- `priority`
+- `personal_deadline`
+- `reminder_at`
+- `created_at`
+
+Rules:
+
+- Only student users can create or update application trackers through the API
+- Only published opportunities can be tracked
+- Starting a tracker from an unsaved published opportunity creates a saved
+  record automatically
+- Deleting a tracker does not delete the saved opportunity

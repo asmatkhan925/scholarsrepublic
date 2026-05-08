@@ -26,6 +26,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
+    launchOptions: {
+      args: ["--no-proxy-server", "--proxy-bypass-list=<-loopback>;localhost;127.0.0.1"],
+    },
   },
   webServer: {
     command: "npm run dev",

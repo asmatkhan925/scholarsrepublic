@@ -438,10 +438,100 @@ Scholarship alias. Only allows `opportunity_type = "scholarship"`.
 
 Scholarship alias for unsaving.
 
+## Phase 7
+
+Phase 7 adds the opportunity application tracker. Tracking requires a logged-in
+student account, but it does not require profile completion. Students can track
+published opportunities from saved records or directly from opportunity detail
+pages. Starting from an unsaved published opportunity automatically creates a
+saved record.
+
+### Application Tracker
+
+`GET /api/applications/`
+
+Returns the current student's tracked applications. Supports optional filters:
+`status`, `priority`, `opportunity_type`, `search`, and `ordering`.
+
+`POST /api/applications/`
+
+Creates a tracker from one of `opportunity_id`, `opportunity_slug`, or
+`saved_opportunity_id`.
+
+```json
+{
+  "opportunity_slug": "chinese-government-scholarship",
+  "status": "preparing",
+  "priority": "medium",
+  "next_step": "Prepare SOP"
+}
+```
+
+`GET /api/applications/{id}/`
+
+Returns one application tracker owned by the current student.
+
+`PATCH /api/applications/{id}/`
+
+Updates mutable tracker fields:
+
+```json
+{
+  "status": "applied",
+  "priority": "high",
+  "notes": "Submitted the online form.",
+  "next_step": "Wait for result",
+  "personal_deadline": "2026-08-01"
+}
+```
+
+`DELETE /api/applications/{id}/`
+
+Stops tracking one application. It does not delete the saved opportunity.
+
+`GET /api/applications/summary/`
+
+Returns totals, counts by status, upcoming personal deadlines, and recently
+updated applications.
+
+```json
+{
+  "total": 3,
+  "counts_by_status": {
+    "preparing": 1,
+    "documents_pending": 0,
+    "documents_ready": 0,
+    "applied": 1,
+    "interview": 0,
+    "result_waiting": 1,
+    "selected": 0,
+    "rejected": 0,
+    "withdrawn": 0,
+    "deferred": 0
+  },
+  "upcoming_deadlines": [],
+  "recently_updated": []
+}
+```
+
+### Start Tracking Convenience Endpoints
+
+`POST /api/saved-opportunities/{id}/start-application/`
+
+Starts tracking from a saved opportunity owned by the current student. Returns
+`201` when created and `200` if already tracked.
+
+`POST /api/opportunities/{slug}/start-application/`
+
+Starts tracking a published opportunity by slug and creates a saved record if
+needed.
+
+`POST /api/scholarships/{slug}/start-application/`
+
+Scholarship alias. Only allows `opportunity_type = "scholarship"`.
+
 ## Planned MVP Endpoints
 
-- `GET|POST /api/applications/`
-- `GET|PUT|PATCH|DELETE /api/applications/{id}/`
 - `GET /api/scholarships/{id}/document-checklist/`
 - `GET|POST /api/service-requests/`
 - `GET /api/service-requests/{id}/`

@@ -262,6 +262,41 @@ Saved opportunity endpoints:
 - `POST /api/scholarships/{slug}/save/`
 - `DELETE /api/scholarships/{slug}/save/`
 
+## Application Tracker
+
+Phase 7 adds an opportunity-based application tracker. Logged-in students can
+start tracking saved or published opportunities, update status and priority,
+add notes and next steps, and set optional personal deadlines. Starting a
+tracker from an unsaved published opportunity automatically saves it first.
+
+The tracker does not submit real applications to universities. It is a student
+workspace for preparation and progress tracking.
+
+Supported statuses:
+
+- preparing
+- documents pending
+- documents ready
+- applied
+- interview
+- result waiting
+- selected
+- rejected
+- withdrawn
+- deferred
+
+Application tracker endpoints:
+
+- `GET /api/applications/`
+- `POST /api/applications/`
+- `GET /api/applications/{id}/`
+- `PATCH /api/applications/{id}/`
+- `DELETE /api/applications/{id}/`
+- `GET /api/applications/summary/`
+- `POST /api/saved-opportunities/{id}/start-application/`
+- `POST /api/opportunities/{slug}/start-application/`
+- `POST /api/scholarships/{slug}/start-application/`
+
 ## End-to-End Testing
 
 Playwright covers the main browser behaviors before major feature phases:
@@ -408,10 +443,11 @@ Completed:
 - Phase 4.9B GitHub raw formatting verification
 - Phase 5 rule-based opportunity match score
 - Phase 6 saved opportunities
+- Phase 7 application tracker
 
 Next phase:
 
-- Phase 7: Application Tracker
+- Phase 8: Document Checklist
 
 ## License
 

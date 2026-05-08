@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { StartApplicationButton } from "@/components/applications/StartApplicationButton";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { deleteSavedOpportunity, getSavedOpportunities } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
@@ -35,6 +37,7 @@ function SavedCard({
   saved: SavedOpportunity;
   onRemoved: (id: number) => void;
 }) {
+  const router = useRouter();
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const opportunity = saved.opportunity_detail;
@@ -93,6 +96,12 @@ function SavedCard({
           View Details
           <ArrowRight size={16} aria-hidden="true" />
         </Link>
+        <StartApplicationButton
+          savedOpportunityId={saved.id}
+          opportunitySlug={opportunity.slug}
+          opportunityType={opportunity.opportunity_type}
+          onStarted={() => router.push("/dashboard/applications")}
+        />
         <button
           type="button"
           disabled={removing}

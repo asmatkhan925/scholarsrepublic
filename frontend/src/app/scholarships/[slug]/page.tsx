@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, CalendarDays, ExternalLink } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { StartApplicationButton } from "@/components/applications/StartApplicationButton";
 import { MatchBreakdown } from "@/components/opportunities/MatchBreakdown";
 import { MatchReasons } from "@/components/opportunities/MatchReasons";
 import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
@@ -306,6 +307,12 @@ export default function ScholarshipDetailPage() {
                     opportunityType={scholarship.opportunity_type}
                     initiallySaved={isSaved}
                     onSavedChange={setIsSaved}
+                  />
+                </div>
+                <div className="mb-5">
+                  <StartApplicationButton
+                    opportunitySlug={scholarship.slug}
+                    opportunityType={scholarship.opportunity_type}
                   />
                 </div>
 

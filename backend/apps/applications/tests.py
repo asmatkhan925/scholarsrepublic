@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.applications.models import SavedOpportunity
+from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.models import Opportunity
 from apps.users.models import User
 
@@ -189,3 +189,249 @@ class SavedOpportunityAPITests(APITestCase):
         response = self.client.post(f"/api/scholarships/{opportunity.slug}/save/")
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_guest_cannot_list_applications(self):
+        response = self.client.get("/api/applications/")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_student_can_start_application_from_saved(self):
+        opportunity = self.opportunity(slug="saved-start")
+        saved = SavedOpportunity.objects.create(user=self.student, opportunity=opportunity)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(f"/api/saved-opportunities/{saved.id}/start-application/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["opportunity"], opportunity.id)
+        self.assertTrue(
+            OpportunityApplication.objects.filter(
+                user=self.student,
+                opportunity=opportunity,
+                saved_opportunity=saved,
+            ).exists()
+        )
+
+    def test_start_application_from_saved_is_idempotent(self):
+        opportunity = self.opportunity(slug="saved-idempotent")
+        saved = SavedOpportunity.objects.create(user=self.student, opportunity=opportunity)
+        application = OpportunityApplication.objects.create(
+            user=self.student,
+            opportunity=opportunity,
+            saved_opportunity=saved,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(f"/api/saved-opportunities/{saved.id}/start-application/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], application.id)
+        self.assertEqual(
+            OpportunityApplication.objects.filter(
+                user=self.student, opportunity=opportunity
+            ).count(),
+            1,
+        )
+
+    def test_student_can_start_application_by_opportunity_slug(self):
+        opportunity = self.opportunity(slug="direct-start")
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(f"/api/opportunities/{opportunity.slug}/start-application/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            SavedOpportunity.objects.filter(user=self.student, opportunity=opportunity).exists()
+        )
+        self.assertTrue(
+            OpportunityApplication.objects.filter(
+                user=self.student, opportunity=opportunity
+            ).exists()
+        )
+
+    def test_student_can_start_scholarship_application_alias(self):
+        opportunity = self.opportunity(slug="scholarship-start")
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(f"/api/scholarships/{opportunity.slug}/start-application/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["opportunity"], opportunity.id)
+
+    def test_scholarship_start_alias_rejects_non_scholarship(self):
+        opportunity = self.opportunity(
+            title="Published Internship",
+            slug="internship-start",
+            opportunity_type=Opportunity.OpportunityType.INTERNSHIP,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(f"/api/scholarships/{opportunity.slug}/start-application/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_cannot_track_draft_opportunity(self):
+        opportunity = self.opportunity(slug="draft-track", status=Opportunity.Status.DRAFT)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/applications/",
+            {"opportunity_id": opportunity.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Only published opportunities", str(response.data))
+
+    def test_student_cannot_create_duplicate_application(self):
+        opportunity = self.opportunity(slug="duplicate-application")
+        OpportunityApplication.objects.create(user=self.student, opportunity=opportunity)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/applications/",
+            {"opportunity_id": opportunity.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already tracking", str(response.data))
+
+    def test_student_can_list_only_own_applications(self):
+        own = self.opportunity(slug="own-application")
+        other = self.opportunity(slug="other-application")
+        OpportunityApplication.objects.create(user=self.student, opportunity=own)
+        OpportunityApplication.objects.create(user=self.other_student, opportunity=other)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get("/api/applications/")
+
+        slugs = [item["opportunity_detail"]["slug"] for item in response.data["results"]]
+        self.assertIn("own-application", slugs)
+        self.assertNotIn("other-application", slugs)
+
+    def test_student_can_update_status_notes_and_next_step(self):
+        opportunity = self.opportunity(slug="update-application")
+        application = OpportunityApplication.objects.create(
+            user=self.student,
+            opportunity=opportunity,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.patch(
+            f"/api/applications/{application.id}/",
+            {
+                "status": OpportunityApplication.Status.APPLIED,
+                "notes": "Submitted form.",
+                "next_step": "Wait for result",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        application.refresh_from_db()
+        self.assertEqual(application.status, OpportunityApplication.Status.APPLIED)
+        self.assertEqual(application.notes, "Submitted form.")
+        self.assertEqual(application.next_step, "Wait for result")
+
+    def test_student_cannot_update_other_students_application(self):
+        opportunity = self.opportunity(slug="other-update")
+        application = OpportunityApplication.objects.create(
+            user=self.other_student,
+            opportunity=opportunity,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.patch(
+            f"/api/applications/{application.id}/",
+            {"status": OpportunityApplication.Status.APPLIED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_can_delete_own_application(self):
+        opportunity = self.opportunity(slug="delete-application")
+        application = OpportunityApplication.objects.create(
+            user=self.student,
+            opportunity=opportunity,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.delete(f"/api/applications/{application.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(OpportunityApplication.objects.filter(id=application.id).exists())
+
+    def test_admin_cannot_use_student_application_flow(self):
+        opportunity = self.opportunity(slug="admin-application")
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/applications/",
+            {"opportunity_id": opportunity.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_application_summary_counts_by_status(self):
+        preparing = self.opportunity(slug="summary-preparing")
+        applied = self.opportunity(slug="summary-applied")
+        OpportunityApplication.objects.create(user=self.student, opportunity=preparing)
+        OpportunityApplication.objects.create(
+            user=self.student,
+            opportunity=applied,
+            status=OpportunityApplication.Status.APPLIED,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get("/api/applications/summary/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total"], 2)
+        self.assertEqual(response.data["counts_by_status"]["preparing"], 1)
+        self.assertEqual(response.data["counts_by_status"]["applied"], 1)
+
+    def test_application_summary_upcoming_deadlines(self):
+        opportunity = self.opportunity(slug="summary-deadline")
+        OpportunityApplication.objects.create(
+            user=self.student,
+            opportunity=opportunity,
+            personal_deadline=timezone.localdate() + timedelta(days=3),
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get("/api/applications/summary/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["upcoming_deadlines"][0]["opportunity"], opportunity.id)
+
+    def test_checklist_snapshot_must_be_list(self):
+        opportunity = self.opportunity(slug="bad-checklist")
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/applications/",
+            {
+                "opportunity_id": opportunity.id,
+                "checklist_snapshot": "Prepare SOP",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("checklist_snapshot", response.data)
+
+    def test_start_application_does_not_require_profile(self):
+        opportunity = self.opportunity(slug="no-profile-needed")
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(f"/api/opportunities/{opportunity.slug}/start-application/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            OpportunityApplication.objects.filter(
+                user=self.student, opportunity=opportunity
+            ).exists()
+        )

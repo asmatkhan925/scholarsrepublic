@@ -128,12 +128,19 @@ Status: complete.
 - Add notes and deadline reminder fields
 - Keep each student limited to their own application records
 
+Status: complete.
+
+## Phase 8: Document Checklist
+
+- Generate document checklist entries from opportunity requirements
+- Connect checklist progress to tracked applications
+- Keep uploaded documents and AI parsing out until later phases
+
 Status: next.
 
 ## Later MVP Phases
 
 - Search and filters
-- Document checklist
 - Service requests
 - Blog and guides
 - Polish and deployment prep

@@ -145,6 +145,91 @@ export type CreateSavedOpportunityPayload = {
   notes?: string;
 };
 
+export type ApplicationStatus =
+  | "preparing"
+  | "documents_pending"
+  | "documents_ready"
+  | "applied"
+  | "interview"
+  | "result_waiting"
+  | "selected"
+  | "rejected"
+  | "withdrawn"
+  | "deferred";
+
+export type ApplicationPriority = "low" | "medium" | "high";
+
+export type ChecklistItem = {
+  label: string;
+  done: boolean;
+};
+
+export type OpportunityApplication = {
+  id: number;
+  user: number;
+  opportunity: number;
+  opportunity_detail: OpportunityListItem;
+  saved_opportunity: number | null;
+  status: ApplicationStatus;
+  priority: ApplicationPriority;
+  notes: string;
+  next_step: string;
+  reminder_at: string | null;
+  submitted_at: string | null;
+  decision_at: string | null;
+  personal_deadline: string | null;
+  checklist_snapshot: ChecklistItem[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type OpportunityApplicationResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: OpportunityApplication[];
+};
+
+export type CreateApplicationPayload = {
+  opportunity_id?: number;
+  opportunity_slug?: string;
+  saved_opportunity_id?: number;
+  status?: ApplicationStatus;
+  priority?: ApplicationPriority;
+  notes?: string;
+  next_step?: string;
+  reminder_at?: string | null;
+  personal_deadline?: string | null;
+  checklist_snapshot?: ChecklistItem[];
+};
+
+export type UpdateApplicationPayload = Partial<{
+  status: ApplicationStatus;
+  priority: ApplicationPriority;
+  notes: string;
+  next_step: string;
+  reminder_at: string | null;
+  submitted_at: string | null;
+  decision_at: string | null;
+  personal_deadline: string | null;
+  checklist_snapshot: ChecklistItem[];
+}>;
+
+export type ApplicationSummary = {
+  total: number;
+  counts_by_status: Record<ApplicationStatus, number>;
+  upcoming_deadlines: OpportunityApplication[];
+  recently_updated: OpportunityApplication[];
+};
+
+export type ApplicationQueryParams = {
+  status?: ApplicationStatus;
+  priority?: ApplicationPriority;
+  opportunity_type?: OpportunityType;
+  search?: string;
+  ordering?: string;
+};
+
 export type OpportunityQueryParams = {
   search?: string;
   opportunity_type?: OpportunityType;
