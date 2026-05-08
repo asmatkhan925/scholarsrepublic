@@ -23,7 +23,12 @@ test("public scholarships page loads for guest", async ({ page }) => {
 
 test("guest can open scholarship detail page", async ({ page }) => {
   await page.goto("/scholarships");
-  await page.getByRole("link", { name: "View Details" }).first().click();
+
+  const scholarshipCard = page
+    .locator("article")
+    .filter({ hasText: "Chinese Government Scholarship" });
+  await expect(scholarshipCard).toBeVisible();
+  await scholarshipCard.getByRole("link", { name: "View Details" }).click();
 
   await expect(page).toHaveURL(/\/scholarships\/.+/);
   await expect(page.getByRole("heading", { name: "Check your eligibility" })).toBeVisible();

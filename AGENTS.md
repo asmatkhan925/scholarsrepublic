@@ -36,6 +36,7 @@ Prefer `apps.opportunities.Opportunity` for scholarship/opportunity data. Do not
 - Use Black and isort for backend Python.
 - Use Prettier for frontend TypeScript, TSX, CSS, JSON, and Markdown.
 - Verify the remote repository after quality-gate changes when repo formatting is questioned.
+- When remote formatting is questioned, verify GitHub raw URLs after pushing before starting the next phase.
 - Add tests for backend business logic.
 - Run tests/build/lint when possible.
 - Before adding major new features, run backend tests, frontend lint/build, and E2E tests when UI behavior is affected.

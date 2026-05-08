@@ -88,6 +88,15 @@ Status: complete.
 
 Status: complete.
 
+## Phase 4.9B: GitHub Raw Formatting Verification
+
+- Re-check GitHub raw URLs for multi-line backend and frontend source files
+- Confirm remote `package.json` includes Prettier scripts and dependency
+- Confirm remote Playwright config uses `npm run dev` and contains no NVM command
+- Re-run backend, frontend, and E2E quality gates after verification
+
+Status: complete.
+
 Long-term note: Scholars Republic should become a flexible student opportunity
 platform. Scholarships are the first opportunity type; later types can include
 jobs, internships, fellowships, exchange programs, admissions, competitions,
