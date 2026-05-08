@@ -86,6 +86,38 @@ export type OpportunityListResponse = {
   results: OpportunityListItem[];
 };
 
+export type MatchBreakdown = {
+  eligibility: number;
+  degree_level: number;
+  field_fit: number;
+  country_preference: number;
+  funding_fee: number;
+  language_test: number;
+  academic_requirement: number;
+  document_readiness: number;
+  deadline_safety: number;
+};
+
+export type OpportunityMatch = {
+  score: number;
+  readiness_level: "Low" | "Medium" | "High";
+  breakdown: MatchBreakdown;
+  matched_reasons: string[];
+  missing_requirements: string[];
+  warnings: string[];
+  suggestions: string[];
+};
+
+export type RecommendedOpportunity = {
+  opportunity: OpportunityListItem;
+  match: OpportunityMatch;
+};
+
+export type RecommendedOpportunityResponse = {
+  count: number;
+  results: RecommendedOpportunity[];
+};
+
 export type OpportunityQueryParams = {
   search?: string;
   opportunity_type?: OpportunityType;

@@ -6,10 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, CalendarDays, ExternalLink } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { MatchBreakdown } from "@/components/opportunities/MatchBreakdown";
+import { MatchReasons } from "@/components/opportunities/MatchReasons";
+import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
 import { SiteHeader } from "@/components/site-header";
-import { getScholarship } from "@/lib/api";
+import { getScholarship, getScholarshipMatch } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { OpportunityDetail } from "@/types/opportunity";
+import type { OpportunityDetail, OpportunityMatch } from "@/types/opportunity";
 
 function humanize(value: string) {
   if (!value) {
@@ -65,10 +68,13 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 
 export default function ScholarshipDetailPage() {
   const params = useParams<{ slug: string }>();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [scholarship, setScholarship] = useState<OpportunityDetail | null>(null);
+  const [match, setMatch] = useState<OpportunityMatch | null>(null);
   const [loading, setLoading] = useState(true);
+  const [matchLoading, setMatchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -98,6 +104,41 @@ export default function ScholarshipDetailPage() {
       mounted = false;
     };
   }, [params.slug]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadMatch() {
+      if (authLoading || user?.role !== "student" || !params.slug) {
+        return;
+      }
+
+      setMatchLoading(true);
+      setMatchError(null);
+
+      try {
+        const data = await getScholarshipMatch(params.slug);
+        if (mounted) {
+          setMatch(data);
+        }
+      } catch (requestError) {
+        if (mounted) {
+          setMatch(null);
+          setMatchError(getErrorMessage(requestError));
+        }
+      } finally {
+        if (mounted) {
+          setMatchLoading(false);
+        }
+      }
+    }
+
+    void loadMatch();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authLoading, params.slug, user?.role]);
 
   const provider = useMemo(() => {
     if (!scholarship) {
@@ -227,24 +268,53 @@ export default function ScholarshipDetailPage() {
               </section>
 
               <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
-                {isAuthenticated ? (
+                {user?.role === "student" ? (
                   <>
-                    <h2 className="font-semibold text-ink">Match score coming next</h2>
+                    <h2 className="font-semibold text-ink">Your Match Score</h2>
+                    {matchLoading && (
+                      <p className="mt-3 text-sm leading-6 text-ink/70">
+                        Calculating your personalized match...
+                      </p>
+                    )}
+                    {match && (
+                      <div className="mt-4 grid gap-4">
+                        <MatchScoreBadge
+                          score={match.score}
+                          readinessLevel={match.readiness_level}
+                        />
+                        <p className="text-sm leading-6 text-ink/70">
+                          This score is rule-based and uses your profile, documents, preferences,
+                          and this opportunity&apos;s requirements.
+                        </p>
+                      </div>
+                    )}
+                    {matchError && (
+                      <div className="mt-4 grid gap-3 rounded bg-skyglass px-3 py-3 text-sm text-ink/70">
+                        <p>{matchError}</p>
+                        <Link href="/dashboard/profile" className="font-semibold text-pine">
+                          Complete your profile to calculate your match score.
+                        </Link>
+                      </div>
+                    )}
+                    {!match && !matchError && !matchLoading && (
+                      <p className="mt-3 text-sm leading-6 text-ink/70">
+                        Complete your profile to calculate your match score.
+                      </p>
+                    )}
+                  </>
+                ) : isAuthenticated ? (
+                  <>
+                    <h2 className="font-semibold text-ink">Personalized matching</h2>
                     <p className="mt-3 text-sm leading-6 text-ink/70">
-                      Personalized match score will be available in the next phase.
+                      Admin users can view public opportunity details. Student match scores are
+                      available from student accounts.
                     </p>
-                    <Link
-                      href="/dashboard"
-                      className="mt-5 inline-flex w-full justify-center rounded bg-pine px-4 py-2 text-sm font-semibold text-white hover:bg-pine/90"
-                    >
-                      Go to Dashboard
-                    </Link>
                   </>
                 ) : (
                   <>
                     <h2 className="font-semibold text-ink">Check your eligibility</h2>
                     <p className="mt-3 text-sm leading-6 text-ink/70">
-                      Create a free profile to check your eligibility and save this opportunity.
+                      Create a free profile to check your match score and missing requirements.
                     </p>
                     <div className="mt-5 grid gap-2">
                       <Link
@@ -263,6 +333,18 @@ export default function ScholarshipDetailPage() {
                   </>
                 )}
               </section>
+
+              {match && (
+                <>
+                  <MatchBreakdown breakdown={match.breakdown} />
+                  <MatchReasons
+                    matched_reasons={match.matched_reasons}
+                    missing_requirements={match.missing_requirements}
+                    warnings={match.warnings}
+                    suggestions={match.suggestions}
+                  />
+                </>
+              )}
             </aside>
           </div>
         )}

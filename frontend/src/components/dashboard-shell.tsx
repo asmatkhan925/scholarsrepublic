@@ -44,7 +44,7 @@ export function DashboardShell({
       : [
           { label: "Dashboard", href: "/dashboard" },
           { label: "Profile", href: "/dashboard/profile" },
-          { label: "Recommendations", disabled: true },
+          { label: "Recommendations", href: "/dashboard/recommendations" },
           { label: "Saved", disabled: true },
           { label: "Applications", disabled: true },
           { label: "Documents", disabled: true },

@@ -284,10 +284,93 @@ Admin users only:
 Admin create/update supports all `Opportunity` model fields. Public users and
 student users cannot create, update, or delete opportunities.
 
+## Phase 5
+
+Phase 5 adds deterministic, explainable match scoring. Match endpoints require a
+logged-in student account with a completed student profile. Guest users can
+browse public opportunities but cannot see personalized scores. Admin users do
+not need student match scores.
+
+### Opportunity Match
+
+`GET /api/opportunities/{slug}/match/`
+
+Returns a personalized match result for a published opportunity.
+
+`GET /api/scholarships/{slug}/match/`
+
+Scholarship alias that only matches published scholarship opportunities.
+
+Response:
+
+```json
+{
+  "score": 86,
+  "readiness_level": "High",
+  "breakdown": {
+    "eligibility": 20,
+    "degree_level": 15,
+    "field_fit": 15,
+    "country_preference": 10,
+    "funding_fee": 10,
+    "language_test": 10,
+    "academic_requirement": 7,
+    "document_readiness": 4,
+    "deadline_safety": 5
+  },
+  "matched_reasons": ["Pakistani students are eligible."],
+  "missing_requirements": ["Study Plan"],
+  "warnings": ["Deadline is approaching."],
+  "suggestions": ["Prepare Study Plan before applying."]
+}
+```
+
+If the student has no profile:
+
+```json
+{
+  "detail": "Complete your student profile to calculate a match score."
+}
+```
+
+### Recommended Opportunities
+
+`GET /api/opportunities/recommended/`
+
+Returns published opportunities sorted by match score.
+
+`GET /api/scholarships/recommended/`
+
+Scholarship alias that returns published scholarship opportunities sorted by
+match score.
+
+Response:
+
+```json
+{
+  "count": 10,
+  "results": [
+    {
+      "opportunity": {
+        "id": 1,
+        "title": "Chinese Government Scholarship",
+        "slug": "chinese-government-scholarship"
+      },
+      "match": {
+        "score": 86,
+        "readiness_level": "High",
+        "matched_reasons": [],
+        "missing_requirements": [],
+        "warnings": [],
+        "suggestions": []
+      }
+    }
+  ]
+}
+```
+
 ## Planned MVP Endpoints
 
-- `GET /api/scholarships/recommended/`
-- `GET /api/scholarships/{id}/match-score/`
 - `GET|POST /api/saved-scholarships/`
 - `DELETE /api/saved-scholarships/{id}/`
 - `GET|POST /api/applications/`

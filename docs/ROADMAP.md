@@ -107,13 +107,23 @@ training, research positions, and mentorship programs.
 - Connect `StudentProfile` and `Opportunity`
 - Return match score, reasons, missing requirements, and warnings
 - Keep scoring explainable before any future AI layer
+- Add student-facing match score displays on scholarship list/detail pages
+- Add dashboard recommendations page
+
+Status: complete.
+
+## Phase 6: Saved Opportunities
+
+- Let students save published opportunities
+- Add saved opportunities dashboard page
+- Keep guest/public browsing unchanged
+- Prepare saved records for future application tracking
 
 Status: next.
 
 ## Later MVP Phases
 
 - Search and filters
-- Saved opportunities
 - Application tracker
 - Document checklist
 - Service requests

@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.opportunities.models import Opportunity
+from apps.profiles.models import StudentProfile
 from apps.users.models import User
 
 
@@ -40,6 +41,37 @@ class OpportunityAPITests(APITestCase):
         }
         data.update(overrides)
         return Opportunity.objects.create(**data)
+
+    def profile(self, user=None, **overrides):
+        data = {
+            "user": user or self.student,
+            "nationality": "Pakistan",
+            "current_country": "Pakistan",
+            "city": "Lahore",
+            "province": StudentProfile.Province.PUNJAB,
+            "domicile": "Punjab",
+            "current_education_level": StudentProfile.EducationLevel.BACHELOR,
+            "current_field_of_study": "Computer Science",
+            "target_degree_level": StudentProfile.TargetDegree.MASTER,
+            "target_fields": ["Computer Science"],
+            "target_countries": ["China"],
+            "funding_preference": StudentProfile.FundingPreference.FULLY_FUNDED,
+            "application_fee_preference": StudentProfile.ApplicationFeePreference.NO_FEE,
+            "grading_system": StudentProfile.GradingSystem.CGPA_4,
+            "cgpa": "3.60",
+            "has_passport": True,
+            "has_transcript": True,
+            "has_degree": True,
+            "has_cv": True,
+            "has_study_plan": True,
+            "has_recommendation_letters": True,
+            "recommendation_letters_count": 2,
+            "english_proficiency_certificate": True,
+            "has_english_proficiency_letter": True,
+            "profile_data_consent": True,
+        }
+        data.update(overrides)
+        return StudentProfile.objects.create(**data)
 
     def admin_payload(self):
         return {
@@ -252,3 +284,209 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_guest_cannot_access_match_endpoint(self):
+        opportunity = self.opportunity()
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_admin_cannot_use_student_match_endpoint(self):
+        opportunity = self.opportunity()
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_student_without_profile_gets_helpful_match_error(self):
+        opportunity = self.opportunity()
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Complete your student profile", response.data["detail"])
+
+    def test_student_gets_match_score_for_published_scholarship(self):
+        self.profile()
+        opportunity = self.opportunity(required_documents=["Passport", "Transcript", "CV"])
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("score", response.data)
+        self.assertIn("breakdown", response.data)
+        self.assertIn("matched_reasons", response.data)
+        self.assertIn("missing_requirements", response.data)
+        self.assertIn("warnings", response.data)
+
+    def test_draft_opportunity_match_not_visible_to_student(self):
+        self.profile()
+        opportunity = self.opportunity(status=Opportunity.Status.DRAFT)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_strong_match_scores_high(self):
+        self.profile()
+        opportunity = self.opportunity(
+            slug="strong-match",
+            eligible_countries=["Pakistan"],
+            degree_levels=["Master"],
+            fields_of_study=["Computer Science"],
+            country="China",
+            funding_type=Opportunity.FundingType.FULLY_FUNDED,
+            application_fee_required=False,
+            required_documents=["Passport", "Transcript", "CV", "Study Plan"],
+            ielts_required=False,
+            min_cgpa="3.00",
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertGreaterEqual(response.data["score"], 75)
+
+    def test_weak_match_scores_low(self):
+        self.profile(
+            target_degree_level=StudentProfile.TargetDegree.MASTER,
+            target_fields=["Computer Science"],
+            target_countries=["China"],
+            has_passport=False,
+            has_transcript=False,
+            has_cv=False,
+            has_study_plan=False,
+            has_recommendation_letters=False,
+            recommendation_letters_count=0,
+        )
+        opportunity = self.opportunity(
+            slug="weak-match",
+            eligible_countries=["USA"],
+            degree_levels=["PhD"],
+            fields_of_study=["Medicine"],
+            country="Germany",
+            funding_type=Opportunity.FundingType.SELF_FUNDED,
+            application_fee_required=True,
+            required_documents=["Passport", "CV", "SOP"],
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertLessEqual(response.data["score"], 40)
+
+    def test_missing_documents_are_reported(self):
+        self.profile(has_sop=False, has_study_plan=False)
+        opportunity = self.opportunity(
+            slug="missing-documents-match",
+            required_documents=["Passport", "CV", "SOP"],
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertIn("SOP", response.data["missing_requirements"])
+
+    def test_deadline_warning_appears(self):
+        self.profile()
+        opportunity = self.opportunity(
+            slug="close-deadline-match",
+            deadline=timezone.localdate() + timedelta(days=5),
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertIn("Deadline is very close.", response.data["warnings"])
+
+    def test_expired_opportunity_match_warns_student(self):
+        self.profile()
+        opportunity = self.opportunity(
+            slug="expired-match",
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("This opportunity appears expired.", response.data["warnings"])
+
+    def test_recommended_scholarships_sorted_by_score(self):
+        self.profile()
+        high = self.opportunity(
+            slug="recommended-high",
+            country="China",
+            eligible_countries=["Pakistan"],
+            degree_levels=["Master"],
+            fields_of_study=["Computer Science"],
+            required_documents=["Passport", "CV"],
+        )
+        low = self.opportunity(
+            slug="recommended-low",
+            country="Germany",
+            eligible_countries=["USA"],
+            degree_levels=["PhD"],
+            fields_of_study=["Medicine"],
+            required_documents=["Passport", "SOP", "GRE"],
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get("/api/scholarships/recommended/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        slugs = [item["opportunity"]["slug"] for item in response.data["results"]]
+        self.assertLess(slugs.index(high.slug), slugs.index(low.slug))
+        scores = [item["match"]["score"] for item in response.data["results"]]
+        self.assertEqual(scores, sorted(scores, reverse=True))
+
+    def test_recommended_opportunities_only_published(self):
+        self.profile()
+        published = self.opportunity(slug="published-recommended")
+        draft = self.opportunity(slug="draft-recommended", status=Opportunity.Status.DRAFT)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get("/api/opportunities/recommended/")
+
+        slugs = [item["opportunity"]["slug"] for item in response.data["results"]]
+        self.assertIn(published.slug, slugs)
+        self.assertNotIn(draft.slug, slugs)
+
+    def test_scholarship_recommended_alias_only_scholarships(self):
+        self.profile()
+        scholarship = self.opportunity(slug="recommended-scholarship-only")
+        self.opportunity(
+            slug="recommended-job-hidden",
+            title="Recommended Job Hidden",
+            opportunity_type=Opportunity.OpportunityType.JOB,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get("/api/scholarships/recommended/")
+
+        slugs = [item["opportunity"]["slug"] for item in response.data["results"]]
+        self.assertIn(scholarship.slug, slugs)
+        self.assertNotIn("recommended-job-hidden", slugs)
+
+    def test_academic_requirement_matching(self):
+        self.profile(cgpa="3.60", grading_system=StudentProfile.GradingSystem.CGPA_4)
+        opportunity = self.opportunity(slug="academic-match", min_cgpa="3.20")
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.data["breakdown"]["academic_requirement"], 10)
+
+    def test_language_requirement_matching(self):
+        self.profile(has_ielts=True)
+        opportunity = self.opportunity(slug="language-match", ielts_required=True)
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
+
+        self.assertEqual(response.data["breakdown"]["language_test"], 10)

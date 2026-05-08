@@ -222,12 +222,31 @@ cd backend
 python manage.py seed_opportunities
 ```
 
+## Rule-Based Match Score
+
+Phase 5 connects `StudentProfile` and `Opportunity` with a deterministic,
+explainable match score. Guests can still browse scholarship opportunities, but
+personalized scores require a logged-in student account and a student profile.
+
+Match results include:
+
+- score out of 100
+- category breakdown
+- matched reasons
+- missing requirements
+- warnings
+- readiness suggestions
+
+Frontend pages show match scores for logged-in students on scholarship
+list/detail pages and in `/dashboard/recommendations`. Admin users are not
+forced into the student matching flow.
+
 ## End-to-End Testing
 
-Playwright covers the main browser behaviors before the match-score phase:
+Playwright covers the main browser behaviors before major feature phases:
 guest browsing, register/login/logout, protected dashboard/profile/admin routes,
 scholarship listing/detail pages, profile form controls, validation messages,
-and frontend/backend integration.
+match score visibility, recommendations, and frontend/backend integration.
 
 Prerequisites:
 
@@ -366,10 +385,11 @@ Completed:
 - Phase 4.8 quality gate before match score
 - Phase 4.9 remote repository reality check and formatting repair
 - Phase 4.9B GitHub raw formatting verification
+- Phase 5 rule-based opportunity match score
 
 Next phase:
 
-- Phase 5: Rule-Based Opportunity Match Score
+- Phase 6: Saved Opportunities
 
 ## License
 

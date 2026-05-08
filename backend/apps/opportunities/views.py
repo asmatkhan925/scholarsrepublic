@@ -1,6 +1,9 @@
 from django.db.models import F, Q
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import Opportunity
 from apps.opportunities.serializers import (
     OpportunityAdminSerializer,
@@ -26,6 +29,15 @@ class IsPlatformAdmin(permissions.BasePermission):
                 or request.user.is_staff
                 or request.user.is_superuser
             )
+        )
+
+
+class IsStudentUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.role == User.Role.STUDENT
         )
 
 
@@ -160,3 +172,77 @@ class AdminOpportunityDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OpportunityAdminSerializer
     permission_classes = [IsPlatformAdmin]
     queryset = Opportunity.objects.all()
+
+
+class StudentMatchMixin:
+    permission_classes = [permissions.IsAuthenticated, IsStudentUser]
+    opportunity_type = None
+
+    def get_profile(self, request):
+        if not hasattr(request.user, "student_profile"):
+            return None
+        return request.user.student_profile
+
+    def get_published_queryset(self):
+        queryset = Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
+        if self.opportunity_type:
+            queryset = queryset.filter(opportunity_type=self.opportunity_type)
+        return queryset
+
+    def profile_missing_response(self):
+        return Response(
+            {"detail": "Complete your student profile to calculate a match score."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class OpportunityMatchView(StudentMatchMixin, APIView):
+    def get(self, request, slug):
+        profile = self.get_profile(request)
+        if not profile:
+            return self.profile_missing_response()
+
+        try:
+            opportunity = self.get_published_queryset().get(slug=slug)
+        except Opportunity.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(calculate_opportunity_match(profile, opportunity))
+
+
+class ScholarshipMatchView(OpportunityMatchView):
+    opportunity_type = Opportunity.OpportunityType.SCHOLARSHIP
+
+
+class RecommendedOpportunitiesView(OpportunityFilterMixin, StudentMatchMixin, APIView):
+    limit = 20
+
+    def get(self, request):
+        profile = self.get_profile(request)
+        if not profile:
+            return self.profile_missing_response()
+
+        queryset = self.filter_queryset(self.get_published_queryset())
+        recommendations = []
+        for opportunity in queryset[:100]:
+            match = calculate_opportunity_match(profile, opportunity)
+            recommendations.append(
+                {
+                    "opportunity": OpportunityListSerializer(opportunity).data,
+                    "match": match,
+                }
+            )
+
+        recommendations.sort(
+            key=lambda item: (
+                item["match"]["score"],
+                item["opportunity"]["featured"],
+            ),
+            reverse=True,
+        )
+        recommendations = recommendations[: self.limit]
+        return Response({"count": len(recommendations), "results": recommendations})
+
+
+class RecommendedScholarshipsView(RecommendedOpportunitiesView):
+    opportunity_type = Opportunity.OpportunityType.SCHOLARSHIP

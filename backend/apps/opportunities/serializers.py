@@ -133,3 +133,8 @@ class OpportunityAdminSerializer(serializers.ModelSerializer):
             attrs["slug"] = slugify(title)
 
         return attrs
+
+
+class RecommendedOpportunitySerializer(serializers.Serializer):
+    opportunity = OpportunityListSerializer(read_only=True)
+    match = serializers.DictField(read_only=True)

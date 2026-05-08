@@ -37,6 +37,8 @@ Prefer `apps.opportunities.Opportunity` for scholarship/opportunity data. Do not
 - Use Prettier for frontend TypeScript, TSX, CSS, JSON, and Markdown.
 - Verify the remote repository after quality-gate changes when repo formatting is questioned.
 - When remote formatting is questioned, verify GitHub raw URLs after pushing before starting the next phase.
+- Keep match scoring deterministic and explainable. Do not replace rule-based matching with AI unless explicitly requested.
+- Future AI may explain or improve match results, but the platform must keep transparent reasons, missing requirements, warnings, and suggestions.
 - Add tests for backend business logic.
 - Run tests/build/lint when possible.
 - Before adding major new features, run backend tests, frontend lint/build, and E2E tests when UI behavior is affected.

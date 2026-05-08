@@ -5,13 +5,16 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { BadgeCheck, CalendarDays, Search, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
 import { SiteHeader } from "@/components/site-header";
-import { getScholarships } from "@/lib/api";
+import { getRecommendedScholarships, getScholarships } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   OpportunityListItem,
   OpportunityListResponse,
   OpportunityQueryParams,
+  RecommendedOpportunity,
+  RecommendedOpportunityResponse,
 } from "@/types/opportunity";
 
 const COUNTRIES = ["China", "Taiwan", "Turkey", "Germany", "USA", "Pakistan", "Malaysia"];
@@ -43,9 +46,23 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function ScholarshipCard({ scholarship }: { scholarship: OpportunityListItem }) {
-  const { isAuthenticated } = useAuth();
-  const eligibilityHref = isAuthenticated ? "/dashboard" : "/register";
+function ScholarshipCard({
+  scholarship,
+  match,
+  profileRequired,
+}: {
+  scholarship: OpportunityListItem;
+  match?: RecommendedOpportunity["match"];
+  profileRequired?: boolean;
+}) {
+  const { user, isAuthenticated } = useAuth();
+  const eligibilityHref = !isAuthenticated
+    ? "/register"
+    : user?.role === "student" && profileRequired
+      ? "/dashboard/profile"
+      : user?.role === "admin"
+        ? "/admin"
+        : "/dashboard";
   const provider =
     scholarship.university_name ||
     scholarship.provider_name ||
@@ -70,6 +87,19 @@ function ScholarshipCard({ scholarship }: { scholarship: OpportunityListItem }) 
 
       <h2 className="text-lg font-semibold text-ink">{scholarship.title}</h2>
       <p className="mt-2 text-sm text-ink/65">{scholarship.short_description}</p>
+
+      {match && (
+        <div className="mt-4 grid gap-3">
+          <MatchScoreBadge score={match.score} readinessLevel={match.readiness_level} />
+          {match.matched_reasons.length > 0 && (
+            <ul className="grid gap-1 text-sm text-ink/65">
+              {match.matched_reasons.slice(0, 2).map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <dl className="mt-5 grid gap-2 text-sm text-ink/70">
         <div className="flex justify-between gap-3">
@@ -113,6 +143,12 @@ function ScholarshipCard({ scholarship }: { scholarship: OpportunityListItem }) 
         </p>
       )}
 
+      {isAuthenticated && profileRequired && user?.role === "student" && (
+        <p className="mt-5 rounded bg-skyglass px-3 py-2 text-sm text-ink/70">
+          Complete your profile to see personalized match scores.
+        </p>
+      )}
+
       <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
         <Link
           href={`/scholarships/${scholarship.slug}`}
@@ -133,8 +169,12 @@ function ScholarshipCard({ scholarship }: { scholarship: OpportunityListItem }) 
 
 export default function ScholarshipsPage() {
   const [data, setData] = useState<OpportunityListResponse | null>(null);
+  const [recommendedData, setRecommendedData] = useState<RecommendedOpportunityResponse | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [matchNotice, setMatchNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [fundingType, setFundingType] = useState("");
@@ -145,14 +185,37 @@ export default function ScholarshipsPage() {
     ordering: "deadline",
   });
 
+  const { user, loading: authLoading } = useAuth();
+
   useEffect(() => {
     let mounted = true;
 
     async function loadScholarships() {
+      if (authLoading) {
+        return;
+      }
+
       setLoading(true);
       setError(null);
+      setMatchNotice(null);
+      setRecommendedData(null);
+      setData(null);
 
       try {
+        if (user?.role === "student") {
+          try {
+            const response = await getRecommendedScholarships(filters);
+            if (mounted) {
+              setRecommendedData(response);
+            }
+            return;
+          } catch {
+            if (mounted) {
+              setMatchNotice("Complete your profile to see personalized match scores.");
+            }
+          }
+        }
+
         const response = await getScholarships(filters);
         if (mounted) {
           setData(response);
@@ -173,16 +236,29 @@ export default function ScholarshipsPage() {
     return () => {
       mounted = false;
     };
-  }, [filters]);
+  }, [authLoading, filters, user?.role]);
 
-  const scholarships = data?.results ?? [];
+  const recommendations = useMemo(() => recommendedData?.results ?? [], [recommendedData]);
+  const scholarships = useMemo(
+    () =>
+      recommendedData ? recommendations.map((item) => item.opportunity) : (data?.results ?? []),
+    [data?.results, recommendations, recommendedData],
+  );
+  const matchByOpportunityId = useMemo(() => {
+    return new Map(recommendations.map((item) => [item.opportunity.id, item.match]));
+  }, [recommendations]);
   const totalLabel = useMemo(() => {
+    if (recommendedData) {
+      return `${recommendedData.count} personalized scholarship${
+        recommendedData.count === 1 ? "" : "s"
+      }`;
+    }
     if (!data) {
       return "Loading scholarships";
     }
 
     return `${data.count} published scholarship${data.count === 1 ? "" : "s"}`;
-  }, [data]);
+  }, [data, recommendedData]);
 
   function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -301,6 +377,15 @@ export default function ScholarshipsPage() {
           </p>
         </div>
 
+        {matchNotice && (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded border border-saffron/40 bg-saffron/15 px-4 py-3 text-sm text-ink/75">
+            <span>{matchNotice}</span>
+            <Link href="/dashboard/profile" className="font-semibold text-pine hover:underline">
+              Complete Profile
+            </Link>
+          </div>
+        )}
+
         {loading && (
           <div className="mt-8 rounded border border-ink/10 bg-white p-6 text-sm text-ink/70">
             Loading scholarships...
@@ -322,7 +407,12 @@ export default function ScholarshipsPage() {
         {!loading && !error && scholarships.length > 0 && (
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {scholarships.map((scholarship) => (
-              <ScholarshipCard key={scholarship.id} scholarship={scholarship} />
+              <ScholarshipCard
+                key={scholarship.id}
+                scholarship={scholarship}
+                match={matchByOpportunityId.get(scholarship.id)}
+                profileRequired={Boolean(matchNotice)}
+              />
             ))}
           </div>
         )}

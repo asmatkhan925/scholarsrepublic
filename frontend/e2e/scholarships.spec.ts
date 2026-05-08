@@ -59,10 +59,12 @@ test("guest check eligibility sends user to registration", async ({ page }) => {
   await expect(page).toHaveURL(/\/register/);
 });
 
-test("logged-in check eligibility sends student to dashboard for now", async ({ page }) => {
+test("logged-in check eligibility sends student without profile to profile page", async ({
+  page,
+}) => {
   await registerStudent(page);
   await page.goto("/scholarships");
   await page.getByRole("link", { name: "Check Eligibility" }).first().click();
 
-  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page).toHaveURL(/\/dashboard\/profile/);
 });

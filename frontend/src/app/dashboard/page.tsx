@@ -134,11 +134,20 @@ function StudentDashboardContent() {
       </div>
 
       <div className="mt-6 grid gap-5 md:grid-cols-3">
-        {[
-          "Recommended scholarships coming soon",
-          "Saved opportunities coming soon",
-          "Application tracker coming soon",
-        ].map((item) => (
+        <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
+          <h2 className="font-semibold text-ink">Recommended Scholarships</h2>
+          <p className="mt-3 text-sm leading-6 text-ink/70">
+            See scholarship opportunities ranked by your profile, documents, and preferences.
+          </p>
+          <Link
+            href="/dashboard/recommendations"
+            className="mt-5 inline-flex items-center gap-2 rounded bg-pine px-4 py-2 text-sm font-semibold text-white hover:bg-pine/90"
+          >
+            View Recommendations
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </section>
+        {["Saved opportunities coming soon", "Application tracker coming soon"].map((item) => (
           <section
             key={item}
             className="rounded border border-dashed border-ink/15 bg-white p-5 text-sm font-medium text-ink/65"

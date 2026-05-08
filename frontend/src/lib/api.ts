@@ -6,7 +6,9 @@ import type {
   OpportunityAdminPayload,
   OpportunityDetail,
   OpportunityListResponse,
+  OpportunityMatch,
   OpportunityQueryParams,
+  RecommendedOpportunityResponse,
 } from "@/types/opportunity";
 
 export const api = axios.create({
@@ -127,4 +129,28 @@ export async function patchAdminOpportunity(id: number, payload: Partial<Opportu
 
 export async function deleteAdminOpportunity(id: number) {
   await api.delete(`/admin/opportunities/${id}/`);
+}
+
+export async function getOpportunityMatch(slug: string) {
+  const response = await api.get<OpportunityMatch>(`/opportunities/${slug}/match/`);
+  return response.data;
+}
+
+export async function getScholarshipMatch(slug: string) {
+  const response = await api.get<OpportunityMatch>(`/scholarships/${slug}/match/`);
+  return response.data;
+}
+
+export async function getRecommendedOpportunities(params?: OpportunityQueryParams) {
+  const response = await api.get<RecommendedOpportunityResponse>("/opportunities/recommended/", {
+    params,
+  });
+  return response.data;
+}
+
+export async function getRecommendedScholarships(params?: OpportunityQueryParams) {
+  const response = await api.get<RecommendedOpportunityResponse>("/scholarships/recommended/", {
+    params,
+  });
+  return response.data;
 }

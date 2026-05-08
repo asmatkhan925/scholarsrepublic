@@ -30,3 +30,51 @@ export async function logout(page: Page) {
   await page.getByRole("button", { name: "Logout" }).click();
   await expect(page.getByRole("link", { name: "Login" })).toBeVisible();
 }
+
+export async function createStrongStudentProfile(page: Page) {
+  await page.evaluate(async () => {
+    const token = window.localStorage.getItem("scholars_republic_access_token");
+    if (!token) {
+      throw new Error("Missing access token for E2E profile setup.");
+    }
+
+    const response = await fetch("http://localhost:8000/api/profile/", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        city: "Lahore",
+        province: "Punjab",
+        domicile: "Punjab",
+        nationality: "Pakistan",
+        current_country: "Pakistan",
+        current_education_level: "Bachelor",
+        current_institution: "Punjab University",
+        current_field_of_study: "Computer Science",
+        target_degree_level: "Master",
+        target_fields: ["Computer Science"],
+        target_countries: ["China", "Taiwan"],
+        funding_preference: "Fully Funded Only",
+        application_fee_preference: "No Application Fee Only",
+        grading_system: "CGPA_4",
+        cgpa: "3.60",
+        has_passport: true,
+        has_transcript: true,
+        has_degree: true,
+        has_cv: true,
+        has_study_plan: true,
+        has_recommendation_letters: true,
+        recommendation_letters_count: 2,
+        english_proficiency_certificate: true,
+        has_english_proficiency_letter: true,
+        profile_data_consent: true,
+      }),
+    });
+
+    if (!response.ok && response.status !== 400) {
+      throw new Error(`Profile setup failed with status ${response.status}.`);
+    }
+  });
+}
