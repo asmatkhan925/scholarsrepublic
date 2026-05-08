@@ -371,8 +371,75 @@ Response:
 
 ## Planned MVP Endpoints
 
-- `GET|POST /api/saved-scholarships/`
-- `DELETE /api/saved-scholarships/{id}/`
+## Phase 6
+
+Phase 6 adds opportunity-based saving. Saving requires a logged-in student
+account, but it does not require profile completion. Guests can still browse
+public opportunities and should register or log in before saving. Admin users do
+not use the student saved-opportunity flow.
+
+### Saved Opportunities
+
+`GET /api/saved-opportunities/`
+
+Returns the current student's saved opportunities, newest first.
+
+`POST /api/saved-opportunities/`
+
+Request by id:
+
+```json
+{
+  "opportunity_id": 10
+}
+```
+
+Request by slug:
+
+```json
+{
+  "opportunity_slug": "chinese-government-scholarship"
+}
+```
+
+Response `201` includes the saved record and an `opportunity_detail` object.
+
+`DELETE /api/saved-opportunities/{id}/`
+
+Deletes one saved record owned by the current student.
+
+`GET /api/saved-opportunities/slugs/`
+
+Returns a compact lookup for list/detail UI state.
+
+```json
+{
+  "slugs": ["chinese-government-scholarship"],
+  "ids": [1]
+}
+```
+
+### Save Convenience Endpoints
+
+`POST /api/opportunities/{slug}/save/`
+
+Saves a published opportunity by slug. Returns `201` when created and `200` if
+already saved.
+
+`DELETE /api/opportunities/{slug}/save/`
+
+Removes the current student's saved record for the opportunity.
+
+`POST /api/scholarships/{slug}/save/`
+
+Scholarship alias. Only allows `opportunity_type = "scholarship"`.
+
+`DELETE /api/scholarships/{slug}/save/`
+
+Scholarship alias for unsaving.
+
+## Planned MVP Endpoints
+
 - `GET|POST /api/applications/`
 - `GET|PUT|PATCH|DELETE /api/applications/{id}/`
 - `GET /api/scholarships/{id}/document-checklist/`

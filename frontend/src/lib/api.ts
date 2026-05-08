@@ -9,6 +9,10 @@ import type {
   OpportunityMatch,
   OpportunityQueryParams,
   RecommendedOpportunityResponse,
+  CreateSavedOpportunityPayload,
+  SavedOpportunity,
+  SavedOpportunityResponse,
+  SavedOpportunitySlugsResponse,
 } from "@/types/opportunity";
 
 export const api = axios.create({
@@ -153,4 +157,41 @@ export async function getRecommendedScholarships(params?: OpportunityQueryParams
     params,
   });
   return response.data;
+}
+
+export async function getSavedOpportunities() {
+  const response = await api.get<SavedOpportunityResponse>("/saved-opportunities/");
+  return response.data;
+}
+
+export async function createSavedOpportunity(payload: CreateSavedOpportunityPayload) {
+  const response = await api.post<SavedOpportunity>("/saved-opportunities/", payload);
+  return response.data;
+}
+
+export async function deleteSavedOpportunity(id: number) {
+  await api.delete(`/saved-opportunities/${id}/`);
+}
+
+export async function getSavedOpportunitySlugs() {
+  const response = await api.get<SavedOpportunitySlugsResponse>("/saved-opportunities/slugs/");
+  return response.data;
+}
+
+export async function saveOpportunityBySlug(slug: string) {
+  const response = await api.post<SavedOpportunity>(`/opportunities/${slug}/save/`);
+  return response.data;
+}
+
+export async function unsaveOpportunityBySlug(slug: string) {
+  await api.delete(`/opportunities/${slug}/save/`);
+}
+
+export async function saveScholarshipBySlug(slug: string) {
+  const response = await api.post<SavedOpportunity>(`/scholarships/${slug}/save/`);
+  return response.data;
+}
+
+export async function unsaveScholarshipBySlug(slug: string) {
+  await api.delete(`/scholarships/${slug}/save/`);
 }

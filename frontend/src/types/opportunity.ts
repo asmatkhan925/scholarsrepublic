@@ -118,6 +118,33 @@ export type RecommendedOpportunityResponse = {
   results: RecommendedOpportunity[];
 };
 
+export type SavedOpportunity = {
+  id: number;
+  opportunity: number;
+  opportunity_detail: OpportunityListItem;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SavedOpportunityResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: SavedOpportunity[];
+};
+
+export type SavedOpportunitySlugsResponse = {
+  slugs: string[];
+  ids: number[];
+};
+
+export type CreateSavedOpportunityPayload = {
+  opportunity_id?: number;
+  opportunity_slug?: string;
+  notes?: string;
+};
+
 export type OpportunityQueryParams = {
   search?: string;
   opportunity_type?: OpportunityType;

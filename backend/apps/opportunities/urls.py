@@ -1,5 +1,6 @@
 from django.urls import path
 
+from apps.applications.views import OpportunitySaveView, ScholarshipSaveView
 from apps.opportunities.views import (
     AdminOpportunityDetailView,
     AdminOpportunityListCreateView,
@@ -26,6 +27,11 @@ urlpatterns = [
         name="opportunity-match",
     ),
     path(
+        "opportunities/<slug:slug>/save/",
+        OpportunitySaveView.as_view(),
+        name="opportunity-save",
+    ),
+    path(
         "opportunities/<slug:slug>/",
         PublicOpportunityDetailView.as_view(),
         name="opportunity-detail",
@@ -40,6 +46,11 @@ urlpatterns = [
         "scholarships/<slug:slug>/match/",
         ScholarshipMatchView.as_view(),
         name="scholarship-match",
+    ),
+    path(
+        "scholarships/<slug:slug>/save/",
+        ScholarshipSaveView.as_view(),
+        name="scholarship-save",
     ),
     path(
         "scholarships/<slug:slug>/",

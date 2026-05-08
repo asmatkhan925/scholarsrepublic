@@ -119,12 +119,20 @@ Status: complete.
 - Keep guest/public browsing unchanged
 - Prepare saved records for future application tracking
 
+Status: complete.
+
+## Phase 7: Application Tracker
+
+- Build on saved opportunities
+- Add application status tracking
+- Add notes and deadline reminder fields
+- Keep each student limited to their own application records
+
 Status: next.
 
 ## Later MVP Phases
 
 - Search and filters
-- Application tracker
 - Document checklist
 - Service requests
 - Blog and guides

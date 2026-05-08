@@ -35,7 +35,9 @@ test("guest can open scholarship detail page", async ({ page }) => {
   await expect(
     page.getByRole("complementary").getByRole("link", { name: "Create Free Profile" }),
   ).toBeVisible();
-  await expect(page.getByRole("complementary").getByRole("link", { name: "Login" })).toBeVisible();
+  await expect(
+    page.getByRole("complementary").getByRole("link", { name: "Login", exact: true }),
+  ).toBeVisible();
 });
 
 test("guest public navigation works", async ({ page }) => {

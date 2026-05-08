@@ -241,6 +241,27 @@ Frontend pages show match scores for logged-in students on scholarship
 list/detail pages and in `/dashboard/recommendations`. Admin users are not
 forced into the student matching flow.
 
+## Saved Opportunities
+
+Phase 6 adds opportunity-based saving. Logged-in students can save published
+opportunities, remove saved records, and view them in `/dashboard/saved`.
+Guests can browse opportunities but must register or log in to save.
+
+Saved opportunities prepare the platform for the application tracker, where a
+saved opportunity can later become an active application with status, notes,
+deadlines, and document progress.
+
+Saved opportunity endpoints:
+
+- `GET /api/saved-opportunities/`
+- `POST /api/saved-opportunities/`
+- `DELETE /api/saved-opportunities/{id}/`
+- `GET /api/saved-opportunities/slugs/`
+- `POST /api/opportunities/{slug}/save/`
+- `DELETE /api/opportunities/{slug}/save/`
+- `POST /api/scholarships/{slug}/save/`
+- `DELETE /api/scholarships/{slug}/save/`
+
 ## End-to-End Testing
 
 Playwright covers the main browser behaviors before major feature phases:
@@ -386,10 +407,11 @@ Completed:
 - Phase 4.9 remote repository reality check and formatting repair
 - Phase 4.9B GitHub raw formatting verification
 - Phase 5 rule-based opportunity match score
+- Phase 6 saved opportunities
 
 Next phase:
 
-- Phase 6: Saved Opportunities
+- Phase 7: Application Tracker
 
 ## License
 

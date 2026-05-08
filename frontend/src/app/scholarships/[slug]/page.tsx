@@ -9,8 +9,9 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { MatchBreakdown } from "@/components/opportunities/MatchBreakdown";
 import { MatchReasons } from "@/components/opportunities/MatchReasons";
 import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
+import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
-import { getScholarship, getScholarshipMatch } from "@/lib/api";
+import { getSavedOpportunitySlugs, getScholarship, getScholarshipMatch } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityDetail, OpportunityMatch } from "@/types/opportunity";
 
@@ -75,6 +76,7 @@ export default function ScholarshipDetailPage() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -134,6 +136,36 @@ export default function ScholarshipDetailPage() {
     }
 
     void loadMatch();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authLoading, params.slug, user?.role]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSavedState() {
+      if (authLoading || user?.role !== "student" || !params.slug) {
+        if (mounted) {
+          setIsSaved(false);
+        }
+        return;
+      }
+
+      try {
+        const response = await getSavedOpportunitySlugs();
+        if (mounted) {
+          setIsSaved(response.slugs.includes(params.slug));
+        }
+      } catch {
+        if (mounted) {
+          setIsSaved(false);
+        }
+      }
+    }
+
+    void loadSavedState();
 
     return () => {
       mounted = false;
@@ -268,6 +300,15 @@ export default function ScholarshipDetailPage() {
               </section>
 
               <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
+                <div className="mb-5">
+                  <SaveOpportunityButton
+                    slug={scholarship.slug}
+                    opportunityType={scholarship.opportunity_type}
+                    initiallySaved={isSaved}
+                    onSavedChange={setIsSaved}
+                  />
+                </div>
+
                 {user?.role === "student" ? (
                   <>
                     <h2 className="font-semibold text-ink">Your Match Score</h2>

@@ -10,10 +10,10 @@ Implemented main models:
 - `users.User`
 - `profiles.StudentProfile`
 - `opportunities.Opportunity`
+- `applications.SavedOpportunity`
 
 Planned main models:
 
-- `applications.SavedOpportunity`
 - `applications.Application`
 - `services.ServiceRequest`
 - `blog.BlogPost`
@@ -258,3 +258,36 @@ Indexes:
 - `verified_status`
 - `funding_type`
 - `created_at`
+
+## `applications.SavedOpportunity`
+
+Saved opportunities let students keep a shortlist before the application
+tracker is introduced.
+
+Relationships:
+
+- `user`: foreign key to `users.User`, related name `saved_opportunities`
+- `opportunity`: foreign key to `opportunities.Opportunity`, related name
+  `saved_by_users`
+
+Fields:
+
+- `notes`: optional text for future student notes
+- `created_at`
+- `updated_at`
+
+Constraints:
+
+- Unique saved record per `user` and `opportunity`
+
+Indexes:
+
+- `user`
+- `opportunity`
+- `created_at`
+
+Rules:
+
+- Only student users can save opportunities through the API
+- Only published opportunities can be saved
+- The model is opportunity-based, not scholarship-specific

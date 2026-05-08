@@ -6,8 +6,9 @@ import { BadgeCheck, CalendarDays, Search, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
+import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
-import { getRecommendedScholarships, getScholarships } from "@/lib/api";
+import { getRecommendedScholarships, getSavedOpportunitySlugs, getScholarships } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   OpportunityListItem,
@@ -50,10 +51,14 @@ function ScholarshipCard({
   scholarship,
   match,
   profileRequired,
+  initiallySaved,
+  onSavedChange,
 }: {
   scholarship: OpportunityListItem;
   match?: RecommendedOpportunity["match"];
   profileRequired?: boolean;
+  initiallySaved?: boolean;
+  onSavedChange?: (slug: string, saved: boolean) => void;
 }) {
   const { user, isAuthenticated } = useAuth();
   const eligibilityHref = !isAuthenticated
@@ -162,6 +167,14 @@ function ScholarshipCard({
         >
           Check Eligibility
         </Link>
+        <div className="sm:col-span-2">
+          <SaveOpportunityButton
+            slug={scholarship.slug}
+            opportunityType={scholarship.opportunity_type}
+            initiallySaved={initiallySaved}
+            onSavedChange={(saved) => onSavedChange?.(scholarship.slug, saved)}
+          />
+        </div>
       </div>
     </article>
   );
@@ -175,6 +188,7 @@ export default function ScholarshipsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [matchNotice, setMatchNotice] = useState<string | null>(null);
+  const [savedSlugs, setSavedSlugs] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [fundingType, setFundingType] = useState("");
@@ -186,6 +200,34 @@ export default function ScholarshipsPage() {
   });
 
   const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSavedSlugs() {
+      if (authLoading || user?.role !== "student") {
+        setSavedSlugs(new Set());
+        return;
+      }
+
+      try {
+        const response = await getSavedOpportunitySlugs();
+        if (mounted) {
+          setSavedSlugs(new Set(response.slugs));
+        }
+      } catch {
+        if (mounted) {
+          setSavedSlugs(new Set());
+        }
+      }
+    }
+
+    void loadSavedSlugs();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authLoading, user?.role]);
 
   useEffect(() => {
     let mounted = true;
@@ -270,6 +312,18 @@ export default function ScholarshipsPage() {
       no_ielts: noIelts || undefined,
       no_application_fee: noApplicationFee || undefined,
       verified: verified || undefined,
+    });
+  }
+
+  function handleSavedChange(slug: string, saved: boolean) {
+    setSavedSlugs((current) => {
+      const next = new Set(current);
+      if (saved) {
+        next.add(slug);
+      } else {
+        next.delete(slug);
+      }
+      return next;
     });
   }
 
@@ -412,6 +466,8 @@ export default function ScholarshipsPage() {
                 scholarship={scholarship}
                 match={matchByOpportunityId.get(scholarship.id)}
                 profileRequired={Boolean(matchNotice)}
+                initiallySaved={savedSlugs.has(scholarship.slug)}
+                onSavedChange={handleSavedChange}
               />
             ))}
           </div>

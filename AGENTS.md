@@ -39,6 +39,9 @@ Prefer `apps.opportunities.Opportunity` for scholarship/opportunity data. Do not
 - When remote formatting is questioned, verify GitHub raw URLs after pushing before starting the next phase.
 - Keep match scoring deterministic and explainable. Do not replace rule-based matching with AI unless explicitly requested.
 - Future AI may explain or improve match results, but the platform must keep transparent reasons, missing requirements, warnings, and suggestions.
+- Use opportunity-based saved records, not scholarship-only saved records.
+- Saving an opportunity requires login but does not require profile completion.
+- Build the application tracker on saved opportunities in a later phase.
 - Add tests for backend business logic.
 - Run tests/build/lint when possible.
 - Before adding major new features, run backend tests, frontend lint/build, and E2E tests when UI behavior is affected.
