@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { GraduationCap } from "lucide-react";
 
@@ -11,26 +14,40 @@ type DashboardShellProps = {
   mode?: "student" | "admin";
 };
 
+type DashboardNavItem =
+  | {
+      label: string;
+      href: string;
+      disabled?: false;
+    }
+  | {
+      label: string;
+      disabled: true;
+    };
+
 export function DashboardShell({
   title,
   description,
   children,
   mode = "student",
 }: DashboardShellProps) {
-  const navItems =
+  const pathname = usePathname();
+  const navItems: DashboardNavItem[] =
     mode === "admin"
       ? [
-          { label: "Scholarships", href: "/admin" },
-          { label: "Users", href: "/admin" },
-          { label: "Service Requests", href: "/admin" },
-          { label: "Blog", href: "/admin" },
+          { label: "Admin Overview", href: "/admin" },
+          { label: "Scholarships", disabled: true },
+          { label: "Users", disabled: true },
+          { label: "Service Requests", disabled: true },
+          { label: "Blog", disabled: true },
         ]
       : [
+          { label: "Dashboard", href: "/dashboard" },
           { label: "Profile", href: "/dashboard/profile" },
-          { label: "Recommendations", href: "/dashboard" },
-          { label: "Saved", href: "/dashboard" },
-          { label: "Applications", href: "/dashboard" },
-          { label: "Documents", href: "/dashboard" },
+          { label: "Recommendations", disabled: true },
+          { label: "Saved", disabled: true },
+          { label: "Applications", disabled: true },
+          { label: "Documents", disabled: true },
         ];
 
   return (
@@ -44,11 +61,38 @@ export function DashboardShell({
             Scholars Republic
           </Link>
           <nav className="mt-8 grid gap-1 text-sm font-medium text-ink/75">
-            {navItems.map((item) => (
-              <Link key={item.label} href={item.href} className="rounded px-3 py-2 hover:bg-mint">
-                {item.label}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              if (item.disabled) {
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    disabled
+                    title="Coming soon"
+                    className="cursor-not-allowed rounded px-3 py-2 text-left text-ink/35"
+                  >
+                    {item.label}
+                  </button>
+                );
+              }
+
+              const isActive = pathname === item.href;
+
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={
+                    isActive
+                      ? "rounded bg-mint px-3 py-2 text-pine"
+                      : "rounded px-3 py-2 hover:bg-mint hover:text-pine"
+                  }
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
           <DashboardLogoutButton />
         </aside>

@@ -17,7 +17,7 @@ export function DashboardLogoutButton() {
     <button
       type="button"
       onClick={handleLogout}
-      className="mt-6 w-full rounded bg-pine px-3 py-2 text-left text-sm font-semibold text-white hover:bg-pine/90"
+      className="mt-6 w-full rounded border border-ink/10 px-3 py-2 text-left text-sm font-semibold text-ink/70 hover:bg-rose-50 hover:text-rose-700"
     >
       Logout
     </button>
