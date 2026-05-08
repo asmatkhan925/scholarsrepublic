@@ -79,6 +79,15 @@ Status: complete.
 
 Status: complete.
 
+## Phase 4.9: Remote Repository Reality Check and Formatting Repair
+
+- Verify local source files are multi-line and readable
+- Verify GitHub raw files for backend, frontend, formatter config, and Playwright config
+- Confirm quality-gate tooling is present on `main`
+- Re-run backend formatting checks, frontend formatting checks, build, and E2E tests
+
+Status: complete.
+
 Long-term note: Scholars Republic should become a flexible student opportunity
 platform. Scholarships are the first opportunity type; later types can include
 jobs, internships, fellowships, exchange programs, admissions, competitions,
