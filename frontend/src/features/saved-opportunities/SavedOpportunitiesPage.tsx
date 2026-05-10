@@ -2,25 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  ArrowRight,
-  BookmarkCheck,
-  ClipboardCheck,
-  Search,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { ArrowRight, ClipboardCheck, Search, ShieldCheck, Trash2 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
+  deleteApplication,
   deleteSavedOpportunity,
   getSavedOpportunities,
   startApplicationFromSaved,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { SavedOpportunity, SavedOpportunityResponse } from "@/types/opportunity";
+import type {
+  OpportunityApplication,
+  SavedOpportunity,
+  SavedOpportunityResponse,
+} from "@/types/opportunity";
 
 function humanize(value: string) {
   if (!value) {
@@ -81,6 +79,9 @@ function SavedOpportunityCard({
 }) {
   const [removing, setRemoving] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [trackedApplicationId, setTrackedApplicationId] = useState<number | null>(null);
+  const [alreadyTracked, setAlreadyTracked] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,10 +92,13 @@ function SavedOpportunityCard({
     opportunity.company_name ||
     "Provider not listed";
   const detailHref =
-    opportunity.opportunity_type === "scholarship" ? `/scholarships/${opportunity.slug}` : "#";
+    opportunity.opportunity_type === "scholarship"
+      ? `/scholarships/${opportunity.slug}`
+      : "/scholarships";
   const deadlineBadge = getDeadlineBadge(opportunity.deadline);
   const degreeTags = opportunity.degree_levels.slice(0, 3);
   const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
+  const isTracking = trackedApplicationId !== null;
 
   async function handleRemove() {
     setRemoving(true);
@@ -115,35 +119,76 @@ function SavedOpportunityCard({
     setStarting(true);
     setError(null);
     setMessage(null);
+    setAlreadyTracked(false);
 
     try {
-      await startApplicationFromSaved(saved.id);
-      setMessage("Application added to your tracker.");
+      const application = (await startApplicationFromSaved(saved.id)) as OpportunityApplication;
+      setTrackedApplicationId(application.id);
+      setMessage("Tracking started. Use Stop Tracking if this is no longer worth applying to.");
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      const errorMessage =
+        getErrorMessage(requestError) ?? "Something went wrong. Please try again.";
+      const lowerMessage = errorMessage.toLowerCase();
+
+      if (
+        lowerMessage.includes("already") ||
+        lowerMessage.includes("exists") ||
+        lowerMessage.includes("tracking") ||
+        lowerMessage.includes("application")
+      ) {
+        setAlreadyTracked(true);
+        setMessage("This opportunity is already in your tracker.");
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setStarting(false);
     }
   }
 
+  async function handleStopTracking() {
+    if (!trackedApplicationId) {
+      return;
+    }
+
+    setStopping(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      await deleteApplication(trackedApplicationId);
+      setTrackedApplicationId(null);
+      setAlreadyTracked(false);
+      setMessage("Stopped tracking. You can start tracking again later.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setStopping(false);
+    }
+  }
+
   return (
-    <Card className="transition hover:-translate-y-0.5 hover:shadow-lg">
-      <CardContent className="p-4 md:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
+    <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
+      <CardContent className="p-0">
+        <div className="grid gap-0 lg:grid-cols-[1fr_17rem]">
+          <div className="p-4 md:p-5">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="mint">{humanize(opportunity.opportunity_type)}</Badge>
               <Badge tone={deadlineBadge.tone}>{deadlineBadge.label}</Badge>
               {opportunity.verified_status ? <Badge tone="sky">Verified</Badge> : null}
+              {isTracking || alreadyTracked ? <Badge tone="saffron">Tracking</Badge> : null}
             </div>
 
-            <h2 className="mt-4 text-xl font-bold text-ink">{opportunity.title}</h2>
+            <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
+              {opportunity.title}
+            </h2>
+
             <p className="mt-2 text-sm leading-6 text-ink/65">
               {provider} · {opportunity.country || "Country not listed"}
             </p>
 
             {opportunity.short_description ? (
-              <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink/65">
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink/65">
                 {opportunity.short_description}
               </p>
             ) : null}
@@ -157,53 +202,81 @@ function SavedOpportunityCard({
               ))}
               {extraDegreeCount > 0 ? <Badge tone="neutral">+{extraDegreeCount} more</Badge> : null}
             </div>
-          </div>
 
-          <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-4 text-sm lg:w-56">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Funding</p>
-              <p className="mt-1 font-semibold text-ink">{humanize(opportunity.funding_type)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Deadline</p>
-              <p className="mt-1 font-semibold text-ink">{formatDate(opportunity.deadline)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Saved</p>
-              <p className="mt-1 font-semibold text-ink">{formatDate(saved.created_at)}</p>
+            <div className="mt-4 rounded-2xl bg-[#f7faf8] px-4 py-3 text-xs leading-5 text-ink/55">
+              Saved {formatDate(saved.created_at)}. Keep this saved only if you are likely to
+              prepare a real application.
             </div>
           </div>
+
+          <div className="border-t border-pine/10 bg-mint/35 p-4 lg:border-l lg:border-t-0">
+            <div className="rounded-2xl border border-pine/10 bg-white p-4 shadow-sm">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                  Deadline
+                </p>
+                <p className="mt-1 text-sm font-bold text-ink">
+                  {formatDate(opportunity.deadline)}
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-2">
+                {isTracking ? (
+                  <Button
+                    className="w-full shadow-sm"
+                    disabled={stopping}
+                    onClick={handleStopTracking}
+                    size="sm"
+                    variant="danger"
+                  >
+                    <ClipboardCheck size={15} aria-hidden="true" />
+                    {stopping ? "Stopping..." : "Stop Tracking"}
+                  </Button>
+                ) : alreadyTracked ? (
+                  <ButtonLink
+                    href="/dashboard/applications"
+                    className="w-full shadow-sm"
+                    size="sm"
+                    variant="secondary"
+                  >
+                    <ClipboardCheck size={15} aria-hidden="true" />
+                    Open Tracker
+                  </ButtonLink>
+                ) : (
+                  <Button
+                    className="w-full shadow-sm"
+                    disabled={starting}
+                    onClick={handleStartTracking}
+                    size="sm"
+                    variant="primary"
+                  >
+                    <ClipboardCheck size={15} aria-hidden="true" />
+                    {starting ? "Starting..." : "Track Application"}
+                  </Button>
+                )}
+
+                <ButtonLink href={detailHref} className="w-full" size="sm" variant="outline">
+                  View Details
+                  <ArrowRight size={15} aria-hidden="true" />
+                </ButtonLink>
+
+                <Button
+                  className="w-full"
+                  disabled={removing}
+                  onClick={handleRemove}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <Trash2 size={15} aria-hidden="true" />
+                  {removing ? "Removing..." : "Remove Saved"}
+                </Button>
+              </div>
+            </div>
+
+            {message ? <p className="mt-3 text-sm font-semibold text-pine">{message}</p> : null}
+            {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
+          </div>
         </div>
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <ButtonLink href={detailHref} className="w-full sm:w-auto" variant="outline">
-            View Details
-            <ArrowRight size={16} aria-hidden="true" />
-          </ButtonLink>
-
-          <Button
-            className="w-full sm:w-auto"
-            disabled={starting}
-            onClick={handleStartTracking}
-            variant="primary"
-          >
-            <ClipboardCheck size={16} aria-hidden="true" />
-            {starting ? "Starting..." : "Start Tracking"}
-          </Button>
-
-          <Button
-            className="w-full sm:w-auto"
-            disabled={removing}
-            onClick={handleRemove}
-            variant="ghost"
-          >
-            <Trash2 size={16} aria-hidden="true" />
-            {removing ? "Removing..." : "Remove"}
-          </Button>
-        </div>
-
-        {message ? <p className="mt-4 text-sm font-semibold text-pine">{message}</p> : null}
-        {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : null}
       </CardContent>
     </Card>
   );

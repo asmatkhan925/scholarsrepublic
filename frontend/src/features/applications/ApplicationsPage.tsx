@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { ArrowRight, CalendarDays, ClipboardCheck, Search, Trash2 } from "lucide-react";
+import {
+  ArrowRight,
+  BookmarkCheck,
+  CalendarDays,
+  ClipboardCheck,
+  Search,
+  Trash2,
+} from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -395,10 +402,11 @@ function ApplicationsSummaryHeader({
 
           <ButtonLink
             href="/dashboard/saved"
-            className="w-full sm:w-auto"
+            className="w-full border-pine/20 bg-white text-pine shadow-sm hover:bg-mint sm:w-auto"
             size="sm"
             variant="outline"
           >
+            <BookmarkCheck size={15} aria-hidden="true" />
             Saved Opportunities
           </ButtonLink>
         </div>
