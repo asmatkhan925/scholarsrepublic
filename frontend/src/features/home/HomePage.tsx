@@ -13,69 +13,69 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { Badge, ButtonLink, Card, CardContent, PageHeader } from "@/components/ui";
+import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 
 const loggedOutSteps = [
   {
-    title: "Search scholarships",
-    description: "Browse opportunities and understand what fits your academic goals.",
+    title: "Search",
+    description: "Find scholarships that match your goals.",
     icon: Search,
   },
   {
-    title: "Create your profile",
-    description: "Add your background, interests, preferred countries, and degree level.",
+    title: "Profile",
+    description: "Add your academic background and interests.",
     icon: UserRoundCheck,
   },
   {
-    title: "Save and track",
-    description: "Shortlist scholarships and manage your application progress.",
+    title: "Save",
+    description: "Shortlist opportunities you want to track.",
     icon: ClipboardCheck,
   },
   {
-    title: "Prepare documents",
-    description: "Use guides and AI-assisted tools to draft stronger application documents.",
+    title: "Prepare",
+    description: "Use guides and tools for better documents.",
     icon: FileText,
   },
 ];
 
 const loggedInSteps = [
   {
-    title: "Update profile",
-    description: "Keep your academic details, goals, and preferences ready for matching.",
+    title: "Profile",
+    description: "Keep your student profile updated.",
     icon: UserRoundCheck,
   },
   {
-    title: "Review saved opportunities",
-    description: "Return to scholarships you shortlisted and check your next actions.",
+    title: "Saved",
+    description: "Review shortlisted opportunities.",
     icon: BadgeCheck,
   },
   {
-    title: "Track applications",
-    description: "Organize statuses, priorities, notes, and deadlines in one place.",
+    title: "Tracker",
+    description: "Update application progress.",
     icon: ClipboardCheck,
   },
   {
-    title: "Prepare your SOP",
-    description: "Use the SOP tool and guides to improve your scholarship documents.",
+    title: "Documents",
+    description: "Prepare SOPs, CVs, and study plans.",
     icon: FileText,
   },
 ];
 
 const guideLinks = [
   {
-    title: "How to write a scholarship SOP",
+    title: "Write a scholarship SOP",
     href: "/guides/how-to-write-sop-for-scholarship",
-    description: "Write a focused, honest, and scholarship-ready statement of purpose.",
+    description: "Write a focused and honest statement of purpose.",
   },
   {
     title: "Scholarship CV format",
     href: "/guides/scholarship-cv-format-for-pakistani-students",
-    description: "Organize academic achievements, experience, and skills clearly.",
+    description: "Organize achievements, skills, and experience clearly.",
   },
   {
     title: "Application checklist",
     href: "/guides/scholarship-application-checklist",
-    description: "Avoid missing common documents, deadlines, and application steps.",
+    description: "Avoid missing documents, deadlines, and common steps.",
   },
 ];
 
@@ -88,158 +88,174 @@ export function HomePage() {
 
   return (
     <main>
-      <section className="bg-[linear-gradient(180deg,rgba(223,247,236,0.65),rgba(247,250,248,0))]">
-        <div className="mx-auto max-w-7xl px-5 py-10 md:px-8 md:py-14">
-          <div className="overflow-hidden rounded-[2rem] border border-pine/10 bg-white shadow-soft">
-            <div className="grid gap-0 lg:grid-cols-[1.25fr_0.75fr]">
-              <div className="p-6 md:p-10 lg:p-12">
-                <Badge tone="mint" className="mb-5">
+      <section className="bg-[linear-gradient(180deg,rgba(223,247,236,0.62),rgba(247,250,248,0))]">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-5 md:px-8 md:py-8">
+          <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
+            <div className="grid gap-0 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="p-5 sm:p-6 md:p-8">
+                <Badge tone="mint" className="mb-4">
                   <Sparkles size={14} aria-hidden="true" />
                   Let&apos;s grow together
                 </Badge>
 
-                <h1 className="max-w-4xl text-3xl font-bold tracking-tight text-ink md:text-5xl">
+                <h1 className="max-w-4xl text-2xl font-bold tracking-tight text-ink sm:text-3xl md:text-4xl">
                   Find scholarships and manage your application journey with confidence.
                 </h1>
 
-                <p className="mt-5 max-w-2xl text-base leading-7 text-ink/70">
-                  Scholars Republic helps students discover opportunities, build a stronger profile,
-                  save scholarships, track applications, and prepare better documents without
-                  feeling overwhelmed.
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/70 md:text-base">
+                  Discover opportunities, build your profile, save scholarships, track applications,
+                  and prepare better documents in one student-friendly workspace.
                 </p>
 
-                <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                   {isLoggedIn ? (
                     <>
-                      <ButtonLink href={dashboardHref} size="lg">
+                      <ButtonLink href={dashboardHref} className="w-full sm:w-auto" size="md">
                         Continue to Dashboard
-                        <ArrowRight size={18} aria-hidden="true" />
+                        <ArrowRight size={17} aria-hidden="true" />
                       </ButtonLink>
-                      <ButtonLink href="/dashboard/applications" size="lg" variant="outline">
+                      <ButtonLink
+                        href="/dashboard/applications"
+                        className="w-full sm:w-auto"
+                        size="md"
+                        variant="outline"
+                      >
                         View Tracker
                       </ButtonLink>
                     </>
                   ) : (
                     <>
-                      <ButtonLink href="/register" size="lg">
+                      <ButtonLink href="/register" className="w-full sm:w-auto" size="md">
                         Create Free Profile
-                        <ArrowRight size={18} aria-hidden="true" />
+                        <ArrowRight size={17} aria-hidden="true" />
                       </ButtonLink>
-                      <ButtonLink href="/scholarships" size="lg" variant="outline">
+                      <ButtonLink
+                        href="/scholarships"
+                        className="w-full sm:w-auto"
+                        size="md"
+                        variant="outline"
+                      >
                         Browse Scholarships
                       </ButtonLink>
                     </>
                   )}
                 </div>
 
-                <div className="mt-6 flex flex-wrap gap-3 text-sm text-ink/65">
+                <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ink/65 sm:text-sm">
                   <span className="inline-flex items-center gap-2">
-                    <ShieldCheck size={16} className="text-pine" aria-hidden="true" />
-                    Student-first workspace
+                    <ShieldCheck size={15} className="text-pine" aria-hidden="true" />
+                    Student workspace
                   </span>
                   <span className="inline-flex items-center gap-2">
-                    <BadgeCheck size={16} className="text-pine" aria-hidden="true" />
-                    Save and track opportunities
+                    <BadgeCheck size={15} className="text-pine" aria-hidden="true" />
+                    Save and track
                   </span>
                   <span className="inline-flex items-center gap-2">
-                    <BookOpenCheck size={16} className="text-pine" aria-hidden="true" />
-                    Practical scholarship guides
+                    <BookOpenCheck size={15} className="text-pine" aria-hidden="true" />
+                    Practical guides
                   </span>
                 </div>
               </div>
 
-              <div className="border-t border-pine/10 bg-mint/45 p-6 md:p-8 lg:border-l lg:border-t-0">
-                <div className="rounded-[1.5rem] border border-pine/10 bg-white/85 p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">
-                    {isLoggedIn ? "Your next steps" : "How Scholars Republic helps"}
+              <div className="border-t border-pine/10 bg-mint/45 p-5 sm:p-6 md:p-7 lg:border-l lg:border-t-0">
+                <div className="rounded-[1.5rem] border border-pine/10 bg-white/90 p-5">
+                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-pine">
+                    {isLoggedIn ? "Your next steps" : "How it helps"}
                   </p>
 
-                  <div className="mt-5 space-y-4">
+                  <div className="mt-4 grid gap-3">
                     {(isLoggedIn
                       ? [
                           ["Profile", "Review and improve your student profile."],
-                          ["Saved", "Open saved opportunities and plan next actions."],
-                          ["Tracker", "Update application statuses and priorities."],
-                          ["SOP", "Prepare a cleaner scholarship document draft."],
+                          ["Saved", "Open saved opportunities and plan actions."],
+                          ["Tracker", "Update statuses, notes, and priorities."],
+                          ["SOP", "Prepare a cleaner scholarship draft."],
                         ]
                       : [
                           ["Discover", "Search scholarships and read practical guides."],
                           ["Prepare", "Build your profile and organize documents."],
-                          ["Apply", "Save opportunities and track applications."],
+                          ["Apply", "Save opportunities and track progress."],
                           ["Grow", "Use the platform as your scholarship workspace."],
                         ]
                     ).map(([label, description]) => (
                       <div key={label} className="flex gap-3">
-                        <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pine text-xs font-bold text-white">
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pine text-xs font-bold text-white">
                           {label.slice(0, 1)}
                         </span>
                         <div>
                           <h2 className="text-sm font-bold text-ink">{label}</h2>
-                          <p className="mt-1 text-sm leading-6 text-ink/65">{description}</p>
+                          <p className="text-sm leading-5 text-ink/65">{description}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-[1.5rem] bg-ink p-5 text-white">
-                  <p className="text-sm font-semibold text-saffron">Scholarship tip</p>
-                  <p className="mt-2 text-sm leading-6 text-white/75">
-                    Start early. Save opportunities first, then prepare documents and verify
-                    official requirements before applying.
+                <div className="mt-3 rounded-[1.5rem] bg-ink p-4 text-white">
+                  <p className="text-sm font-semibold text-saffron">Quick tip</p>
+                  <p className="mt-1 text-sm leading-6 text-white/75">
+                    Start early, save first, prepare documents, then verify official requirements.
                   </p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-12">
-        <div className="grid gap-4 md:grid-cols-4">
-          {steps.map((item, index) => {
-            const Icon = item.icon;
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {steps.map((item, index) => {
+              const Icon = item.icon;
 
-            return (
-              <Card key={item.title} className="bg-white/90">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-mint text-pine">
-                      <Icon size={19} aria-hidden="true" />
+              return (
+                <Card key={item.title} className="bg-white/95">
+                  <CardContent className="flex gap-3 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+                      <Icon size={18} aria-hidden="true" />
                     </div>
-                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-ink/30">
-                      0{index + 1}
-                    </span>
-                  </div>
-                  <h2 className="mt-5 text-base font-bold text-ink">{item.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-ink/65">{item.description}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                          0{index + 1}
+                        </span>
+                        <h2 className="text-sm font-bold text-ink">{item.title}</h2>
+                      </div>
+                      <p className="mt-1 text-sm leading-5 text-ink/65">{item.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-12">
-        <PageHeader
-          eyebrow="Scholarship help center"
-          title="Prepare smarter before you apply"
-          description="Use practical guides for SOP writing, CV structure, application planning, professor emails, and common scholarship requirements."
-          actions={
-            <ButtonLink href="/blog" variant="outline">
-              View All Guides
-            </ButtonLink>
-          }
-        />
+      <section className="mx-auto max-w-7xl px-4 py-7 sm:px-5 md:px-8 md:py-9">
+        <div className="flex flex-col gap-3 rounded-[1.75rem] border border-pine/10 bg-white/85 p-5 shadow-soft md:flex-row md:items-end md:justify-between md:p-6">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-pine">
+              Scholarship help center
+            </p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+              Prepare smarter before you apply
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-ink/65">
+              Use practical guides for SOP writing, CV structure, application planning, professor
+              emails, and common scholarship requirements.
+            </p>
+          </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <ButtonLink href="/blog" variant="outline">
+            View All Guides
+          </ButtonLink>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
           {guideLinks.map((guide) => (
             <Card key={guide.href} className="transition hover:-translate-y-1 hover:shadow-lg">
-              <CardContent className="p-6">
+              <CardContent className="p-5">
                 <Badge tone="sky">Guide</Badge>
-                <h2 className="mt-4 text-lg font-bold text-ink">{guide.title}</h2>
-                <p className="mt-3 text-sm leading-6 text-ink/65">{guide.description}</p>
-                <ButtonLink href={guide.href} className="mt-5" variant="ghost">
+                <h2 className="mt-3 text-base font-bold text-ink">{guide.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-ink/65">{guide.description}</p>
+                <ButtonLink href={guide.href} className="mt-4" variant="ghost">
                   Read guide
                   <ArrowRight size={16} aria-hidden="true" />
                 </ButtonLink>
@@ -249,18 +265,18 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 pb-16 pt-8 md:px-8 md:pb-20">
-        <div className="grid gap-5 rounded-[2rem] bg-pine p-6 text-white shadow-soft md:grid-cols-[1.35fr_0.65fr] md:items-center md:p-8">
+      <section className="mx-auto max-w-7xl px-4 pb-12 pt-2 sm:px-5 md:px-8 md:pb-16">
+        <div className="grid gap-4 rounded-[1.75rem] bg-pine p-5 text-white shadow-soft md:grid-cols-[1.35fr_0.65fr] md:items-center md:p-7">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-saffron">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-saffron">
               {isLoggedIn ? "Keep moving" : "Start with one step"}
             </p>
-            <h2 className="mt-3 text-2xl font-bold md:text-3xl">
+            <h2 className="mt-2 text-2xl font-bold">
               {isLoggedIn
                 ? "Continue building your scholarship workspace."
                 : "Build your scholarship workspace today."}
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/75">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">
               {isLoggedIn
                 ? "Return to your dashboard, update applications, and keep your scholarship preparation organized."
                 : "Create your profile, browse opportunities, and keep your scholarship journey organized from search to submission."}
@@ -269,26 +285,26 @@ export function HomePage() {
           <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
             {isLoggedIn ? (
               <>
-                <ButtonLink href={dashboardHref} variant="secondary">
+                <ButtonLink href={dashboardHref} className="w-full sm:w-auto" variant="secondary">
                   Open Dashboard
                 </ButtonLink>
                 <ButtonLink
                   href="/dashboard/saved"
                   variant="outline"
-                  className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+                  className="w-full border-white/20 bg-white/10 text-white hover:bg-white/15 sm:w-auto"
                 >
                   Saved Opportunities
                 </ButtonLink>
               </>
             ) : (
               <>
-                <ButtonLink href="/register" variant="secondary">
+                <ButtonLink href="/register" className="w-full sm:w-auto" variant="secondary">
                   Create Free Profile
                 </ButtonLink>
                 <ButtonLink
                   href="/scholarships"
                   variant="outline"
-                  className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+                  className="w-full border-white/20 bg-white/10 text-white hover:bg-white/15 sm:w-auto"
                 >
                   Browse Scholarships
                 </ButtonLink>
