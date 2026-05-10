@@ -50,10 +50,10 @@ const guides = [
   {
     title: "Türkiye Burslari Guide for Pakistani Students",
     description:
-      "A student-friendly guide to Türkiye Burslari, including eligibility, documents, essays, recommendation letters, and interview preparation.",
+      "A practical Türkiye Burslari guide for Pakistani students, covering eligibility, benefits, documents, application steps, interview preparation, and common mistakes.",
     href: "/guides/turkiye-burslari-guide-for-pakistani-students",
     category: "Country Guide",
-    status: "Planned",
+    status: "Published",
     icon: Landmark,
   },
   {
