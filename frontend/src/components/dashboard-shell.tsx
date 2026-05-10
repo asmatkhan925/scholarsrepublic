@@ -12,6 +12,7 @@ type DashboardShellProps = {
   description: string;
   children: ReactNode;
   mode?: "student" | "admin";
+  hideHeader?: boolean;
 };
 
 type DashboardNavItem =
@@ -53,6 +54,7 @@ export function DashboardShell({
   description,
   children,
   mode = "student",
+  hideHeader = false,
 }: DashboardShellProps) {
   const pathname = usePathname();
   const navItems = mode === "admin" ? adminNavItems : studentNavItems;
@@ -110,15 +112,17 @@ export function DashboardShell({
         </aside>
 
         <section className="min-w-0">
-          <div className="mb-6 rounded-2xl border border-ink/10 bg-white p-6 shadow-soft">
-            <p className="text-sm font-semibold uppercase tracking-wide text-saffron">
-              {mode === "admin" ? "Admin" : "Student"} dashboard
-            </p>
-            <h1 className="mt-2 text-3xl font-bold text-ink">{title}</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/65">
-              {description}
-            </p>
-          </div>
+          {!hideHeader && (
+            <div className="mb-6 rounded-2xl border border-ink/10 bg-white p-6 shadow-soft">
+              <p className="text-sm font-semibold uppercase tracking-wide text-saffron">
+                {mode === "admin" ? "Admin" : "Student"} dashboard
+              </p>
+              <h1 className="mt-2 text-3xl font-bold text-ink">{title}</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/65">
+                {description}
+              </p>
+            </div>
+          )}
 
           {children}
         </section>
