@@ -1,11 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  ArrowRight,
   BookOpen,
   CalendarCheck,
   CheckCircle2,
-  FileText,
   GraduationCap,
   PenLine,
   Search,

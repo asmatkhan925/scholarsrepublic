@@ -86,10 +86,10 @@ const guides = [
   {
     title: "How to Email a Professor for Research Supervision",
     description:
-      "Learn how to write a short, respectful, and effective email to professors for MS, PhD, and research-based scholarship opportunities.",
+      "Learn how to email a professor for MS, PhD, and research supervision, including subject lines, email structure, sample email, attachments, follow-up tips, and common mistakes.",
     href: "/guides/how-to-email-professor-for-research-supervision",
     category: "Research Supervision",
-    status: "Planned",
+    status: "Published",
     icon: Mail,
   },
   {
