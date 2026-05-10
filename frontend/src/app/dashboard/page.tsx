@@ -7,7 +7,6 @@ import {
   BookOpenCheck,
   ClipboardCheck,
   FileText,
-  Gauge,
   GraduationCap,
   ListChecks,
   Search,
