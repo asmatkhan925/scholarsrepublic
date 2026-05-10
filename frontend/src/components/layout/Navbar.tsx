@@ -10,32 +10,46 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Button, ButtonLink } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-const publicLinks = [
+type NavLink = {
+  label: string;
+  href: string;
+  exact?: boolean;
+  activePrefixes?: string[];
+};
+
+const publicLinks: NavLink[] = [
   { label: "Scholarships", href: "/scholarships" },
+  { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
   { label: "Services", href: "/services" },
-  { label: "Blog", href: "/blog" },
+  { label: "About", href: "/about" },
 ];
 
-const studentLinks = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Profile", href: "/dashboard/profile" },
+const studentLinks: NavLink[] = [
+  { label: "Dashboard", href: "/dashboard", exact: true },
   { label: "Scholarships", href: "/scholarships" },
-  { label: "AI SOP", href: "/dashboard/ai/sop" },
-  { label: "Blog", href: "/blog" },
+  { label: "Applications", href: "/dashboard/applications" },
+  { label: "Saved", href: "/dashboard/saved" },
+  { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
 ];
 
-const adminLinks = [
+const adminLinks: NavLink[] = [
   { label: "Admin", href: "/admin" },
   { label: "Scholarships", href: "/scholarships" },
-  { label: "Blog", href: "/blog" },
+  { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
 ];
 
-function isActiveLink(pathname: string, href: string) {
-  if (href === "/") {
-    return pathname === "/";
+function isActiveLink(pathname: string, item: NavLink) {
+  if (item.exact) {
+    return pathname === item.href;
   }
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  if (
+    item.activePrefixes?.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+  ) {
+    return true;
+  }
+
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
 export function Navbar() {
@@ -69,18 +83,18 @@ export function Navbar() {
           <span className="leading-tight">
             <span className="block text-base sm:text-lg">Scholars Republic</span>
             <span className="hidden text-[11px] font-semibold uppercase tracking-[0.22em] text-pine/70 sm:block">
-              Scholarship Platform
+              Let&apos;s grow together
             </span>
           </span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
           {navLinks.map((item) => {
-            const active = isActiveLink(pathname, item.href);
+            const active = isActiveLink(pathname, item);
 
             return (
               <Link
-                key={item.href}
+                key={`${item.label}-${item.href}`}
                 href={item.href}
                 className={cn(
                   "rounded-2xl px-3.5 py-2 text-sm font-semibold transition",
@@ -133,11 +147,11 @@ export function Navbar() {
         <div className="border-t border-pine/10 bg-white px-5 py-4 shadow-soft md:hidden">
           <nav className="grid gap-2" aria-label="Mobile navigation">
             {navLinks.map((item) => {
-              const active = isActiveLink(pathname, item.href);
+              const active = isActiveLink(pathname, item);
 
               return (
                 <Link
-                  key={item.href}
+                  key={`${item.label}-${item.href}`}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
