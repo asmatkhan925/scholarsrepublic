@@ -25,6 +25,31 @@ type DashboardNavItem =
       disabled: true;
     };
 
+const studentNavItems: DashboardNavItem[] = [
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Profile", href: "/dashboard/profile" },
+  { label: "Recommendations", href: "/dashboard/recommendations" },
+  { label: "Saved", href: "/dashboard/saved" },
+  { label: "Applications", href: "/dashboard/applications" },
+  { label: "AI SOP", href: "/dashboard/ai/sop" },
+  { label: "Blog", href: "/blog" },
+  { label: "SOP Guide", href: "/guides/how-to-write-sop-for-scholarship" },
+  { label: "Documents", disabled: true },
+];
+
+const adminNavItems: DashboardNavItem[] = [
+  { label: "Admin Overview", href: "/admin" },
+  { label: "Scholarships", disabled: true },
+  { label: "Users", disabled: true },
+  { label: "Service Requests", disabled: true },
+  { label: "Blog", href: "/blog" },
+  { label: "SOP Guide", href: "/guides/how-to-write-sop-for-scholarship" },
+];
+
+function isActiveLink(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function DashboardShell({
   title,
   description,
@@ -32,81 +57,74 @@ export function DashboardShell({
   mode = "student",
 }: DashboardShellProps) {
   const pathname = usePathname();
-  const navItems: DashboardNavItem[] =
-    mode === "admin"
-      ? [
-          { label: "Admin Overview", href: "/admin" },
-          { label: "Scholarships", disabled: true },
-          { label: "Users", disabled: true },
-          { label: "Service Requests", disabled: true },
-          { label: "Blog", disabled: true },
-        ]
-      : [
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Profile", href: "/dashboard/profile" },
-          { label: "Recommendations", href: "/dashboard/recommendations" },
-          { label: "Saved", href: "/dashboard/saved" },
-          { label: "Applications", href: "/dashboard/applications" },
-          { label: "Documents", disabled: true },
-        ];
+  const navItems = mode === "admin" ? adminNavItems : studentNavItems;
 
   return (
-    <div className="min-h-screen bg-skyglass">
-      <div className="mx-auto grid min-h-screen max-w-7xl lg:grid-cols-[260px_1fr]">
-        <aside className="border-b border-ink/10 bg-white p-4 lg:border-b-0 lg:border-r">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="flex h-9 w-9 items-center justify-center rounded bg-pine text-white">
-              <GraduationCap size={20} aria-hidden="true" />
+    <main className="min-h-screen bg-cream/40">
+      <div className="mx-auto grid max-w-7xl gap-6 px-5 py-6 md:px-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft lg:sticky lg:top-6 lg:self-start">
+          <Link href="/" className="flex items-center gap-3 text-ink">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-pine text-white">
+              <GraduationCap size={24} aria-hidden="true" />
             </span>
-            Scholars Republic
+            <span>
+              <span className="block text-lg font-bold">Scholars Republic</span>
+              <span className="text-xs font-medium text-ink/55">
+                {mode === "admin" ? "Admin" : "Student"} dashboard
+              </span>
+            </span>
           </Link>
-          <nav className="mt-8 grid gap-1 text-sm font-medium text-ink/75">
+
+          <nav className="mt-6 grid gap-2">
             {navItems.map((item) => {
               if (item.disabled) {
                 return (
-                  <button
+                  <span
                     key={item.label}
-                    type="button"
-                    disabled
-                    title="Coming soon"
-                    className="cursor-not-allowed rounded px-3 py-2 text-left text-ink/35"
+                    className="rounded-xl px-4 py-3 text-sm font-semibold text-ink/35"
                   >
                     {item.label}
-                  </button>
+                  </span>
                 );
               }
 
-              const isActive = pathname === item.href;
+              const active = isActiveLink(pathname, item.href);
 
               return (
                 <Link
-                  key={item.label}
+                  key={item.href}
                   href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={
-                    isActive
-                      ? "rounded bg-mint px-3 py-2 text-pine"
-                      : "rounded px-3 py-2 hover:bg-mint hover:text-pine"
-                  }
+                  className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                    active
+                      ? "bg-pine/10 text-pine"
+                      : "text-ink/70 hover:bg-ink/5 hover:text-ink"
+                  }`}
                 >
                   {item.label}
                 </Link>
               );
             })}
           </nav>
-          <DashboardLogoutButton />
+
+          <div className="mt-6 border-t border-ink/10 pt-5">
+            <DashboardLogoutButton />
+          </div>
         </aside>
-        <main className="p-4 sm:p-8">
-          <div className="mb-8">
-            <p className="text-sm font-semibold uppercase tracking-wide text-pine">
+
+        <section className="min-w-0">
+          <div className="mb-6 rounded-2xl border border-ink/10 bg-white p-6 shadow-soft">
+            <p className="text-sm font-semibold uppercase tracking-wide text-saffron">
               {mode === "admin" ? "Admin" : "Student"} dashboard
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-ink">{title}</h1>
-            <p className="mt-2 max-w-2xl text-ink/70">{description}</p>
+            <h1 className="mt-2 text-3xl font-bold text-ink">{title}</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/65">
+              {description}
+            </p>
           </div>
+
           {children}
-        </main>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
