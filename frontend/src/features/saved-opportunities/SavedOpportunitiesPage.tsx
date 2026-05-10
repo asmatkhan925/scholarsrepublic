@@ -279,41 +279,28 @@ function SavedOpportunitiesContent() {
   return (
     <DashboardShell
       description="Review scholarships and opportunities you saved, then decide what to apply for next."
+      hideHeader
       title="Saved Opportunities"
     >
       <div className="space-y-5">
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
-          <div className="border-b border-pine/10 bg-gradient-to-r from-mint/70 via-white to-skyglass px-4 py-4 md:px-5">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 md:px-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="mint">
-                    <BookmarkCheck size={14} aria-hidden="true" />
-                    Shortlist overview
-                  </Badge>
-                  {deadlineStats.urgent > 0 ? (
-                    <Badge tone="saffron">{deadlineStats.urgent} need attention</Badge>
-                  ) : (
-                    <Badge tone="sky">No urgent deadlines</Badge>
-                  )}
-                </div>
-
-                <h2 className="mt-3 text-lg font-bold tracking-tight text-ink md:text-xl">
-                  Review saved scholarships and move serious options into your tracker.
-                </h2>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65">
-                  Keep this page as a clean shortlist: track strong options, remove weak ones, and
-                  focus only on scholarships worth preparing for.
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
+                  Student dashboard
+                </p>
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                  Saved Opportunities
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
+                  Review your saved scholarships, remove weak options, and move serious choices into
+                  your application tracker.
                 </p>
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
-                <ButtonLink
-                  href="/scholarships"
-                  className="w-full sm:w-auto"
-                  size="sm"
-                  variant="primary"
-                >
+                <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
                   Browse More
                   <Search size={15} aria-hidden="true" />
                 </ButtonLink>
@@ -329,7 +316,7 @@ function SavedOpportunitiesContent() {
             </div>
           </div>
 
-          <div className="grid gap-0 divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+          <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Saved</p>
               <p className="mt-1 text-2xl font-bold text-ink">{data?.count ?? savedItems.length}</p>
