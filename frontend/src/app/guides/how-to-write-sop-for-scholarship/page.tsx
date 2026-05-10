@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
+import { GraduationCap } from "lucide-react";
 
 export const metadata = {
   title: "How to Write a Good SOP for Scholarships | Scholars Republic",
@@ -118,14 +120,14 @@ function Section({
 }: {
   id?: string;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section
       id={id}
       className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6"
     >
-      <h2 className="text-xl font-bold text-ink md:text-2xl">{title}</h2>
+      <h2 className="text-xl font-bold text-ink">{title}</h2>
       <div className="mt-4 text-sm leading-7 text-ink/75">{children}</div>
     </section>
   );
@@ -133,26 +135,54 @@ function Section({
 
 export default function SOPGuidePage() {
   return (
-    <main className="bg-cream/40">
+    <main className="min-h-screen bg-cream/40">
       <section className="border-b border-ink/10 bg-white">
-        <div className="mx-auto max-w-6xl px-5 py-10 md:px-8 md:py-12">
-          <div className="max-w-3xl">
-            <Link
-              href="/blog"
-              className="text-sm font-semibold text-pine hover:underline"
-            >
-              ← Back to Blog
+        <div className="mx-auto max-w-6xl px-5 py-5 md:px-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <Link href="/" className="flex items-center gap-3 text-ink">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pine text-white">
+                <GraduationCap size={22} aria-hidden="true" />
+              </span>
+              <span>
+                <span className="block text-base font-bold">
+                  Scholars Republic
+                </span>
+                <span className="text-xs text-ink/55">
+                  Scholarship guides and tools
+                </span>
+              </span>
             </Link>
 
-            <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-saffron">
+            <div className="flex flex-wrap gap-2 text-sm font-semibold">
+              <Link
+                href="/blog"
+                className="rounded-xl border border-ink/10 bg-white px-4 py-2 text-ink/70 transition hover:bg-ink/5 hover:text-ink"
+              >
+                Blog
+              </Link>
+              <Link
+                href="/scholarships"
+                className="rounded-xl border border-ink/10 bg-white px-4 py-2 text-ink/70 transition hover:bg-ink/5 hover:text-ink"
+              >
+                Search Scholarships
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-ink/10 bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-8 md:px-8 md:py-10">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-wide text-saffron">
               Scholarship Writing Guide
             </p>
 
-            <h1 className="mt-3 text-3xl font-bold leading-tight text-ink md:text-4xl">
+            <h1 className="mt-3 text-2xl font-bold leading-tight text-ink md:text-3xl">
               How to Write a Good SOP for Scholarship Applications
             </h1>
 
-            <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
+            <p className="mt-4 text-sm leading-7 text-ink/70">
               A Statement of Purpose is one of the most important documents in a
               scholarship application. This guide explains how to write a clear,
               specific, and convincing SOP with structure, examples, mistakes to
@@ -162,28 +192,8 @@ export default function SOPGuidePage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-6xl gap-7 px-5 py-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="mx-auto grid max-w-6xl gap-7 px-5 py-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_280px]">
         <article className="space-y-7">
-          <section className="rounded-2xl border border-pine/20 bg-white p-5 shadow-soft md:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-pine">
-              Quick help
-            </p>
-            <h2 className="mt-2 text-xl font-bold text-ink">
-              Want to turn your ideas into a first draft?
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-ink/70">
-              Read this guide first, then use the Scholars Republic SOP
-              Generator to create a starting draft from your profile and study
-              goals. Always review and personalize the result before submitting.
-            </p>
-            <Link
-              href="/dashboard/ai/sop"
-              className="mt-4 inline-flex rounded-xl bg-pine px-5 py-3 text-sm font-semibold text-white transition hover:bg-pine/90"
-            >
-              Open SOP Generator
-            </Link>
-          </section>
-
           <Section title="Why your SOP matters">
             <p>
               Your transcripts show your grades. Your CV shows your activities.
@@ -416,6 +426,27 @@ export default function SOPGuidePage() {
             </p>
           </Section>
 
+          <section className="rounded-2xl border border-pine/20 bg-gradient-to-r from-pine/10 via-white to-saffron/10 p-5 shadow-soft md:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-pine">
+              Scholars Republic AI Tool
+            </p>
+            <h2 className="mt-2 text-xl font-bold text-ink">
+              Ready to create your SOP draft?
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-ink/70">
+              After reading this guide, use the Scholars Republic SOP Generator
+              to create a first draft from your profile, target scholarship,
+              field of study, and future goals. Use it as a starting point, then
+              personalize and verify every detail before submission.
+            </p>
+            <Link
+              href="/dashboard/ai/sop"
+              className="mt-4 inline-flex rounded-xl bg-pine px-5 py-3 text-sm font-semibold text-white transition hover:bg-pine/90"
+            >
+              Open SOP Generator
+            </Link>
+          </section>
+
           <Section title="Further reading">
             <ul className="space-y-3">
               <li>
@@ -463,20 +494,42 @@ export default function SOPGuidePage() {
         </article>
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+          <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
+            <p className="text-xs font-semibold uppercase tracking-wide text-pine">
+              AI SOP Generator
+            </p>
+            <h2 className="mt-2 text-base font-bold text-ink">
+              Create a first draft
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-ink/70">
+              Use your profile and study goals to generate a structured SOP
+              draft, then improve it using this guide.
+            </p>
+            <Link
+              href="/dashboard/ai/sop"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-pine px-4 py-3 text-sm font-semibold text-white transition hover:bg-pine/90"
+            >
+              Try SOP Generator
+            </Link>
+          </div>
+
           <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">In this guide</h2>
+            <h2 className="text-base font-bold text-ink">Useful links</h2>
             <nav className="mt-4 grid gap-3 text-sm text-ink/70">
               <a href="#sop-checklist" className="hover:text-pine">
                 SOP checklist
               </a>
-              <Link href="/blog" className="hover:text-pine">
-                Blog
-              </Link>
               <Link href="/scholarships" className="hover:text-pine">
-                Find scholarships
+                Search scholarships
               </Link>
               <Link href="/dashboard/profile" className="hover:text-pine">
                 Complete your profile
+              </Link>
+              <Link href="/dashboard" className="hover:text-pine">
+                Student dashboard
+              </Link>
+              <Link href="/blog" className="hover:text-pine">
+                Blog
               </Link>
             </nav>
           </div>
