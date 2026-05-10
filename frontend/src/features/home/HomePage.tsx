@@ -217,13 +217,6 @@ export function HomePage() {
                     ))}
                   </div>
 
-                  <div className="mt-4 rounded-2xl border border-pine/10 bg-mint/60 p-4">
-                    <p className="text-sm font-semibold text-pine">Apply carefully</p>
-                    <p className="mt-1 text-sm leading-6 text-ink/65">
-                      Use Scholars Republic to prepare, but always verify final rules on the
-                      official scholarship website.
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
