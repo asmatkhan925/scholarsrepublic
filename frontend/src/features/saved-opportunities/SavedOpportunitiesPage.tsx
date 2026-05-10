@@ -282,49 +282,76 @@ function SavedOpportunitiesContent() {
       title="Saved Opportunities"
     >
       <div className="space-y-5">
-        <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
-          <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Saved</p>
-                <p className="mt-1 text-2xl font-bold text-ink">
-                  {data?.count ?? savedItems.length}
+        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
+          <div className="border-b border-pine/10 bg-gradient-to-r from-mint/70 via-white to-skyglass px-4 py-4 md:px-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="mint">
+                    <BookmarkCheck size={14} aria-hidden="true" />
+                    Shortlist overview
+                  </Badge>
+                  {deadlineStats.urgent > 0 ? (
+                    <Badge tone="saffron">{deadlineStats.urgent} need attention</Badge>
+                  ) : (
+                    <Badge tone="sky">No urgent deadlines</Badge>
+                  )}
+                </div>
+
+                <h2 className="mt-3 text-lg font-bold tracking-tight text-ink md:text-xl">
+                  Review saved scholarships and move serious options into your tracker.
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65">
+                  Keep this page as a clean shortlist: track strong options, remove weak ones, and
+                  focus only on scholarships worth preparing for.
                 </p>
-                <p className="mt-1 text-xs text-ink/50">Total shortlist</p>
               </div>
 
-              <div className="rounded-2xl border border-saffron/30 bg-saffron/15 px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.urgent}</p>
-                <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
-              </div>
-
-              <div className="rounded-2xl border border-pine/10 bg-skyglass px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Rolling</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.rolling}</p>
-                <p className="mt-1 text-xs text-ink/50">No fixed deadline</p>
-              </div>
-
-              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Expired</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.expired}</p>
-                <p className="mt-1 text-xs text-ink/50">Review or remove</p>
+              <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+                <ButtonLink
+                  href="/scholarships"
+                  className="w-full sm:w-auto"
+                  size="sm"
+                  variant="primary"
+                >
+                  Browse More
+                  <Search size={15} aria-hidden="true" />
+                </ButtonLink>
+                <ButtonLink
+                  href="/dashboard/applications"
+                  className="w-full sm:w-auto"
+                  size="sm"
+                  variant="outline"
+                >
+                  Open Tracker
+                </ButtonLink>
               </div>
             </div>
+          </div>
 
-            <div className="grid gap-2 sm:flex xl:justify-end">
-              <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
-                Browse More
-                <Search size={15} aria-hidden="true" />
-              </ButtonLink>
-              <ButtonLink
-                href="/dashboard/applications"
-                className="w-full sm:w-auto"
-                size="sm"
-                variant="outline"
-              >
-                Open Tracker
-              </ButtonLink>
+          <div className="grid gap-0 divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+            <div className="px-4 py-4 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Saved</p>
+              <p className="mt-1 text-2xl font-bold text-ink">{data?.count ?? savedItems.length}</p>
+              <p className="mt-1 text-xs text-ink/50">Total shortlist</p>
+            </div>
+
+            <div className="px-4 py-4 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
+              <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.urgent}</p>
+              <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
+            </div>
+
+            <div className="px-4 py-4 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Rolling</p>
+              <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.rolling}</p>
+              <p className="mt-1 text-xs text-ink/50">Flexible deadlines</p>
+            </div>
+
+            <div className="px-4 py-4 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Expired</p>
+              <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.expired}</p>
+              <p className="mt-1 text-xs text-ink/50">Remove or review</p>
             </div>
           </div>
         </section>
