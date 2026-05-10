@@ -210,11 +210,11 @@ function SavedOpportunityCard({
               <div className="mt-4 grid gap-2">
                 {isTracking ? (
                   <Button
-                    className="w-full shadow-sm"
+                    className="w-full border border-saffron/40 bg-saffron/20 text-ink shadow-sm hover:bg-saffron/30"
                     disabled={stopping}
                     onClick={handleStopTracking}
                     size="sm"
-                    variant="danger"
+                    variant="outline"
                   >
                     <ClipboardCheck size={15} aria-hidden="true" />
                     {stopping ? "Stopping..." : "Stop Tracking"}
