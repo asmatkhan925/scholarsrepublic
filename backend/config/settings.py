@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "apps.applications",
     "apps.services",
     "apps.blog",
+    "apps.ai_tools.apps.AiToolsConfig",
 ]
 
 MIDDLEWARE = [
@@ -180,3 +181,7 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API for the Scholars Republic scholarship matching platform.",
     "VERSION": "0.1.0",
 }
+AI_FEATURES_ENABLED = env_bool("AI_FEATURES_ENABLED", False)
+AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "")
+AI_SERVICE_TOKEN = os.getenv("AI_SERVICE_TOKEN", "")
+AI_SOP_MONTHLY_LIMIT = env_int("AI_SOP_MONTHLY_LIMIT", 5)

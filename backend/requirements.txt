@@ -7,3 +7,4 @@ python-dotenv
 Pillow
 django-filter
 drf-spectacular
+requests
