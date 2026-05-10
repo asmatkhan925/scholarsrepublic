@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 
 import {
@@ -11,12 +12,14 @@ import {
   FileText,
   GraduationCap,
   LayoutDashboard,
+  Menu,
   Search,
   ShieldCheck,
   Sparkles,
   Star,
   UserRoundCheck,
   Wrench,
+  X,
 } from "lucide-react";
 
 import { DashboardLogoutButton } from "@/components/dashboard-logout-button";
@@ -164,9 +167,11 @@ function isToolSectionActive(pathname: string) {
 function DashboardNavLink({
   item,
   compact = false,
+  onNavigate,
 }: {
   item: DashboardNavItem;
   compact?: boolean;
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const active = isActiveLink(pathname, item);
@@ -199,6 +204,7 @@ function DashboardNavLink({
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={cn(
         "group flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition",
         active ? "bg-mint text-pine" : "text-ink/65 hover:bg-pine/5 hover:text-ink",
@@ -263,87 +269,86 @@ function DesktopToolsMenu() {
   );
 }
 
-function MobileDashboardNav({
+function MobileMenuPanel({
   groups,
   showTools,
+  onNavigate,
 }: {
   groups: DashboardNavGroup[];
   showTools: boolean;
+  onNavigate: () => void;
 }) {
   const pathname = usePathname();
   const toolsActive = isToolSectionActive(pathname);
 
   return (
-    <div className="lg:hidden">
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3">
-        {groups.flatMap((group) =>
-          group.items.map((item) => {
-            const active = isActiveLink(pathname, item);
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition",
-                  active
-                    ? "border-pine/20 bg-mint text-pine"
-                    : "border-pine/10 bg-white text-ink/65 hover:bg-pine/5 hover:text-ink",
-                )}
-              >
-                <Icon size={16} aria-hidden />
-                {item.label}
-              </Link>
-            );
-          }),
-        )}
+    <div className="mt-4 border-t border-pine/10 pt-4">
+      <nav className="grid gap-5" aria-label="Mobile dashboard navigation">
+        {groups.map((group) => (
+          <div key={group.title}>
+            <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-ink/35">
+              {group.title}
+            </p>
+            <div className="grid gap-2">
+              {group.items.map((item) => (
+                <DashboardNavLink key={item.href} item={item} onNavigate={onNavigate} />
+              ))}
+            </div>
+          </div>
+        ))}
 
         {showTools ? (
-          <Link
-            href="/dashboard/ai/sop"
-            className={cn(
-              "flex shrink-0 items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition",
-              toolsActive
-                ? "border-pine/20 bg-mint text-pine"
-                : "border-pine/10 bg-white text-ink/65 hover:bg-pine/5 hover:text-ink",
-            )}
-          >
-            <Wrench size={16} aria-hidden />
-            Tools
-            <span className="rounded-full bg-saffron px-1.5 py-0.5 text-[10px] font-bold text-ink">
-              AI
-            </span>
-          </Link>
-        ) : null}
-      </div>
+          <div>
+            <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-ink/35">
+              Preparation
+            </p>
 
-      {showTools ? (
-        <details className="rounded-2xl border border-pine/10 bg-mint/35 p-2">
-          <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl px-3 py-2 text-sm font-bold text-pine [&::-webkit-details-marker]:hidden">
-            <span className="flex items-center gap-2">
-              <Wrench size={16} aria-hidden />
-              Tools and preparation
-            </span>
-            <ChevronDown size={16} aria-hidden />
-          </summary>
+            <details
+              className="rounded-2xl border border-pine/10 bg-mint/35 p-2"
+              open={toolsActive}
+            >
+              <summary
+                className={cn(
+                  "flex cursor-pointer list-none items-center justify-between rounded-xl px-3 py-2 text-sm font-bold [&::-webkit-details-marker]:hidden",
+                  toolsActive ? "text-pine" : "text-ink/75",
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Wrench size={16} aria-hidden />
+                  Tools and preparation
+                </span>
+                <ChevronDown size={16} aria-hidden />
+              </summary>
 
-          <div className="mt-2 grid gap-2">
-            {preparationTools.map((item) => (
-              <DashboardNavLink key={item.href} compact item={item} />
-            ))}
+              <div className="mt-2 grid gap-2">
+                {preparationTools.map((item) => (
+                  <DashboardNavLink
+                    key={item.href}
+                    compact
+                    item={item}
+                    onNavigate={item.disabled ? undefined : onNavigate}
+                  />
+                ))}
 
-            <DashboardNavLink
-              compact
-              item={{
-                label: "Guides",
-                href: "/blog",
-                icon: BookOpenCheck,
-              }}
-            />
+                <DashboardNavLink
+                  compact
+                  item={{
+                    label: "Guides",
+                    href: "/blog",
+                    icon: BookOpenCheck,
+                  }}
+                  onNavigate={onNavigate}
+                />
+              </div>
+            </details>
           </div>
-        </details>
-      ) : null}
+        ) : null}
+      </nav>
+
+      <div className="mt-5 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-pine">Account</p>
+        <DashboardLogoutButton />
+      </div>
     </div>
   );
 }
@@ -369,6 +374,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const navGroups = mode === "admin" ? adminNavGroups : studentNavGroups;
   const showTools = mode === "student";
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f7faf8]">
@@ -447,25 +453,39 @@ export function DashboardShell({
 
         <main className="min-w-0">
           <div className="mb-4 rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-sm lg:hidden">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <Link href="/" className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-pine text-white">
+            <div className="flex items-center justify-between gap-3">
+              <Link href="/" className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-pine text-white">
                   <GraduationCap size={21} aria-hidden />
                 </span>
-                <span>
-                  <span className="block text-sm font-bold text-ink">Scholars Republic</span>
-                  <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-pine/70">
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold text-ink">
+                    Scholars Republic
+                  </span>
+                  <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-pine/70">
                     Let&apos;s grow together
                   </span>
                 </span>
               </Link>
 
-              <div className="shrink-0">
-                <DashboardLogoutButton />
-              </div>
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pine/10 bg-white text-ink shadow-sm transition hover:bg-mint"
+                aria-label={mobileOpen ? "Close dashboard menu" : "Open dashboard menu"}
+                aria-expanded={mobileOpen}
+                onClick={() => setMobileOpen((value) => !value)}
+              >
+                {mobileOpen ? <X size={19} aria-hidden /> : <Menu size={19} aria-hidden />}
+              </button>
             </div>
 
-            <MobileDashboardNav groups={navGroups} showTools={showTools} />
+            {mobileOpen ? (
+              <MobileMenuPanel
+                groups={navGroups}
+                showTools={showTools}
+                onNavigate={() => setMobileOpen(false)}
+              />
+            ) : null}
           </div>
 
           {!hideHeader ? (
