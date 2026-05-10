@@ -23,10 +23,10 @@ const guides = [
   {
     title: "Fully Funded Scholarships for Pakistani Students in 2026",
     description:
-      "A practical overview of major fully funded scholarship opportunities, eligibility factors, documents, and application planning for Pakistani students.",
+      "A practical guide for Pakistani students looking for fully funded scholarships in 2026, including where to search, what documents to prepare, and how Scholars Republic can help.",
     href: "/guides/fully-funded-scholarships-for-pakistani-students-2026",
     category: "Scholarship Search",
-    status: "Planned",
+    status: "Published",
     icon: GraduationCap,
   },
   {
