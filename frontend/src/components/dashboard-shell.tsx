@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 
 import { DashboardLogoutButton } from "@/components/dashboard-logout-button";
-import { Badge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 type DashboardShellProps = {
@@ -395,22 +394,6 @@ export function DashboardShell({
                 </span>
               </span>
             </Link>
-
-            <div className="mt-4 rounded-2xl bg-mint/60 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-                  {mode === "admin" ? "Admin" : "Student"}
-                </p>
-                <Badge tone={mode === "admin" ? "saffron" : "mint"}>
-                  {mode === "admin" ? "Admin" : "Workspace"}
-                </Badge>
-              </div>
-              <p className="mt-2 text-xs leading-5 text-ink/60">
-                {mode === "admin"
-                  ? "Manage platform content and operations."
-                  : "Search, save, track, and prepare applications."}
-              </p>
-            </div>
 
             <nav className="mt-4 grid gap-4" aria-label="Dashboard navigation">
               {navGroups.map((group) => (
