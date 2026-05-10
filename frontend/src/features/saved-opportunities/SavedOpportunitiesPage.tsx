@@ -274,54 +274,55 @@ function SavedOpportunitiesContent() {
       title="Saved Opportunities"
     >
       <div className="space-y-5">
-        <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-          <div className="grid gap-0 lg:grid-cols-[1.25fr_0.75fr]">
-            <div className="p-5 md:p-7">
+        <section className="rounded-[1.75rem] border border-pine/10 bg-white p-5 shadow-soft md:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
               <Badge tone="mint" className="mb-4">
                 <BookmarkCheck size={14} aria-hidden="true" />
                 Shortlist
               </Badge>
-              <h1 className="text-2xl font-bold tracking-tight text-ink md:text-4xl">
-                Keep serious opportunities easy to revisit.
+              <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                Turn saved scholarships into a focused application shortlist.
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/70">
-                Saved opportunities should become an active shortlist. Review deadlines, compare
-                fit, and start tracking the scholarships you are ready to prepare for.
+              <p className="mt-3 text-sm leading-7 text-ink/70">
+                Review what you saved, remove weak options, and start tracking the scholarships you
+                are serious about applying for.
               </p>
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <ButtonLink href="/scholarships" className="w-full sm:w-auto">
-                  Browse More Scholarships
-                  <Search size={16} aria-hidden="true" />
-                </ButtonLink>
-                <ButtonLink
-                  href="/dashboard/applications"
-                  className="w-full sm:w-auto"
-                  variant="outline"
-                >
-                  Open Tracker
-                </ButtonLink>
-              </div>
             </div>
 
-            <div className="border-t border-pine/10 bg-mint/45 p-5 md:p-7 lg:border-l lg:border-t-0">
-              <div className="h-full rounded-[1.5rem] border border-pine/10 bg-white/90 p-5">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-pine">
-                  What to do here
-                </p>
-                <div className="mt-4 grid gap-3 text-sm leading-6 text-ink/65">
-                  <p>
-                    Compare saved scholarships and remove options that no longer fit your profile.
-                  </p>
-                  <p>
-                    Start tracking the strongest opportunities so you can manage documents, notes,
-                    and next actions.
-                  </p>
-                  <p>
-                    Check official deadlines before submitting. Saved status does not replace the
-                    scholarship provider&apos;s rules.
-                  </p>
-                </div>
-              </div>
+            <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
+              <ButtonLink href="/scholarships" className="w-full sm:w-auto">
+                Browse More
+                <Search size={16} aria-hidden="true" />
+              </ButtonLink>
+              <ButtonLink
+                href="/dashboard/applications"
+                className="w-full sm:w-auto"
+                variant="outline"
+              >
+                Open Tracker
+              </ButtonLink>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl bg-mint/50 p-4">
+              <p className="text-sm font-bold text-ink">Review fit</p>
+              <p className="mt-1 text-sm leading-5 text-ink/65">
+                Keep only opportunities that match your profile and goals.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-skyglass p-4">
+              <p className="text-sm font-bold text-ink">Start tracking</p>
+              <p className="mt-1 text-sm leading-5 text-ink/65">
+                Move serious options into your application tracker.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-saffron/20 p-4">
+              <p className="text-sm font-bold text-ink">Verify details</p>
+              <p className="mt-1 text-sm leading-5 text-ink/65">
+                Check official deadlines and requirements before applying.
+              </p>
             </div>
           </div>
         </section>
