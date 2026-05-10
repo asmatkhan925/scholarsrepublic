@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   FileText,
   GraduationCap,
-  Landmark,
   Search,
   Sparkles,
   UserRoundCheck,

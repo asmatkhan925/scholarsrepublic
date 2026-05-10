@@ -77,10 +77,10 @@ const guides = [
   {
     title: "How to Write a Study Plan for Scholarship Applications",
     description:
-      "Learn how to explain your academic plan, research direction, semester goals, and future contribution in a clear study plan.",
+      "Learn how to write a strong study plan for scholarship applications, including structure, examples, research goals, timeline, mistakes to avoid, and document tips.",
     href: "/guides/how-to-write-study-plan-for-scholarship",
     category: "Documents",
-    status: "Planned",
+    status: "Published",
     icon: BookOpen,
   },
   {
