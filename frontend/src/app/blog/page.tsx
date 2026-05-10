@@ -104,10 +104,10 @@ const guides = [
   {
     title: "Scholarship Application Checklist",
     description:
-      "A complete checklist for preparing documents, checking eligibility, managing deadlines, and avoiding common scholarship mistakes.",
+      "A complete scholarship application checklist for Pakistani students, including eligibility, documents, deadlines, SOP, CV, recommendations, submission review, and common mistakes.",
     href: "/guides/scholarship-application-checklist",
     category: "Application Planning",
-    status: "Planned",
+    status: "Published",
     icon: CalendarCheck,
   },
 ];

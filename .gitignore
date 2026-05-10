@@ -1,47 +1,41 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
+backend/venv/
+venv/
+.env
+backend/.env
+
+# Django/runtime
+*.log
 *.sqlite3
+media/
+staticfiles/
+*.bak
+*.backup
+*.dump
+*.sql
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Test/cache
 .pytest_cache/
 .coverage
 htmlcov/
-*.log
-*.sql
-backups/
-staticfiles/
-media/
-venv/
-.venv/
-
-# Django
-backend/.env
-backend/media/*
-!backend/media/.gitkeep
-backend/staticfiles/
-backend/venv/
-backend/.venv/
-
-# Node / Next.js
-frontend/.env
-frontend/.env.local
-frontend/.next/
-frontend/node_modules/
-frontend/out/
-frontend/.vercel/
-frontend/playwright-report/
-frontend/test-results/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-node_modules/
-.next/
-
-# OS / editors
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-
-# Local keys
-.ssh/
+playwright-report/
+test-results/

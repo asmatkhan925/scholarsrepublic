@@ -2,11 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
-  ArrowRight,
-  Award,
   BookOpen,
   CheckCircle2,
-  FileText,
   GraduationCap,
   ListChecks,
   Search,
