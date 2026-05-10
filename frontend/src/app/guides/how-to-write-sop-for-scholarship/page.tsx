@@ -1,100 +1,73 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "How to Write the Best SOP for Scholarship Applications | Scholars Republic",
+  title: "How to Write a Good SOP for Scholarships | Scholars Republic",
   description:
-    "Learn how to write a powerful Statement of Purpose for scholarships. Includes SOP structure, examples, writing tips, common mistakes, and a checklist.",
+    "A practical guide to writing a strong scholarship Statement of Purpose, with structure, examples, common mistakes, and a final checklist.",
 };
 
-const sopStructure = [
+const structure = [
   {
-    title: "1. Strong opening and academic purpose",
+    title: "1. Opening: field, motivation, and purpose",
     body:
-      "Start with your field, motivation, and main goal. Avoid generic childhood stories unless they are specific and clearly connected to your academic direction.",
+      "Start by introducing your academic field, the problem you care about, and the purpose behind your application. Avoid generic openings such as “Since childhood” unless the story is specific and meaningful.",
   },
   {
     title: "2. Academic background",
     body:
-      "Explain your degree, important subjects, academic strengths, and how your studies prepared you for the scholarship or program.",
+      "Explain your degree, relevant subjects, academic strengths, and how your education prepared you for the scholarship or program.",
   },
   {
-    title: "3. Research, professional, or practical experience",
+    title: "3. Relevant experience",
     body:
-      "Discuss relevant projects, internships, jobs, research, volunteering, competitions, or leadership experiences. Explain what you learned and how it shaped your goals.",
+      "Mention projects, research, internships, work, volunteering, competitions, or leadership experience. Do not simply list them; explain what they taught you.",
   },
   {
-    title: "4. Why this program, university, or country",
+    title: "4. Program and university fit",
     body:
-      "Show that you researched the program. Mention specific courses, labs, professors, research areas, practical training, or country-specific academic advantages.",
+      "Show that you researched the program. Mention relevant courses, labs, professors, research areas, practical training, or academic opportunities.",
   },
   {
-    title: "5. Why this scholarship",
+    title: "5. Scholarship fit",
     body:
-      "Explain how the scholarship supports your academic goals and future contribution. Do not make the SOP only about financial need.",
+      "Explain why this scholarship is important for your academic path and how it will help you create meaningful impact.",
   },
   {
     title: "6. Future goals and impact",
     body:
-      "Describe your short-term and long-term goals. Explain who will benefit from your education and how you will create meaningful impact.",
+      "Describe your short-term and long-term goals. Explain how your education will benefit your country, community, field, or profession.",
   },
   {
-    title: "7. Strong conclusion",
+    title: "7. Conclusion",
     body:
-      "End with confidence, purpose, and responsibility. Show that you are ready to benefit from the scholarship and contribute after graduation.",
+      "End with confidence and purpose. Your conclusion should show that you are ready to use the opportunity responsibly.",
   },
-];
-
-const committeeCriteria = [
-  "Clear academic direction",
-  "Evidence of preparation",
-  "Strong program fit",
-  "Realistic future goals",
-  "Clear communication",
 ];
 
 const mistakes = [
   "Starting with a generic childhood story",
-  "Repeating the CV instead of explaining meaning and purpose",
-  "Praising the university with empty phrases",
-  "Writing only emotional or poverty-based stories",
-  "Using robotic AI-generated language without personality",
-  "Having no clear future plan",
-  "Ignoring the official word limit or scholarship instructions",
-];
-
-const actionWords = [
-  "developed",
-  "researched",
-  "analyzed",
-  "designed",
-  "implemented",
-  "contributed",
-  "investigated",
-  "collaborated",
-  "improved",
-  "led",
-  "mentored",
-  "evaluated",
-  "strengthened",
-  "applied",
-  "proposed",
+  "Repeating your CV without explaining meaning",
+  "Praising the university with empty words",
+  "Making the SOP only about financial need",
+  "Using robotic or generic AI-style language",
+  "Writing without a clear future plan",
+  "Ignoring the official word limit or prompt",
 ];
 
 const checklist = [
   "Have I answered the exact scholarship prompt?",
-  "Is my opening specific and memorable?",
+  "Is my opening specific and relevant?",
   "Have I explained why I chose this field?",
   "Have I shown academic preparation?",
   "Have I included relevant experience?",
-  "Have I explained why this university or program fits me?",
-  "Have I explained why this scholarship fits my goals?",
+  "Have I explained why this program fits me?",
+  "Have I explained why this scholarship matters?",
   "Are my future goals clear and realistic?",
   "Have I shown potential impact?",
   "Have I avoided copying my CV?",
   "Have I removed generic praise?",
   "Have I checked grammar and spelling?",
   "Have I followed the word limit?",
-  "Have I asked someone experienced to review it?",
 ];
 
 const weakStrongExamples = [
@@ -118,39 +91,42 @@ const weakStrongExamples = [
     strong:
       "This scholarship will allow me to access specialized training and apply it to community-focused development work after graduation.",
   },
-  {
-    weak: "I have leadership skills.",
-    strong:
-      "As president of my student society, I led a team of 18 volunteers to organize academic mentoring sessions for first-year students.",
-  },
 ];
 
-function CTABox() {
-  return (
-    <section className="rounded-2xl border border-pine/20 bg-gradient-to-r from-pine/10 via-white to-saffron/10 p-6 shadow-soft md:p-8">
-      <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-pine">
-            Scholars Republic AI Tool
-          </p>
-          <h2 className="mt-2 text-2xl font-bold text-ink">
-            Need help turning your ideas into a strong SOP?
-          </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/70">
-            After reading this guide, use our AI SOP Generator to create a first
-            draft from your profile, scholarship target, field of study, future
-            goals, and existing draft. Always review and personalize the result
-            before submitting.
-          </p>
-        </div>
+const actionWords = [
+  "developed",
+  "researched",
+  "analyzed",
+  "designed",
+  "implemented",
+  "contributed",
+  "investigated",
+  "collaborated",
+  "improved",
+  "led",
+  "mentored",
+  "evaluated",
+  "strengthened",
+  "applied",
+  "proposed",
+];
 
-        <Link
-          href="/dashboard/ai/sop"
-          className="inline-flex items-center justify-center rounded-xl bg-pine px-5 py-3 text-sm font-semibold text-white transition hover:bg-pine/90"
-        >
-          Open SOP Generator
-        </Link>
-      </div>
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6"
+    >
+      <h2 className="text-xl font-bold text-ink md:text-2xl">{title}</h2>
+      <div className="mt-4 text-sm leading-7 text-ink/75">{children}</div>
     </section>
   );
 }
@@ -159,8 +135,8 @@ export default function SOPGuidePage() {
   return (
     <main className="bg-cream/40">
       <section className="border-b border-ink/10 bg-white">
-        <div className="mx-auto max-w-6xl px-5 py-12 md:px-8 md:py-16">
-          <div className="max-w-4xl">
+        <div className="mx-auto max-w-6xl px-5 py-10 md:px-8 md:py-12">
+          <div className="max-w-3xl">
             <Link
               href="/blog"
               className="text-sm font-semibold text-pine hover:underline"
@@ -168,92 +144,78 @@ export default function SOPGuidePage() {
               ← Back to Blog
             </Link>
 
-            <p className="mt-6 text-sm font-semibold uppercase tracking-wide text-saffron">
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-saffron">
               Scholarship Writing Guide
             </p>
 
-            <h1 className="mt-3 text-4xl font-bold leading-tight text-ink md:text-5xl">
-              How to Write the Best SOP for Scholarship Applications
+            <h1 className="mt-3 text-3xl font-bold leading-tight text-ink md:text-4xl">
+              How to Write a Good SOP for Scholarship Applications
             </h1>
 
-            <p className="mt-5 max-w-3xl text-base leading-8 text-ink/70 md:text-lg">
-              A complete guide for writing a powerful Statement of Purpose,
-              including structure, examples, common mistakes, and a checklist for
-              fully funded scholarship applications.
+            <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
+              A Statement of Purpose is one of the most important documents in a
+              scholarship application. This guide explains how to write a clear,
+              specific, and convincing SOP with structure, examples, mistakes to
+              avoid, and a final checklist.
             </p>
-
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/dashboard/ai/sop"
-                className="inline-flex items-center justify-center rounded-xl bg-pine px-5 py-3 text-sm font-semibold text-white transition hover:bg-pine/90"
-              >
-                Use AI SOP Generator
-              </Link>
-
-              <a
-                href="#sop-checklist"
-                className="inline-flex items-center justify-center rounded-xl border border-ink/15 bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:bg-ink/5"
-              >
-                Jump to SOP Checklist
-              </a>
-            </div>
           </div>
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 md:px-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <article className="space-y-10">
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Why your SOP matters so much
+      <div className="mx-auto grid max-w-6xl gap-7 px-5 py-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <article className="space-y-7">
+          <section className="rounded-2xl border border-pine/20 bg-white p-5 shadow-soft md:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-pine">
+              Quick help
+            </p>
+            <h2 className="mt-2 text-xl font-bold text-ink">
+              Want to turn your ideas into a first draft?
             </h2>
-            <div className="mt-4 space-y-4 text-sm leading-8 text-ink/75">
-              <p>
-                A Statement of Purpose, often called an SOP, is one of the most
-                important documents in a scholarship application. Your
-                transcripts show your grades. Your CV shows your activities. Your
-                recommendation letters show what others think about you. But your
-                SOP shows why you are applying, what you want to achieve, why you
-                deserve funding, and how the scholarship will help you create
-                impact.
-              </p>
-              <p>
-                For scholarship applications, the SOP becomes even more
-                important because the committee is not only asking, “Can this
-                student study here?” They are also asking, “Should we invest
-                money in this person?” A strong scholarship SOP answers that
-                question clearly.
-              </p>
-            </div>
+            <p className="mt-3 text-sm leading-7 text-ink/70">
+              Read this guide first, then use the Scholars Republic SOP
+              Generator to create a starting draft from your profile and study
+              goals. Always review and personalize the result before submitting.
+            </p>
+            <Link
+              href="/dashboard/ai/sop"
+              className="mt-4 inline-flex rounded-xl bg-pine px-5 py-3 text-sm font-semibold text-white transition hover:bg-pine/90"
+            >
+              Open SOP Generator
+            </Link>
           </section>
 
-          <CTABox />
+          <Section title="Why your SOP matters">
+            <p>
+              Your transcripts show your grades. Your CV shows your activities.
+              Your recommendation letters show what others think about you. But
+              your SOP explains why you are applying, what you want to achieve,
+              why you deserve funding, and how the scholarship will help you
+              create impact.
+            </p>
+            <p className="mt-4">
+              For scholarship applications, the committee is not only asking,
+              “Can this student study here?” They are also asking, “Should we
+              invest in this person?” A strong SOP answers that question clearly.
+            </p>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              What is an SOP for scholarship?
-            </h2>
-            <p className="mt-4 text-sm leading-8 text-ink/75">
+          <Section title="What is an SOP for scholarship?">
+            <p>
               An SOP for scholarship is a focused essay that explains who you
               are academically and professionally, what field you want to study,
-              why you chose that field, why you chose this university or
+              why you chose that field, why you chose the university or
               scholarship, what experience has prepared you, what your future
-              goals are, and how you will use the scholarship to create
-              academic, professional, or social impact.
+              goals are, and how you will use the opportunity to create impact.
             </p>
-            <p className="mt-4 text-sm leading-8 text-ink/75">
-              It is different from a normal admission SOP because a scholarship
-              SOP must also show purpose, financial justification, leadership
+            <p className="mt-4">
+              A scholarship SOP is different from a normal admission SOP because
+              it must also show purpose, financial justification, leadership
               potential, and future contribution.
             </p>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              SOP vs motivation letter vs personal statement
-            </h2>
-
-            <div className="mt-5 overflow-x-auto">
+          <Section title="SOP vs motivation letter vs personal statement">
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink/10 bg-cream/60 text-ink">
@@ -261,7 +223,7 @@ export default function SOPGuidePage() {
                     <th className="px-4 py-3 font-semibold">Main focus</th>
                   </tr>
                 </thead>
-                <tbody className="text-ink/75">
+                <tbody>
                   <tr className="border-b border-ink/10">
                     <td className="px-4 py-3 font-semibold text-ink">
                       Statement of Purpose
@@ -275,8 +237,7 @@ export default function SOPGuidePage() {
                       Motivation Letter
                     </td>
                     <td className="px-4 py-3">
-                      Why you are motivated, why this scholarship, why this
-                      country or program
+                      Motivation, scholarship fit, country or program choice
                     </td>
                   </tr>
                   <tr className="border-b border-ink/10">
@@ -284,88 +245,69 @@ export default function SOPGuidePage() {
                       Personal Statement
                     </td>
                     <td className="px-4 py-3">
-                      Personal background, challenges, values, life story
+                      Personal background, challenges, values, and life story
                     </td>
                   </tr>
                   <tr>
                     <td className="px-4 py-3 font-semibold text-ink">
-                      Statement of Grant Purpose
+                      Grant Purpose Statement
                     </td>
                     <td className="px-4 py-3">
-                      Project plan, feasibility, impact, host-country relevance
+                      Project plan, feasibility, relevance, and impact
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              What scholarship committees really look for
-            </h2>
-            <p className="mt-4 text-sm leading-8 text-ink/75">
-              A scholarship committee usually reads hundreds or thousands of
-              applications. They are not looking for fancy English. They are
-              looking for clarity, evidence, direction, and fit.
+          <Section title="What scholarship committees look for">
+            <p>
+              Committees are not looking for fancy English. They are looking for
+              clarity, evidence, direction, and fit. A strong SOP usually proves
+              that you have a clear academic direction, are prepared for the
+              program, understand why the program fits you, have realistic future
+              goals, and can communicate clearly.
             </p>
+          </Section>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {committeeCriteria.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-xl border border-pine/15 bg-pine/5 p-4 text-sm font-semibold text-ink"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              The best SOP structure for scholarship applications
-            </h2>
-            <div className="mt-6 space-y-4">
-              {sopStructure.map((item) => (
+          <Section title="The best SOP structure">
+            <div className="space-y-3">
+              {structure.map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-xl border border-ink/10 bg-cream/40 p-5"
+                  className="rounded-xl border border-ink/10 bg-cream/40 p-4"
                 >
-                  <h3 className="font-semibold text-ink">{item.title}</h3>
+                  <h3 className="text-sm font-semibold text-ink">
+                    {item.title}
+                  </h3>
                   <p className="mt-2 text-sm leading-7 text-ink/70">
                     {item.body}
                   </p>
                 </div>
               ))}
             </div>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Best SOP writing formula: Past, Present, Future, Fit, Impact
-            </h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-5">
+          <Section title="Best SOP formula: Past, Present, Future, Fit, Impact">
+            <div className="grid gap-3 sm:grid-cols-5">
               {["Past", "Present", "Future", "Fit", "Impact"].map((item) => (
                 <div
                   key={item}
-                  className="rounded-xl border border-saffron/30 bg-saffron/10 p-4 text-center font-semibold text-ink"
+                  className="rounded-xl border border-saffron/30 bg-saffron/10 p-3 text-center text-sm font-semibold text-ink"
                 >
                   {item}
                 </div>
               ))}
             </div>
-            <p className="mt-5 text-sm leading-8 text-ink/75">
+            <p className="mt-4">
               If your SOP covers these five areas with evidence, it will already
               be stronger than most generic applications.
             </p>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Common SOP mistakes to avoid
-            </h2>
-            <ul className="mt-5 grid gap-3 text-sm leading-7 text-ink/75">
+          <Section title="Common SOP mistakes to avoid">
+            <ul className="grid gap-3">
               {mistakes.map((mistake) => (
                 <li
                   key={mistake}
@@ -375,16 +317,11 @@ export default function SOPGuidePage() {
                 </li>
               ))}
             </ul>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Strong words to use in an SOP
-            </h2>
-            <p className="mt-4 text-sm leading-8 text-ink/75">
-              Use words that show action, clarity, and purpose.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
+          <Section title="Strong words to use in an SOP">
+            <p>Use action words that show clarity, evidence, and purpose.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
               {actionWords.map((word) => (
                 <span
                   key={word}
@@ -394,13 +331,10 @@ export default function SOPGuidePage() {
                 </span>
               ))}
             </div>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Weak vs strong SOP sentences
-            </h2>
-            <div className="mt-5 overflow-x-auto">
+          <Section title="Weak vs strong SOP sentences">
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink/10 bg-cream/60 text-ink">
@@ -418,13 +352,10 @@ export default function SOPGuidePage() {
                 </tbody>
               </table>
             </div>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Sample SOP paragraph for a scholarship
-            </h2>
-            <blockquote className="mt-5 rounded-xl border-l-4 border-pine bg-pine/5 p-5 text-sm leading-8 text-ink/75">
+          <Section title="Sample SOP paragraph">
+            <blockquote className="rounded-xl border-l-4 border-pine bg-pine/5 p-5 text-sm leading-8 text-ink/75">
               My interest in public health developed during my volunteer work at
               a rural health camp in Sindh, where I observed that many women
               delayed treatment because they lacked access to reliable health
@@ -437,16 +368,10 @@ export default function SOPGuidePage() {
               and study how public health systems can prevent disease, improve
               awareness, and support vulnerable communities.
             </blockquote>
-          </section>
+          </Section>
 
-          <section
-            id="sop-checklist"
-            className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8"
-          >
-            <h2 className="text-2xl font-bold text-ink">
-              SOP checklist before submission
-            </h2>
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <Section id="sop-checklist" title="SOP checklist before submission">
+            <div className="grid gap-3 md:grid-cols-2">
               {checklist.map((item) => (
                 <div
                   key={item}
@@ -456,13 +381,10 @@ export default function SOPGuidePage() {
                 </div>
               ))}
             </div>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Recommended SOP length
-            </h2>
-            <ul className="mt-5 space-y-3 text-sm leading-7 text-ink/75">
+          <Section title="Recommended SOP length">
+            <ul className="space-y-3">
               <li>
                 <strong>Undergraduate scholarships:</strong> 500–800 words.
               </li>
@@ -477,31 +399,25 @@ export default function SOPGuidePage() {
                 usually reasonable.
               </li>
             </ul>
-          </section>
+          </Section>
 
-          <CTABox />
-
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">
-              Final tips for writing a winning scholarship SOP
-            </h2>
-            <p className="mt-4 text-sm leading-8 text-ink/75">
-              A winning SOP is not the one with the most difficult English. It is
-              the one with the clearest purpose. The best SOPs are specific,
+          <Section title="Final tips">
+            <p>
+              A winning SOP is not the one with the most difficult English. It
+              is the one with the clearest purpose. The best SOPs are specific,
               honest, focused, evidence-based, personal, realistic, connected to
               the scholarship’s mission, and clear about future impact.
             </p>
-            <p className="mt-4 text-sm leading-8 text-ink/75">
+            <p className="mt-4">
               Your SOP should leave the committee thinking: this applicant knows
               who they are, knows what they want to study, understands why this
               scholarship matters, and has a realistic plan to use this
               opportunity for meaningful impact.
             </p>
-          </section>
+          </Section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-soft md:p-8">
-            <h2 className="text-2xl font-bold text-ink">Further reading</h2>
-            <ul className="mt-4 space-y-3 text-sm leading-7 text-ink/75">
+          <Section title="Further reading">
+            <ul className="space-y-3">
               <li>
                 <a
                   className="font-semibold text-pine hover:underline"
@@ -543,18 +459,18 @@ export default function SOPGuidePage() {
                 </a>
               </li>
             </ul>
-          </section>
+          </Section>
         </article>
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft">
-            <h2 className="text-lg font-bold text-ink">In this guide</h2>
+            <h2 className="text-base font-bold text-ink">In this guide</h2>
             <nav className="mt-4 grid gap-3 text-sm text-ink/70">
               <a href="#sop-checklist" className="hover:text-pine">
                 SOP checklist
               </a>
-              <Link href="/dashboard/ai/sop" className="hover:text-pine">
-                AI SOP Generator
+              <Link href="/blog" className="hover:text-pine">
+                Blog
               </Link>
               <Link href="/scholarships" className="hover:text-pine">
                 Find scholarships
@@ -563,22 +479,6 @@ export default function SOPGuidePage() {
                 Complete your profile
               </Link>
             </nav>
-          </div>
-
-          <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
-            <h2 className="text-lg font-bold text-ink">
-              Generate your SOP draft
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-ink/70">
-              Use your Scholars Republic profile and study goals to generate a
-              structured SOP draft.
-            </p>
-            <Link
-              href="/dashboard/ai/sop"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-pine px-4 py-3 text-sm font-semibold text-white transition hover:bg-pine/90"
-            >
-              Try SOP Generator
-            </Link>
           </div>
         </aside>
       </div>

@@ -33,7 +33,6 @@ const studentNavItems: DashboardNavItem[] = [
   { label: "Applications", href: "/dashboard/applications" },
   { label: "AI SOP", href: "/dashboard/ai/sop" },
   { label: "Blog", href: "/blog" },
-  { label: "SOP Guide", href: "/guides/how-to-write-sop-for-scholarship" },
   { label: "Documents", disabled: true },
 ];
 
@@ -43,7 +42,6 @@ const adminNavItems: DashboardNavItem[] = [
   { label: "Users", disabled: true },
   { label: "Service Requests", disabled: true },
   { label: "Blog", href: "/blog" },
-  { label: "SOP Guide", href: "/guides/how-to-write-sop-for-scholarship" },
 ];
 
 function isActiveLink(pathname: string, href: string) {

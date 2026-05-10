@@ -10,7 +10,6 @@ const publicLinks = [
   { label: "Scholarships", href: "/scholarships" },
   { label: "Services", href: "/services" },
   { label: "Blog", href: "/blog" },
-  { label: "SOP Guide", href: "/guides/how-to-write-sop-for-scholarship" },
 ];
 
 const studentLinks = [
@@ -18,14 +17,12 @@ const studentLinks = [
   { label: "Profile", href: "/dashboard/profile" },
   { label: "Scholarships", href: "/scholarships" },
   { label: "Blog", href: "/blog" },
-  { label: "SOP Guide", href: "/guides/how-to-write-sop-for-scholarship" },
 ];
 
 const adminLinks = [
   { label: "Admin", href: "/admin" },
   { label: "Scholarships", href: "/scholarships" },
   { label: "Blog", href: "/blog" },
-  { label: "SOP Guide", href: "/guides/how-to-write-sop-for-scholarship" },
 ];
 
 function isActiveLink(pathname: string, href: string) {
