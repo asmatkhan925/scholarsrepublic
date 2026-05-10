@@ -17,26 +17,18 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { api, getAIJobStatus, submitSOPJob } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type {
-  AIJobStatus,
-  GenerateSOPPayload,
-  SOPOutputType,
-  SOPTone,
-} from "@/types/ai";
+import type { AIJobStatus, GenerateSOPPayload, SOPOutputType, SOPTone } from "@/types/ai";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, outputTypeHelp, PUTER_MODEL, toneHelp } from "./constants";
 import { formatWait, normalizeAIText } from "./format";
 import { buildPuterPrompt, extractPuterText, extractPuterUsage } from "./puter";
 import type { AIHealthStatus, GenerationProvider, PuterWindow } from "./types";
 
-
 function SOPGeneratorContent() {
   const [aiHealth, setAiHealth] = useState<AIHealthStatus | null>(null);
   const [checkingAI, setCheckingAI] = useState(true);
   const [provider, setProvider] = useState<GenerationProvider>("local");
-  const [puterStatus, setPuterStatus] = useState<
-    "loading" | "ready" | "failed"
-  >("loading");
+  const [puterStatus, setPuterStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [form, setForm] = useState<GenerateSOPPayload>(initialForm);
   const [job, setJob] = useState<AIJobStatus | null>(null);
   const [jobMessage, setJobMessage] = useState("");
@@ -51,8 +43,7 @@ function SOPGeneratorContent() {
     return (
       form.target_degree.trim().length > 0 &&
       form.field_of_study.trim().length > 0 &&
-      ((form.future_goals || "").trim().length > 0 ||
-        (form.existing_draft || "").trim().length > 0)
+      ((form.future_goals || "").trim().length > 0 || (form.existing_draft || "").trim().length > 0)
     );
   }, [form]);
 
@@ -73,8 +64,7 @@ function SOPGeneratorContent() {
       setAiHealth({
         available: false,
         status: "offline",
-        message:
-          "Our AI server is temporarily offline. External AI is available.",
+        message: "Our AI server is temporarily offline. External AI is available.",
       });
       setProvider("puter");
     } finally {
@@ -125,10 +115,7 @@ function SOPGeneratorContent() {
     };
   }, []);
 
-  function updateField<K extends keyof GenerateSOPPayload>(
-    field: K,
-    value: GenerateSOPPayload[K],
-  ) {
+  function updateField<K extends keyof GenerateSOPPayload>(field: K, value: GenerateSOPPayload[K]) {
     setForm((current) => ({
       ...current,
       [field]: value,
@@ -162,9 +149,7 @@ function SOPGeneratorContent() {
   async function generateWithLocalServer() {
     if (!aiHealth?.available) {
       setProvider("puter");
-      setError(
-        "Our AI server is temporarily offline. Please use External AI for now.",
-      );
+      setError("Our AI server is temporarily offline. Please use External AI for now.");
       return;
     }
 
@@ -216,9 +201,7 @@ function SOPGeneratorContent() {
     const puterWindow = window as PuterWindow;
 
     if (!puterWindow.puter?.ai?.chat) {
-      setError(
-        "External AI is still loading. Please wait a moment or click Reload External AI.",
-      );
+      setError("External AI is still loading. Please wait a moment or click Reload External AI.");
       return;
     }
 
@@ -245,9 +228,7 @@ function SOPGeneratorContent() {
       setPuterUsage(extractPuterUsage(response));
     } catch (requestError) {
       const message =
-        requestError instanceof Error
-          ? requestError.message
-          : "External AI request failed.";
+        requestError instanceof Error ? requestError.message : "External AI request failed.";
 
       setError(message);
     } finally {
@@ -276,8 +257,7 @@ function SOPGeneratorContent() {
   const localResult = job?.result_text || "";
   const result = provider === "puter" ? puterResult : localResult;
   const isWaiting =
-    provider === "local" &&
-    (job?.status === "pending" || job?.status === "running");
+    provider === "local" && (job?.status === "pending" || job?.status === "running");
 
   async function handleCopy() {
     if (!result) return;
@@ -319,8 +299,8 @@ function SOPGeneratorContent() {
                 </h2>
 
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
-                  Fill in your academic goals, choose an AI provider, and generate
-                  a clean first draft that you can personalize before submission.
+                  Fill in your academic goals, choose an AI provider, and generate a clean first
+                  draft that you can personalize before submission.
                 </p>
               </div>
 
@@ -332,8 +312,8 @@ function SOPGeneratorContent() {
                     aria-hidden="true"
                   />
                   <p className="leading-6">
-                    Do not enter passport numbers, CNIC numbers, bank details,
-                    or highly sensitive private information.
+                    Do not enter passport numbers, CNIC numbers, bank details, or highly sensitive
+                    private information.
                   </p>
                 </div>
               </div>
@@ -349,8 +329,8 @@ function SOPGeneratorContent() {
 
             {!checkingAI && !aiHealth?.available && (
               <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/75">
-                Our AI server is temporarily offline. External AI is available,
-                so you can still generate your SOP.
+                Our AI server is temporarily offline. External AI is available, so you can still
+                generate your SOP.
               </div>
             )}
 
@@ -363,12 +343,9 @@ function SOPGeneratorContent() {
             <section className="rounded-2xl border border-ink/10 bg-cream/40 p-3 md:p-4">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-ink">
-                    Choose AI provider
-                  </h3>
+                  <h3 className="text-base font-bold text-ink">Choose AI provider</h3>
                   <p className="mt-1 text-sm leading-6 text-ink/60">
-                    Use our server when it is online, or use External AI as a
-                    backup.
+                    Use our server when it is online, or use External AI as a backup.
                   </p>
                 </div>
 
@@ -391,17 +368,11 @@ function SOPGeneratorContent() {
                     provider === "local"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
-                  } ${
-                    localOptionDisabled
-                      ? "cursor-not-allowed opacity-60"
-                      : "cursor-pointer"
-                  }`}
+                  } ${localOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="font-bold text-ink">
-                        Scholars Republic AI Server
-                      </h4>
+                      <h4 className="font-bold text-ink">Scholars Republic AI Server</h4>
                       <p className="mt-2 text-sm leading-6 text-ink/65">
                         Uses your GPU server, queue system, and local Qwen model.
                       </p>
@@ -409,9 +380,7 @@ function SOPGeneratorContent() {
 
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        aiHealth?.available
-                          ? "bg-pine/10 text-pine"
-                          : "bg-red-50 text-red-700"
+                        aiHealth?.available ? "bg-pine/10 text-pine" : "bg-red-50 text-red-700"
                       }`}
                     >
                       {aiHealth?.available ? "Online" : "Offline"}
@@ -430,12 +399,9 @@ function SOPGeneratorContent() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="font-bold text-ink">
-                        External AI via Puter.js
-                      </h4>
+                      <h4 className="font-bold text-ink">External AI via Puter.js</h4>
                       <p className="mt-2 text-sm leading-6 text-ink/65">
-                        Browser-based external AI option. Useful when our server
-                        is busy or offline.
+                        Browser-based external AI option. Useful when our server is busy or offline.
                       </p>
                     </div>
 
@@ -460,8 +426,8 @@ function SOPGeneratorContent() {
 
               {puterStatus === "failed" && (
                 <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
-                  External AI script could not be loaded. This may be caused by
-                  browser blocking or network restrictions.
+                  External AI script could not be loaded. This may be caused by browser blocking or
+                  network restrictions.
                   <button
                     type="button"
                     onClick={loadPuterScript}
@@ -479,9 +445,7 @@ function SOPGeneratorContent() {
                 Target scholarship
                 <input
                   value={form.target_scholarship}
-                  onChange={(event) =>
-                    updateField("target_scholarship", event.target.value)
-                  }
+                  onChange={(event) => updateField("target_scholarship", event.target.value)}
                   placeholder="Chinese Government Scholarship"
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
@@ -491,9 +455,7 @@ function SOPGeneratorContent() {
                 Target country
                 <input
                   value={form.target_country}
-                  onChange={(event) =>
-                    updateField("target_country", event.target.value)
-                  }
+                  onChange={(event) => updateField("target_country", event.target.value)}
                   placeholder="China"
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
@@ -506,9 +468,7 @@ function SOPGeneratorContent() {
                 <input
                   required
                   value={form.target_degree}
-                  onChange={(event) =>
-                    updateField("target_degree", event.target.value)
-                  }
+                  onChange={(event) => updateField("target_degree", event.target.value)}
                   placeholder="MS Computer Science"
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
@@ -519,9 +479,7 @@ function SOPGeneratorContent() {
                 <input
                   required
                   value={form.field_of_study}
-                  onChange={(event) =>
-                    updateField("field_of_study", event.target.value)
-                  }
+                  onChange={(event) => updateField("field_of_study", event.target.value)}
                   placeholder="Artificial Intelligence"
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
@@ -532,9 +490,7 @@ function SOPGeneratorContent() {
               Why this scholarship?
               <textarea
                 value={form.why_scholarship}
-                onChange={(event) =>
-                  updateField("why_scholarship", event.target.value)
-                }
+                onChange={(event) => updateField("why_scholarship", event.target.value)}
                 rows={3}
                 placeholder="Explain why this scholarship is important for your academic journey."
                 className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
@@ -546,9 +502,7 @@ function SOPGeneratorContent() {
                 Future goals *
                 <textarea
                   value={form.future_goals}
-                  onChange={(event) =>
-                    updateField("future_goals", event.target.value)
-                  }
+                  onChange={(event) => updateField("future_goals", event.target.value)}
                   rows={3}
                   placeholder="What do you want to do after completing this degree?"
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
@@ -559,9 +513,7 @@ function SOPGeneratorContent() {
                 Contribution goal
                 <textarea
                   value={form.contribution_goal}
-                  onChange={(event) =>
-                    updateField("contribution_goal", event.target.value)
-                  }
+                  onChange={(event) => updateField("contribution_goal", event.target.value)}
                   rows={3}
                   placeholder="How will this degree help your country, community, or field?"
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
@@ -573,9 +525,7 @@ function SOPGeneratorContent() {
               Existing SOP draft, optional
               <textarea
                 value={form.existing_draft}
-                onChange={(event) =>
-                  updateField("existing_draft", event.target.value)
-                }
+                onChange={(event) => updateField("existing_draft", event.target.value)}
                 rows={3}
                 placeholder="Paste your rough SOP draft here if you already have one."
                 className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
@@ -588,10 +538,7 @@ function SOPGeneratorContent() {
                 <select
                   value={form.output_type}
                   onChange={(event) =>
-                    updateField(
-                      "output_type",
-                      event.target.value as SOPOutputType,
-                    )
+                    updateField("output_type", event.target.value as SOPOutputType)
                   }
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 >
@@ -608,9 +555,7 @@ function SOPGeneratorContent() {
                 Tone
                 <select
                   value={form.tone}
-                  onChange={(event) =>
-                    updateField("tone", event.target.value as SOPTone)
-                  }
+                  onChange={(event) => updateField("tone", event.target.value as SOPTone)}
                   className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 >
                   <option value="simple">Simple</option>
@@ -625,8 +570,8 @@ function SOPGeneratorContent() {
 
             <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream/50 p-4 md:flex-row md:items-center md:justify-between">
               <div className="text-sm leading-6 text-ink/65">
-                <strong className="text-ink">Required:</strong> target degree,
-                field of study, and either future goals or an existing draft.
+                <strong className="text-ink">Required:</strong> target degree, field of study, and
+                either future goals or an existing draft.
               </div>
 
               <button
@@ -658,9 +603,7 @@ function SOPGeneratorContent() {
                   AI queue
                 </div>
 
-                <h2 className="mt-3 text-xl font-bold text-ink">
-                  Request status: {job.status}
-                </h2>
+                <h2 className="mt-3 text-xl font-bold text-ink">Request status: {job.status}</h2>
 
                 <p className="mt-2 text-sm leading-6 text-ink/65">
                   {jobMessage ||
@@ -688,9 +631,7 @@ function SOPGeneratorContent() {
                 Generated output
               </div>
 
-              <h2 className="mt-3 text-2xl font-bold text-ink">
-                Generated SOP Draft
-              </h2>
+              <h2 className="mt-3 text-2xl font-bold text-ink">Generated SOP Draft</h2>
 
               <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
                 Generated using{" "}
@@ -699,8 +640,7 @@ function SOPGeneratorContent() {
                     ? "Scholars Republic AI Server"
                     : "External AI via Puter.js"}
                 </strong>
-                . Use this as a starting draft and personalize it before
-                submission.
+                . Use this as a starting draft and personalize it before submission.
               </p>
 
               {provider === "local" &&
@@ -745,9 +685,9 @@ function SOPGeneratorContent() {
           </div>
 
           <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/10 p-4 text-sm leading-6 text-ink/70">
-            <strong>Reminder:</strong> Do not submit AI-generated text directly.
-            Review it carefully, make it personal, and remove anything that does
-            not accurately represent your background.
+            <strong>Reminder:</strong> Do not submit AI-generated text directly. Review it
+            carefully, make it personal, and remove anything that does not accurately represent your
+            background.
           </div>
         </section>
       </div>

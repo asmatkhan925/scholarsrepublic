@@ -95,9 +95,7 @@ export function DashboardShell({
                   key={item.href}
                   href={item.href}
                   className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                    active
-                      ? "bg-pine/10 text-pine"
-                      : "text-ink/70 hover:bg-ink/5 hover:text-ink"
+                    active ? "bg-pine/10 text-pine" : "text-ink/70 hover:bg-ink/5 hover:text-ink"
                   }`}
                 >
                   {item.label}
@@ -118,9 +116,7 @@ export function DashboardShell({
                 {mode === "admin" ? "Admin" : "Student"} dashboard
               </p>
               <h1 className="mt-2 text-3xl font-bold text-ink">{title}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/65">
-                {description}
-              </p>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/65">{description}</p>
             </div>
           )}
 

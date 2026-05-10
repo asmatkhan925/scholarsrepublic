@@ -153,12 +153,8 @@ export default function BlogPage() {
                 <GraduationCap size={22} aria-hidden="true" />
               </span>
               <span>
-                <span className="block text-base font-bold">
-                  Scholars Republic
-                </span>
-                <span className="text-xs text-ink/55">
-                  Scholarship guides and student support
-                </span>
+                <span className="block text-base font-bold">Scholars Republic</span>
+                <span className="text-xs text-ink/55">Scholarship guides and student support</span>
               </span>
             </Link>
 
@@ -193,10 +189,9 @@ export default function BlogPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/70 md:text-base">
-                Explore clear, student-focused guides on fully funded
-                scholarships, no IELTS options, country-specific programs,
-                application documents, professor emails, CVs, SOPs, and
-                scholarship planning.
+                Explore clear, student-focused guides on fully funded scholarships, no IELTS
+                options, country-specific programs, application documents, professor emails, CVs,
+                SOPs, and scholarship planning.
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
@@ -212,12 +207,10 @@ export default function BlogPage() {
             </div>
 
             <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
-              <h2 className="text-base font-bold text-ink">
-                Build your scholarship plan
-              </h2>
+              <h2 className="text-base font-bold text-ink">Build your scholarship plan</h2>
               <p className="mt-3 text-sm leading-6 text-ink/70">
-                Start by searching opportunities, completing your profile, and
-                reading the document guides before submitting applications.
+                Start by searching opportunities, completing your profile, and reading the document
+                guides before submitting applications.
               </p>
 
               <Link
@@ -243,8 +236,8 @@ export default function BlogPage() {
                 Scholarship articles and application resources
               </h2>
               <p className="mt-2 text-sm leading-6 text-ink/65">
-                We are building this section step by step. Published guides are
-                available now; planned guides will be expanded into full articles.
+                We are building this section step by step. Published guides are available now;
+                planned guides will be expanded into full articles.
               </p>
             </div>
 
@@ -283,9 +276,7 @@ export default function BlogPage() {
                           {guide.title}
                         </h3>
 
-                        <p className="mt-2 text-sm leading-6 text-ink/68">
-                          {guide.description}
-                        </p>
+                        <p className="mt-2 text-sm leading-6 text-ink/68">{guide.description}</p>
 
                         <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-pine">
                           {guide.status === "Published" ? "Read guide" : "Preview outline"}
@@ -341,9 +332,7 @@ export default function BlogPage() {
           </div>
 
           <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">
-              Suggested reading order
-            </h2>
+            <h2 className="text-base font-bold text-ink">Suggested reading order</h2>
             <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-ink/70">
               <li>Search for suitable scholarships.</li>
               <li>Check IELTS or no-IELTS requirements.</li>
@@ -354,12 +343,10 @@ export default function BlogPage() {
           </div>
 
           <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">
-              New to Scholars Republic?
-            </h2>
+            <h2 className="text-base font-bold text-ink">New to Scholars Republic?</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Create a free student profile to save opportunities, track
-              applications, and use scholarship writing tools.
+              Create a free student profile to save opportunities, track applications, and use
+              scholarship writing tools.
             </p>
 
             <Link

@@ -20,74 +20,61 @@ export const metadata = {
 const studyPlanStructure = [
   {
     title: "1. Academic background",
-    body:
-      "Briefly introduce your previous degree, field, academic strengths, and the subjects or experiences that prepared you for the proposed study.",
+    body: "Briefly introduce your previous degree, field, academic strengths, and the subjects or experiences that prepared you for the proposed study.",
   },
   {
     title: "2. Target program and field",
-    body:
-      "Explain what degree or program you want to study and why this field is important for your academic and professional development.",
+    body: "Explain what degree or program you want to study and why this field is important for your academic and professional development.",
   },
   {
     title: "3. Study objectives",
-    body:
-      "Describe what you want to learn during the program. Be specific about skills, courses, research areas, or practical training.",
+    body: "Describe what you want to learn during the program. Be specific about skills, courses, research areas, or practical training.",
   },
   {
     title: "4. Research or academic plan",
-    body:
-      "For research-based applications, explain your research interest, possible topic, methods, and expected contribution. For coursework programs, explain your course plan.",
+    body: "For research-based applications, explain your research interest, possible topic, methods, and expected contribution. For coursework programs, explain your course plan.",
   },
   {
     title: "5. Timeline",
-    body:
-      "Show how you plan to use each year or semester. A simple timeline makes your study plan more realistic and organized.",
+    body: "Show how you plan to use each year or semester. A simple timeline makes your study plan more realistic and organized.",
   },
   {
     title: "6. Future goals",
-    body:
-      "Connect your study plan to your future career, research direction, community impact, or contribution to your home country.",
+    body: "Connect your study plan to your future career, research direction, community impact, or contribution to your home country.",
   },
 ];
 
 const differences = [
   {
     title: "Study Plan",
-    body:
-      "Focuses on what you will study, how you will study, your academic plan, timeline, and expected learning outcomes.",
+    body: "Focuses on what you will study, how you will study, your academic plan, timeline, and expected learning outcomes.",
   },
   {
     title: "Statement of Purpose",
-    body:
-      "Focuses more on your motivation, background, goals, program fit, and why you deserve the scholarship.",
+    body: "Focuses more on your motivation, background, goals, program fit, and why you deserve the scholarship.",
   },
   {
     title: "Research Proposal",
-    body:
-      "Focuses on a specific research problem, research questions, methodology, literature gap, and expected research contribution.",
+    body: "Focuses on a specific research problem, research questions, methodology, literature gap, and expected research contribution.",
   },
 ];
 
 const timeline = [
   {
     title: "Before starting",
-    body:
-      "Review the curriculum, identify relevant courses, read about faculty expertise, and define your academic direction.",
+    body: "Review the curriculum, identify relevant courses, read about faculty expertise, and define your academic direction.",
   },
   {
     title: "First year or early semesters",
-    body:
-      "Build foundation through core courses, improve research skills, and understand the academic environment.",
+    body: "Build foundation through core courses, improve research skills, and understand the academic environment.",
   },
   {
     title: "Middle stage",
-    body:
-      "Take specialized courses, develop projects, join research activities, and refine your study or research topic.",
+    body: "Take specialized courses, develop projects, join research activities, and refine your study or research topic.",
   },
   {
     title: "Final stage",
-    body:
-      "Complete thesis, capstone project, internship, publication, or final research output depending on the program.",
+    body: "Complete thesis, capstone project, internship, publication, or final research output depending on the program.",
   },
 ];
 
@@ -120,20 +107,9 @@ const checklist = [
   "Have I followed the required word limit?",
 ];
 
-function Section({
-  id,
-  title,
-  children,
-}: {
-  id?: string;
-  title: string;
-  children: ReactNode;
-}) {
+function Section({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
-    <section
-      id={id}
-      className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6"
-    >
+    <section id={id} className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6">
       <h2 className="text-xl font-bold text-ink">{title}</h2>
       <div className="mt-4 text-sm leading-7 text-ink/75">{children}</div>
     </section>
@@ -151,12 +127,8 @@ export default function StudyPlanGuidePage() {
                 <GraduationCap size={22} aria-hidden="true" />
               </span>
               <span>
-                <span className="block text-base font-bold">
-                  Scholars Republic
-                </span>
-                <span className="text-xs text-ink/55">
-                  Scholarship guides and student support
-                </span>
+                <span className="block text-base font-bold">Scholars Republic</span>
+                <span className="text-xs text-ink/55">Scholarship guides and student support</span>
               </span>
             </Link>
 
@@ -191,10 +163,9 @@ export default function StudyPlanGuidePage() {
               </h1>
 
               <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
-                A study plan explains what you want to study, how you will
-                organize your learning, and how the program supports your future
-                goals. It is especially important for scholarships where the
-                committee wants to see academic direction, preparation, and a
+                A study plan explains what you want to study, how you will organize your learning,
+                and how the program supports your future goals. It is especially important for
+                scholarships where the committee wants to see academic direction, preparation, and a
                 realistic plan.
               </p>
 
@@ -217,15 +188,13 @@ export default function StudyPlanGuidePage() {
             </div>
 
             <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-wide text-pine">
-                Quick idea
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-pine">Quick idea</p>
               <h2 className="mt-2 text-base font-bold text-ink">
                 A study plan should feel realistic
               </h2>
               <p className="mt-3 text-sm leading-6 text-ink/70">
-                Do not write only dreams. Show the committee what you will study,
-                why it matters, and how you will use the opportunity.
+                Do not write only dreams. Show the committee what you will study, why it matters,
+                and how you will use the opportunity.
               </p>
             </div>
           </div>
@@ -236,32 +205,23 @@ export default function StudyPlanGuidePage() {
         <article className="space-y-7">
           <Section title="What is a study plan?">
             <p>
-              A study plan is a short academic document that explains your
-              proposed learning path. It shows what you want to study, why you
-              chose that area, what skills or knowledge you want to gain, and how
-              your study will support your future goals.
+              A study plan is a short academic document that explains your proposed learning path.
+              It shows what you want to study, why you chose that area, what skills or knowledge you
+              want to gain, and how your study will support your future goals.
             </p>
             <p className="mt-4">
-              For scholarship applications, a good study plan helps the
-              committee understand that you are not applying randomly. It proves
-              that you have thought about your academic direction and can use the
-              scholarship opportunity responsibly.
+              For scholarship applications, a good study plan helps the committee understand that
+              you are not applying randomly. It proves that you have thought about your academic
+              direction and can use the scholarship opportunity responsibly.
             </p>
           </Section>
 
           <Section title="Study plan vs SOP vs research proposal">
             <div className="grid gap-4 md:grid-cols-3">
               {differences.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-xl border border-ink/10 bg-cream/40 p-4"
-                >
-                  <h3 className="text-sm font-semibold text-ink">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/70">
-                    {item.body}
-                  </p>
+                <div key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+                  <h3 className="text-sm font-semibold text-ink">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-ink/70">{item.body}</p>
                 </div>
               ))}
             </div>
@@ -270,16 +230,9 @@ export default function StudyPlanGuidePage() {
           <Section title="Best structure for a scholarship study plan">
             <div className="space-y-3">
               {studyPlanStructure.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-xl border border-ink/10 bg-cream/40 p-4"
-                >
-                  <h3 className="text-sm font-semibold text-ink">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-7 text-ink/70">
-                    {item.body}
-                  </p>
+                <div key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+                  <h3 className="text-sm font-semibold text-ink">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-ink/70">{item.body}</p>
                 </div>
               ))}
             </div>
@@ -288,21 +241,10 @@ export default function StudyPlanGuidePage() {
           <Section title="Simple study plan timeline">
             <div className="grid gap-4 md:grid-cols-2">
               {timeline.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-xl border border-ink/10 bg-cream/40 p-4"
-                >
-                  <CalendarCheck
-                    size={22}
-                    className="text-pine"
-                    aria-hidden="true"
-                  />
-                  <h3 className="mt-3 text-sm font-bold text-ink">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/70">
-                    {item.body}
-                  </p>
+                <div key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+                  <CalendarCheck size={22} className="text-pine" aria-hidden="true" />
+                  <h3 className="mt-3 text-sm font-bold text-ink">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-ink/70">{item.body}</p>
                 </div>
               ))}
             </div>
@@ -310,8 +252,8 @@ export default function StudyPlanGuidePage() {
 
           <Section title="Useful phrases for a study plan">
             <p>
-              These phrases can help you start, but do not copy them blindly.
-              Adapt them to your own field, program, and goals.
+              These phrases can help you start, but do not copy them blindly. Adapt them to your own
+              field, program, and goals.
             </p>
 
             <div className="mt-4 grid gap-3">
@@ -320,11 +262,7 @@ export default function StudyPlanGuidePage() {
                   key={phrase}
                   className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                 >
-                  <PenLine
-                    size={17}
-                    className="mt-0.5 shrink-0 text-pine"
-                    aria-hidden="true"
-                  />
+                  <PenLine size={17} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
                   <span>{phrase}</span>
                 </div>
               ))}
@@ -333,16 +271,14 @@ export default function StudyPlanGuidePage() {
 
           <Section title="Sample study plan paragraph">
             <blockquote className="rounded-xl border-l-4 border-pine bg-pine/5 p-5 text-sm leading-8 text-ink/75">
-              My proposed study plan is focused on strengthening my knowledge in
-              data-driven education technologies and applying this knowledge to
-              improve access to quality learning resources. During the first
-              stage of the program, I plan to build a strong foundation in
-              machine learning, data analysis, and educational technology. In the
-              later stages, I aim to focus on practical projects that explore how
-              artificial intelligence can support personalized learning and
-              student performance monitoring. This study plan directly supports
-              my long-term goal of developing technology-based solutions that
-              can improve educational services in Pakistan.
+              My proposed study plan is focused on strengthening my knowledge in data-driven
+              education technologies and applying this knowledge to improve access to quality
+              learning resources. During the first stage of the program, I plan to build a strong
+              foundation in machine learning, data analysis, and educational technology. In the
+              later stages, I aim to focus on practical projects that explore how artificial
+              intelligence can support personalized learning and student performance monitoring.
+              This study plan directly supports my long-term goal of developing technology-based
+              solutions that can improve educational services in Pakistan.
             </blockquote>
           </Section>
 
@@ -367,10 +303,7 @@ export default function StudyPlanGuidePage() {
           <Section title="Common mistakes to avoid">
             <div className="grid gap-3 md:grid-cols-2">
               {mistakes.map((mistake) => (
-                <div
-                  key={mistake}
-                  className="rounded-xl border border-red-100 bg-red-50 px-4 py-3"
-                >
+                <div key={mistake} className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
                   {mistake}
                 </div>
               ))}
@@ -385,9 +318,9 @@ export default function StudyPlanGuidePage() {
               Prepare your documents with a clearer plan
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink/70">
-              Use Scholars Republic to search scholarships, complete your
-              profile, save opportunities, track applications, and prepare your
-              SOP, study plan, and scholarship CV step by step.
+              Use Scholars Republic to search scholarships, complete your profile, save
+              opportunities, track applications, and prepare your SOP, study plan, and scholarship
+              CV step by step.
             </p>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -435,12 +368,10 @@ export default function StudyPlanGuidePage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-pine">
               Recommended first step
             </p>
-            <h2 className="mt-2 text-base font-bold text-ink">
-              Find the scholarship first
-            </h2>
+            <h2 className="mt-2 text-base font-bold text-ink">Find the scholarship first</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Your study plan should match the scholarship, degree, university,
-              and field. Start by shortlisting opportunities.
+              Your study plan should match the scholarship, degree, university, and field. Start by
+              shortlisting opportunities.
             </p>
             <Link
               href="/scholarships"
@@ -451,12 +382,10 @@ export default function StudyPlanGuidePage() {
           </div>
 
           <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">
-              Need help with your SOP?
-            </h2>
+            <h2 className="text-base font-bold text-ink">Need help with your SOP?</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Your SOP and study plan should support each other. Start with a
-              clear SOP draft, then turn it into a study-focused plan.
+              Your SOP and study plan should support each other. Start with a clear SOP draft, then
+              turn it into a study-focused plan.
             </p>
             <div className="mt-4 grid gap-2">
               <Link

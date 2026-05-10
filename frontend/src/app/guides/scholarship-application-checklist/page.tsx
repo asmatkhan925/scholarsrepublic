@@ -45,29 +45,25 @@ const documentChecklist = [
 const writingChecklist = [
   {
     title: "Statement of Purpose",
-    body:
-      "Your SOP should explain your background, motivation, target field, program fit, scholarship fit, and future goals.",
+    body: "Your SOP should explain your background, motivation, target field, program fit, scholarship fit, and future goals.",
     href: "/guides/how-to-write-sop-for-scholarship",
     linkText: "Read SOP guide",
   },
   {
     title: "Study Plan",
-    body:
-      "Your study plan should explain what you will study, how you will organize your learning, and how it supports your future goals.",
+    body: "Your study plan should explain what you will study, how you will organize your learning, and how it supports your future goals.",
     href: "/guides/how-to-write-study-plan-for-scholarship",
     linkText: "Read study plan guide",
   },
   {
     title: "Scholarship CV",
-    body:
-      "Your CV should highlight education, projects, research, skills, achievements, and leadership in a clean academic format.",
+    body: "Your CV should highlight education, projects, research, skills, achievements, and leadership in a clean academic format.",
     href: "/guides/scholarship-cv-format-for-pakistani-students",
     linkText: "Read CV guide",
   },
   {
     title: "Professor Email",
-    body:
-      "For research-based programs, your professor email should be short, specific, respectful, and connected to the professor research area.",
+    body: "For research-based programs, your professor email should be short, specific, respectful, and connected to the professor research area.",
     href: "/guides/how-to-email-professor-for-research-supervision",
     linkText: "Read email guide",
   },
@@ -76,23 +72,19 @@ const writingChecklist = [
 const timelineSteps = [
   {
     title: "3 to 6 months before deadline",
-    body:
-      "Search scholarships, check eligibility, prepare passport, request transcripts, shortlist universities, and plan language tests if needed.",
+    body: "Search scholarships, check eligibility, prepare passport, request transcripts, shortlist universities, and plan language tests if needed.",
   },
   {
     title: "1 to 2 months before deadline",
-    body:
-      "Finalize SOP, CV, study plan, recommendation letters, professor emails, and official application forms.",
+    body: "Finalize SOP, CV, study plan, recommendation letters, professor emails, and official application forms.",
   },
   {
     title: "2 weeks before deadline",
-    body:
-      "Review document names, file formats, portal requirements, signatures, stamps, and consistency across all forms.",
+    body: "Review document names, file formats, portal requirements, signatures, stamps, and consistency across all forms.",
   },
   {
     title: "Final 48 hours",
-    body:
-      "Submit early, save confirmation screenshots or emails, and avoid last-minute uploads whenever possible.",
+    body: "Submit early, save confirmation screenshots or emails, and avoid last-minute uploads whenever possible.",
   },
 ];
 
@@ -120,20 +112,9 @@ const mistakes = [
   "Trusting unofficial agents instead of official instructions",
 ];
 
-function Section({
-  id,
-  title,
-  children,
-}: {
-  id?: string;
-  title: string;
-  children: ReactNode;
-}) {
+function Section({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
-    <section
-      id={id}
-      className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6"
-    >
+    <section id={id} className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6">
       <h2 className="text-xl font-bold text-ink">{title}</h2>
       <div className="mt-4 text-sm leading-7 text-ink/75">{children}</div>
     </section>
@@ -151,12 +132,8 @@ export default function ScholarshipApplicationChecklistPage() {
                 <GraduationCap size={22} aria-hidden="true" />
               </span>
               <span>
-                <span className="block text-base font-bold">
-                  Scholars Republic
-                </span>
-                <span className="text-xs text-ink/55">
-                  Scholarship guides and student support
-                </span>
+                <span className="block text-base font-bold">Scholars Republic</span>
+                <span className="text-xs text-ink/55">Scholarship guides and student support</span>
               </span>
             </Link>
 
@@ -191,11 +168,10 @@ export default function ScholarshipApplicationChecklistPage() {
               </h1>
 
               <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
-                A strong scholarship application is not only about good grades.
-                It is also about eligibility, documents, deadlines, writing
-                quality, consistency, and careful submission. This checklist helps
-                Pakistani students prepare applications step by step without
-                missing important details.
+                A strong scholarship application is not only about good grades. It is also about
+                eligibility, documents, deadlines, writing quality, consistency, and careful
+                submission. This checklist helps Pakistani students prepare applications step by
+                step without missing important details.
               </p>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -217,15 +193,11 @@ export default function ScholarshipApplicationChecklistPage() {
             </div>
 
             <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-wide text-pine">
-                Main advice
-              </p>
-              <h2 className="mt-2 text-base font-bold text-ink">
-                Start before the deadline month
-              </h2>
+              <p className="text-xs font-semibold uppercase tracking-wide text-pine">Main advice</p>
+              <h2 className="mt-2 text-base font-bold text-ink">Start before the deadline month</h2>
               <p className="mt-3 text-sm leading-6 text-ink/70">
-                Most scholarship mistakes happen because students wait too long.
-                Prepare your documents early and submit before the final day.
+                Most scholarship mistakes happen because students wait too long. Prepare your
+                documents early and submit before the final day.
               </p>
             </div>
           </div>
@@ -236,15 +208,14 @@ export default function ScholarshipApplicationChecklistPage() {
         <article className="space-y-7">
           <Section title="Why a checklist matters">
             <p>
-              Scholarships are competitive because many students apply for the
-              same funding. A checklist helps you avoid small mistakes that can
-              damage an otherwise strong application, such as missing documents,
-              unclear scans, weak SOPs, incorrect file names, or late submission.
+              Scholarships are competitive because many students apply for the same funding. A
+              checklist helps you avoid small mistakes that can damage an otherwise strong
+              application, such as missing documents, unclear scans, weak SOPs, incorrect file
+              names, or late submission.
             </p>
             <p className="mt-4">
-              Use this checklist before every scholarship application. Do not
-              assume that two scholarships require the same documents or the same
-              application process.
+              Use this checklist before every scholarship application. Do not assume that two
+              scholarships require the same documents or the same application process.
             </p>
           </Section>
 
@@ -268,9 +239,8 @@ export default function ScholarshipApplicationChecklistPage() {
 
           <Section id="documents" title="Core document checklist">
             <p>
-              Exact requirements vary by scholarship, country, and university.
-              Still, most international scholarship applications require several
-              of the following documents:
+              Exact requirements vary by scholarship, country, and university. Still, most
+              international scholarship applications require several of the following documents:
             </p>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -279,11 +249,7 @@ export default function ScholarshipApplicationChecklistPage() {
                   key={item}
                   className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                 >
-                  <FileText
-                    size={17}
-                    className="mt-0.5 shrink-0 text-pine"
-                    aria-hidden="true"
-                  />
+                  <FileText size={17} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
                   <span>{item}</span>
                 </div>
               ))}
@@ -293,18 +259,11 @@ export default function ScholarshipApplicationChecklistPage() {
           <Section title="Writing document checklist">
             <div className="space-y-4">
               {writingChecklist.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-2xl border border-ink/10 bg-white p-4"
-                >
+                <div key={item.title} className="rounded-2xl border border-ink/10 bg-white p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <h3 className="text-base font-bold text-ink">
-                        {item.title}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-ink/70">
-                        {item.body}
-                      </p>
+                      <h3 className="text-base font-bold text-ink">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-ink/70">{item.body}</p>
                     </div>
 
                     <Link
@@ -322,21 +281,10 @@ export default function ScholarshipApplicationChecklistPage() {
           <Section title="Simple application timeline">
             <div className="grid gap-4 md:grid-cols-2">
               {timelineSteps.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-xl border border-ink/10 bg-cream/40 p-4"
-                >
-                  <CalendarCheck
-                    size={22}
-                    className="text-pine"
-                    aria-hidden="true"
-                  />
-                  <h3 className="mt-3 text-sm font-bold text-ink">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/70">
-                    {item.body}
-                  </p>
+                <div key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+                  <CalendarCheck size={22} className="text-pine" aria-hidden="true" />
+                  <h3 className="mt-3 text-sm font-bold text-ink">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-ink/70">{item.body}</p>
                 </div>
               ))}
             </div>
@@ -363,10 +311,7 @@ export default function ScholarshipApplicationChecklistPage() {
           <Section title="Common mistakes to avoid">
             <div className="grid gap-3 md:grid-cols-2">
               {mistakes.map((mistake) => (
-                <div
-                  key={mistake}
-                  className="rounded-xl border border-red-100 bg-red-50 px-4 py-3"
-                >
+                <div key={mistake} className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
                   {mistake}
                 </div>
               ))}
@@ -380,9 +325,8 @@ export default function ScholarshipApplicationChecklistPage() {
                   aria-hidden="true"
                 />
                 <p className="text-sm leading-6 text-ink/75">
-                  Always follow the official scholarship instructions. This
-                  checklist is a planning tool, not a replacement for official
-                  requirements.
+                  Always follow the official scholarship instructions. This checklist is a planning
+                  tool, not a replacement for official requirements.
                 </p>
               </div>
             </div>
@@ -396,9 +340,9 @@ export default function ScholarshipApplicationChecklistPage() {
               Manage your scholarship applications in one place
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink/70">
-              Use Scholars Republic to search scholarships, complete your
-              profile, save opportunities, track applications, and prepare
-              stronger SOPs, CVs, study plans, and professor emails.
+              Use Scholars Republic to search scholarships, complete your profile, save
+              opportunities, track applications, and prepare stronger SOPs, CVs, study plans, and
+              professor emails.
             </p>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -446,12 +390,9 @@ export default function ScholarshipApplicationChecklistPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-pine">
               Recommended first step
             </p>
-            <h2 className="mt-2 text-base font-bold text-ink">
-              Search and save opportunities
-            </h2>
+            <h2 className="mt-2 text-base font-bold text-ink">Search and save opportunities</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Find scholarships that match your profile, then save them before
-              preparing documents.
+              Find scholarships that match your profile, then save them before preparing documents.
             </p>
             <Link
               href="/scholarships"
@@ -462,12 +403,9 @@ export default function ScholarshipApplicationChecklistPage() {
           </div>
 
           <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">
-              Preparing your SOP?
-            </h2>
+            <h2 className="text-base font-bold text-ink">Preparing your SOP?</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Your SOP, CV, study plan, and application form should tell one
-              consistent story.
+              Your SOP, CV, study plan, and application form should tell one consistent story.
             </p>
             <div className="mt-4 grid gap-2">
               <Link

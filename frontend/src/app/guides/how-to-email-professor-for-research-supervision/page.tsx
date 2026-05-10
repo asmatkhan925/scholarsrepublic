@@ -29,38 +29,31 @@ const whenToEmail = [
 const emailStructure = [
   {
     title: "1. Clear subject line",
-    body:
-      "The subject should quickly tell the professor who you are and what you are asking for. Avoid vague subjects like “Hello” or “Need help.”",
+    body: "The subject should quickly tell the professor who you are and what you are asking for. Avoid vague subjects like “Hello” or “Need help.”",
   },
   {
     title: "2. Short respectful greeting",
-    body:
-      "Use a professional greeting such as “Dear Professor [Last Name]”. Do not use casual language.",
+    body: "Use a professional greeting such as “Dear Professor [Last Name]”. Do not use casual language.",
   },
   {
     title: "3. Brief introduction",
-    body:
-      "Mention your name, country, current degree or completed degree, field, and the degree level you want to apply for.",
+    body: "Mention your name, country, current degree or completed degree, field, and the degree level you want to apply for.",
   },
   {
     title: "4. Research connection",
-    body:
-      "Explain why you are contacting this specific professor. Mention one research area, paper, lab, or project that connects with your interests.",
+    body: "Explain why you are contacting this specific professor. Mention one research area, paper, lab, or project that connects with your interests.",
   },
   {
     title: "5. Your fit and purpose",
-    body:
-      "Briefly explain your academic background, skills, research experience, or project work that makes you relevant to the professor&apos;s group.",
+    body: "Briefly explain your academic background, skills, research experience, or project work that makes you relevant to the professor&apos;s group.",
   },
   {
     title: "6. Clear request",
-    body:
-      "Ask politely whether the professor is accepting students or willing to consider you for research supervision.",
+    body: "Ask politely whether the professor is accepting students or willing to consider you for research supervision.",
   },
   {
     title: "7. Attachments and closing",
-    body:
-      "Mention your attached CV, transcript, research proposal, or writing sample if available. End politely and thank the professor for their time.",
+    body: "Mention your attached CV, transcript, research proposal, or writing sample if available. End politely and thank the professor for their time.",
   },
 ];
 
@@ -99,20 +92,9 @@ const followUpTips = [
   "If there is no response after one polite follow-up, move on",
 ];
 
-function Section({
-  id,
-  title,
-  children,
-}: {
-  id?: string;
-  title: string;
-  children: ReactNode;
-}) {
+function Section({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
-    <section
-      id={id}
-      className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6"
-    >
+    <section id={id} className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6">
       <h2 className="text-xl font-bold text-ink">{title}</h2>
       <div className="mt-4 text-sm leading-7 text-ink/75">{children}</div>
     </section>
@@ -130,12 +112,8 @@ export default function ProfessorEmailGuidePage() {
                 <GraduationCap size={22} aria-hidden="true" />
               </span>
               <span>
-                <span className="block text-base font-bold">
-                  Scholars Republic
-                </span>
-                <span className="text-xs text-ink/55">
-                  Scholarship guides and student support
-                </span>
+                <span className="block text-base font-bold">Scholars Republic</span>
+                <span className="text-xs text-ink/55">Scholarship guides and student support</span>
               </span>
             </Link>
 
@@ -170,10 +148,10 @@ export default function ProfessorEmailGuidePage() {
               </h1>
 
               <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
-                Emailing a professor can help MS and PhD applicants find research
-                supervision, understand lab opportunities, and strengthen a
-                scholarship application. A good email should be short, respectful,
-                specific, and clearly connected to the professor&apos;s research.
+                Emailing a professor can help MS and PhD applicants find research supervision,
+                understand lab opportunities, and strengthen a scholarship application. A good email
+                should be short, respectful, specific, and clearly connected to the professor&apos;s
+                research.
               </p>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -195,16 +173,11 @@ export default function ProfessorEmailGuidePage() {
             </div>
 
             <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-wide text-pine">
-                Main rule
-              </p>
-              <h2 className="mt-2 text-base font-bold text-ink">
-                Do not send generic emails
-              </h2>
+              <p className="text-xs font-semibold uppercase tracking-wide text-pine">Main rule</p>
+              <h2 className="mt-2 text-base font-bold text-ink">Do not send generic emails</h2>
               <p className="mt-3 text-sm leading-6 text-ink/70">
-                Professors receive many emails. Your message should show that you
-                understand their research and are contacting them for a specific
-                academic reason.
+                Professors receive many emails. Your message should show that you understand their
+                research and are contacting them for a specific academic reason.
               </p>
             </div>
           </div>
@@ -215,10 +188,9 @@ export default function ProfessorEmailGuidePage() {
         <article className="space-y-7">
           <Section title="When should you email a professor?">
             <p>
-              You do not need to email professors for every scholarship. It is
-              most useful when the program is research-based, when supervisor
-              acceptance is required, or when your application will be stronger
-              with clear research alignment.
+              You do not need to email professors for every scholarship. It is most useful when the
+              program is research-based, when supervisor acceptance is required, or when your
+              application will be stronger with clear research alignment.
             </p>
 
             <div className="mt-4 grid gap-3">
@@ -241,16 +213,9 @@ export default function ProfessorEmailGuidePage() {
           <Section title="Best email structure">
             <div className="space-y-3">
               {emailStructure.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-xl border border-ink/10 bg-cream/40 p-4"
-                >
-                  <h3 className="text-sm font-semibold text-ink">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-7 text-ink/70">
-                    {item.body}
-                  </p>
+                <div key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+                  <h3 className="text-sm font-semibold text-ink">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-ink/70">{item.body}</p>
                 </div>
               ))}
             </div>
@@ -258,8 +223,8 @@ export default function ProfessorEmailGuidePage() {
 
           <Section title="Good subject line examples">
             <p>
-              The subject line should be specific enough for the professor to
-              understand your purpose before opening the email.
+              The subject line should be specific enough for the professor to understand your
+              purpose before opening the email.
             </p>
 
             <div className="mt-4 grid gap-3">
@@ -268,11 +233,7 @@ export default function ProfessorEmailGuidePage() {
                   key={line}
                   className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                 >
-                  <Mail
-                    size={17}
-                    className="mt-0.5 shrink-0 text-pine"
-                    aria-hidden="true"
-                  />
+                  <Mail size={17} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
                   <span>{line}</span>
                 </div>
               ))}
@@ -284,31 +245,26 @@ export default function ProfessorEmailGuidePage() {
               <p>Dear Professor [Last Name],</p>
 
               <p className="mt-4">
-                My name is [Your Name], and I am a prospective [MS/PhD]
-                applicant from Pakistan with an academic background in [Your
-                Field]. I am interested in applying for research-based study in
-                [Target Program/University], and I am writing to ask whether you
-                are currently accepting new students in your research group.
+                My name is [Your Name], and I am a prospective [MS/PhD] applicant from Pakistan with
+                an academic background in [Your Field]. I am interested in applying for
+                research-based study in [Target Program/University], and I am writing to ask whether
+                you are currently accepting new students in your research group.
               </p>
 
               <p className="mt-4">
-                I read about your work on [Specific Research Topic/Paper/Lab
-                Area], and I found it closely related to my interest in [Your
-                Research Interest]. My previous work includes [one short relevant
-                project, thesis, publication, or skill], which helped me develop
-                interest in this area.
+                I read about your work on [Specific Research Topic/Paper/Lab Area], and I found it
+                closely related to my interest in [Your Research Interest]. My previous work
+                includes [one short relevant project, thesis, publication, or skill], which helped
+                me develop interest in this area.
               </p>
 
               <p className="mt-4">
-                I have attached my CV and transcript for your review. I would be
-                grateful if you could let me know whether my background may be a
-                suitable fit for your group or if there is any possibility of
-                supervision.
+                I have attached my CV and transcript for your review. I would be grateful if you
+                could let me know whether my background may be a suitable fit for your group or if
+                there is any possibility of supervision.
               </p>
 
-              <p className="mt-4">
-                Thank you very much for your time and consideration.
-              </p>
+              <p className="mt-4">Thank you very much for your time and consideration.</p>
 
               <p className="mt-4">
                 Sincerely,
@@ -320,8 +276,8 @@ export default function ProfessorEmailGuidePage() {
 
           <Section id="attachments" title="What should you attach?">
             <p>
-              Keep attachments relevant and professional. In the first email, do
-              not overload the professor with too many files.
+              Keep attachments relevant and professional. In the first email, do not overload the
+              professor with too many files.
             </p>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -330,11 +286,7 @@ export default function ProfessorEmailGuidePage() {
                   key={item}
                   className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                 >
-                  <FileText
-                    size={17}
-                    className="mt-0.5 shrink-0 text-pine"
-                    aria-hidden="true"
-                  />
+                  <FileText size={17} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
                   <span>{item}</span>
                 </div>
               ))}
@@ -343,9 +295,8 @@ export default function ProfessorEmailGuidePage() {
 
           <Section title="How to follow up politely">
             <p>
-              Professors are busy, and many do not reply immediately. A polite
-              follow-up is acceptable, but too many follow-ups can create a bad
-              impression.
+              Professors are busy, and many do not reply immediately. A polite follow-up is
+              acceptable, but too many follow-ups can create a bad impression.
             </p>
 
             <div className="mt-4 grid gap-3">
@@ -368,10 +319,7 @@ export default function ProfessorEmailGuidePage() {
           <Section title="Common mistakes to avoid">
             <div className="grid gap-3 md:grid-cols-2">
               {mistakes.map((mistake) => (
-                <div
-                  key={mistake}
-                  className="rounded-xl border border-red-100 bg-red-50 px-4 py-3"
-                >
+                <div key={mistake} className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
                   {mistake}
                 </div>
               ))}
@@ -385,9 +333,8 @@ export default function ProfessorEmailGuidePage() {
                   aria-hidden="true"
                 />
                 <p className="text-sm leading-6 text-ink/75">
-                  Do not claim fake publications, fake research experience, or
-                  fake professor recommendations. Your email should be honest and
-                  supported by real documents.
+                  Do not claim fake publications, fake research experience, or fake professor
+                  recommendations. Your email should be honest and supported by real documents.
                 </p>
               </div>
             </div>
@@ -401,9 +348,8 @@ export default function ProfessorEmailGuidePage() {
               Prepare your research application step by step
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink/70">
-              Use Scholars Republic to find scholarships, save opportunities,
-              track applications, and prepare stronger SOPs, CVs, study plans,
-              and professor emails.
+              Use Scholars Republic to find scholarships, save opportunities, track applications,
+              and prepare stronger SOPs, CVs, study plans, and professor emails.
             </p>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -451,12 +397,10 @@ export default function ProfessorEmailGuidePage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-pine">
               Recommended first step
             </p>
-            <h2 className="mt-2 text-base font-bold text-ink">
-              Find research-based opportunities
-            </h2>
+            <h2 className="mt-2 text-base font-bold text-ink">Find research-based opportunities</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Search for scholarships where professor supervision, research fit,
-              or lab alignment can strengthen your application.
+              Search for scholarships where professor supervision, research fit, or lab alignment
+              can strengthen your application.
             </p>
             <Link
               href="/scholarships"
@@ -467,12 +411,10 @@ export default function ProfessorEmailGuidePage() {
           </div>
 
           <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">
-              Need help with your SOP?
-            </h2>
+            <h2 className="text-base font-bold text-ink">Need help with your SOP?</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Your professor email should match your SOP, CV, and study plan.
-              Start with a clear SOP draft and align your documents.
+              Your professor email should match your SOP, CV, and study plan. Start with a clear SOP
+              draft and align your documents.
             </p>
             <div className="mt-4 grid gap-2">
               <Link

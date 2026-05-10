@@ -173,23 +173,22 @@ function StudentDashboardContent() {
             <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </section>
-	<section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
+        <section className="rounded border border-ink/10 bg-white p-5 shadow-soft">
           <h2 className="font-semibold text-ink">Application Tracker</h2>
           <p className="mt-3 text-sm leading-6 text-ink/70">
             Track preparation, applied, interview, and result status.
           </p>
           <Link
-	    href="/dashboard/ai/sop"
+            href="/dashboard/ai/sop"
             className="rounded border border-ink/10 bg-white p-5 shadow-soft hover:border-pine/40"
           >
-          <p className="text-sm font-semibold text-pine">AI Tool</p>
-          <h2 className="mt-2 text-xl font-semibold text-ink">SOP Generator</h2>
-          <p className="mt-2 text-sm leading-6 text-ink/65">
-             Generate a scholarship SOP draft using your profile and study goals.
-          </p>
+            <p className="text-sm font-semibold text-pine">AI Tool</p>
+            <h2 className="mt-2 text-xl font-semibold text-ink">SOP Generator</h2>
+            <p className="mt-2 text-sm leading-6 text-ink/65">
+              Generate a scholarship SOP draft using your profile and study goals.
+            </p>
           </Link>
         </section>
-
       </div>
     </DashboardShell>
   );

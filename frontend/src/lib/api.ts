@@ -25,7 +25,7 @@ export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api",
   headers: {
     "Content-Type": "application/json",
-},
+  },
 });
 
 export type HealthResponse = {
@@ -94,7 +94,7 @@ export async function getProfileCompletion() {
 export async function getOpportunities(params?: OpportunityQueryParams) {
   const response = await api.get<OpportunityListResponse>("/opportunities/", {
     params,
-});
+  });
   return response.data;
 }
 
@@ -106,7 +106,7 @@ export async function getOpportunity(slug: string) {
 export async function getScholarships(params?: OpportunityQueryParams) {
   const response = await api.get<OpportunityListResponse>("/scholarships/", {
     params,
-});
+  });
   return response.data;
 }
 
@@ -118,7 +118,7 @@ export async function getScholarship(slug: string) {
 export async function getAdminOpportunities(params?: OpportunityQueryParams) {
   const response = await api.get<OpportunityListResponse>("/admin/opportunities/", {
     params,
-});
+  });
   return response.data;
 }
 
@@ -154,14 +154,14 @@ export async function getScholarshipMatch(slug: string) {
 export async function getRecommendedOpportunities(params?: OpportunityQueryParams) {
   const response = await api.get<RecommendedOpportunityResponse>("/opportunities/recommended/", {
     params,
-});
+  });
   return response.data;
 }
 
 export async function getRecommendedScholarships(params?: OpportunityQueryParams) {
   const response = await api.get<RecommendedOpportunityResponse>("/scholarships/recommended/", {
     params,
-});
+  });
   return response.data;
 }
 
@@ -205,7 +205,7 @@ export async function unsaveScholarshipBySlug(slug: string) {
 export async function getApplications(params?: ApplicationQueryParams) {
   const response = await api.get<OpportunityApplicationResponse>("/applications/", {
     params,
-});
+  });
   return response.data;
 }
 
@@ -257,10 +257,7 @@ export async function startApplicationByScholarshipSlug(slug: string) {
 // AI tools
 
 export async function submitSOPJob(payload: GenerateSOPPayload) {
-  const response = await api.post<SubmitAIJobResponse>(
-    "/ai/sop/generate/",
-    payload,
-  );
+  const response = await api.post<SubmitAIJobResponse>("/ai/sop/generate/", payload);
   return response.data;
 }
 

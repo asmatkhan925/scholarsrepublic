@@ -20,38 +20,31 @@ export const metadata = {
 const cvSections = [
   {
     title: "1. Personal information",
-    body:
-      "Include your full name, email, phone number, city/country, LinkedIn or portfolio if relevant. Avoid unnecessary personal details such as CNIC number, religion, or full home address unless required.",
+    body: "Include your full name, email, phone number, city/country, LinkedIn or portfolio if relevant. Avoid unnecessary personal details such as CNIC number, religion, or full home address unless required.",
   },
   {
     title: "2. Education",
-    body:
-      "List your most recent degree first. Include institution name, degree title, field, dates, CGPA or percentage if strong, and relevant academic distinctions.",
+    body: "List your most recent degree first. Include institution name, degree title, field, dates, CGPA or percentage if strong, and relevant academic distinctions.",
   },
   {
     title: "3. Research or final year project",
-    body:
-      "For MS and PhD scholarships, research direction matters. Mention your thesis, final year project, supervisor if appropriate, methods, tools, and outcomes.",
+    body: "For MS and PhD scholarships, research direction matters. Mention your thesis, final year project, supervisor if appropriate, methods, tools, and outcomes.",
   },
   {
     title: "4. Publications and academic work",
-    body:
-      "Add publications, conference papers, preprints, posters, or academic writing only if they are real and verifiable.",
+    body: "Add publications, conference papers, preprints, posters, or academic writing only if they are real and verifiable.",
   },
   {
     title: "5. Experience",
-    body:
-      "Include internships, jobs, teaching assistantships, research assistantships, volunteering, or leadership roles relevant to your application.",
+    body: "Include internships, jobs, teaching assistantships, research assistantships, volunteering, or leadership roles relevant to your application.",
   },
   {
     title: "6. Skills",
-    body:
-      "Add technical, research, language, and software skills. Keep this section specific and avoid vague claims such as “excellent communication skills” without evidence.",
+    body: "Add technical, research, language, and software skills. Keep this section specific and avoid vague claims such as “excellent communication skills” without evidence.",
   },
   {
     title: "7. Awards and achievements",
-    body:
-      "Mention scholarships, medals, competitions, certificates, leadership achievements, or academic honors. Keep them concise and factual.",
+    body: "Mention scholarships, medals, competitions, certificates, leadership achievements, or academic honors. Keep them concise and factual.",
   },
 ];
 
@@ -128,20 +121,9 @@ const actionWords = [
   "documented",
 ];
 
-function Section({
-  id,
-  title,
-  children,
-}: {
-  id?: string;
-  title: string;
-  children: ReactNode;
-}) {
+function Section({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
-    <section
-      id={id}
-      className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6"
-    >
+    <section id={id} className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-6">
       <h2 className="text-xl font-bold text-ink">{title}</h2>
       <div className="mt-4 text-sm leading-7 text-ink/75">{children}</div>
     </section>
@@ -159,12 +141,8 @@ export default function ScholarshipCVGuidePage() {
                 <GraduationCap size={22} aria-hidden="true" />
               </span>
               <span>
-                <span className="block text-base font-bold">
-                  Scholars Republic
-                </span>
-                <span className="text-xs text-ink/55">
-                  Scholarship guides and student support
-                </span>
+                <span className="block text-base font-bold">Scholars Republic</span>
+                <span className="text-xs text-ink/55">Scholarship guides and student support</span>
               </span>
             </Link>
 
@@ -199,11 +177,10 @@ export default function ScholarshipCVGuidePage() {
               </h1>
 
               <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
-                A scholarship CV is different from a job CV. It should show your
-                academic background, research potential, projects, achievements,
-                skills, and leadership in a clean and focused way. This guide
-                explains how Pakistani students can prepare a professional CV for
-                international scholarship applications.
+                A scholarship CV is different from a job CV. It should show your academic
+                background, research potential, projects, achievements, skills, and leadership in a
+                clean and focused way. This guide explains how Pakistani students can prepare a
+                professional CV for international scholarship applications.
               </p>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -225,15 +202,11 @@ export default function ScholarshipCVGuidePage() {
             </div>
 
             <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-wide text-pine">
-                Main rule
-              </p>
-              <h2 className="mt-2 text-base font-bold text-ink">
-                Keep it academic and honest
-              </h2>
+              <p className="text-xs font-semibold uppercase tracking-wide text-pine">Main rule</p>
+              <h2 className="mt-2 text-base font-bold text-ink">Keep it academic and honest</h2>
               <p className="mt-3 text-sm leading-6 text-ink/70">
-                Scholarship committees want clear evidence of preparation, not a
-                decorative resume. Keep your CV factual, readable, and relevant.
+                Scholarship committees want clear evidence of preparation, not a decorative resume.
+                Keep your CV factual, readable, and relevant.
               </p>
             </div>
           </div>
@@ -244,37 +217,32 @@ export default function ScholarshipCVGuidePage() {
         <article className="space-y-7">
           <Section title="What is a scholarship CV?">
             <p>
-              A scholarship CV is an academic document that summarizes your
-              education, achievements, projects, research experience, skills,
-              leadership, and relevant activities. Its purpose is to help the
-              scholarship committee quickly understand your profile.
+              A scholarship CV is an academic document that summarizes your education, achievements,
+              projects, research experience, skills, leadership, and relevant activities. Its
+              purpose is to help the scholarship committee quickly understand your profile.
             </p>
             <p className="mt-4">
-              A good scholarship CV does not need to be fancy. It should be
-              clear, organized, and easy to scan. The committee should quickly
-              see what you studied, what you have done, and why your background
-              fits the scholarship.
+              A good scholarship CV does not need to be fancy. It should be clear, organized, and
+              easy to scan. The committee should quickly see what you studied, what you have done,
+              and why your background fits the scholarship.
             </p>
           </Section>
 
           <Section title="Scholarship CV vs job CV">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-xl border border-ink/10 bg-cream/40 p-4">
-                <h3 className="text-sm font-semibold text-ink">
-                  Scholarship CV
-                </h3>
+                <h3 className="text-sm font-semibold text-ink">Scholarship CV</h3>
                 <p className="mt-2 text-sm leading-6 text-ink/70">
-                  Focuses on education, research, projects, academic
-                  achievements, publications, awards, leadership, and future
-                  potential.
+                  Focuses on education, research, projects, academic achievements, publications,
+                  awards, leadership, and future potential.
                 </p>
               </div>
 
               <div className="rounded-xl border border-ink/10 bg-cream/40 p-4">
                 <h3 className="text-sm font-semibold text-ink">Job CV</h3>
                 <p className="mt-2 text-sm leading-6 text-ink/70">
-                  Focuses more on employment history, workplace skills, industry
-                  experience, and professional results for a specific job role.
+                  Focuses more on employment history, workplace skills, industry experience, and
+                  professional results for a specific job role.
                 </p>
               </div>
             </div>
@@ -283,16 +251,9 @@ export default function ScholarshipCVGuidePage() {
           <Section title="Best scholarship CV structure">
             <div className="space-y-3">
               {cvSections.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-xl border border-ink/10 bg-cream/40 p-4"
-                >
-                  <h3 className="text-sm font-semibold text-ink">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-7 text-ink/70">
-                    {item.body}
-                  </p>
+                <div key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+                  <h3 className="text-sm font-semibold text-ink">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-ink/70">{item.body}</p>
                 </div>
               ))}
             </div>
@@ -339,8 +300,8 @@ export default function ScholarshipCVGuidePage() {
 
           <Section title="Action words for scholarship CVs">
             <p>
-              Use action words to make your experience clearer. Do not overuse
-              them, and make sure every point is supported by real experience.
+              Use action words to make your experience clearer. Do not overuse them, and make sure
+              every point is supported by real experience.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -362,11 +323,7 @@ export default function ScholarshipCVGuidePage() {
                   key={item}
                   className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                 >
-                  <ListChecks
-                    size={17}
-                    className="mt-0.5 shrink-0 text-pine"
-                    aria-hidden="true"
-                  />
+                  <ListChecks size={17} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
                   <span>{item}</span>
                 </div>
               ))}
@@ -376,10 +333,7 @@ export default function ScholarshipCVGuidePage() {
           <Section title="Common CV mistakes to avoid">
             <div className="grid gap-3 md:grid-cols-2">
               {commonMistakes.map((mistake) => (
-                <div
-                  key={mistake}
-                  className="rounded-xl border border-red-100 bg-red-50 px-4 py-3"
-                >
+                <div key={mistake} className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
                   {mistake}
                 </div>
               ))}
@@ -393,8 +347,8 @@ export default function ScholarshipCVGuidePage() {
                   aria-hidden="true"
                 />
                 <p className="text-sm leading-6 text-ink/75">
-                  Never add fake publications, fake experience, or fake
-                  certificates. Scholarship committees may verify your documents.
+                  Never add fake publications, fake experience, or fake certificates. Scholarship
+                  committees may verify your documents.
                 </p>
               </div>
             </div>
@@ -408,9 +362,9 @@ export default function ScholarshipCVGuidePage() {
               Build your scholarship profile step by step
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink/70">
-              Use Scholars Republic to complete your profile, search
-              scholarships, save opportunities, track applications, and prepare
-              your SOP, study plan, professor emails, and scholarship CV.
+              Use Scholars Republic to complete your profile, search scholarships, save
+              opportunities, track applications, and prepare your SOP, study plan, professor emails,
+              and scholarship CV.
             </p>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -458,12 +412,10 @@ export default function ScholarshipCVGuidePage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-pine">
               Recommended first step
             </p>
-            <h2 className="mt-2 text-base font-bold text-ink">
-              Complete your profile
-            </h2>
+            <h2 className="mt-2 text-base font-bold text-ink">Complete your profile</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Your profile helps organize your education, skills, field, and
-              goals before preparing scholarship documents.
+              Your profile helps organize your education, skills, field, and goals before preparing
+              scholarship documents.
             </p>
             <Link
               href="/dashboard/profile"
@@ -474,12 +426,10 @@ export default function ScholarshipCVGuidePage() {
           </div>
 
           <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">
-              Preparing your SOP too?
-            </h2>
+            <h2 className="text-base font-bold text-ink">Preparing your SOP too?</h2>
             <p className="mt-3 text-sm leading-6 text-ink/70">
-              Your CV and SOP should support each other. Keep both documents
-              honest, consistent, and focused.
+              Your CV and SOP should support each other. Keep both documents honest, consistent, and
+              focused.
             </p>
             <div className="mt-4 grid gap-2">
               <Link

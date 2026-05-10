@@ -14,10 +14,7 @@ export function FormattedSOPText({ text }: { text: string }) {
     <div className="space-y-4">
       {blocks.map((block, index) => {
         const looksLikeHeading =
-          block.length < 70 &&
-          !block.endsWith(".") &&
-          !block.includes(",") &&
-          index !== 0;
+          block.length < 70 && !block.endsWith(".") && !block.includes(",") && index !== 0;
 
         if (looksLikeHeading) {
           return (

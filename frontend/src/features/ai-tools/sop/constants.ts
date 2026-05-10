@@ -39,6 +39,5 @@ export const outputInstructions: Record<SOPOutputType, string> = {
 export const toneInstructions: Record<SOPTone, string> = {
   simple: "Use simple, clear, natural language.",
   formal: "Use a formal academic tone.",
-  strong_academic:
-    "Use a strong academic tone while keeping the writing natural and believable.",
+  strong_academic: "Use a strong academic tone while keeping the writing natural and believable.",
 };

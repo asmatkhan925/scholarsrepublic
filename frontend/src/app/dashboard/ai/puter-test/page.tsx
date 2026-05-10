@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Copy,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, Loader2, RefreshCw, Sparkles } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -38,9 +31,7 @@ Do not invent achievements, universities, grades, awards, work experience, or re
 Improve clarity, structure, grammar, and academic tone.`;
 
 function PuterTestContent() {
-  const [scriptStatus, setScriptStatus] = useState<
-    "loading" | "ready" | "failed"
-  >("loading");
+  const [scriptStatus, setScriptStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [model, setModel] = useState("");
   const [result, setResult] = useState("");
@@ -72,11 +63,7 @@ function PuterTestContent() {
         setScriptStatus("ready");
       } else {
         existingScript.addEventListener("load", checkReady, { once: true });
-        existingScript.addEventListener(
-          "error",
-          () => setScriptStatus("failed"),
-          { once: true },
-        );
+        existingScript.addEventListener("error", () => setScriptStatus("failed"), { once: true });
       }
 
       return;
@@ -100,9 +87,7 @@ function PuterTestContent() {
     const puterWindow = window as PuterWindow;
 
     if (!puterWindow.puter?.ai?.chat) {
-      setError(
-        "Puter.js is not ready yet. Please wait a moment and click Retry.",
-      );
+      setError("Puter.js is not ready yet. Please wait a moment and click Retry.");
       return;
     }
 
@@ -131,9 +116,7 @@ function PuterTestContent() {
       }
     } catch (requestError) {
       const message =
-        requestError instanceof Error
-          ? requestError.message
-          : "Puter.js request failed.";
+        requestError instanceof Error ? requestError.message : "Puter.js request failed.";
 
       setError(message);
     } finally {
@@ -201,8 +184,8 @@ function PuterTestContent() {
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm leading-7 text-ink/65">
-                This page is only for testing. It runs Puter.js in the browser
-                and does not use your GPU server, Django queue, or vLLM wrapper.
+                This page is only for testing. It runs Puter.js in the browser and does not use your
+                GPU server, Django queue, or vLLM wrapper.
               </p>
             </div>
 
@@ -239,9 +222,8 @@ function PuterTestContent() {
           <div className="grid gap-5">
             {scriptStatus === "failed" && (
               <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
-                Puter.js could not be loaded. This may be caused by network
-                blocking, browser privacy settings, or the external script being
-                unavailable.
+                Puter.js could not be loaded. This may be caused by network blocking, browser
+                privacy settings, or the external script being unavailable.
                 <button
                   type="button"
                   onClick={handleRetryScript}
@@ -262,9 +244,8 @@ function PuterTestContent() {
                 className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
               />
               <span className="text-xs font-normal leading-5 text-ink/55">
-                For first test, leave this empty. Later we can test specific
-                models such as OpenAI, Claude, Gemini, or DeepSeek if Puter
-                supports them for your account/session.
+                For first test, leave this empty. Later we can test specific models such as OpenAI,
+                Claude, Gemini, or DeepSeek if Puter supports them for your account/session.
               </span>
             </label>
 

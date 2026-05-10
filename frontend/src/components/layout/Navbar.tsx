@@ -68,9 +68,7 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                  active
-                    ? "bg-pine/10 text-pine"
-                    : "text-ink/70 hover:bg-ink/5 hover:text-ink"
+                  active ? "bg-pine/10 text-pine" : "text-ink/70 hover:bg-ink/5 hover:text-ink"
                 }`}
               >
                 {item.label}
@@ -131,9 +129,7 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${
-                  active
-                    ? "bg-pine/10 text-pine"
-                    : "bg-ink/5 text-ink/70"
+                  active ? "bg-pine/10 text-pine" : "bg-ink/5 text-ink/70"
                 }`}
               >
                 {item.label}
