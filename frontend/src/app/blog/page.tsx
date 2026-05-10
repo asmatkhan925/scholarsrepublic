@@ -59,10 +59,10 @@ const guides = [
   {
     title: "DAAD Scholarships for Pakistani Students",
     description:
-      "Understand DAAD scholarship options, academic requirements, language requirements, motivation letters, and German university preparation.",
+      "A practical guide to DAAD scholarships for Pakistani students, including scholarship types, eligibility, documents, language requirements, EPOS, research grants, and application tips.",
     href: "/guides/daad-scholarships-for-pakistani-students",
     category: "Country Guide",
-    status: "Planned",
+    status: "Published",
     icon: Landmark,
   },
   {
