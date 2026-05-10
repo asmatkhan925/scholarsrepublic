@@ -17,47 +17,85 @@ import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 
 const loggedOutSteps = [
   {
-    title: "Search",
-    description: "Find scholarships that match your goals.",
+    title: "Discover options",
+    description: "Search scholarships by country, degree level, field, and student goals.",
     icon: Search,
   },
   {
-    title: "Profile",
-    description: "Add your academic background and interests.",
+    title: "Check your fit",
+    description: "Use your profile to think clearly about eligibility, strengths, and gaps.",
     icon: UserRoundCheck,
   },
   {
-    title: "Save",
-    description: "Shortlist opportunities you want to track.",
+    title: "Organize choices",
+    description: "Save promising scholarships and keep deadlines, priorities, and notes together.",
     icon: ClipboardCheck,
   },
   {
-    title: "Prepare",
-    description: "Use guides and tools for better documents.",
+    title: "Apply stronger",
+    description: "Prepare SOPs, CVs, study plans, and emails with practical guides and tools.",
     icon: FileText,
   },
 ];
 
 const loggedInSteps = [
   {
-    title: "Profile",
-    description: "Keep your student profile updated.",
+    title: "Improve your profile",
+    description: "Keep your academic background, goals, and preferences accurate.",
     icon: UserRoundCheck,
   },
   {
-    title: "Saved",
-    description: "Review shortlisted opportunities.",
+    title: "Review opportunities",
+    description: "Compare saved scholarships and focus on the ones worth your time.",
     icon: BadgeCheck,
   },
   {
-    title: "Tracker",
-    description: "Update application progress.",
+    title: "Plan applications",
+    description: "Track status, priority, next action, and important application notes.",
     icon: ClipboardCheck,
   },
   {
-    title: "Documents",
-    description: "Prepare SOPs, CVs, and study plans.",
+    title: "Prepare documents",
+    description: "Draft and improve SOPs, CVs, study plans, and professor emails.",
     icon: FileText,
+  },
+];
+
+const loggedOutHelpItems = [
+  {
+    label: "Find direction",
+    description: "Move from random searching to a clearer scholarship shortlist.",
+  },
+  {
+    label: "Understand requirements",
+    description: "Review eligibility, documents, deadlines, and application expectations.",
+  },
+  {
+    label: "Stay organized",
+    description: "Save opportunities before they disappear into browser tabs and screenshots.",
+  },
+  {
+    label: "Prepare with confidence",
+    description: "Use practical guides and tools before writing important application documents.",
+  },
+];
+
+const loggedInHelpItems = [
+  {
+    label: "Continue faster",
+    description: "Return to your profile, saved scholarships, and tracker without starting over.",
+  },
+  {
+    label: "Choose better",
+    description: "Focus on opportunities that match your goals, background, and preparation level.",
+  },
+  {
+    label: "Act on time",
+    description: "Turn saved scholarships into next actions instead of missed deadlines.",
+  },
+  {
+    label: "Polish documents",
+    description: "Use guides and AI-assisted tools to improve drafts while keeping them honest.",
   },
 ];
 
@@ -65,17 +103,17 @@ const guideLinks = [
   {
     title: "Write a scholarship SOP",
     href: "/guides/how-to-write-sop-for-scholarship",
-    description: "Write a focused and honest statement of purpose.",
+    description: "Write a focused, honest, and scholarship-ready statement of purpose.",
   },
   {
     title: "Scholarship CV format",
     href: "/guides/scholarship-cv-format-for-pakistani-students",
-    description: "Organize achievements, skills, and experience clearly.",
+    description: "Organize achievements, skills, and experience in a clear academic format.",
   },
   {
     title: "Application checklist",
     href: "/guides/scholarship-application-checklist",
-    description: "Avoid missing documents, deadlines, and common steps.",
+    description: "Check documents, deadlines, official links, and final submission details.",
   },
 ];
 
@@ -85,6 +123,7 @@ export function HomePage() {
   const isLoggedIn = isAuthenticated && !loading;
   const dashboardHref = user?.role === "admin" ? "/admin" : "/dashboard";
   const steps = isLoggedIn ? loggedInSteps : loggedOutSteps;
+  const helpItems = isLoggedIn ? loggedInHelpItems : loggedOutHelpItems;
 
   return (
     <main>
@@ -103,8 +142,9 @@ export function HomePage() {
                 </h1>
 
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/70 md:text-base">
-                  Discover opportunities, build your profile, save scholarships, track applications,
-                  and prepare better documents in one student-friendly workspace.
+                  Scholars Republic helps students move from scholarship searching to organized,
+                  prepared applications — with profile tools, saved opportunities, trackers, and
+                  practical document guidance.
                 </p>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -144,7 +184,7 @@ export function HomePage() {
                 <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ink/65 sm:text-sm">
                   <span className="inline-flex items-center gap-2">
                     <ShieldCheck size={15} className="text-pine" aria-hidden="true" />
-                    Student workspace
+                    Student-first workspace
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <BadgeCheck size={15} className="text-pine" aria-hidden="true" />
@@ -158,44 +198,32 @@ export function HomePage() {
               </div>
 
               <div className="border-t border-pine/10 bg-mint/45 p-5 sm:p-6 md:p-7 lg:border-l lg:border-t-0">
-                <div className="rounded-[1.5rem] border border-pine/10 bg-white/90 p-5">
+                <div className="h-full rounded-[1.5rem] border border-pine/10 bg-white/90 p-5">
                   <p className="text-sm font-bold uppercase tracking-[0.18em] text-pine">
-                    {isLoggedIn ? "Your next steps" : "How it helps"}
+                    {isLoggedIn ? "Your next best moves" : "How Scholars Republic helps"}
                   </p>
 
                   <div className="mt-4 grid gap-3">
-                    {(isLoggedIn
-                      ? [
-                          ["Profile", "Review and improve your student profile."],
-                          ["Saved", "Open saved opportunities and plan actions."],
-                          ["Tracker", "Update statuses, notes, and priorities."],
-                          ["SOP", "Prepare a cleaner scholarship draft."],
-                        ]
-                      : [
-                          ["Discover", "Search scholarships and read practical guides."],
-                          ["Prepare", "Build your profile and organize documents."],
-                          ["Apply", "Save opportunities and track progress."],
-                          ["Grow", "Use the platform as your scholarship workspace."],
-                        ]
-                    ).map(([label, description]) => (
-                      <div key={label} className="flex gap-3">
+                    {helpItems.map((item) => (
+                      <div key={item.label} className="flex gap-3">
                         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pine text-xs font-bold text-white">
-                          {label.slice(0, 1)}
+                          {item.label.slice(0, 1)}
                         </span>
                         <div>
-                          <h2 className="text-sm font-bold text-ink">{label}</h2>
-                          <p className="text-sm leading-5 text-ink/65">{description}</p>
+                          <h2 className="text-sm font-bold text-ink">{item.label}</h2>
+                          <p className="text-sm leading-5 text-ink/65">{item.description}</p>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
 
-                <div className="mt-3 rounded-[1.5rem] bg-ink p-4 text-white">
-                  <p className="text-sm font-semibold text-saffron">Quick tip</p>
-                  <p className="mt-1 text-sm leading-6 text-white/75">
-                    Start early, save first, prepare documents, then verify official requirements.
-                  </p>
+                  <div className="mt-4 rounded-2xl border border-pine/10 bg-mint/60 p-4">
+                    <p className="text-sm font-semibold text-pine">Apply carefully</p>
+                    <p className="mt-1 text-sm leading-6 text-ink/65">
+                      Use Scholars Republic to prepare, but always verify final rules on the
+                      official scholarship website.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
