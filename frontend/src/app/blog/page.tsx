@@ -41,10 +41,10 @@ const guides = [
   {
     title: "China Scholarships for Pakistani Students",
     description:
-      "A focused guide to Chinese scholarships, including CSC, university scholarships, documents, timelines, and application strategy.",
+      "A practical guide to China scholarships for Pakistani students, including CSC, HEC route, university scholarships, documents, application steps, and tips for 2026 applicants.",
     href: "/guides/china-scholarships-for-pakistani-students",
     category: "Country Guide",
-    status: "Planned",
+    status: "Published",
     icon: MapPinned,
   },
   {

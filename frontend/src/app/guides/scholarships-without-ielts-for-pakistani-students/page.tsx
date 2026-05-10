@@ -5,7 +5,6 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  FileText,
   GraduationCap,
   Search,
   ShieldCheck,
