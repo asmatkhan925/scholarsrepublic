@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BookmarkCheck,
-  CalendarDays,
   ClipboardCheck,
   Search,
   ShieldCheck,
@@ -14,15 +13,7 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import {
-  Badge,
-  Button,
-  ButtonLink,
-  Card,
-  CardContent,
-  EmptyState,
-  StatCard,
-} from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
   deleteSavedOpportunity,
   getSavedOpportunities,
@@ -102,6 +93,8 @@ function SavedOpportunityCard({
   const detailHref =
     opportunity.opportunity_type === "scholarship" ? `/scholarships/${opportunity.slug}` : "#";
   const deadlineBadge = getDeadlineBadge(opportunity.deadline);
+  const degreeTags = opportunity.degree_levels.slice(0, 3);
+  const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
 
   async function handleRemove() {
     setRemoving(true);
@@ -134,8 +127,8 @@ function SavedOpportunityCard({
   }
 
   return (
-    <Card className="transition hover:-translate-y-1 hover:shadow-lg">
-      <CardContent className="p-5">
+    <Card className="transition hover:-translate-y-0.5 hover:shadow-lg">
+      <CardContent className="p-4 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -154,9 +147,19 @@ function SavedOpportunityCard({
                 {opportunity.short_description}
               </p>
             ) : null}
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge tone="neutral">{humanize(opportunity.funding_type)}</Badge>
+              {degreeTags.map((degree) => (
+                <Badge key={degree} tone="neutral">
+                  {degree}
+                </Badge>
+              ))}
+              {extraDegreeCount > 0 ? <Badge tone="neutral">+{extraDegreeCount} more</Badge> : null}
+            </div>
           </div>
 
-          <div className="grid gap-2 rounded-3xl border border-pine/10 bg-[#f7faf8] p-4 text-sm lg:min-w-56">
+          <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-4 text-sm lg:w-56">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Funding</p>
               <p className="mt-1 font-semibold text-ink">{humanize(opportunity.funding_type)}</p>
@@ -255,7 +258,7 @@ function SavedOpportunitiesContent() {
     });
   }
 
-  const savedItems = data?.results ?? [];
+  const savedItems = useMemo(() => data?.results ?? [], [data]);
 
   const deadlineStats = useMemo(() => {
     const urgent = savedItems.filter((item) => {
@@ -263,9 +266,14 @@ function SavedOpportunitiesContent() {
       return days !== null && days >= 0 && days <= 14;
     }).length;
 
+    const expired = savedItems.filter((item) => {
+      const days = getDaysUntilDeadline(item.opportunity_detail.deadline);
+      return days !== null && days < 0;
+    }).length;
+
     const rolling = savedItems.filter((item) => item.opportunity_detail.deadline === null).length;
 
-    return { urgent, rolling };
+    return { urgent, expired, rolling };
   }, [savedItems]);
 
   return (
@@ -274,75 +282,51 @@ function SavedOpportunitiesContent() {
       title="Saved Opportunities"
     >
       <div className="space-y-5">
-        <section className="rounded-[1.75rem] border border-pine/10 bg-white p-5 shadow-soft md:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <Badge tone="mint" className="mb-4">
-                <BookmarkCheck size={14} aria-hidden="true" />
-                Shortlist
-              </Badge>
-              <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
-                Turn saved scholarships into a focused application shortlist.
-              </h1>
-              <p className="mt-3 text-sm leading-7 text-ink/70">
-                Review what you saved, remove weak options, and start tracking the scholarships you
-                are serious about applying for.
-              </p>
+        <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
+          <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Saved</p>
+                <p className="mt-1 text-2xl font-bold text-ink">
+                  {data?.count ?? savedItems.length}
+                </p>
+                <p className="mt-1 text-xs text-ink/50">Total shortlist</p>
+              </div>
+
+              <div className="rounded-2xl border border-saffron/30 bg-saffron/15 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
+                <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.urgent}</p>
+                <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
+              </div>
+
+              <div className="rounded-2xl border border-pine/10 bg-skyglass px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Rolling</p>
+                <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.rolling}</p>
+                <p className="mt-1 text-xs text-ink/50">No fixed deadline</p>
+              </div>
+
+              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Expired</p>
+                <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.expired}</p>
+                <p className="mt-1 text-xs text-ink/50">Review or remove</p>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
-              <ButtonLink href="/scholarships" className="w-full sm:w-auto">
+            <div className="grid gap-2 sm:flex xl:justify-end">
+              <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
                 Browse More
-                <Search size={16} aria-hidden="true" />
+                <Search size={15} aria-hidden="true" />
               </ButtonLink>
               <ButtonLink
                 href="/dashboard/applications"
                 className="w-full sm:w-auto"
+                size="sm"
                 variant="outline"
               >
                 Open Tracker
               </ButtonLink>
             </div>
           </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl bg-mint/50 p-4">
-              <p className="text-sm font-bold text-ink">Review fit</p>
-              <p className="mt-1 text-sm leading-5 text-ink/65">
-                Keep only opportunities that match your profile and goals.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-skyglass p-4">
-              <p className="text-sm font-bold text-ink">Start tracking</p>
-              <p className="mt-1 text-sm leading-5 text-ink/65">
-                Move serious options into your application tracker.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-saffron/20 p-4">
-              <p className="text-sm font-bold text-ink">Verify details</p>
-              <p className="mt-1 text-sm leading-5 text-ink/65">
-                Check official deadlines and requirements before applying.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          <StatCard
-            description="Opportunities in your shortlist"
-            label="Total saved"
-            value={data?.count ?? savedItems.length}
-          />
-          <StatCard
-            description="Deadlines within the next 14 days"
-            label="Needs attention"
-            value={deadlineStats.urgent}
-          />
-          <StatCard
-            description="Rolling or not listed"
-            label="Flexible deadlines"
-            value={deadlineStats.rolling}
-          />
         </section>
 
         {loading ? (
