@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { AppChrome } from "@/components/layout/AppChrome";
 
 import "./globals.css";
 
@@ -17,7 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <AppChrome>{children}</AppChrome>
+        </AuthProvider>
       </body>
     </html>
   );
