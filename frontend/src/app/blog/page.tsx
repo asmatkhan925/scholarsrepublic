@@ -95,10 +95,10 @@ const guides = [
   {
     title: "Scholarship CV Format for Pakistani Students",
     description:
-      "A practical guide to building a scholarship CV with education, research, projects, skills, publications, awards, and leadership experience.",
+      "Learn how to write a strong scholarship CV for Pakistani students, including format, sections, examples, common mistakes, and application tips.",
     href: "/guides/scholarship-cv-format-for-pakistani-students",
     category: "Documents",
-    status: "Planned",
+    status: "Published",
     icon: FileText,
   },
   {

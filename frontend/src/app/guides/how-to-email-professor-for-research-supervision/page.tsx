@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
-  ArrowRight,
   BookOpen,
   CheckCircle2,
   FileText,
@@ -51,7 +50,7 @@ const emailStructure = [
   {
     title: "5. Your fit and purpose",
     body:
-      "Briefly explain your academic background, skills, research experience, or project work that makes you relevant to the professor's group.",
+      "Briefly explain your academic background, skills, research experience, or project work that makes you relevant to the professor&apos;s group.",
   },
   {
     title: "6. Clear request",
@@ -85,7 +84,7 @@ const mistakes = [
   "Sending the same generic email to many professors",
   "Writing a very long email that no professor has time to read",
   "Using an unclear subject line",
-  "Not reading the professor's research before emailing",
+  "Not reading the professor&apos;s research before emailing",
   "Asking for funding in the first sentence",
   "Attaching too many large files",
   "Writing with spelling mistakes and casual language",
@@ -174,7 +173,7 @@ export default function ProfessorEmailGuidePage() {
                 Emailing a professor can help MS and PhD applicants find research
                 supervision, understand lab opportunities, and strengthen a
                 scholarship application. A good email should be short, respectful,
-                specific, and clearly connected to the professor's research.
+                specific, and clearly connected to the professor&apos;s research.
               </p>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
