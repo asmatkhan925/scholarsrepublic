@@ -7,7 +7,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Scholars Republic",
-  description: "Pakistan-first scholarship matching and study-abroad guidance platform.",
+  description:
+    "Scholarship search, student profiles, application tracking, and document preparation tools for students.",
 };
 
 export default function RootLayout({

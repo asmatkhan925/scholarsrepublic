@@ -17,85 +17,87 @@ import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 
 const loggedOutSteps = [
   {
-    title: "Discover options",
-    description: "Search scholarships by country, degree level, field, and student goals.",
+    title: "Search with purpose",
+    description: "Explore scholarships by destination, degree level, field, and funding type.",
     icon: Search,
   },
   {
-    title: "Check your fit",
-    description: "Use your profile to think clearly about eligibility, strengths, and gaps.",
+    title: "Build your profile",
+    description: "Turn your academic background and goals into a reusable student profile.",
     icon: UserRoundCheck,
   },
   {
-    title: "Organize choices",
-    description: "Save promising scholarships and keep deadlines, priorities, and notes together.",
+    title: "Save what matters",
+    description: "Shortlist serious opportunities instead of losing links in tabs or screenshots.",
     icon: ClipboardCheck,
   },
   {
-    title: "Apply stronger",
-    description: "Prepare SOPs, CVs, study plans, and emails with practical guides and tools.",
+    title: "Prepare to apply",
+    description: "Use guides and AI-assisted tools to improve documents before submission.",
     icon: FileText,
   },
 ];
 
 const loggedInSteps = [
   {
-    title: "Improve your profile",
-    description: "Keep your academic background, goals, and preferences accurate.",
+    title: "Complete your profile",
+    description: "Keep your background, goals, preferred countries, and fields up to date.",
     icon: UserRoundCheck,
   },
   {
-    title: "Review opportunities",
-    description: "Compare saved scholarships and focus on the ones worth your time.",
+    title: "Review your shortlist",
+    description: "Compare saved scholarships and focus on realistic, high-value options.",
     icon: BadgeCheck,
   },
   {
-    title: "Plan applications",
-    description: "Track status, priority, next action, and important application notes.",
+    title: "Track every application",
+    description: "Manage statuses, priorities, next actions, notes, and personal deadlines.",
     icon: ClipboardCheck,
   },
   {
-    title: "Prepare documents",
-    description: "Draft and improve SOPs, CVs, study plans, and professor emails.",
+    title: "Improve documents",
+    description: "Draft, review, and polish SOPs, CVs, study plans, and emails carefully.",
     icon: FileText,
   },
 ];
 
 const loggedOutHelpItems = [
   {
-    label: "Find direction",
-    description: "Move from random searching to a clearer scholarship shortlist.",
+    label: "Match your search",
+    description:
+      "Choose country, degree level, field, and funding type instead of browsing randomly.",
   },
   {
-    label: "Understand requirements",
-    description: "Review eligibility, documents, deadlines, and application expectations.",
+    label: "Build your profile",
+    description: "Keep academic background, goals, documents, and preferences ready in one place.",
   },
   {
-    label: "Stay organized",
-    description: "Save opportunities before they disappear into browser tabs and screenshots.",
+    label: "Shortlist serious options",
+    description: "Save scholarships worth applying to and revisit them when you are ready.",
   },
   {
-    label: "Prepare with confidence",
-    description: "Use practical guides and tools before writing important application documents.",
+    label: "Prepare your application",
+    description: "Use guides and tools for SOPs, CVs, study plans, and professor emails.",
   },
 ];
 
 const loggedInHelpItems = [
   {
-    label: "Continue faster",
-    description: "Return to your profile, saved scholarships, and tracker without starting over.",
+    label: "Improve your readiness",
+    description: "Update missing profile details so your workspace reflects your real background.",
   },
   {
-    label: "Choose better",
-    description: "Focus on opportunities that match your goals, background, and preparation level.",
+    label: "Focus your shortlist",
+    description:
+      "Review saved opportunities and prioritize the scholarships worth applying to first.",
   },
   {
-    label: "Act on time",
-    description: "Turn saved scholarships into next actions instead of missed deadlines.",
+    label: "Move applications forward",
+    description: "Track status, next step, priority, notes, and personal deadlines.",
   },
   {
-    label: "Polish documents",
-    description: "Use guides and AI-assisted tools to improve drafts while keeping them honest.",
+    label: "Prepare stronger documents",
+    description: "Use the SOP tool and guides, then edit honestly before submission.",
   },
 ];
 
@@ -121,6 +123,7 @@ export function HomePage() {
   const { isAuthenticated, loading, user } = useAuth();
 
   const isLoggedIn = isAuthenticated && !loading;
+  const isAuthLoading = loading;
   const dashboardHref = user?.role === "admin" ? "/admin" : "/dashboard";
   const steps = isLoggedIn ? loggedInSteps : loggedOutSteps;
   const helpItems = isLoggedIn ? loggedInHelpItems : loggedOutHelpItems;
@@ -138,13 +141,14 @@ export function HomePage() {
                 </Badge>
 
                 <h1 className="max-w-4xl text-2xl font-bold tracking-tight text-ink sm:text-3xl md:text-4xl">
-                  Find scholarships and manage your application journey with confidence.
+                  Your scholarship search, profile, documents, and applications — organized in one
+                  workspace.
                 </h1>
 
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/70 md:text-base">
-                  Scholars Republic helps students move from scholarship searching to organized,
-                  prepared applications — with profile tools, saved opportunities, trackers, and
-                  practical document guidance.
+                  Scholars Republic helps students move from random scholarship searching to a clear
+                  application plan, with tools to find opportunities, save shortlists, track
+                  progress, and prepare stronger documents.
                 </p>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -161,6 +165,21 @@ export function HomePage() {
                         variant="outline"
                       >
                         View Tracker
+                      </ButtonLink>
+                    </>
+                  ) : isAuthLoading ? (
+                    <>
+                      <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="md">
+                        Browse Scholarships
+                        <ArrowRight size={17} aria-hidden="true" />
+                      </ButtonLink>
+                      <ButtonLink
+                        href="/blog"
+                        className="w-full sm:w-auto"
+                        size="md"
+                        variant="outline"
+                      >
+                        Explore Guides
                       </ButtonLink>
                     </>
                   ) : (
@@ -216,7 +235,6 @@ export function HomePage() {
                       </div>
                     ))}
                   </div>
-
                 </div>
               </div>
             </div>
@@ -315,6 +333,19 @@ export function HomePage() {
                   className="w-full border-white/20 bg-white/10 text-white hover:bg-white/15 sm:w-auto"
                 >
                   Saved Opportunities
+                </ButtonLink>
+              </>
+            ) : isAuthLoading ? (
+              <>
+                <ButtonLink href="/scholarships" className="w-full sm:w-auto" variant="secondary">
+                  Browse Scholarships
+                </ButtonLink>
+                <ButtonLink
+                  href="/blog"
+                  variant="outline"
+                  className="w-full border-white/20 bg-white/10 text-white hover:bg-white/15 sm:w-auto"
+                >
+                  Explore Guides
                 </ButtonLink>
               </>
             ) : (
