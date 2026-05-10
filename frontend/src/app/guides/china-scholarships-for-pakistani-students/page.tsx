@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, GraduationCap, Search, Sparkles } from "lucide-react";
+import { BookOpen, GraduationCap, Search, Sparkles } from "lucide-react";
 
 export const metadata = {
   title: "China Scholarships for Pakistani Students | Scholars Republic",
