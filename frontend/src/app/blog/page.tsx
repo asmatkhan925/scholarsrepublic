@@ -32,10 +32,10 @@ const guides = [
   {
     title: "Scholarships Without IELTS for Pakistani Students",
     description:
-      "Learn which scholarships may accept alternatives to IELTS, such as English proficiency certificates, previous English-medium education, or interviews.",
+      "A practical guide for Pakistani students searching for scholarships without IELTS, including accepted alternatives, documents, risks, and how to verify official requirements.",
     href: "/guides/scholarships-without-ielts-for-pakistani-students",
     category: "No IELTS",
-    status: "Planned",
+    status: "Published",
     icon: ShieldCheck,
   },
   {
