@@ -8,6 +8,8 @@ from apps.users.models import User
 
 class SavedOpportunitySerializer(serializers.ModelSerializer):
     opportunity_detail = OpportunityListSerializer(source="opportunity", read_only=True)
+    application_id = serializers.SerializerMethodField()
+    is_tracking = serializers.SerializerMethodField()
 
     class Meta:
         model = SavedOpportunity
@@ -16,15 +18,26 @@ class SavedOpportunitySerializer(serializers.ModelSerializer):
             "opportunity",
             "opportunity_detail",
             "notes",
+            "application_id",
+            "is_tracking",
             "created_at",
             "updated_at",
         )
         read_only_fields = (
             "id",
             "opportunity_detail",
+            "application_id",
+            "is_tracking",
             "created_at",
             "updated_at",
         )
+
+    def get_application_id(self, obj):
+        tracker = obj.application_trackers.first()
+        return tracker.id if tracker else None
+
+    def get_is_tracking(self, obj):
+        return self.get_application_id(obj) is not None
 
 
 class SavedOpportunityCreateSerializer(serializers.ModelSerializer):

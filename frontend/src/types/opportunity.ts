@@ -123,6 +123,8 @@ export type SavedOpportunity = {
   opportunity: number;
   opportunity_detail: OpportunityListItem;
   notes: string;
+  application_id: number | null;
+  is_tracking: boolean;
   created_at: string;
   updated_at: string;
 };

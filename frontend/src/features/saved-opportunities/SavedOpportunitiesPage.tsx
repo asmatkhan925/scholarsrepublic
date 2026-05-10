@@ -80,8 +80,9 @@ function SavedOpportunityCard({
   const [removing, setRemoving] = useState(false);
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
-  const [trackedApplicationId, setTrackedApplicationId] = useState<number | null>(null);
-  const [alreadyTracked, setAlreadyTracked] = useState(false);
+  const [trackedApplicationId, setTrackedApplicationId] = useState<number | null>(
+    saved.application_id,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,28 +120,15 @@ function SavedOpportunityCard({
     setStarting(true);
     setError(null);
     setMessage(null);
-    setAlreadyTracked(false);
 
     try {
-      const application = (await startApplicationFromSaved(saved.id)) as OpportunityApplication;
+      const application = await startApplicationFromSaved(saved.id);
       setTrackedApplicationId(application.id);
-      setMessage("Tracking started. Use Stop Tracking if this is no longer worth applying to.");
+      setMessage("Tracking started. You can stop tracking if this is no longer worth applying to.");
     } catch (requestError) {
       const errorMessage =
-        getErrorMessage(requestError) ?? "Something went wrong. Please try again.";
-      const lowerMessage = errorMessage.toLowerCase();
-
-      if (
-        lowerMessage.includes("already") ||
-        lowerMessage.includes("exists") ||
-        lowerMessage.includes("tracking") ||
-        lowerMessage.includes("application")
-      ) {
-        setAlreadyTracked(true);
-        setMessage("This opportunity is already in your tracker.");
-      } else {
-        setError(errorMessage);
-      }
+        getErrorMessage(requestError) ?? "Could not start tracking. Please try again.";
+      setError(errorMessage);
     } finally {
       setStarting(false);
     }
@@ -158,7 +146,6 @@ function SavedOpportunityCard({
     try {
       await deleteApplication(trackedApplicationId);
       setTrackedApplicationId(null);
-      setAlreadyTracked(false);
       setMessage("Stopped tracking. You can start tracking again later.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -176,7 +163,7 @@ function SavedOpportunityCard({
               <Badge tone="mint">{humanize(opportunity.opportunity_type)}</Badge>
               <Badge tone={deadlineBadge.tone}>{deadlineBadge.label}</Badge>
               {opportunity.verified_status ? <Badge tone="sky">Verified</Badge> : null}
-              {isTracking || alreadyTracked ? <Badge tone="saffron">Tracking</Badge> : null}
+              {isTracking ? <Badge tone="saffron">Tracking</Badge> : null}
             </div>
 
             <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
@@ -232,16 +219,6 @@ function SavedOpportunityCard({
                     <ClipboardCheck size={15} aria-hidden="true" />
                     {stopping ? "Stopping..." : "Stop Tracking"}
                   </Button>
-                ) : alreadyTracked ? (
-                  <ButtonLink
-                    href="/dashboard/applications"
-                    className="w-full shadow-sm"
-                    size="sm"
-                    variant="secondary"
-                  >
-                    <ClipboardCheck size={15} aria-hidden="true" />
-                    Open Tracker
-                  </ButtonLink>
                 ) : (
                   <Button
                     className="w-full shadow-sm"

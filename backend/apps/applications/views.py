@@ -1,4 +1,5 @@
 from django.db.models import Count, Q
+from django.db.models import Prefetch
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -31,6 +32,15 @@ class SavedOpportunityListCreateView(generics.ListCreateAPIView):
         return (
             SavedOpportunity.objects.filter(user=self.request.user)
             .select_related("opportunity", "user")
+            .prefetch_related(
+                Prefetch(
+                    "application_trackers",
+                    queryset=OpportunityApplication.objects.filter(user=self.request.user).only(
+                        "id",
+                        "saved_opportunity_id",
+                    ),
+                )
+            )
             .order_by("-created_at")
         )
 
