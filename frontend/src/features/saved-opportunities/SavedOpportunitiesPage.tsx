@@ -14,7 +14,15 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  CardContent,
+  EmptyState,
+  StatCard,
+} from "@/components/ui";
 import {
   deleteSavedOpportunity,
   getSavedOpportunities,
@@ -266,38 +274,30 @@ function SavedOpportunitiesContent() {
       title="Saved Opportunities"
     >
       <div className="space-y-5">
-        <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft md:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="mint">
-                  <BookmarkCheck size={14} aria-hidden="true" />
-                  Saved shortlist
-                </Badge>
-                <Badge tone={deadlineStats.urgent > 0 ? "saffron" : "sky"}>
-                  {deadlineStats.urgent} urgent
-                </Badge>
-                <Badge tone="sky">{deadlineStats.rolling} rolling</Badge>
-              </div>
-
-              <h1 className="mt-3 text-xl font-bold tracking-tight text-ink md:text-2xl">
-                Saved opportunities
+        <section className="rounded-[1.75rem] border border-pine/10 bg-white p-5 shadow-soft md:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <Badge tone="mint" className="mb-4">
+                <BookmarkCheck size={14} aria-hidden="true" />
+                Shortlist
+              </Badge>
+              <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                Turn saved scholarships into a focused application shortlist.
               </h1>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65">
-                Review your shortlist, remove weak options, and start tracking scholarships you are
-                serious about applying for.
+              <p className="mt-3 text-sm leading-7 text-ink/70">
+                Review what you saved, remove weak options, and start tracking the scholarships you
+                are serious about applying for.
               </p>
             </div>
 
-            <div className="grid gap-2 sm:flex sm:shrink-0">
-              <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
+            <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
+              <ButtonLink href="/scholarships" className="w-full sm:w-auto">
                 Browse More
-                <Search size={15} aria-hidden="true" />
+                <Search size={16} aria-hidden="true" />
               </ButtonLink>
               <ButtonLink
                 href="/dashboard/applications"
                 className="w-full sm:w-auto"
-                size="sm"
                 variant="outline"
               >
                 Open Tracker
@@ -305,26 +305,44 @@ function SavedOpportunitiesContent() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-2xl bg-[#f7faf8] px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                Total saved
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl bg-mint/50 p-4">
+              <p className="text-sm font-bold text-ink">Review fit</p>
+              <p className="mt-1 text-sm leading-5 text-ink/65">
+                Keep only opportunities that match your profile and goals.
               </p>
-              <p className="mt-1 text-xl font-bold text-ink">{data?.count ?? savedItems.length}</p>
             </div>
-            <div className="rounded-2xl bg-[#f7faf8] px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                Needs attention
+            <div className="rounded-2xl bg-skyglass p-4">
+              <p className="text-sm font-bold text-ink">Start tracking</p>
+              <p className="mt-1 text-sm leading-5 text-ink/65">
+                Move serious options into your application tracker.
               </p>
-              <p className="mt-1 text-xl font-bold text-ink">{deadlineStats.urgent}</p>
             </div>
-            <div className="rounded-2xl bg-[#f7faf8] px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                Flexible deadlines
+            <div className="rounded-2xl bg-saffron/20 p-4">
+              <p className="text-sm font-bold text-ink">Verify details</p>
+              <p className="mt-1 text-sm leading-5 text-ink/65">
+                Check official deadlines and requirements before applying.
               </p>
-              <p className="mt-1 text-xl font-bold text-ink">{deadlineStats.rolling}</p>
             </div>
           </div>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <StatCard
+            description="Opportunities in your shortlist"
+            label="Total saved"
+            value={data?.count ?? savedItems.length}
+          />
+          <StatCard
+            description="Deadlines within the next 14 days"
+            label="Needs attention"
+            value={deadlineStats.urgent}
+          />
+          <StatCard
+            description="Rolling or not listed"
+            label="Flexible deadlines"
+            value={deadlineStats.rolling}
+          />
         </section>
 
         {loading ? (
