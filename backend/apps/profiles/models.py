@@ -87,8 +87,20 @@ class StudentProfile(models.Model):
     phone_number = models.CharField(max_length=30, blank=True)
     whatsapp_number = models.CharField(max_length=30, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
-    nationality = models.CharField(max_length=100, default="Pakistan", blank=True)
-    current_country = models.CharField(max_length=100, default="Pakistan", blank=True)
+    nationality_country = models.ForeignKey(
+        "reference_data.Country",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="nationality_profiles",
+    )
+    current_country_ref = models.ForeignKey(
+        "reference_data.Country",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="current_country_profiles",
+    )
     city = models.CharField(max_length=100, blank=True)
     province = models.CharField(max_length=80, choices=Province.choices, blank=True)
     domicile = models.CharField(max_length=100, blank=True)
@@ -97,7 +109,14 @@ class StudentProfile(models.Model):
         max_length=50, choices=EducationLevel.choices, blank=True
     )
     current_institution = models.CharField(max_length=200, blank=True)
-    current_field_of_study = models.CharField(max_length=150, blank=True)
+    current_study_field_ref = models.ForeignKey(
+        "reference_data.StudyField",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="current_field_profiles",
+    )
+    custom_current_study_field = models.CharField(max_length=150, blank=True)
     graduation_year = models.PositiveIntegerField(null=True, blank=True)
     result_status = models.CharField(max_length=50, choices=ResultStatus.choices, blank=True)
     grading_system = models.CharField(max_length=30, choices=GradingSystem.choices, blank=True)
@@ -106,8 +125,17 @@ class StudentProfile(models.Model):
     division = models.CharField(max_length=50, blank=True)
 
     target_degree_level = models.CharField(max_length=50, choices=TargetDegree.choices, blank=True)
-    target_fields = models.JSONField(default=list, blank=True)
-    target_countries = models.JSONField(default=list, blank=True)
+    target_study_field_refs = models.ManyToManyField(
+        "reference_data.StudyField",
+        blank=True,
+        related_name="target_field_profiles",
+    )
+    custom_target_study_fields = models.JSONField(default=list, blank=True)
+    target_country_refs = models.ManyToManyField(
+        "reference_data.Country",
+        blank=True,
+        related_name="target_country_profiles",
+    )
     preferred_intake = models.CharField(max_length=100, blank=True)
     study_mode_preference = models.CharField(max_length=50, choices=StudyMode.choices, blank=True)
     funding_preference = models.CharField(
@@ -160,7 +188,14 @@ class StudentProfile(models.Model):
     has_research_experience = models.BooleanField(default=False)
     publications_count = models.PositiveIntegerField(default=0)
     has_supervisor_acceptance = models.BooleanField(default=False)
-    supervisor_country = models.CharField(max_length=100, blank=True)
+    supervisor_country_ref = models.ForeignKey(
+        "reference_data.Country",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="supervisor_country_profiles",
+    )
+    custom_supervisor_country = models.CharField(max_length=100, blank=True)
     supervisor_university = models.CharField(max_length=200, blank=True)
 
     skills = models.JSONField(default=list, blank=True)
@@ -192,6 +227,45 @@ class StudentProfile(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def nationality(self):
+        return self.nationality_country.name if self.nationality_country else "Pakistan"
+
+    @property
+    def current_country(self):
+        return self.current_country_ref.name if self.current_country_ref else "Pakistan"
+
+    @property
+    def current_field_of_study(self):
+        if self.current_study_field_ref:
+            return self.current_study_field_ref.name
+
+        return self.custom_current_study_field
+
+    @property
+    def target_countries(self):
+        if not self.pk:
+            return []
+
+        return list(self.target_country_refs.values_list("name", flat=True))
+
+    @property
+    def target_fields(self):
+        if not self.pk:
+            return list(self.custom_target_study_fields or [])
+
+        known_fields = list(self.target_study_field_refs.values_list("name", flat=True))
+        custom_fields = list(self.custom_target_study_fields or [])
+
+        return known_fields + [field for field in custom_fields if field not in known_fields]
+
+    @property
+    def supervisor_country(self):
+        if self.supervisor_country_ref:
+            return self.supervisor_country_ref.name
+
+        return self.custom_supervisor_country
 
     def __str__(self) -> str:
         return f"{self.user.email} opportunity profile"

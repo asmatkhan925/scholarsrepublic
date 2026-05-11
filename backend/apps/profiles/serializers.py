@@ -1,11 +1,12 @@
-from decimal import Decimal, InvalidOperation
-import re
 from datetime import date
+from decimal import Decimal
+import re
 from urllib.parse import urlparse
 
 from rest_framework import serializers
 
 from apps.profiles.models import StudentProfile
+from apps.reference_data.models import Country, StudyField
 
 
 PHONE_PATTERN = re.compile(r"[^0-9+()\-\s]")
@@ -58,7 +59,48 @@ def normalize_hsk_level(value):
     return str(value).strip()
 
 
+def clean_text_list(value):
+    if value is None:
+        return []
+
+    if not isinstance(value, list):
+        raise serializers.ValidationError("Must be a list.")
+
+    cleaned = []
+    seen = set()
+
+    for item in value:
+        if not isinstance(item, str):
+            raise serializers.ValidationError("All items must be text.")
+
+        item = item.strip()
+
+        if not item:
+            continue
+
+        key = item.casefold()
+
+        if key not in seen:
+            cleaned.append(item)
+            seen.add(key)
+
+    return cleaned
+
+
 class StudentProfileSerializer(serializers.ModelSerializer):
+    nationality = serializers.CharField(required=False, allow_blank=True)
+    current_country = serializers.CharField(required=False, allow_blank=True)
+    current_field_of_study = serializers.CharField(required=False, allow_blank=True)
+    target_countries = serializers.ListField(
+        child=serializers.CharField(allow_blank=True, trim_whitespace=True),
+        required=False,
+    )
+    target_fields = serializers.ListField(
+        child=serializers.CharField(allow_blank=True, trim_whitespace=True),
+        required=False,
+    )
+    supervisor_country = serializers.CharField(required=False, allow_blank=True)
+
     completion_percentage = serializers.IntegerField(read_only=True)
     scholarship_readiness_score = serializers.IntegerField(read_only=True)
     readiness_level = serializers.CharField(read_only=True)
@@ -83,8 +125,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         data = data.copy()
-
-        # profile_source is internal metadata. Students should not set it manually.
         data.pop("profile_source", None)
 
         for field_name in PHONE_FIELDS:
@@ -100,45 +140,148 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
         return super().to_internal_value(data)
 
+    def resolve_country(self, value, field_name, allow_custom=False):
+        value = str(value or "").strip()
+
+        if not value:
+            return None, ""
+
+        country = Country.objects.filter(is_active=True, name__iexact=value).first()
+
+        if country:
+            return country, ""
+
+        if allow_custom:
+            return None, value
+
+        raise serializers.ValidationError({field_name: f"Unknown country: {value}."})
+
+    def resolve_study_field(self, value):
+        value = str(value or "").strip()
+
+        if not value:
+            return None, ""
+
+        study_field = StudyField.objects.filter(is_active=True, name__iexact=value).first()
+
+        if study_field:
+            return study_field, ""
+
+        return None, value
+
+    def extract_reference_payload(self, validated_data):
+        reference_payload = {}
+
+        for field_name in [
+            "nationality",
+            "current_country",
+            "current_field_of_study",
+            "target_countries",
+            "target_fields",
+            "supervisor_country",
+        ]:
+            if field_name in validated_data:
+                reference_payload[field_name] = validated_data.pop(field_name)
+
+        return reference_payload
+
+    def apply_reference_payload(self, instance, reference_payload):
+        if "nationality" in reference_payload:
+            country, _ = self.resolve_country(
+                reference_payload.get("nationality") or "Pakistan",
+                "nationality",
+            )
+            instance.nationality_country = country
+
+        if "current_country" in reference_payload:
+            country, _ = self.resolve_country(
+                reference_payload.get("current_country") or "Pakistan",
+                "current_country",
+            )
+            instance.current_country_ref = country
+
+        if "current_field_of_study" in reference_payload:
+            study_field, custom = self.resolve_study_field(
+                reference_payload.get("current_field_of_study")
+            )
+            instance.current_study_field_ref = study_field
+            instance.custom_current_study_field = custom
+
+        if "supervisor_country" in reference_payload:
+            country, custom = self.resolve_country(
+                reference_payload.get("supervisor_country"),
+                "supervisor_country",
+                allow_custom=True,
+            )
+            instance.supervisor_country_ref = country
+            instance.custom_supervisor_country = custom
+
+        instance.save()
+
+        if "target_countries" in reference_payload:
+            countries = []
+            for country_name in clean_text_list(reference_payload.get("target_countries")):
+                country, _ = self.resolve_country(country_name, "target_countries")
+                if country:
+                    countries.append(country)
+
+            instance.target_country_refs.set(countries)
+
+        if "target_fields" in reference_payload:
+            study_fields = []
+            custom_fields = []
+
+            for field_name in clean_text_list(reference_payload.get("target_fields")):
+                study_field, custom = self.resolve_study_field(field_name)
+
+                if study_field:
+                    study_fields.append(study_field)
+                elif custom:
+                    custom_fields.append(custom)
+
+            instance.target_study_field_refs.set(study_fields)
+            instance.custom_target_study_fields = custom_fields
+            instance.save(update_fields=["custom_target_study_fields", "updated_at"])
+
+    def create(self, validated_data):
+        reference_payload = self.extract_reference_payload(validated_data)
+
+        reference_payload.setdefault("nationality", "Pakistan")
+        reference_payload.setdefault("current_country", "Pakistan")
+
+        profile = StudentProfile.objects.create(**validated_data)
+        self.apply_reference_payload(profile, reference_payload)
+        return profile
+
+    def update(self, instance, validated_data):
+        reference_payload = self.extract_reference_payload(validated_data)
+
+        for field_name, value in validated_data.items():
+            setattr(instance, field_name, value)
+
+        instance.save()
+        self.apply_reference_payload(instance, reference_payload)
+        return instance
+
     def validate_list_field(self, attrs, field_name, max_items=50, max_length=100):
         if field_name not in attrs:
             return
 
-        value = attrs.get(field_name)
-
-        if value is None:
-            attrs[field_name] = []
-            return
-
-        if not isinstance(value, list):
-            raise serializers.ValidationError({field_name: "Must be a list."})
+        try:
+            value = clean_text_list(attrs.get(field_name))
+        except serializers.ValidationError as error:
+            raise serializers.ValidationError({field_name: error.detail}) from error
 
         if len(value) > max_items:
             raise serializers.ValidationError({field_name: f"Cannot contain more than {max_items} items."})
 
-        cleaned = []
-        seen = set()
-
         for item in value:
-            if not isinstance(item, str):
-                raise serializers.ValidationError({field_name: "All items must be text."})
-
-            item = item.strip()
-
-            if not item:
-                continue
-
             if len(item) > max_length:
                 raise serializers.ValidationError(
                     {field_name: f"Each item must be {max_length} characters or less."}
                 )
 
-            key = item.casefold()
-            if key not in seen:
-                cleaned.append(item)
-                seen.add(key)
-
-        attrs[field_name] = cleaned
+        attrs[field_name] = value
 
     def validate_range(self, attrs, field_name, minimum, maximum):
         value = attrs.get(field_name)
@@ -150,12 +293,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {field_name: f"Must be between {minimum} and {maximum}."}
             )
-
-    def validate_non_negative(self, attrs, field_name):
-        value = attrs.get(field_name)
-
-        if value is not None and value < 0:
-            raise serializers.ValidationError({field_name: "Cannot be negative."})
 
     def validate_phone(self, attrs, field_name, label):
         value = attrs.get(field_name)

@@ -4,11 +4,80 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.profiles.models import StudentProfile
+from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
+
+def create_reference_data(testcase):
+    testcase.asia, _ = Region.objects.get_or_create(
+        name="Asia",
+        defaults={"code": "ASIA", "display_order": 1},
+    )
+    testcase.europe, _ = Region.objects.get_or_create(
+        name="Europe",
+        defaults={"code": "EUROPE", "display_order": 2},
+    )
+
+    testcase.pakistan, _ = Country.objects.get_or_create(
+        name="Pakistan",
+        defaults={"region": testcase.asia, "iso2": "PK"},
+    )
+    testcase.china, _ = Country.objects.get_or_create(
+        name="China",
+        defaults={"region": testcase.asia, "iso2": "CN"},
+    )
+    testcase.taiwan, _ = Country.objects.get_or_create(
+        name="Taiwan",
+        defaults={"region": testcase.asia, "iso2": "TW"},
+    )
+    testcase.turkey, _ = Country.objects.get_or_create(
+        name="Turkey",
+        defaults={"region": testcase.asia, "iso2": "TR"},
+    )
+    testcase.germany, _ = Country.objects.get_or_create(
+        name="Germany",
+        defaults={"region": testcase.europe, "iso2": "DE"},
+    )
+
+    testcase.cs_category, _ = StudyFieldCategory.objects.get_or_create(
+        name="Computer Science & IT",
+        defaults={"display_order": 1},
+    )
+    testcase.computer_science, _ = StudyField.objects.get_or_create(
+        name="Computer Science",
+        defaults={"category": testcase.cs_category},
+    )
+    testcase.data_science, _ = StudyField.objects.get_or_create(
+        name="Data Science",
+        defaults={"category": testcase.cs_category},
+    )
+
+
 from apps.users.models import User
 
 
 class StudentProfileAPITests(APITestCase):
     def setUp(self):
+        self.asia = Region.objects.create(name="Asia", code="ASIA", display_order=1)
+        self.europe = Region.objects.create(name="Europe", code="EUROPE", display_order=2)
+
+        self.pakistan = Country.objects.create(name="Pakistan", region=self.asia, iso2="PK")
+        self.china = Country.objects.create(name="China", region=self.asia, iso2="CN")
+        self.taiwan = Country.objects.create(name="Taiwan", region=self.asia, iso2="TW")
+        self.turkey = Country.objects.create(name="Turkey", region=self.asia, iso2="TR")
+        self.germany = Country.objects.create(name="Germany", region=self.europe, iso2="DE")
+
+        self.cs_category = StudyFieldCategory.objects.create(
+            name="Computer Science & IT",
+            display_order=1,
+        )
+        self.computer_science = StudyField.objects.create(
+            name="Computer Science",
+            category=self.cs_category,
+        )
+        self.data_science = StudyField.objects.create(
+            name="Data Science",
+            category=self.cs_category,
+        )
+
         self.student = User.objects.create_user(
             email="student@example.com",
             password="StrongPassword123!",
@@ -190,7 +259,7 @@ class StudentProfileAPITests(APITestCase):
         profile.city = "Lahore"
         profile.province = StudentProfile.Province.PUNJAB
         profile.current_education_level = StudentProfile.EducationLevel.BACHELOR
-        profile.target_countries = ["China"]
+        profile.target_country_refs.add(self.china)
         profile.save()
 
         self.assertGreater(profile.completion_percentage, initial_score)
