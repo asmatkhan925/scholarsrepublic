@@ -42,6 +42,14 @@ def create_reference_data(testcase):
         name="Germany",
         defaults={"region": testcase.europe, "iso2": "DE"},
     )
+    testcase.italy, _ = Country.objects.get_or_create(
+        name="Italy",
+        defaults={"region": testcase.europe, "iso2": "IT"},
+    )
+    testcase.south_korea, _ = Country.objects.get_or_create(
+        name="South Korea",
+        defaults={"region": testcase.asia, "iso2": "KR"},
+    )
     testcase.usa, _ = Country.objects.get_or_create(
         name="USA",
         defaults={"region": testcase.europe, "iso2": "US"},
@@ -74,7 +82,7 @@ def create_reference_data(testcase):
 
 
 from apps.opportunities.admin import OpportunityAdmin
-from apps.opportunities.models import Opportunity
+from apps.opportunities.models import Opportunity, OpportunityPathway
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
 
@@ -202,6 +210,123 @@ class OpportunityAPITests(APITestCase):
         response = self.client.get(f"/api/opportunities/{opportunity.slug}/")
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_opportunity_pathway_model_tracks_parent_path(self):
+        parent = OpportunityPathway.objects.create(
+            title="China Scholarships",
+            slug="china-scholarships",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+            display_order=10,
+        )
+        child = OpportunityPathway.objects.create(
+            title="Chinese Government Scholarship / CSC",
+            slug="chinese-government-scholarship-csc",
+            country_ref=self.china,
+            parent=parent,
+            pathway_type=OpportunityPathway.PathwayType.GOVERNMENT_PROGRAM,
+            display_order=20,
+        )
+
+        self.assertEqual(child.parent, parent)
+        self.assertIn(child, parent.children.all())
+        self.assertEqual(
+            child.full_path,
+            "China Scholarships > Chinese Government Scholarship / CSC",
+        )
+
+    def test_opportunity_pathway_rejects_self_parent(self):
+        pathway = OpportunityPathway.objects.create(
+            title="China Scholarships",
+            slug="china-scholarships-self-parent",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        pathway.parent = pathway
+
+        with self.assertRaises(ValidationError):
+            pathway.full_clean()
+
+    def test_opportunity_can_link_to_pathway(self):
+        pathway = OpportunityPathway.objects.create(
+            title="CSC University Track",
+            slug="csc-university-track-test",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+
+        opportunity = self.opportunity(
+            slug="zhejiang-csc-test",
+            pathway=pathway,
+            application_track=Opportunity.ApplicationTrack.UNIVERSITY,
+            department_name="Computer Science",
+            lab_name="AI Lab",
+            professor_name="Professor Example",
+            professor_email="professor@example.com",
+        )
+
+        self.assertEqual(opportunity.pathway, pathway)
+        self.assertEqual(opportunity.application_track, "university")
+        self.assertEqual(opportunity.department_name, "Computer Science")
+        self.assertEqual(opportunity.lab_name, "AI Lab")
+        self.assertEqual(opportunity.professor_name, "Professor Example")
+        self.assertEqual(opportunity.professor_email, "professor@example.com")
+
+    def test_public_api_includes_pathway_details(self):
+        parent = OpportunityPathway.objects.create(
+            title="China Scholarships",
+            slug="china-scholarships-api",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+            display_order=10,
+        )
+        pathway = OpportunityPathway.objects.create(
+            title="CSC University Track",
+            slug="csc-university-track-api",
+            country_ref=self.china,
+            parent=parent,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+            display_order=20,
+        )
+        opportunity = self.opportunity(
+            slug="pathway-api-opportunity",
+            pathway=pathway,
+            application_track=Opportunity.ApplicationTrack.UNIVERSITY,
+            department_name="Computer Science",
+            lab_name="AI Lab",
+            professor_name="Professor Example",
+            professor_email="private-professor@example.com",
+        )
+
+        list_response = self.client.get("/api/opportunities/")
+        detail_response = self.client.get(f"/api/opportunities/{opportunity.slug}/")
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        list_item = [
+            item for item in self.results(list_response) if item["slug"] == opportunity.slug
+        ][0]
+        self.assertEqual(list_item["pathway_detail"]["title"], "CSC University Track")
+        self.assertEqual(list_item["pathway_detail"]["slug"], "csc-university-track-api")
+        self.assertEqual(
+            list_item["pathway_detail"]["full_path"],
+            "China Scholarships > CSC University Track",
+        )
+        self.assertEqual(list_item["application_track"], "university")
+        self.assertEqual(list_item["department_name"], "Computer Science")
+        self.assertEqual(list_item["lab_name"], "AI Lab")
+        self.assertEqual(list_item["professor_name"], "Professor Example")
+        self.assertNotIn("professor_email", list_item)
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            detail_response.data["pathway_detail"]["title"],
+            "CSC University Track",
+        )
+        self.assertEqual(detail_response.data["application_track"], "university")
+        self.assertEqual(detail_response.data["department_name"], "Computer Science")
+        self.assertEqual(detail_response.data["lab_name"], "AI Lab")
+        self.assertEqual(detail_response.data["professor_name"], "Professor Example")
+        self.assertNotIn("professor_email", detail_response.data)
 
     def test_scholarships_alias_returns_only_scholarships(self):
         scholarship = self.opportunity(slug="scholarship-only")
@@ -573,6 +698,24 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("Missing deadline while is_rolling_deadline is false: 1", text)
         self.assertIn("missing official_link", text)
         self.assertIn("missing-trust-fields", text)
+
+    def test_seed_opportunity_pathways_is_idempotent(self):
+        output = StringIO()
+
+        call_command("seed_opportunity_pathways", stdout=output)
+        first_count = OpportunityPathway.objects.count()
+        call_command("seed_opportunity_pathways", stdout=StringIO())
+
+        csc_track = OpportunityPathway.objects.get(slug="csc-university-track")
+        gks = OpportunityPathway.objects.get(slug="global-korea-scholarship-gks")
+        lab_group = OpportunityPathway.objects.get(slug="korean-professor-lab-scholarships")
+
+        self.assertEqual(OpportunityPathway.objects.count(), first_count)
+        self.assertEqual(csc_track.parent.slug, "chinese-government-scholarship-csc")
+        self.assertEqual(gks.parent.slug, "south-korea-scholarships")
+        self.assertEqual(lab_group.parent.slug, "south-korea-scholarships")
+        self.assertEqual(Opportunity.objects.count(), 0)
+        self.assertIn("Opportunity pathways seeded.", output.getvalue())
 
     def test_model_is_expired(self):
         opportunity = self.opportunity(deadline=timezone.localdate() - timedelta(days=1))

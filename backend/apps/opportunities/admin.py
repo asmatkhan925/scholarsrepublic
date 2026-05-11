@@ -1,6 +1,30 @@
 from django.contrib import admin
 
-from apps.opportunities.models import Opportunity
+from apps.opportunities.models import Opportunity, OpportunityPathway
+
+
+@admin.register(OpportunityPathway)
+class OpportunityPathwayAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "pathway_type",
+        "country_ref",
+        "parent",
+        "is_active",
+        "display_order",
+        "updated_at",
+    )
+    list_filter = ("pathway_type", "country_ref", "is_active")
+    search_fields = (
+        "title",
+        "slug",
+        "description",
+        "country_ref__name",
+        "parent__title",
+    )
+    prepopulated_fields = {"slug": ("title",)}
+    autocomplete_fields = ("country_ref", "parent")
+    ordering = ("display_order", "title")
 
 
 @admin.register(Opportunity)
@@ -8,7 +32,9 @@ class OpportunityAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "opportunity_type",
+        "application_track",
         "provider_name",
+        "pathway",
         "display_country",
         "display_eligible_countries",
         "display_study_fields",
@@ -27,6 +53,8 @@ class OpportunityAdmin(admin.ModelAdmin):
         "funding_type",
         "featured",
         "verified_status",
+        "pathway",
+        "application_track",
         "country_ref",
         "eligible_country_refs",
         "eligible_region_refs",
@@ -38,6 +66,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "title",
         "provider_name",
         "university_name",
+        "pathway__title",
         "country_ref__name",
         "eligible_country_refs__name",
         "eligible_region_refs__name",
@@ -48,6 +77,7 @@ class OpportunityAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
     autocomplete_fields = (
         "country_ref",
+        "pathway",
         "eligible_country_refs",
         "eligible_region_refs",
         "study_field_refs",
@@ -105,6 +135,19 @@ class OpportunityAdmin(admin.ModelAdmin):
                     "official_link",
                     "source_url",
                     "source_name",
+                )
+            },
+        ),
+        (
+            "Pathway and specific opportunity details",
+            {
+                "fields": (
+                    "pathway",
+                    "application_track",
+                    "department_name",
+                    "lab_name",
+                    "professor_name",
+                    "professor_email",
                 )
             },
         ),
@@ -195,7 +238,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         return (
             super()
             .get_queryset(request)
-            .select_related("country_ref")
+            .select_related("country_ref", "pathway")
             .prefetch_related(
                 "eligible_country_refs",
                 "eligible_region_refs",
@@ -224,9 +267,7 @@ class OpportunityAdmin(admin.ModelAdmin):
 
     @admin.display(description="Content quality")
     def display_content_quality(self, obj):
-        if self.has_sample_text(obj.short_description) or self.has_sample_text(
-            obj.description
-        ):
+        if self.has_sample_text(obj.short_description) or self.has_sample_text(obj.description):
             return "Sample text"
 
         if self.is_blank(obj.official_link):

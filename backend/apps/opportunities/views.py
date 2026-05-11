@@ -8,10 +8,10 @@ from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import Opportunity, OpportunityComment
 from apps.opportunities.serializers import (
     OpportunityAdminSerializer,
-    OpportunityDetailSerializer,
     OpportunityCommentCreateSerializer,
     OpportunityCommentReplySerializer,
     OpportunityCommentSerializer,
+    OpportunityDetailSerializer,
     OpportunityListSerializer,
 )
 from apps.users.models import User
@@ -154,10 +154,19 @@ class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        return Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED).select_related("country_ref").prefetch_related(
-            "eligible_country_refs",
-            "eligible_region_refs",
-            "study_field_refs",
+        return (
+            Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
+            .select_related(
+                "country_ref",
+                "pathway",
+                "pathway__country_ref",
+                "pathway__parent",
+            )
+            .prefetch_related(
+                "eligible_country_refs",
+                "eligible_region_refs",
+                "study_field_refs",
+            )
         )
 
 
@@ -167,10 +176,19 @@ class PublicOpportunityDetailView(generics.RetrieveAPIView):
     lookup_field = "slug"
 
     def get_queryset(self):
-        return Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED).select_related("country_ref").prefetch_related(
-            "eligible_country_refs",
-            "eligible_region_refs",
-            "study_field_refs",
+        return (
+            Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
+            .select_related(
+                "country_ref",
+                "pathway",
+                "pathway__country_ref",
+                "pathway__parent",
+            )
+            .prefetch_related(
+                "eligible_country_refs",
+                "eligible_region_refs",
+                "study_field_refs",
+            )
         )
 
 
@@ -320,7 +338,9 @@ class ScholarshipCommentListCreateView(APIView):
 
     def post(self, request, slug):
         if not request.user or not request.user.is_authenticated:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED
+            )
 
         try:
             opportunity = self.get_opportunity(slug)
@@ -398,7 +418,9 @@ class OpportunityCommentDeleteView(APIView):
         )
 
         if not can_delete:
-            return Response({"detail": "You cannot delete this comment."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "You cannot delete this comment."}, status=status.HTTP_403_FORBIDDEN
+            )
 
         comment.soft_delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

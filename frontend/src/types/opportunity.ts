@@ -10,6 +10,20 @@ export type OpportunityType =
   | "training"
   | "mentorship_program";
 
+export type OpportunityPathwayDetail = {
+  id: number;
+  title: string;
+  slug: string;
+  pathway_type: string;
+  country: string;
+  country_id: number | null;
+  parent: string;
+  parent_id: number | null;
+  full_path: string;
+  description: string;
+  official_link: string;
+};
+
 export type OpportunityListItem = {
   id: number;
   title: string;
@@ -18,6 +32,11 @@ export type OpportunityListItem = {
   status: "draft" | "published" | "archived";
   featured: boolean;
   verified_status: boolean;
+  pathway_detail?: OpportunityPathwayDetail | null;
+  application_track?: string;
+  department_name?: string;
+  lab_name?: string;
+  professor_name?: string;
   provider_name: string;
   organization_type: string;
   university_name: string;

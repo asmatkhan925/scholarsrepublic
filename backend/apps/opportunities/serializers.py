@@ -2,7 +2,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
-from apps.opportunities.models import Opportunity, OpportunityComment
+from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityPathway
 from apps.reference_data.models import Country, Region, StudyField
 from apps.reference_data.serializers import (
     CountrySerializer,
@@ -16,6 +16,36 @@ LEGACY_REFERENCE_LIST_FIELDS = (
     "target_regions",
 )
 ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
+
+
+class OpportunityPathwaySerializer(serializers.ModelSerializer):
+    country = serializers.SerializerMethodField()
+    country_id = serializers.IntegerField(source="country_ref_id", read_only=True)
+    parent = serializers.SerializerMethodField()
+    parent_id = serializers.IntegerField(read_only=True)
+    full_path = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = OpportunityPathway
+        fields = (
+            "id",
+            "title",
+            "slug",
+            "pathway_type",
+            "country",
+            "country_id",
+            "parent",
+            "parent_id",
+            "full_path",
+            "description",
+            "official_link",
+        )
+
+    def get_country(self, obj):
+        return obj.country_ref.name if obj.country_ref else ""
+
+    def get_parent(self, obj):
+        return obj.parent.title if obj.parent else ""
 
 
 class OpportunityListSerializer(serializers.ModelSerializer):
@@ -41,6 +71,7 @@ class OpportunityListSerializer(serializers.ModelSerializer):
         many=True,
         read_only=True,
     )
+    pathway_detail = OpportunityPathwaySerializer(source="pathway", read_only=True)
 
     class Meta:
         model = Opportunity
@@ -52,6 +83,11 @@ class OpportunityListSerializer(serializers.ModelSerializer):
             "status",
             "featured",
             "verified_status",
+            "pathway_detail",
+            "application_track",
+            "department_name",
+            "lab_name",
+            "professor_name",
             "provider_name",
             "organization_type",
             "university_name",
@@ -109,6 +145,7 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
         many=True,
         read_only=True,
     )
+    pathway_detail = OpportunityPathwaySerializer(source="pathway", read_only=True)
     is_saved = serializers.SerializerMethodField()
     saved_opportunity_id = serializers.SerializerMethodField()
     is_tracking = serializers.SerializerMethodField()
@@ -128,6 +165,11 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def get_fields(self):
+        fields = super().get_fields()
+        fields.pop("professor_email", None)
+        return fields
 
     def _student_user(self):
         request = self.context.get("request")
@@ -158,7 +200,9 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
         if not user:
             return None
 
-        application = OpportunityApplication.objects.filter(user=user, opportunity=obj).only("id").first()
+        application = (
+            OpportunityApplication.objects.filter(user=user, opportunity=obj).only("id").first()
+        )
         return application.id if application else None
 
     def get_is_tracking(self, obj):
@@ -178,9 +222,7 @@ class OpportunityAdminSerializer(serializers.ModelSerializer):
 
         for item in value:
             if not isinstance(item, str):
-                raise serializers.ValidationError(
-                    {field_name: "Must be a list of strings."}
-                )
+                raise serializers.ValidationError({field_name: "Must be a list of strings."})
 
             item = item.strip()
 
@@ -211,9 +253,7 @@ class OpportunityAdminSerializer(serializers.ModelSerializer):
         country = Country.objects.filter(is_active=True, name__iexact=name).first()
 
         if not country:
-            raise serializers.ValidationError(
-                {field_name: f'Unknown country "{name}".'}
-            )
+            raise serializers.ValidationError({field_name: f'Unknown country "{name}".'})
 
         return country
 
@@ -232,9 +272,7 @@ class OpportunityAdminSerializer(serializers.ModelSerializer):
         ).first()
 
         if not study_field:
-            raise serializers.ValidationError(
-                {field_name: f'Unknown study field "{name}".'}
-            )
+            raise serializers.ValidationError({field_name: f'Unknown study field "{name}".'})
 
         return study_field
 

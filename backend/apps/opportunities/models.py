@@ -4,6 +4,78 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 
+class OpportunityPathway(models.Model):
+    class PathwayType(models.TextChoices):
+        COUNTRY_HUB = "country_hub", "Country hub"
+        GOVERNMENT_PROGRAM = "government_program", "Government program"
+        SCHOLARSHIP_PROGRAM = "scholarship_program", "Scholarship program"
+        APPLICATION_TRACK = "application_track", "Application track"
+        UNIVERSITY_GROUP = "university_group", "University group"
+        PROFESSOR_LAB_GROUP = "professor_lab_group", "Professor/lab group"
+        REGIONAL_SCHOLARSHIP = "regional_scholarship", "Regional scholarship"
+        UNIVERSITY_SCHOLARSHIP = "university_scholarship", "University scholarship"
+        GUIDE = "guide", "Guide"
+        OTHER = "other", "Other"
+
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=280, unique=True)
+    country_ref = models.ForeignKey(
+        "reference_data.Country",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="opportunity_pathways",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    pathway_type = models.CharField(
+        max_length=80,
+        choices=PathwayType.choices,
+        default=PathwayType.OTHER,
+        db_index=True,
+    )
+    description = models.TextField(blank=True)
+    official_link = models.URLField(blank=True)
+    display_order = models.PositiveIntegerField(default=100, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("display_order", "title")
+        indexes = [
+            models.Index(fields=["slug"]),
+            models.Index(fields=["country_ref"]),
+            models.Index(fields=["pathway_type"]),
+            models.Index(fields=["is_active"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+    def clean(self):
+        if self.pk and self.parent_id == self.pk:
+            raise ValidationError({"parent": "A pathway cannot be its own parent."})
+
+    @property
+    def full_path(self):
+        titles = []
+        current = self
+        seen = set()
+
+        while current and current.pk not in seen:
+            titles.append(current.title)
+            seen.add(current.pk)
+            current = current.parent
+
+        return " > ".join(reversed(titles))
+
+
 class Opportunity(models.Model):
     class OpportunityType(models.TextChoices):
         SCHOLARSHIP = "scholarship", "Scholarship"
@@ -81,6 +153,15 @@ class Opportunity(models.Model):
         EXTERNAL_FORM = "external_form", "External form"
         OTHER = "other", "Other"
 
+    class ApplicationTrack(models.TextChoices):
+        EMBASSY = "embassy", "Embassy"
+        UNIVERSITY = "university", "University"
+        DIRECT = "direct", "Direct"
+        PROFESSOR = "professor", "Professor"
+        REGIONAL = "regional", "Regional"
+        PORTAL = "portal", "Portal"
+        OTHER = "other", "Other"
+
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=280, unique=True, blank=True)
     opportunity_type = models.CharField(
@@ -124,6 +205,24 @@ class Opportunity(models.Model):
     official_link = models.URLField(blank=True)
     source_url = models.URLField(blank=True)
     source_name = models.CharField(max_length=255, blank=True)
+
+    pathway = models.ForeignKey(
+        "opportunities.OpportunityPathway",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="opportunities",
+    )
+    application_track = models.CharField(
+        max_length=80,
+        choices=ApplicationTrack.choices,
+        blank=True,
+        db_index=True,
+    )
+    department_name = models.CharField(max_length=255, blank=True)
+    lab_name = models.CharField(max_length=255, blank=True)
+    professor_name = models.CharField(max_length=255, blank=True)
+    professor_email = models.EmailField(blank=True)
 
     eligible_country_refs = models.ManyToManyField(
         "reference_data.Country",
