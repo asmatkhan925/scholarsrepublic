@@ -1,13 +1,16 @@
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.reference_data.models import Country, StudyField
+from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
 
 
 class CountryReferenceAPITests(APITestCase):
     def test_public_can_list_active_countries_grouped_by_region(self):
-        Country.objects.create(name="Pakistan", region=Country.Region.ASIA, iso2="PK")
-        Country.objects.create(name="Germany", region=Country.Region.EUROPE, iso2="DE")
+        asia = Region.objects.create(name="Asia", code="ASIA", display_order=1)
+        europe = Region.objects.create(name="Europe", code="EUROPE", display_order=2)
+
+        Country.objects.create(name="Pakistan", region=asia, iso2="PK")
+        Country.objects.create(name="Germany", region=europe, iso2="DE")
 
         response = self.client.get("/api/reference/countries/")
 
@@ -19,8 +22,10 @@ class CountryReferenceAPITests(APITestCase):
         self.assertIn("Germany", response.data["regions"]["Europe"])
 
     def test_inactive_countries_are_hidden(self):
-        Country.objects.create(name="Visible Country", region=Country.Region.OTHER, is_active=True)
-        Country.objects.create(name="Hidden Country", region=Country.Region.OTHER, is_active=False)
+        region = Region.objects.create(name="Other", code="OTHER")
+
+        Country.objects.create(name="Visible Country", region=region, is_active=True)
+        Country.objects.create(name="Hidden Country", region=region, is_active=False)
 
         response = self.client.get("/api/reference/countries/")
 
@@ -32,14 +37,11 @@ class CountryReferenceAPITests(APITestCase):
 
 class StudyFieldReferenceAPITests(APITestCase):
     def test_public_can_list_active_study_fields_grouped_by_category(self):
-        StudyField.objects.create(
-            name="Computer Science",
-            category=StudyField.Category.COMPUTER_SCIENCE,
-        )
-        StudyField.objects.create(
-            name="Medicine",
-            category=StudyField.Category.MEDICAL,
-        )
+        cs = StudyFieldCategory.objects.create(name="Computer Science & IT", display_order=1)
+        medical = StudyFieldCategory.objects.create(name="Medical & Health Sciences", display_order=2)
+
+        StudyField.objects.create(name="Computer Science", category=cs)
+        StudyField.objects.create(name="Medicine", category=medical)
 
         response = self.client.get("/api/reference/study-fields/")
 
@@ -51,16 +53,10 @@ class StudyFieldReferenceAPITests(APITestCase):
         self.assertIn("Medicine", response.data["categories"]["Medical & Health Sciences"])
 
     def test_inactive_study_fields_are_hidden(self):
-        StudyField.objects.create(
-            name="Visible Field",
-            category=StudyField.Category.OTHER,
-            is_active=True,
-        )
-        StudyField.objects.create(
-            name="Hidden Field",
-            category=StudyField.Category.OTHER,
-            is_active=False,
-        )
+        category = StudyFieldCategory.objects.create(name="Other")
+
+        StudyField.objects.create(name="Visible Field", category=category, is_active=True)
+        StudyField.objects.create(name="Hidden Field", category=category, is_active=False)
 
         response = self.client.get("/api/reference/study-fields/")
 

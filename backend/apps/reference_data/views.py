@@ -12,10 +12,10 @@ class CountryListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        countries = Country.objects.filter(is_active=True).order_by(
-            "region",
-            "display_order",
-            "name",
+        countries = (
+            Country.objects.filter(is_active=True, region__is_active=True)
+            .select_related("region")
+            .order_by("region__display_order", "display_order", "name")
         )
 
         serializer = CountrySerializer(countries, many=True)
@@ -33,15 +33,14 @@ class CountryListView(APIView):
         )
 
 
-
 class StudyFieldListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        fields = StudyField.objects.filter(is_active=True).order_by(
-            "category",
-            "display_order",
-            "name",
+        fields = (
+            StudyField.objects.filter(is_active=True, category__is_active=True)
+            .select_related("category")
+            .order_by("category__display_order", "display_order", "name")
         )
 
         serializer = StudyFieldSerializer(fields, many=True)

@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.reference_data.models import Country
+from apps.reference_data.models import Country, Region
 
 
 COUNTRY_REGIONS = {
@@ -172,31 +172,47 @@ ISO2 = {
 
 
 class Command(BaseCommand):
-    help = "Seed reference countries and regions."
+    help = "Seed regions and countries."
 
     def handle(self, *args, **options):
-        created_count = 0
-        updated_count = 0
+        created_regions = 0
+        created_countries = 0
+        updated_countries = 0
 
-        for region, countries in COUNTRY_REGIONS.items():
-            for index, name in enumerate(countries, start=1):
-                country, created = Country.objects.update_or_create(
-                    name=name,
+        for region_order, region_name in enumerate(COUNTRY_REGIONS.keys(), start=1):
+            region, region_created = Region.objects.update_or_create(
+                name=region_name,
+                defaults={
+                    "code": region_name.upper().replace(" ", "_"),
+                    "is_active": True,
+                    "display_order": region_order,
+                },
+            )
+
+            if region_created:
+                created_regions += 1
+
+            for country_order, country_name in enumerate(COUNTRY_REGIONS[region_name], start=1):
+                _, country_created = Country.objects.update_or_create(
+                    name=country_name,
                     defaults={
                         "region": region,
-                        "iso2": ISO2.get(name, ""),
+                        "iso2": ISO2.get(country_name, ""),
                         "is_active": True,
-                        "display_order": index,
+                        "display_order": country_order,
                     },
                 )
 
-                if created:
-                    created_count += 1
+                if country_created:
+                    created_countries += 1
                 else:
-                    updated_count += 1
+                    updated_countries += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Seeded countries. Created: {created_count}. Updated: {updated_count}."
+                "Seeded reference countries. "
+                f"Regions created: {created_regions}. "
+                f"Countries created: {created_countries}. "
+                f"Countries updated: {updated_countries}."
             )
         )

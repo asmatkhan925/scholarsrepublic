@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.reference_data.models import StudyField
+from apps.reference_data.models import StudyField, StudyFieldCategory
 
 
 STUDY_FIELDS = {
@@ -96,30 +96,45 @@ STUDY_FIELDS = {
 
 
 class Command(BaseCommand):
-    help = "Seed common study fields and categories."
+    help = "Seed study field categories and fields."
 
     def handle(self, *args, **options):
-        created_count = 0
-        updated_count = 0
+        created_categories = 0
+        created_fields = 0
+        updated_fields = 0
 
-        for category, fields in STUDY_FIELDS.items():
-            for index, name in enumerate(fields, start=1):
-                _, created = StudyField.objects.update_or_create(
-                    name=name,
+        for category_order, category_name in enumerate(STUDY_FIELDS.keys(), start=1):
+            category, category_created = StudyFieldCategory.objects.update_or_create(
+                name=category_name,
+                defaults={
+                    "is_active": True,
+                    "display_order": category_order,
+                },
+            )
+
+            if category_created:
+                created_categories += 1
+
+            for field_order, field_name in enumerate(STUDY_FIELDS[category_name], start=1):
+                _, field_created = StudyField.objects.update_or_create(
+                    name=field_name,
                     defaults={
                         "category": category,
                         "is_active": True,
-                        "display_order": index,
+                        "display_order": field_order,
                     },
                 )
 
-                if created:
-                    created_count += 1
+                if field_created:
+                    created_fields += 1
                 else:
-                    updated_count += 1
+                    updated_fields += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Seeded study fields. Created: {created_count}. Updated: {updated_count}."
+                "Seeded study fields. "
+                f"Categories created: {created_categories}. "
+                f"Fields created: {created_fields}. "
+                f"Fields updated: {updated_fields}."
             )
         )
