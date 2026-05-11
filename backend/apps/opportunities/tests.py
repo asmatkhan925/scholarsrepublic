@@ -490,3 +490,25 @@ class OpportunityAPITests(APITestCase):
         response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
 
         self.assertEqual(response.data["breakdown"]["language_test"], 10)
+
+
+class ScholarshipCommentThrottleTests(OpportunityAPITests):
+    def test_public_can_read_comments_without_auth(self):
+        opportunity = self.opportunity(slug="comments-public-read")
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/comments/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_student_comment_posts_are_throttled(self):
+        opportunity = self.opportunity(slug="comments-throttle")
+        self.client.force_authenticate(self.student)
+
+        last_response = None
+        for index in range(11):
+            last_response = self.client.post(
+                f"/api/scholarships/{opportunity.slug}/comments/",
+                {"body": f"Helpful comment {index}"},
+                format="json",
+            )
+
+        self.assertEqual(last_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

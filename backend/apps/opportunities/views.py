@@ -1,6 +1,7 @@
 from django.db.models import F, Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.opportunities.matching import calculate_opportunity_match
@@ -251,8 +252,20 @@ class RecommendedScholarshipsView(RecommendedOpportunitiesView):
     opportunity_type = Opportunity.OpportunityType.SCHOLARSHIP
 
 
+class ScholarshipCommentThrottle(UserRateThrottle):
+    scope = "scholarship_comments"
+    rate = "10/hour"
+
+
 class ScholarshipCommentListCreateView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScholarshipCommentThrottle]
+
+    def get_throttles(self):
+        if self.request.method == "GET":
+            return []
+
+        return super().get_throttles()
 
     def get_opportunity(self, slug):
         return Opportunity.objects.get(
@@ -307,6 +320,7 @@ class ScholarshipCommentListCreateView(APIView):
 
 class ScholarshipCommentReplyCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ScholarshipCommentThrottle]
 
     def post(self, request, slug, pk):
         try:
