@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
+  BookmarkCheck,
   CalendarDays,
   GraduationCap,
   Search,
@@ -103,19 +104,24 @@ function ScholarshipCard({
 }) {
   const { user, isAuthenticated } = useAuth();
 
-  const eligibilityHref = !isAuthenticated
-    ? "/register"
-    : user?.role === "student" && profileRequired
-      ? "/dashboard/profile"
-      : user?.role === "admin"
-        ? "/admin"
-        : "/dashboard";
+  const isStudent = user?.role === "student";
+  const isAdmin = user?.role === "admin";
 
-  const eligibilityLabel = !isAuthenticated
+  const secondaryHref = !isAuthenticated
+    ? "/register"
+    : isAdmin
+      ? "/admin"
+      : profileRequired
+        ? "/dashboard/profile"
+        : "/dashboard/saved";
+
+  const secondaryLabel = !isAuthenticated
     ? "Create Profile"
-    : user?.role === "student" && profileRequired
-      ? "Complete Profile"
-      : "Check Match";
+    : isAdmin
+      ? "Admin"
+      : profileRequired
+        ? "Complete Profile"
+        : "Saved List";
 
   const provider =
     scholarship.university_name ||
@@ -224,13 +230,13 @@ function ScholarshipCard({
 
           {!isAuthenticated ? (
             <p className="mt-4 rounded-2xl bg-skyglass px-4 py-3 text-sm leading-6 text-ink/65">
-              Create a free profile to save scholarships and check your match score.
+              Create a profile to save scholarships and unlock match scores.
             </p>
           ) : null}
 
-          {isAuthenticated && profileRequired && user?.role === "student" ? (
+          {isAuthenticated && isStudent && profileRequired ? (
             <p className="mt-4 rounded-2xl bg-saffron/20 px-4 py-3 text-sm leading-6 text-ink/65">
-              Complete your profile to unlock personalized scholarship match scores.
+              Complete your profile to see personalized match scores.
             </p>
           ) : null}
         </div>
@@ -242,8 +248,8 @@ function ScholarshipCard({
               <ArrowRight size={15} aria-hidden="true" />
             </ButtonLink>
 
-            <ButtonLink href={eligibilityHref} size="sm" variant="secondary">
-              {eligibilityLabel}
+            <ButtonLink href={secondaryHref} size="sm" variant="secondary">
+              {secondaryLabel}
             </ButtonLink>
           </div>
 
@@ -279,7 +285,11 @@ export default function ScholarshipsPage() {
   const [verified, setVerified] = useState(false);
   const [filters, setFilters] = useState<OpportunityQueryParams>({ ordering: "deadline" });
 
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+
+  const isStudent = user?.role === "student";
+  const isAdmin = user?.role === "admin";
+  const isLoggedIn = isAuthenticated && !authLoading;
 
   useEffect(() => {
     let mounted = true;
@@ -376,19 +386,7 @@ export default function ScholarshipsPage() {
     return new Map(recommendations.map((item) => [item.opportunity.id, item.match]));
   }, [recommendations]);
 
-  const totalLabel = useMemo(() => {
-    if (recommendedData) {
-      return `${recommendedData.count} personalized scholarship${
-        recommendedData.count === 1 ? "" : "s"
-      }`;
-    }
-
-    if (!data) {
-      return "Loading scholarships";
-    }
-
-    return `${data.count} published scholarship${data.count === 1 ? "" : "s"}`;
-  }, [data, recommendedData]);
+  const resultCount = recommendedData?.count ?? data?.count ?? scholarships.length;
 
   const quickStats = useMemo(() => {
     const urgent = scholarships.filter((item) => {
@@ -404,6 +402,38 @@ export default function ScholarshipsPage() {
 
     return { urgent, rolling, fullyFunded };
   }, [scholarships]);
+
+  const heroCopy = useMemo(() => {
+    if (authLoading) {
+      return {
+        badge: "Scholarship search",
+        title: "Find scholarships worth applying to.",
+        description: "Search scholarships by country, funding, deadline, and profile fit.",
+      };
+    }
+
+    if (isStudent) {
+      return {
+        badge: "Student workspace",
+        title: "Build your scholarship shortlist.",
+        description: "Find, save, and track scholarships from one student workspace.",
+      };
+    }
+
+    if (isAdmin) {
+      return {
+        badge: "Scholarship directory",
+        title: "Review published scholarships.",
+        description: "Browse the public scholarship directory as an administrator.",
+      };
+    }
+
+    return {
+      badge: "Scholarship search",
+      title: "Find scholarships worth applying to.",
+      description: "Search by country, funding, and deadline. Create a profile when ready.",
+    };
+  }, [authLoading, isAdmin, isStudent]);
 
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
@@ -450,39 +480,73 @@ export default function ScholarshipsPage() {
       <main className="bg-[#f7faf8]">
         <section className="mx-auto max-w-7xl px-4 py-5 sm:px-5 md:px-8 md:py-8">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-6 md:px-7">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                <div className="max-w-4xl">
-                  <Badge tone="mint" className="mb-4">
+            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 md:px-7">
+              <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+                <div className="min-w-0">
+                  <Badge tone="mint" className="mb-3">
                     <GraduationCap size={14} aria-hidden="true" />
-                    Scholarship search
+                    {heroCopy.badge}
                   </Badge>
-                  <h1 className="text-2xl font-bold tracking-tight text-ink md:text-4xl">
-                    Find scholarships worth saving, tracking, and applying for.
+
+                  <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl xl:whitespace-nowrap">
+                    {heroCopy.title}
                   </h1>
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/70 md:text-base">
-                    Search published scholarship opportunities, filter by country or funding type,
-                    and save strong options into your student workspace.
+
+                  <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/70 md:text-base xl:whitespace-nowrap">
+                    {heroCopy.description}
                   </p>
                 </div>
 
-                <div className="grid gap-2 sm:flex lg:shrink-0">
-                  <ButtonLink
-                    href="/dashboard/saved"
-                    className="w-full sm:w-auto"
-                    size="sm"
-                    variant="outline"
-                  >
-                    Saved Shortlist
-                  </ButtonLink>
-                  <ButtonLink
-                    href="/dashboard/applications"
-                    className="w-full sm:w-auto"
-                    size="sm"
-                    variant="secondary"
-                  >
-                    Application Tracker
-                  </ButtonLink>
+                <div className="grid gap-2 sm:flex xl:justify-end">
+                  {isLoggedIn && isStudent ? (
+                    <>
+                      <ButtonLink
+                        href="/dashboard/saved"
+                        className="w-full sm:w-auto"
+                        size="sm"
+                        variant="outline"
+                      >
+                        <BookmarkCheck size={15} aria-hidden="true" />
+                        Saved
+                      </ButtonLink>
+                      <ButtonLink
+                        href="/dashboard/applications"
+                        className="w-full sm:w-auto"
+                        size="sm"
+                        variant="secondary"
+                      >
+                        Tracker
+                      </ButtonLink>
+                    </>
+                  ) : isLoggedIn && isAdmin ? (
+                    <ButtonLink
+                      href="/admin"
+                      className="w-full sm:w-auto"
+                      size="sm"
+                      variant="secondary"
+                    >
+                      Admin Dashboard
+                    </ButtonLink>
+                  ) : (
+                    <>
+                      <ButtonLink
+                        href="/register"
+                        className="w-full sm:w-auto"
+                        size="sm"
+                        variant="secondary"
+                      >
+                        Create Profile
+                      </ButtonLink>
+                      <ButtonLink
+                        href="/login"
+                        className="w-full sm:w-auto"
+                        size="sm"
+                        variant="outline"
+                      >
+                        Login
+                      </ButtonLink>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -490,7 +554,10 @@ export default function ScholarshipsPage() {
             <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
               <div className="px-5 py-4">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Results</p>
-                <p className="mt-1 text-xl font-bold text-ink">{totalLabel}</p>
+                <p className="mt-1 text-2xl font-bold text-ink">{resultCount}</p>
+                <p className="mt-1 text-xs text-ink/50">
+                  {recommendedData ? "Personalized matches" : "Published scholarships"}
+                </p>
               </div>
               <div className="px-5 py-4">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
@@ -572,7 +639,7 @@ export default function ScholarshipsPage() {
 
                   <div className="grid gap-2 sm:flex lg:grid">
                     <Button type="submit" className="w-full" size="sm">
-                      Apply Filters
+                      Apply
                     </Button>
                     <Button
                       type="button"
@@ -589,21 +656,13 @@ export default function ScholarshipsPage() {
 
                 <div className="flex flex-wrap gap-2">
                   {[
-                    {
-                      label: "No IELTS",
-                      checked: noIelts,
-                      onChange: setNoIelts,
-                    },
+                    { label: "No IELTS", checked: noIelts, onChange: setNoIelts },
                     {
                       label: "No application fee",
                       checked: noApplicationFee,
                       onChange: setNoApplicationFee,
                     },
-                    {
-                      label: "Verified only",
-                      checked: verified,
-                      onChange: setVerified,
-                    },
+                    { label: "Verified only", checked: verified, onChange: setVerified },
                   ].map((item) => (
                     <label
                       key={item.label}
