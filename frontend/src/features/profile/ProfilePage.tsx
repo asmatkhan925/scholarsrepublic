@@ -6,12 +6,10 @@ import {
   Bell,
   BookOpen,
   BriefcaseBusiness,
-  CheckCircle2,
   FileText,
   GraduationCap,
   Languages,
   Save,
-  Sparkles,
   Target,
   UserRound,
 } from "lucide-react";
@@ -627,11 +625,12 @@ function ProfilePageContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const pendingNavigationHrefRef = useRef<string | null>(null);
+  const allowUnsafeNavigationRef = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
-  const [saveAndNavigate, setSaveAndNavigate] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -675,7 +674,7 @@ function ProfilePageContent() {
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
-      if (!hasUnsavedChanges) {
+      if (allowUnsafeNavigationRef.current || !hasUnsavedChanges) {
         return;
       }
 
@@ -735,6 +734,7 @@ function ProfilePageContent() {
       }
 
       event.preventDefault();
+      pendingNavigationHrefRef.current = nextUrl.href;
       setPendingNavigationHref(nextUrl.href);
     }
 
@@ -809,13 +809,16 @@ function ProfilePageContent() {
       setProfileExists(true);
       setHasUnsavedChanges(false);
 
-      if (saveAndNavigate && pendingNavigationHref) {
-        window.location.assign(pendingNavigationHref);
+      const href = pendingNavigationHrefRef.current;
+      pendingNavigationHrefRef.current = null;
+      setPendingNavigationHref(null);
+
+      if (href) {
+        allowUnsafeNavigationRef.current = true;
+        window.location.assign(href);
         return;
       }
 
-      setSaveAndNavigate(false);
-      setPendingNavigationHref(null);
       setMessage("Profile saved successfully.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -1067,9 +1070,9 @@ function ProfilePageContent() {
                 options={TARGET_DEGREE_LEVELS}
                 {...textField("target_degree_level")}
               />
-              <TextField
+              <SelectField
                 label="Preferred intake"
-                placeholder="Fall 2026, Spring 2027..."
+                options={PREFERRED_INTAKE_OPTIONS}
                 {...textField("preferred_intake")}
               />
               <SelectField
@@ -1386,7 +1389,7 @@ function ProfilePageContent() {
                   type="button"
                   disabled={saving}
                   onClick={() => {
-                    setSaveAndNavigate(true);
+                    pendingNavigationHrefRef.current = pendingNavigationHref;
                     formRef.current?.requestSubmit();
                   }}
                 >
@@ -1400,6 +1403,8 @@ function ProfilePageContent() {
                     variant="outline"
                     onClick={() => {
                       const href = pendingNavigationHref;
+                      allowUnsafeNavigationRef.current = true;
+                      pendingNavigationHrefRef.current = null;
                       setHasUnsavedChanges(false);
                       setPendingNavigationHref(null);
 
@@ -1414,7 +1419,7 @@ function ProfilePageContent() {
                     type="button"
                     variant="ghost"
                     onClick={() => {
-                      setSaveAndNavigate(false);
+                      pendingNavigationHrefRef.current = null;
                       setPendingNavigationHref(null);
                     }}
                   >

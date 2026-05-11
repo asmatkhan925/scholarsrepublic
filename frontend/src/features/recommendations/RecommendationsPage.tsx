@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   ArrowRight,
-  ClipboardCheck,
   GraduationCap,
   Search,
   ShieldCheck,
@@ -296,7 +295,7 @@ function RecommendationsContent() {
     };
   }, []);
 
-  const recommendations = data?.results ?? [];
+  const recommendations = useMemo(() => data?.results ?? [], [data?.results]);
 
   const filteredRecommendations = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
