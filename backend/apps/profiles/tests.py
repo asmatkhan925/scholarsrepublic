@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -247,3 +249,156 @@ class StudentProfileAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         profile = StudentProfile.objects.get(user=self.student)
         self.assertEqual(profile.user, self.student)
+
+    def test_phone_and_whatsapp_reject_too_few_digits_after_cleanup(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {"phone_number": "abc123", "whatsapp_number": "hello456"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("phone_number", response.data)
+
+    def test_phone_and_whatsapp_are_sanitized(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {
+                "phone_number": "+92 abc 300-1234567",
+                "whatsapp_number": "+92 hello 301-1234567",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["phone_number"], "+92  300-1234567")
+        self.assertEqual(response.data["whatsapp_number"], "+92  301-1234567")
+
+    def test_url_fields_are_normalized(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {
+                "linkedin_url": "linkedin.com/in/test-user",
+                "github_url": "github.com/test-user",
+                "portfolio_url": "example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["linkedin_url"], "https://linkedin.com/in/test-user")
+        self.assertEqual(response.data["github_url"], "https://github.com/test-user")
+        self.assertEqual(response.data["portfolio_url"], "https://example.com")
+
+    def test_student_cannot_set_profile_source(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {"profile_source": StudentProfile.ProfileSource.ADMIN_CREATED, "city": "Lahore"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["profile_source"], StudentProfile.ProfileSource.MANUAL)
+
+    def test_hsk_level_accepts_spaced_format(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {"has_hsk": True, "hsk_level": "HSK 3"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["hsk_level"], "HSK 3")
+
+    def test_hsk_level_normalizes_compact_format(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {"has_hsk": True, "hsk_level": "HSK3"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["hsk_level"], "HSK 3")
+
+    def test_future_date_of_birth_rejected(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {"date_of_birth": (date.today() + timedelta(days=1)).isoformat()},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date_of_birth", response.data)
+
+    def test_past_passport_expiry_rejected_when_passport_selected(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {
+                "has_passport": True,
+                "passport_expiry_date": (date.today() - timedelta(days=1)).isoformat(),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("passport_expiry_date", response.data)
+
+    def test_negative_profile_numbers_rejected(self):
+        self.client.force_authenticate(self.student)
+
+        fields = [
+            ("publications_count", -1),
+            ("recommendation_letters_count", -1),
+            ("work_experience_years", "-1.0"),
+            ("max_application_fee_usd", -1),
+        ]
+
+        for field_name, value in fields:
+            with self.subTest(field_name=field_name):
+                response = self.client.post(
+                    "/api/profile/",
+                    {field_name: value},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_list_fields_reject_non_text_items(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {"target_countries": ["China", {"bad": "value"}]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("target_countries", response.data)
+
+    def test_list_fields_are_trimmed_and_deduplicated(self):
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            "/api/profile/",
+            {"target_countries": [" China ", "china", "Germany", ""]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["target_countries"], ["China", "Germany"])
+
