@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ClipboardList } from "lucide-react";
+import { ClipboardCheck, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { Button, ButtonLink } from "@/components/ui";
 import {
   startApplicationByOpportunitySlug,
   startApplicationByScholarshipSlug,
@@ -39,44 +39,6 @@ export function StartApplicationButton({
     setTracked(initiallyTracked);
   }, [initiallyTracked]);
 
-  if (authLoading) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="inline-flex items-center justify-center gap-2 rounded border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/50"
-      >
-        <ClipboardList size={16} aria-hidden="true" />
-        Loading...
-      </button>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <Link
-        href="/login"
-        className="inline-flex items-center justify-center gap-2 rounded border border-ink/15 px-4 py-2 text-sm font-semibold text-ink hover:bg-ink/5"
-      >
-        <ClipboardList size={16} aria-hidden="true" />
-        Login to Track
-      </Link>
-    );
-  }
-
-  if (user?.role !== "student") {
-    return (
-      <button
-        type="button"
-        disabled
-        className="inline-flex items-center justify-center gap-2 rounded border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/45"
-      >
-        <ClipboardList size={16} aria-hidden="true" />
-        Student tracking only
-      </button>
-    );
-  }
-
   async function handleStart() {
     if (tracked) {
       router.push("/dashboard/applications");
@@ -85,8 +47,10 @@ export function StartApplicationButton({
 
     setSubmitting(true);
     setError(null);
+
     try {
       let application: OpportunityApplication;
+
       if (savedOpportunityId) {
         application = await startApplicationFromSaved(savedOpportunityId);
       } else if (opportunitySlug && opportunityType === "scholarship") {
@@ -100,35 +64,56 @@ export function StartApplicationButton({
       setTracked(true);
       onStarted?.(application);
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      setError(getErrorMessage(requestError) ?? "Could not start tracking. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
+  if (authLoading) {
+    return (
+      <Button className="w-full whitespace-nowrap" disabled size="sm" variant="outline">
+        <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+        Checking
+      </Button>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <ButtonLink href="/login" className="w-full whitespace-nowrap" size="sm" variant="outline">
+        <ClipboardCheck size={15} aria-hidden="true" />
+        Login to Track
+      </ButtonLink>
+    );
+  }
+
+  if (user?.role !== "student") {
+    return (
+      <Button className="w-full whitespace-nowrap" disabled size="sm" variant="outline">
+        Student tracking only
+      </Button>
+    );
+  }
+
   return (
     <div className="grid gap-2">
-      <button
-        type="button"
-        onClick={handleStart}
+      <Button
+        className="w-full whitespace-nowrap shadow-sm"
         disabled={submitting}
-        aria-label={
-          opportunitySlug
-            ? `${tracked ? "View application for" : "Start tracking"} ${opportunitySlug}`
-            : tracked
-              ? "View application"
-              : "Start tracking"
-        }
-        className={
-          tracked
-            ? "inline-flex items-center justify-center gap-2 rounded border border-pine/25 bg-mint px-4 py-2 text-sm font-semibold text-pine hover:bg-mint/80 disabled:opacity-60"
-            : "inline-flex items-center justify-center gap-2 rounded bg-pine px-4 py-2 text-sm font-semibold text-white hover:bg-pine/90 disabled:opacity-60"
-        }
+        onClick={handleStart}
+        size="sm"
+        variant={tracked ? "secondary" : "primary"}
       >
-        <ClipboardList size={16} aria-hidden="true" />
-        {submitting ? "Starting..." : tracked ? "View Application" : "Start Tracking"}
-      </button>
-      {error && <p className="text-sm text-red-700">{error}</p>}
+        {submitting ? (
+          <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <ClipboardCheck size={15} aria-hidden="true" />
+        )}
+        {submitting ? "Starting..." : tracked ? "View Tracker" : "Track Application"}
+      </Button>
+
+      {error ? <p className="text-xs font-medium text-red-700">{error}</p> : null}
     </div>
   );
 }
