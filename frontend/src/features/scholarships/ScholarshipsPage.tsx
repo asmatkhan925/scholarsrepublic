@@ -23,6 +23,7 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
   getCountries,
+  getStudyFields,
   getRecommendedScholarships,
   getSavedOpportunitySlugs,
   getScholarships,
@@ -291,6 +292,8 @@ export default function ScholarshipsPage() {
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
+  const [field, setField] = useState("");
+  const [fieldOptions, setFieldOptions] = useState<string[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -311,6 +314,31 @@ export default function ScholarshipsPage() {
     }
 
     void loadCountryOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFieldOptions() {
+      try {
+        const response = await getStudyFields();
+        const options = Array.from(new Set(Object.values(response.categories).flat())).sort();
+
+        if (mounted) {
+          setFieldOptions(options);
+        }
+      } catch {
+        if (mounted) {
+          setFieldOptions([]);
+        }
+      }
+    }
+
+    void loadFieldOptions();
 
     return () => {
       mounted = false;
@@ -480,6 +508,7 @@ export default function ScholarshipsPage() {
       ordering: "deadline",
       search: search || undefined,
       country: country || undefined,
+      field: field || undefined,
       funding_type: fundingType || undefined,
       no_ielts: noIelts || undefined,
       no_application_fee: noApplicationFee || undefined,
@@ -490,6 +519,7 @@ export default function ScholarshipsPage() {
   function handleClearFilters() {
     setSearch("");
     setCountry("");
+    setField("");
     setFundingType("");
     setNoIelts(false);
     setNoApplicationFee(false);
@@ -652,6 +682,22 @@ export default function ScholarshipsPage() {
                     >
                       <option value="">All countries</option>
                       {countryOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-2 text-sm font-semibold text-ink">
+                    Field
+                    <select
+                      value={field}
+                      onChange={(event) => setField(event.target.value)}
+                      className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    >
+                      <option value="">All fields</option>
+                      {fieldOptions.map((item) => (
                         <option key={item} value={item}>
                           {item}
                         </option>
