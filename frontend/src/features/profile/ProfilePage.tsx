@@ -26,6 +26,7 @@ import {
   COMMON_FIELDS_OF_STUDY,
   COMMON_SKILLS,
   COUNTRIES,
+  COUNTRY_REGIONS,
   DOCUMENT_OPTIONS,
   EDUCATION_LEVELS,
   FUNDING_PREFERENCES,
@@ -150,6 +151,54 @@ const nullableFields: FieldName[] = [
   "max_application_fee_usd",
 ];
 
+const numericFieldLimits: Partial<Record<FieldName, { min?: number; max?: number }>> = {
+  graduation_year: { min: 1900, max: 2100 },
+  cgpa: { min: 0, max: 5 },
+  percentage: { min: 0, max: 100 },
+  ielts_score: { min: 0, max: 9 },
+  toefl_score: { min: 0, max: 120 },
+  duolingo_score: { min: 0, max: 160 },
+  pte_score: { min: 0, max: 90 },
+  gre_score: { min: 0, max: 340 },
+  gmat_score: { min: 0, max: 800 },
+  recommendation_letters_count: { min: 0, max: 20 },
+  publications_count: { min: 0, max: 500 },
+  work_experience_years: { min: 0, max: 60 },
+  max_application_fee_usd: { min: 0, max: 10000 },
+};
+
+function clampNumericField(name: FieldName, value: StudentProfilePayload[FieldName]) {
+  const limits = numericFieldLimits[name];
+
+  if (
+    !limits ||
+    value === "" ||
+    value === null ||
+    typeof value === "boolean" ||
+    Array.isArray(value)
+  ) {
+    return value;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(value);
+
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+
+  let next = parsed;
+
+  if (typeof limits.min === "number" && next < limits.min) {
+    next = limits.min;
+  }
+
+  if (typeof limits.max === "number" && next > limits.max) {
+    next = limits.max;
+  }
+
+  return Number.isInteger(next) ? next : Number(next.toFixed(2));
+}
+
 function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload {
   const normalized = { ...payload };
 
@@ -159,11 +208,18 @@ function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload
     }
   }
 
-  if (normalized.recommendation_letters_count === "") {
+  for (const field of Object.keys(numericFieldLimits) as FieldName[]) {
+    normalized[field] = clampNumericField(field, normalized[field]) as never;
+  }
+
+  if (
+    normalized.recommendation_letters_count === null ||
+    normalized.recommendation_letters_count === ""
+  ) {
     normalized.recommendation_letters_count = 0;
   }
 
-  if (normalized.publications_count === "") {
+  if (normalized.publications_count === null || normalized.publications_count === "") {
     normalized.publications_count = 0;
   }
 
@@ -219,12 +275,44 @@ function getReadinessTone(level: string): "mint" | "saffron" | "danger" | "sky" 
   return "sky";
 }
 
+function buildPreferredIntakeOptions() {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const semesters = [
+    { label: "Spring", month: 0 },
+    { label: "Fall", month: 8 },
+  ];
+  const options: string[] = [];
+
+  for (let year = currentYear; options.length < 10 && year <= currentYear + 8; year += 1) {
+    for (const semester of semesters) {
+      if (year === currentYear && semester.month < currentMonth) {
+        continue;
+      }
+
+      options.push(`${semester.label} ${year}`);
+
+      if (options.length === 10) {
+        break;
+      }
+    }
+  }
+
+  return options;
+}
+
+const PREFERRED_INTAKE_OPTIONS = buildPreferredIntakeOptions();
+
 function TextField({
   label,
   type = "text",
   helper,
   placeholder,
   value,
+  min,
+  max,
+  step,
   onChange,
 }: {
   label: string;
@@ -232,15 +320,44 @@ function TextField({
   helper?: string;
   placeholder?: string;
   value: StudentProfilePayload[FieldName];
+  min?: number;
+  max?: number;
+  step?: number | string;
   onChange: (value: string) => void;
 }) {
+  function handleChange(rawValue: string) {
+    if (type === "number" && rawValue !== "") {
+      const parsed = Number(rawValue);
+
+      if (!Number.isNaN(parsed)) {
+        let next = parsed;
+
+        if (typeof min === "number" && min === 0 && next < min) {
+          next = min;
+        }
+
+        if (typeof max === "number" && next > max) {
+          next = max;
+        }
+
+        onChange(String(next));
+        return;
+      }
+    }
+
+    onChange(rawValue);
+  }
+
   return (
-    <label className="grid gap-1.5 text-sm font-semibold text-ink">
+    <label className="grid gap-1.5 text-sm font-medium text-ink/80">
       {label}
       <input
         type={type}
+        min={min}
+        max={max}
+        step={step}
         value={getTextInputValue(value)}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => handleChange(event.target.value)}
         placeholder={placeholder}
         className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
       />
@@ -261,7 +378,7 @@ function SelectField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-1.5 text-sm font-semibold text-ink">
+    <label className="grid gap-1.5 text-sm font-medium text-ink/80">
       {label}
       <select
         value={getTextInputValue(value)}
@@ -322,7 +439,7 @@ function MultiCheckboxField({
   return (
     <div className="grid gap-2">
       <div>
-        <p className="text-sm font-semibold text-ink">{label}</p>
+        <p className="text-sm font-medium text-ink/80">{label}</p>
         {helper ? <p className="mt-1 text-xs leading-5 text-ink/45">{helper}</p> : null}
       </div>
 
@@ -335,7 +452,7 @@ function MultiCheckboxField({
               key={option}
               className={
                 checked
-                  ? "flex items-center gap-2 rounded-2xl border border-pine bg-mint px-3 py-2 text-sm font-semibold text-pine"
+                  ? "flex items-center gap-2 rounded-2xl border border-pine bg-mint px-3 py-2 text-sm font-medium text-pine"
                   : "flex items-center gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-sm font-medium text-ink/65 transition hover:bg-mint/35"
               }
             >
@@ -354,6 +471,96 @@ function MultiCheckboxField({
   );
 }
 
+function CountryRegionPicker({
+  label,
+  values,
+  countryRegions,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  countryRegions: Record<string, readonly string[]>;
+  onChange: (value: string[]) => void;
+}) {
+  const regionNames = Object.keys(countryRegions);
+  const [region, setRegion] = useState(regionNames[0] ?? "");
+  const [country, setCountry] = useState("");
+
+  const countriesForRegion = region ? (countryRegions[region] ?? []) : [];
+
+  function addCountry() {
+    if (!country || values.includes(country)) {
+      return;
+    }
+
+    onChange([...values, country]);
+    setCountry("");
+  }
+
+  function removeCountry(countryName: string) {
+    onChange(values.filter((item) => item !== countryName));
+  }
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-medium text-ink/80">{label}</p>
+
+      <div className="grid gap-2 md:grid-cols-[12rem_1fr_auto]">
+        <select
+          value={region}
+          onChange={(event) => {
+            setRegion(event.target.value);
+            setCountry("");
+          }}
+          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        >
+          {regionNames.map((regionName) => (
+            <option key={regionName} value={regionName}>
+              {regionName}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={country}
+          onChange={(event) => setCountry(event.target.value)}
+          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        >
+          <option value="">Select country</option>
+          {countriesForRegion.map((countryName) => (
+            <option key={countryName} value={countryName} disabled={values.includes(countryName)}>
+              {countryName}
+            </option>
+          ))}
+        </select>
+
+        <Button type="button" onClick={addCountry} disabled={!country} variant="outline">
+          Add
+        </Button>
+      </div>
+
+      {values.length > 0 ? (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {values.map((countryName) => (
+            <button
+              key={countryName}
+              type="button"
+              onClick={() => removeCountry(countryName)}
+              className="rounded-2xl border border-pine/15 bg-mint px-3 py-1.5 text-sm font-medium text-pine transition hover:bg-saffron/20"
+            >
+              {countryName} ×
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs leading-5 text-ink/45">
+          Select a region first, then add countries you are seriously considering.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CommaField({
   label,
   values,
@@ -366,7 +573,7 @@ function CommaField({
   onChange: (value: string[]) => void;
 }) {
   return (
-    <label className="grid gap-1.5 text-sm font-semibold text-ink">
+    <label className="grid gap-1.5 text-sm font-medium text-ink/80">
       {label}
       <input
         value={joinCommaList(values)}
@@ -400,10 +607,6 @@ function Section({
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-                  Profile section
-                </p>
-                <span className="hidden text-xs font-bold text-ink/25 sm:inline">/</span>
                 <h2 className="text-base font-bold text-ink md:text-lg">{title}</h2>
               </div>
               <p className="mt-1 text-sm leading-6 text-ink/60">{description}</p>
@@ -638,7 +841,7 @@ function ProfilePageContent() {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Documents</p>
               <p className="mt-1 text-2xl font-bold text-ink">
                 {preparedDocumentCount}
-                <span className="text-sm font-semibold text-ink/40">
+                <span className="text-sm font-medium text-ink/80/40">
                   /{DOCUMENT_OPTIONS.length}
                 </span>
               </p>
@@ -677,13 +880,13 @@ function ProfilePageContent() {
         ) : null}
 
         {message ? (
-          <div className="rounded-2xl border border-pine/10 bg-mint/40 p-4 text-sm font-semibold text-pine">
+          <div className="rounded-2xl border border-pine/10 bg-mint/40 p-4 text-sm font-medium text-pine">
             {message}
           </div>
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
             {error}
           </div>
         ) : null}
@@ -722,7 +925,13 @@ function ProfilePageContent() {
             />
             <TextField label="Current institution" {...textField("current_institution")} />
             <TextField label="Current field of study" {...textField("current_field_of_study")} />
-            <TextField label="Graduation year" type="number" {...textField("graduation_year")} />
+            <TextField
+              label="Graduation year"
+              type="number"
+              min={1900}
+              max={2100}
+              {...textField("graduation_year")}
+            />
             <SelectField
               label="Result status"
               options={RESULT_STATUSES}
@@ -733,8 +942,22 @@ function ProfilePageContent() {
               options={GRADING_SYSTEMS}
               {...textField("grading_system")}
             />
-            <TextField label="CGPA" type="number" {...textField("cgpa")} />
-            <TextField label="Percentage" type="number" {...textField("percentage")} />
+            <TextField
+              label="CGPA"
+              type="number"
+              min={0}
+              max={5}
+              step="0.01"
+              {...textField("cgpa")}
+            />
+            <TextField
+              label="Percentage"
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              {...textField("percentage")}
+            />
             <TextField label="Division" {...textField("division")} />
           </div>
         </Section>
@@ -778,11 +1001,11 @@ function ProfilePageContent() {
               />
             </div>
 
-            <MultiCheckboxField
+            <CountryRegionPicker
               label="Target countries"
-              helper="Choose the countries you are seriously considering."
-              options={COUNTRIES}
-              {...multiField("target_countries")}
+              values={form.target_countries}
+              countryRegions={COUNTRY_REGIONS}
+              onChange={(value) => setField("target_countries", value)}
             />
 
             <MultiCheckboxField
@@ -815,13 +1038,50 @@ function ProfilePageContent() {
             </div>
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <TextField label="IELTS score" type="number" {...textField("ielts_score")} />
-              <TextField label="TOEFL score" type="number" {...textField("toefl_score")} />
-              <TextField label="Duolingo score" type="number" {...textField("duolingo_score")} />
-              <TextField label="PTE score" type="number" {...textField("pte_score")} />
+              <TextField
+                label="IELTS score"
+                type="number"
+                min={0}
+                max={9}
+                step="0.5"
+                {...textField("ielts_score")}
+              />
+              <TextField
+                label="TOEFL score"
+                type="number"
+                min={0}
+                max={120}
+                {...textField("toefl_score")}
+              />
+              <TextField
+                label="Duolingo score"
+                type="number"
+                min={0}
+                max={160}
+                {...textField("duolingo_score")}
+              />
+              <TextField
+                label="PTE score"
+                type="number"
+                min={0}
+                max={90}
+                {...textField("pte_score")}
+              />
               <TextField label="HSK level" {...textField("hsk_level")} />
-              <TextField label="GRE score" type="number" {...textField("gre_score")} />
-              <TextField label="GMAT score" type="number" {...textField("gmat_score")} />
+              <TextField
+                label="GRE score"
+                type="number"
+                min={0}
+                max={340}
+                {...textField("gre_score")}
+              />
+              <TextField
+                label="GMAT score"
+                type="number"
+                min={0}
+                max={800}
+                {...textField("gmat_score")}
+              />
             </div>
           </div>
         </Section>
@@ -872,6 +1132,8 @@ function ProfilePageContent() {
               <TextField
                 label="Recommendation letters count"
                 type="number"
+                min={0}
+                max={20}
                 {...textField("recommendation_letters_count")}
               />
             </div>
@@ -916,6 +1178,9 @@ function ProfilePageContent() {
               <TextField
                 label="Work experience years"
                 type="number"
+                min={0}
+                max={60}
+                step="0.5"
                 {...textField("work_experience_years")}
               />
               <TextField label="LinkedIn URL" {...textField("linkedin_url")} />
@@ -962,6 +1227,8 @@ function ProfilePageContent() {
             <TextField
               label="Maximum application fee USD"
               type="number"
+              min={0}
+              max={10000}
               {...textField("max_application_fee_usd")}
             />
 
