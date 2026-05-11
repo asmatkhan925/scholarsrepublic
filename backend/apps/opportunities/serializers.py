@@ -74,6 +74,7 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
     def _student_user(self):
         request = self.context.get("request")
+
         if not request or not request.user or not request.user.is_authenticated:
             return None
 
@@ -84,14 +85,11 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
     def get_saved_opportunity_id(self, obj):
         user = self._student_user()
+
         if not user:
             return None
 
-        saved = (
-            SavedOpportunity.objects.filter(user=user, opportunity=obj)
-            .only("id")
-            .first()
-        )
+        saved = SavedOpportunity.objects.filter(user=user, opportunity=obj).only("id").first()
         return saved.id if saved else None
 
     def get_is_saved(self, obj):
@@ -99,14 +97,11 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
     def get_application_id(self, obj):
         user = self._student_user()
+
         if not user:
             return None
 
-        application = (
-            OpportunityApplication.objects.filter(user=user, opportunity=obj)
-            .only("id")
-            .first()
-        )
+        application = OpportunityApplication.objects.filter(user=user, opportunity=obj).only("id").first()
         return application.id if application else None
 
     def get_is_tracking(self, obj):

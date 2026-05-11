@@ -21,7 +21,7 @@ import { StartApplicationButton } from "@/components/applications/StartApplicati
 import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
-import { getSavedOpportunitySlugs, getScholarship, getScholarshipMatch } from "@/lib/api";
+import { getScholarship, getScholarshipMatch } from "@/lib/api";
 import { ScholarshipComments } from "@/features/scholarships/ScholarshipComments";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityDetail, OpportunityMatch } from "@/types/opportunity";
@@ -285,6 +285,10 @@ export default function ScholarshipDetailPage() {
     let mounted = true;
 
     async function loadScholarship() {
+      if (authLoading || !params.slug) {
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -293,6 +297,7 @@ export default function ScholarshipDetailPage() {
 
         if (mounted) {
           setScholarship(data);
+          setIsSaved(Boolean(data.is_saved));
         }
       } catch (requestError) {
         if (mounted) {
@@ -305,14 +310,12 @@ export default function ScholarshipDetailPage() {
       }
     }
 
-    if (params.slug) {
-      void loadScholarship();
-    }
+    void loadScholarship();
 
     return () => {
       mounted = false;
     };
-  }, [params.slug]);
+  }, [authLoading, isAuthenticated, params.slug, user?.role]);
 
   useEffect(() => {
     let mounted = true;
@@ -344,38 +347,6 @@ export default function ScholarshipDetailPage() {
     }
 
     void loadMatch();
-
-    return () => {
-      mounted = false;
-    };
-  }, [authLoading, params.slug, user?.role]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadSavedState() {
-      if (authLoading || user?.role !== "student" || !params.slug) {
-        if (mounted) {
-          setIsSaved(false);
-        }
-
-        return;
-      }
-
-      try {
-        const response = await getSavedOpportunitySlugs();
-
-        if (mounted) {
-          setIsSaved(response.slugs.includes(params.slug));
-        }
-      } catch {
-        if (mounted) {
-          setIsSaved(false);
-        }
-      }
-    }
-
-    void loadSavedState();
 
     return () => {
       mounted = false;
@@ -549,6 +520,19 @@ export default function ScholarshipDetailPage() {
                             <StartApplicationButton
                               opportunitySlug={scholarship.slug}
                               opportunityType="scholarship"
+                              savedOpportunityId={scholarship.saved_opportunity_id ?? undefined}
+                              initiallyTracked={Boolean(scholarship.is_tracking)}
+                              onStarted={(application) => {
+                                setScholarship((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        application_id: application.id,
+                                        is_tracking: true,
+                                      }
+                                    : current,
+                                );
+                              }}
                             />
                           </>
                         ) : isAuthenticated ? (
