@@ -74,7 +74,7 @@ function CommentItem({
   slug: string;
   onRefresh: () => Promise<void>;
 }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [replying, setReplying] = useState(false);
   const [replyBody, setReplyBody] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
@@ -195,7 +195,7 @@ function CommentItem({
 }
 
 export function ScholarshipComments({ slug }: { slug: string }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [comments, setComments] = useState<ScholarshipComment[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
@@ -216,10 +216,14 @@ export function ScholarshipComments({ slug }: { slug: string }) {
   }
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     setLoading(true);
     void loadComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [authLoading, slug]);
 
   async function handleSubmit() {
     if (!body.trim()) {

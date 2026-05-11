@@ -26,8 +26,10 @@ import type {
 } from "@/types/opportunity";
 import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -260,7 +262,15 @@ export async function startApplicationByScholarshipSlug(slug: string) {
 }
 
 export async function getScholarshipComments(slug: string) {
-  const response = await api.get<ScholarshipCommentResponse>(`/scholarships/${slug}/comments/`);
+  const response = await axios.get<ScholarshipCommentResponse>(
+    `${API_BASE_URL}/scholarships/${slug}/comments/`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
   return response.data;
 }
 
