@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, FormEvent } from "react";
 
 import {
   ArrowRight,
@@ -21,7 +21,12 @@ import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
 import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
-import { getRecommendedScholarships, getSavedOpportunitySlugs, getScholarships } from "@/lib/api";
+import {
+  getCountries,
+  getRecommendedScholarships,
+  getSavedOpportunitySlugs,
+  getScholarships,
+} from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   OpportunityListItem,
@@ -30,8 +35,6 @@ import type {
   RecommendedOpportunity,
   RecommendedOpportunityResponse,
 } from "@/types/opportunity";
-
-const COUNTRIES = ["China", "Taiwan", "Turkey", "Germany", "USA", "Pakistan", "Malaysia"];
 
 const FUNDING_TYPES = [
   { label: "Fully funded", value: "fully_funded" },
@@ -287,6 +290,33 @@ export default function ScholarshipsPage() {
 
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
+  const [countryOptions, setCountryOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCountryOptions() {
+      try {
+        const response = await getCountries();
+        const options = Array.from(new Set(Object.values(response.regions).flat())).sort();
+
+        if (mounted) {
+          setCountryOptions(options);
+        }
+      } catch {
+        if (mounted) {
+          setCountryOptions([]);
+        }
+      }
+    }
+
+    void loadCountryOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const [fundingType, setFundingType] = useState("");
   const [noIelts, setNoIelts] = useState(false);
   const [noApplicationFee, setNoApplicationFee] = useState(false);
@@ -621,7 +651,7 @@ export default function ScholarshipsPage() {
                       className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                     >
                       <option value="">All countries</option>
-                      {COUNTRIES.map((item) => (
+                      {countryOptions.map((item) => (
                         <option key={item} value={item}>
                           {item}
                         </option>
