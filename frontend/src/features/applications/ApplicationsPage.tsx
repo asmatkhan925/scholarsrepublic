@@ -394,9 +394,8 @@ function ApplicationsSummaryHeader({
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
               Application Tracker
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
-              Update one small next step at a time. Keep statuses, deadlines, notes, and priorities
-              organized until submission and results.
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 xl:whitespace-nowrap">
+              Track statuses, deadlines, notes, and priorities from preparation to results.
             </p>
           </div>
 
