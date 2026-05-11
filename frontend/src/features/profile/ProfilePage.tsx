@@ -1,12 +1,24 @@
 "use client";
 
 import axios from "axios";
-import { useEffect, useState, type ReactNode } from "react";
-import { Save } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Bell,
+  BookOpen,
+  BriefcaseBusiness,
+  CheckCircle2,
+  FileText,
+  GraduationCap,
+  Languages,
+  Save,
+  Sparkles,
+  Target,
+  UserRound,
+} from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge, Button, ButtonLink, Card, CardContent, StatCard } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import { createStudentProfile, getStudentProfile, patchStudentProfile } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import {
@@ -36,6 +48,7 @@ type ArrayField =
   | "special_scholarship_categories";
 
 type FieldName = keyof StudentProfilePayload;
+type SelectOption = string | { label: string; value: string };
 
 const EMPTY_PROFILE: StudentProfilePayload = {
   phone_number: "",
@@ -184,10 +197,26 @@ function getTextInputValue(value: StudentProfilePayload[FieldName]) {
   }
 
   if (typeof value === "boolean") {
-    return value ? "true" : "";
+    return value ? "true" : "false";
   }
 
   return value ?? "";
+}
+
+function getReadinessTone(level: string): "mint" | "saffron" | "danger" | "sky" {
+  if (level === "High") {
+    return "mint";
+  }
+
+  if (level === "Medium") {
+    return "saffron";
+  }
+
+  if (level === "Low") {
+    return "danger";
+  }
+
+  return "sky";
 }
 
 function TextField({
@@ -206,16 +235,16 @@ function TextField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block space-y-2">
-      <span className="text-sm font-semibold text-ink">{label}</span>
+    <label className="grid gap-1.5 text-sm font-semibold text-ink">
+      {label}
       <input
         type={type}
         value={getTextInputValue(value)}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
       />
-      {helper ? <span className="block text-xs leading-5 text-ink/55">{helper}</span> : null}
+      {helper ? <span className="text-xs leading-5 text-ink/45">{helper}</span> : null}
     </label>
   );
 }
@@ -228,16 +257,16 @@ function SelectField({
 }: {
   label: string;
   value: StudentProfilePayload[FieldName];
-  options: Array<string | { value: string; label: string }>;
+  options: SelectOption[];
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block space-y-2">
-      <span className="text-sm font-semibold text-ink">{label}</span>
+    <label className="grid gap-1.5 text-sm font-semibold text-ink">
+      {label}
       <select
-        value={(value as string) ?? ""}
+        value={getTextInputValue(value)}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
       >
         <option value="">Select</option>
         {options.map((option) => {
@@ -265,7 +294,7 @@ function BooleanField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex min-h-12 items-start gap-3 rounded-2xl border border-pine/10 bg-white px-4 py-3 text-sm font-medium text-ink/75 transition hover:bg-mint/30">
+    <label className="flex items-start gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2.5 text-sm font-medium text-ink/70 transition hover:bg-mint/35">
       <input
         type="checkbox"
         checked={checked}
@@ -291,32 +320,37 @@ function MultiCheckboxField({
   onToggle: (value: string) => void;
 }) {
   return (
-    <fieldset className="space-y-3 rounded-3xl border border-pine/10 bg-white p-4">
+    <div className="grid gap-2">
       <div>
-        <legend className="text-sm font-semibold text-ink">{label}</legend>
-        {helper ? <p className="mt-1 text-xs leading-5 text-ink/55">{helper}</p> : null}
+        <p className="text-sm font-semibold text-ink">{label}</p>
+        {helper ? <p className="mt-1 text-xs leading-5 text-ink/45">{helper}</p> : null}
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+
+      <div className="flex flex-wrap gap-2">
         {options.map((option) => {
           const checked = values.includes(option);
 
           return (
             <label
               key={option}
-              className="flex items-start gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] px-3 py-2.5 text-sm text-ink/75 transition hover:bg-mint/50"
+              className={
+                checked
+                  ? "flex items-center gap-2 rounded-2xl border border-pine bg-mint px-3 py-2 text-sm font-semibold text-pine"
+                  : "flex items-center gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-sm font-medium text-ink/65 transition hover:bg-mint/35"
+              }
             >
               <input
                 type="checkbox"
                 checked={checked}
                 onChange={() => onToggle(option)}
-                className="mt-1 h-4 w-4 accent-pine"
+                className="h-4 w-4 accent-pine"
               />
-              <span>{option}</span>
+              {option}
             </label>
           );
         })}
       </div>
-    </fieldset>
+    </div>
   );
 }
 
@@ -332,14 +366,15 @@ function CommaField({
   onChange: (value: string[]) => void;
 }) {
   return (
-    <label className="block space-y-2">
-      <span className="text-sm font-semibold text-ink">{label}</span>
+    <label className="grid gap-1.5 text-sm font-semibold text-ink">
+      {label}
       <input
         value={joinCommaList(values)}
         onChange={(event) => onChange(splitCommaList(event.target.value))}
-        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+        placeholder="Separate items with commas"
       />
-      <span className="block text-xs leading-5 text-ink/55">{helper}</span>
+      <span className="text-xs leading-5 text-ink/45">{helper}</span>
     </label>
   );
 }
@@ -347,30 +382,45 @@ function CommaField({
 function Section({
   title,
   description,
+  icon,
   children,
 }: {
   title: string;
   description: string;
+  icon: ReactNode;
   children: ReactNode;
 }) {
   return (
     <Card>
-      <CardContent className="p-5 md:p-6">
-        <div className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Profile section</p>
-          <h2 className="mt-2 text-xl font-bold text-ink">{title}</h2>
-          <p className="mt-2 text-sm leading-6 text-ink/65">{description}</p>
+      <CardContent className="p-4 md:p-5">
+        <div className="mb-4 flex flex-col gap-3 border-b border-pine/10 pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+              {icon}
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
+                  Profile section
+                </p>
+                <span className="hidden text-xs font-bold text-ink/25 sm:inline">/</span>
+                <h2 className="text-base font-bold text-ink md:text-lg">{title}</h2>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-ink/60">{description}</p>
+            </div>
+          </div>
         </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">{children}</div>
+
+        <div>{children}</div>
       </CardContent>
     </Card>
   );
 }
 
 function ProfilePageContent() {
-  const [form, setForm] = useState<StudentProfilePayload>(EMPTY_PROFILE);
+  const [form, setForm] = useState(EMPTY_PROFILE);
   const [profileExists, setProfileExists] = useState(false);
-  const [completion, setCompletion] = useState<ProfileCompletion>(completionFromProfile(null));
+  const [completion, setCompletion] = useState(completionFromProfile(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -382,6 +432,7 @@ function ProfilePageContent() {
     async function loadProfile() {
       try {
         const profile = await getStudentProfile();
+
         if (mounted) {
           setForm({ ...EMPTY_PROFILE, ...profile });
           setCompletion(completionFromProfile(profile));
@@ -416,6 +467,7 @@ function ProfilePageContent() {
   function toggleArrayValue(name: ArrayField, value: string) {
     setForm((current) => {
       const values = current[name];
+
       return {
         ...current,
         [name]: values.includes(value)
@@ -453,7 +505,7 @@ function ProfilePageContent() {
     };
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError(null);
@@ -476,9 +528,43 @@ function ProfilePageContent() {
     }
   }
 
+  const preparedDocumentCount = useMemo(() => {
+    const coreDocuments = [
+      form.has_cnic,
+      form.has_domicile,
+      form.has_passport,
+      form.has_transcript,
+      form.has_degree,
+      form.has_cv,
+      form.has_sop,
+      form.has_study_plan,
+      form.has_recommendation_letters,
+      form.has_research_proposal,
+      form.has_publications,
+      form.has_english_proficiency_letter,
+      form.has_income_certificate,
+      form.has_bank_statement,
+      form.has_police_clearance,
+      form.has_medical_certificate,
+    ].filter(Boolean).length;
+
+    return coreDocuments + form.additional_documents.length;
+  }, [form]);
+
+  const nextProfileSteps = useMemo(() => {
+    return [
+      ...completion.missing_profile_fields.slice(0, 3),
+      ...completion.missing_core_documents.slice(0, 3),
+    ].slice(0, 5);
+  }, [completion]);
+
   if (loading) {
     return (
-      <DashboardShell title="Scholarship Readiness Profile" description="Loading your profile...">
+      <DashboardShell
+        description="Loading your student profile."
+        hideHeader
+        title="Student Profile"
+      >
         <Card>
           <CardContent className="p-6 text-sm text-ink/70">Loading profile form...</CardContent>
         </Card>
@@ -488,335 +574,458 @@ function ProfilePageContent() {
 
   return (
     <DashboardShell
-      title="Scholarship Readiness Profile"
-      description="Complete your profile so Scholars Republic can recommend the best scholarships and future opportunities."
+      description="Keep your profile updated so recommendations and match scores stay useful."
+      hideHeader
+      title="Student Profile"
     >
-      <form onSubmit={handleSubmit} className="grid gap-6">
-        <section className="grid gap-4 lg:grid-cols-3">
-          <StatCard
-            label="Profile completion"
-            value={`${completion.completion_percentage}%`}
-            description="Profile fields completed"
-          />
-          <StatCard
-            label="Scholarship readiness"
-            value={
-              <>
-                {completion.scholarship_readiness_score}
-                <span className="text-lg text-ink/55">/100</span>
-              </>
-            }
-            description="Based on profile and preparation signals"
-          />
-          <Card className="p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine/70">
-              Readiness level
-            </p>
-            <div className="mt-3">
-              <Badge
-                tone={
-                  completion.readiness_level === "High"
-                    ? "mint"
-                    : completion.readiness_level === "Medium"
-                      ? "saffron"
-                      : "danger"
-                }
-              >
-                {completion.readiness_level}
-              </Badge>
+      <form onSubmit={handleSubmit} className="grid gap-4">
+        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 md:px-5">
+            <div className="grid gap-4 xl:grid-cols-[1fr_20rem] xl:items-center">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
+                  Student profile
+                </p>
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                  Improve your scholarship match.
+                </h1>
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 xl:whitespace-nowrap">
+                  Fill the most important details first. You can save partial progress and return
+                  later.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
+                      Readiness
+                    </p>
+                    <p className="mt-1 text-3xl font-black text-pine">
+                      {completion.scholarship_readiness_score}
+                      <span className="text-base font-bold text-ink/45">/100</span>
+                    </p>
+                  </div>
+                  <Badge tone={getReadinessTone(completion.readiness_level)}>
+                    {completion.readiness_level}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-mint">
+                  <div
+                    className="h-full rounded-full bg-pine"
+                    style={{ width: `${completion.completion_percentage}%` }}
+                  />
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-ink/50">
+                  {completion.completion_percentage}% profile complete
+                </p>
+              </div>
             </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-pine/10">
-              <div
-                className="h-full rounded-full bg-pine"
-                style={{
-                  width: `${Math.min(Math.max(completion.scholarship_readiness_score, 0), 100)}%`,
-                }}
-              />
+          </div>
+
+          <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+            <div className="px-4 py-3 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                Completion
+              </p>
+              <p className="mt-1 text-2xl font-bold text-ink">
+                {completion.completion_percentage}%
+              </p>
             </div>
-          </Card>
+            <div className="px-4 py-3 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Documents</p>
+              <p className="mt-1 text-2xl font-bold text-ink">
+                {preparedDocumentCount}
+                <span className="text-sm font-semibold text-ink/40">
+                  /{DOCUMENT_OPTIONS.length}
+                </span>
+              </p>
+            </div>
+            <div className="px-4 py-3 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Targets</p>
+              <p className="mt-1 text-2xl font-bold text-ink">{form.target_countries.length}</p>
+            </div>
+            <div className="px-4 py-3 md:px-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Fields</p>
+              <p className="mt-1 text-2xl font-bold text-ink">{form.target_fields.length}</p>
+            </div>
+          </div>
         </section>
 
-        {message && (
-          <p className="rounded-2xl border border-pine/20 bg-mint px-4 py-3 text-sm font-medium text-pine">
+        {nextProfileSteps.length > 0 ? (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-ink">Next details to complete</p>
+                  <p className="mt-1 text-sm leading-6 text-ink/60">
+                    These fields can improve your match score and recommendations.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {nextProfileSteps.map((item) => (
+                    <Badge key={item} tone="saffron">
+                      {item}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {message ? (
+          <div className="rounded-2xl border border-pine/10 bg-mint/40 p-4 text-sm font-semibold text-pine">
             {message}
-          </p>
-        )}
-        {error && (
-          <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
             {error}
-          </p>
-        )}
+          </div>
+        ) : null}
 
         <Section
-          title="Basic Information"
-          description="Contact and Pakistan-first location details used for eligibility and support communication."
+          description="Basic contact and location details help match country-specific scholarships."
+          icon={<UserRound size={20} aria-hidden="true" />}
+          title="Personal details"
         >
-          <TextField label="Phone number" {...textField("phone_number")} />
-          <TextField label="WhatsApp number" {...textField("whatsapp_number")} />
-          <TextField label="Date of birth" {...textField("date_of_birth")} type="date" />
-          <TextField label="Nationality" {...textField("nationality")} />
-          <TextField label="Current country" {...textField("current_country")} />
-          <TextField label="City" {...textField("city")} />
-          <SelectField label="Province" {...textField("province")} options={PROVINCES} />
-          <TextField label="Domicile" {...textField("domicile")} />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <TextField label="Phone number" {...textField("phone_number")} />
+            <TextField label="WhatsApp number" {...textField("whatsapp_number")} />
+            <TextField label="Date of birth" type="date" {...textField("date_of_birth")} />
+            <TextField label="Nationality" {...textField("nationality")} />
+            <SelectField
+              label="Current country"
+              options={COUNTRIES}
+              {...textField("current_country")}
+            />
+            <TextField label="City" {...textField("city")} />
+            <SelectField label="Province" options={PROVINCES} {...textField("province")} />
+            <TextField label="Domicile" {...textField("domicile")} />
+          </div>
         </Section>
 
         <Section
-          title="Current Education"
-          description="Your academic level and result information help check scholarship eligibility later."
+          description="Education details are heavily used for scholarship eligibility and match scoring."
+          icon={<GraduationCap size={20} aria-hidden="true" />}
+          title="Education"
         >
-          <SelectField
-            label="Current education level"
-            {...textField("current_education_level")}
-            options={EDUCATION_LEVELS}
-          />
-          <TextField label="Current institution" {...textField("current_institution")} />
-          <TextField
-            label="Current field of study"
-            {...textField("current_field_of_study")}
-            placeholder="Computer Science"
-          />
-          <TextField label="Graduation year" {...textField("graduation_year")} type="number" />
-          <SelectField
-            label="Result status"
-            {...textField("result_status")}
-            options={RESULT_STATUSES}
-          />
-          <SelectField
-            label="Grading system"
-            {...textField("grading_system")}
-            options={GRADING_SYSTEMS}
-          />
-          <TextField label="CGPA" {...textField("cgpa")} type="number" />
-          <TextField label="Percentage" {...textField("percentage")} type="number" />
-          <TextField label="Division" {...textField("division")} placeholder="First Division" />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <SelectField
+              label="Current education level"
+              options={EDUCATION_LEVELS}
+              {...textField("current_education_level")}
+            />
+            <TextField label="Current institution" {...textField("current_institution")} />
+            <TextField label="Current field of study" {...textField("current_field_of_study")} />
+            <TextField label="Graduation year" type="number" {...textField("graduation_year")} />
+            <SelectField
+              label="Result status"
+              options={RESULT_STATUSES}
+              {...textField("result_status")}
+            />
+            <SelectField
+              label="Grading system"
+              options={GRADING_SYSTEMS}
+              {...textField("grading_system")}
+            />
+            <TextField label="CGPA" type="number" {...textField("cgpa")} />
+            <TextField label="Percentage" type="number" {...textField("percentage")} />
+            <TextField label="Division" {...textField("division")} />
+          </div>
         </Section>
 
         <Section
-          title="Target Study Plan"
-          description="Tell us where and what you want to study. These fields will power recommendations in the next phases."
+          description="Tell Scholars Republic what you want, so recommendations stay focused."
+          icon={<Target size={20} aria-hidden="true" />}
+          title="Scholarship targets"
         >
-          <SelectField
-            label="Target degree level"
-            {...textField("target_degree_level")}
-            options={TARGET_DEGREE_LEVELS}
-          />
-          <TextField label="Preferred intake" {...textField("preferred_intake")} />
-          <SelectField
-            label="Study mode preference"
-            {...textField("study_mode_preference")}
-            options={STUDY_MODE_PREFERENCES}
-          />
-          <SelectField
-            label="Funding preference"
-            {...textField("funding_preference")}
-            options={FUNDING_PREFERENCES}
-          />
-          <SelectField
-            label="Application fee preference"
-            {...textField("application_fee_preference")}
-            options={APPLICATION_FEE_PREFERENCES}
-          />
-          <SelectField
-            label="Language instruction preference"
-            {...textField("language_instruction_preference")}
-            options={LANGUAGE_INSTRUCTION_PREFERENCES}
-          />
-          <div className="lg:col-span-2">
+          <div className="grid gap-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <SelectField
+                label="Target degree level"
+                options={TARGET_DEGREE_LEVELS}
+                {...textField("target_degree_level")}
+              />
+              <TextField
+                label="Preferred intake"
+                placeholder="Fall 2026, Spring 2027..."
+                {...textField("preferred_intake")}
+              />
+              <SelectField
+                label="Study mode"
+                options={STUDY_MODE_PREFERENCES}
+                {...textField("study_mode_preference")}
+              />
+              <SelectField
+                label="Funding preference"
+                options={FUNDING_PREFERENCES}
+                {...textField("funding_preference")}
+              />
+              <SelectField
+                label="Application fee preference"
+                options={APPLICATION_FEE_PREFERENCES}
+                {...textField("application_fee_preference")}
+              />
+              <SelectField
+                label="Language preference"
+                options={LANGUAGE_INSTRUCTION_PREFERENCES}
+                {...textField("language_instruction_preference")}
+              />
+            </div>
+
             <MultiCheckboxField
               label="Target countries"
-              {...multiField("target_countries")}
+              helper="Choose the countries you are seriously considering."
               options={COUNTRIES}
+              {...multiField("target_countries")}
             />
-          </div>
-          <div className="lg:col-span-2">
+
             <MultiCheckboxField
               label="Target fields"
-              {...multiField("target_fields")}
+              helper="Select the fields you want to study."
               options={COMMON_FIELDS_OF_STUDY}
+              {...multiField("target_fields")}
             />
           </div>
         </Section>
 
         <Section
-          title="Tests and Language"
-          description="Language test information is optional now, but it strongly affects future scholarship readiness."
+          description="Language tests and proficiency certificates can unlock more scholarship options."
+          icon={<Languages size={20} aria-hidden="true" />}
+          title="Language and tests"
         >
-          <BooleanField label="I have IELTS" {...booleanField("has_ielts")} />
-          <TextField label="IELTS score" {...textField("ielts_score")} type="number" />
-          <BooleanField label="I have TOEFL" {...booleanField("has_toefl")} />
-          <TextField label="TOEFL score" {...textField("toefl_score")} type="number" />
-          <BooleanField label="I have Duolingo" {...booleanField("has_duolingo")} />
-          <TextField label="Duolingo score" {...textField("duolingo_score")} type="number" />
-          <BooleanField label="I have PTE" {...booleanField("has_pte")} />
-          <TextField label="PTE score" {...textField("pte_score")} type="number" />
-          <BooleanField label="I have HSK" {...booleanField("has_hsk")} />
-          <TextField label="HSK level" {...textField("hsk_level")} placeholder="HSK4" />
-          <BooleanField label="I have GRE" {...booleanField("has_gre")} />
-          <TextField label="GRE score" {...textField("gre_score")} type="number" />
-          <BooleanField label="I have GMAT" {...booleanField("has_gmat")} />
-          <TextField label="GMAT score" {...textField("gmat_score")} type="number" />
-          <BooleanField
-            label="I have an English proficiency certificate"
-            {...booleanField("english_proficiency_certificate")}
-          />
+          <div className="grid gap-4">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <BooleanField label="I have IELTS" {...booleanField("has_ielts")} />
+              <BooleanField label="I have TOEFL" {...booleanField("has_toefl")} />
+              <BooleanField label="I have Duolingo" {...booleanField("has_duolingo")} />
+              <BooleanField label="I have PTE" {...booleanField("has_pte")} />
+              <BooleanField label="I have HSK" {...booleanField("has_hsk")} />
+              <BooleanField label="I have GRE" {...booleanField("has_gre")} />
+              <BooleanField label="I have GMAT" {...booleanField("has_gmat")} />
+              <BooleanField
+                label="I can provide English proficiency certificate"
+                {...booleanField("english_proficiency_certificate")}
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <TextField label="IELTS score" type="number" {...textField("ielts_score")} />
+              <TextField label="TOEFL score" type="number" {...textField("toefl_score")} />
+              <TextField label="Duolingo score" type="number" {...textField("duolingo_score")} />
+              <TextField label="PTE score" type="number" {...textField("pte_score")} />
+              <TextField label="HSK level" {...textField("hsk_level")} />
+              <TextField label="GRE score" type="number" {...textField("gre_score")} />
+              <TextField label="GMAT score" type="number" {...textField("gmat_score")} />
+            </div>
+          </div>
         </Section>
 
         <Section
+          description="Documents decide whether you can apply quickly when deadlines are near."
+          icon={<FileText size={20} aria-hidden="true" />}
           title="Documents"
-          description="These documents are used to show missing requirements and readiness for fully funded applications."
         >
-          <BooleanField label="CNIC ready" {...booleanField("has_cnic")} />
-          <BooleanField label="Domicile ready" {...booleanField("has_domicile")} />
-          <BooleanField label="Passport ready" {...booleanField("has_passport")} />
-          <TextField
-            label="Passport expiry date"
-            {...textField("passport_expiry_date")}
-            type="date"
-          />
-          <BooleanField label="Transcript ready" {...booleanField("has_transcript")} />
-          <BooleanField label="Degree ready" {...booleanField("has_degree")} />
-          <BooleanField label="CV ready" {...booleanField("has_cv")} />
-          <BooleanField label="SOP ready" {...booleanField("has_sop")} />
-          <BooleanField label="Study plan ready" {...booleanField("has_study_plan")} />
-          <BooleanField
-            label="Recommendation letters ready"
-            {...booleanField("has_recommendation_letters")}
-          />
-          <TextField
-            label="Recommendation letters count"
-            {...textField("recommendation_letters_count")}
-            type="number"
-          />
-          <BooleanField
-            label="Research proposal ready"
-            {...booleanField("has_research_proposal")}
-          />
-          <BooleanField label="Publications available" {...booleanField("has_publications")} />
-          <BooleanField
-            label="English proficiency letter ready"
-            {...booleanField("has_english_proficiency_letter")}
-          />
-          <BooleanField
-            label="Income certificate ready"
-            {...booleanField("has_income_certificate")}
-          />
-          <BooleanField label="Bank statement ready" {...booleanField("has_bank_statement")} />
-          <BooleanField label="Police clearance ready" {...booleanField("has_police_clearance")} />
-          <BooleanField
-            label="Medical certificate ready"
-            {...booleanField("has_medical_certificate")}
-          />
-          <div className="lg:col-span-2">
-            <MultiCheckboxField
+          <div className="grid gap-4">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <BooleanField label="CNIC" {...booleanField("has_cnic")} />
+              <BooleanField label="Domicile" {...booleanField("has_domicile")} />
+              <BooleanField label="Passport" {...booleanField("has_passport")} />
+              <BooleanField label="Transcript" {...booleanField("has_transcript")} />
+              <BooleanField label="Degree" {...booleanField("has_degree")} />
+              <BooleanField label="CV" {...booleanField("has_cv")} />
+              <BooleanField label="SOP" {...booleanField("has_sop")} />
+              <BooleanField label="Study plan" {...booleanField("has_study_plan")} />
+              <BooleanField
+                label="Recommendation letters"
+                {...booleanField("has_recommendation_letters")}
+              />
+              <BooleanField label="Research proposal" {...booleanField("has_research_proposal")} />
+              <BooleanField label="Publications" {...booleanField("has_publications")} />
+              <BooleanField
+                label="English proficiency letter"
+                {...booleanField("has_english_proficiency_letter")}
+              />
+              <BooleanField
+                label="Income certificate"
+                {...booleanField("has_income_certificate")}
+              />
+              <BooleanField label="Bank statement" {...booleanField("has_bank_statement")} />
+              <BooleanField label="Police clearance" {...booleanField("has_police_clearance")} />
+              <BooleanField
+                label="Medical certificate"
+                {...booleanField("has_medical_certificate")}
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <TextField
+                label="Passport expiry date"
+                type="date"
+                {...textField("passport_expiry_date")}
+              />
+              <TextField
+                label="Recommendation letters count"
+                type="number"
+                {...textField("recommendation_letters_count")}
+              />
+            </div>
+
+            <CommaField
               label="Additional documents"
-              {...multiField("additional_documents")}
-              options={DOCUMENT_OPTIONS}
-              helper="Select any extra documents or test reports you already have."
+              helper="Add any extra documents you already have."
+              {...commaField("additional_documents")}
             />
           </div>
         </Section>
 
         <Section
-          title="Research, Skills, and Career"
-          description="Useful for MS, MPhil, PhD, future opportunity matching, internship modules, and CV generation."
+          description="Research, skills, work, and links help for graduate and research scholarships."
+          icon={<BookOpen size={20} aria-hidden="true" />}
+          title="Research and experience"
         >
-          <CommaField
-            label="Research interests"
-            {...commaField("research_interests")}
-            helper="Comma-separated, for example: machine learning, education policy."
-          />
-          <BooleanField
-            label="I have research experience"
-            {...booleanField("has_research_experience")}
-          />
-          <TextField
-            label="Publications count"
-            {...textField("publications_count")}
-            type="number"
-          />
-          <BooleanField
-            label="I have supervisor acceptance"
-            {...booleanField("has_supervisor_acceptance")}
-          />
-          <TextField label="Supervisor country" {...textField("supervisor_country")} />
-          <TextField label="Supervisor university" {...textField("supervisor_university")} />
-          <BooleanField
-            label="I have internship experience"
-            {...booleanField("has_internship_experience")}
-          />
-          <TextField
-            label="Work experience years"
-            {...textField("work_experience_years")}
-            type="number"
-          />
-          <TextField label="LinkedIn URL" {...textField("linkedin_url")} type="url" />
-          <TextField label="Portfolio URL" {...textField("portfolio_url")} type="url" />
-          <TextField label="GitHub URL" {...textField("github_url")} type="url" />
-          <div className="lg:col-span-2">
-            <MultiCheckboxField label="Skills" {...multiField("skills")} options={COMMON_SKILLS} />
+          <div className="grid gap-4">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <BooleanField
+                label="Research experience"
+                {...booleanField("has_research_experience")}
+              />
+              <BooleanField
+                label="Supervisor acceptance"
+                {...booleanField("has_supervisor_acceptance")}
+              />
+              <BooleanField
+                label="Internship experience"
+                {...booleanField("has_internship_experience")}
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <TextField
+                label="Publications count"
+                type="number"
+                {...textField("publications_count")}
+              />
+              <TextField label="Supervisor country" {...textField("supervisor_country")} />
+              <TextField label="Supervisor university" {...textField("supervisor_university")} />
+              <TextField
+                label="Work experience years"
+                type="number"
+                {...textField("work_experience_years")}
+              />
+              <TextField label="LinkedIn URL" {...textField("linkedin_url")} />
+              <TextField label="Portfolio URL" {...textField("portfolio_url")} />
+              <TextField label="GitHub URL" {...textField("github_url")} />
+            </div>
+
+            <CommaField
+              label="Research interests"
+              helper="Example: AI, public health, renewable energy"
+              {...commaField("research_interests")}
+            />
+
+            <MultiCheckboxField
+              label="Skills"
+              helper="Select skills that strengthen your applications."
+              options={COMMON_SKILLS}
+              {...multiField("skills")}
+            />
           </div>
         </Section>
 
         <Section
-          title="Financial Preferences and Special Categories"
-          description="Optional eligibility preferences. Select only the categories you want scholarships for."
+          description="Funding needs and alerts help us prioritize practical opportunities."
+          icon={<BriefcaseBusiness size={20} aria-hidden="true" />}
+          title="Funding and preferences"
         >
-          <BooleanField
-            label="I need need-based support"
-            {...booleanField("need_based_support_required")}
-          />
-          <BooleanField
-            label="I can pay application fees"
-            {...booleanField("can_pay_application_fee")}
-          />
-          <TextField
-            label="Maximum application fee in USD"
-            {...textField("max_application_fee_usd")}
-            type="number"
-          />
-          <BooleanField
-            label="I can self-fund partially"
-            {...booleanField("can_self_fund_partial")}
-          />
-          <div className="lg:col-span-2">
+          <div className="grid gap-4">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <BooleanField
+                label="I need need-based support"
+                {...booleanField("need_based_support_required")}
+              />
+              <BooleanField
+                label="I can pay application fee"
+                {...booleanField("can_pay_application_fee")}
+              />
+              <BooleanField
+                label="I can self-fund partially"
+                {...booleanField("can_self_fund_partial")}
+              />
+            </div>
+
+            <TextField
+              label="Maximum application fee USD"
+              type="number"
+              {...textField("max_application_fee_usd")}
+            />
+
             <MultiCheckboxField
               label="Special scholarship categories"
-              {...multiField("special_scholarship_categories")}
+              helper="Choose any category relevant to your applications."
               options={SPECIAL_SCHOLARSHIP_CATEGORIES}
+              {...multiField("special_scholarship_categories")}
             />
           </div>
         </Section>
 
         <Section
-          title="Alerts and Consent"
-          description="We use this information only to recommend scholarships, improve your application readiness, and help generate documents if you choose AI tools later."
+          description="Control alerts and consent for using your profile to calculate scholarship matches."
+          icon={<Bell size={20} aria-hidden="true" />}
+          title="Alerts and consent"
         >
-          <BooleanField label="Email alerts enabled" {...booleanField("email_alerts_enabled")} />
-          <BooleanField
-            label="WhatsApp alerts enabled"
-            {...booleanField("whatsapp_alerts_enabled")}
-          />
-          <BooleanField
-            label="I agree that my profile data can be used for scholarship recommendations inside Scholars Republic"
-            {...booleanField("profile_data_consent")}
-          />
+          <div className="grid gap-2 md:grid-cols-2">
+            <BooleanField label="Email alerts enabled" {...booleanField("email_alerts_enabled")} />
+            <BooleanField
+              label="WhatsApp alerts enabled"
+              {...booleanField("whatsapp_alerts_enabled")}
+            />
+            <BooleanField
+              label="I agree to use this profile for scholarship matching"
+              {...booleanField("profile_data_consent")}
+            />
+            <BooleanField label="AI autofill reviewed" {...booleanField("ai_autofill_reviewed")} />
+          </div>
+
+          <div className="mt-4">
+            <SelectField
+              label="Profile source"
+              options={[
+                { label: "Manual", value: "manual" },
+                { label: "CV imported", value: "cv_imported" },
+                { label: "Admin created", value: "admin_created" },
+                { label: "Mixed", value: "mixed" },
+              ]}
+              {...textField("profile_source")}
+            />
+          </div>
         </Section>
 
-        <section className="sticky bottom-0 z-10 -mx-4 border-t border-pine/10 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-8 sm:px-8">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-ink/65">Save partial progress now and return later.</p>
-            <div className="flex flex-col gap-3 sm:flex-row">
+        <Card className="sticky bottom-3 z-10 border-pine/15 bg-white/95 shadow-lg backdrop-blur">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-bold text-ink">Save your profile</p>
+              <p className="text-sm leading-6 text-ink/60">
+                Save partial progress now. Better profile data improves matches and recommendations.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
               <ButtonLink href="/dashboard" variant="outline">
-                Back to dashboard
+                Back to Dashboard
               </ButtonLink>
               <Button type="submit" disabled={saving}>
                 <Save size={16} aria-hidden="true" />
                 {saving ? "Saving..." : "Save Profile"}
               </Button>
             </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       </form>
     </DashboardShell>
   );
