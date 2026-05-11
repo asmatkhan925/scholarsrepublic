@@ -197,8 +197,52 @@ function clampNumericField(name: FieldName, value: StudentProfilePayload[FieldNa
   return Number.isInteger(next) ? next : Number(next.toFixed(2));
 }
 
+function sanitizeFieldValue(name: FieldName, value: StudentProfilePayload[FieldName]) {
+  if (phoneFields.includes(name) && typeof value === "string") {
+    return sanitizePhoneNumber(value);
+  }
+
+  if (numericFieldLimits[name]) {
+    return clampNumericField(name, value);
+  }
+
+  if (name === "date_of_birth" && typeof value === "string" && value > TODAY_DATE) {
+    return TODAY_DATE;
+  }
+
+  if (name === "passport_expiry_date" && typeof value === "string" && value && value < TODAY_DATE) {
+    return TODAY_DATE;
+  }
+
+  return value;
+}
+
+function constrainProfilePayload(payload: StudentProfilePayload): StudentProfilePayload {
+  const next = { ...payload };
+
+  for (const field of Object.keys(numericFieldLimits) as FieldName[]) {
+    next[field] = clampNumericField(field, next[field]) as never;
+  }
+
+  next.phone_number = sanitizePhoneNumber(next.phone_number);
+  next.whatsapp_number = sanitizePhoneNumber(next.whatsapp_number);
+
+  if (next.date_of_birth && next.date_of_birth > TODAY_DATE) {
+    next.date_of_birth = TODAY_DATE;
+  }
+
+  if (next.passport_expiry_date && next.passport_expiry_date < TODAY_DATE) {
+    next.passport_expiry_date = TODAY_DATE;
+  }
+
+  return next;
+}
+
 function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload {
-  const normalized = { ...payload };
+  const normalized = constrainProfilePayload({
+    ...payload,
+    profile_source: payload.profile_source || "manual",
+  });
 
   for (const field of nullableFields) {
     if (normalized[field] === "") {
@@ -209,6 +253,17 @@ function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload
   for (const field of Object.keys(numericFieldLimits) as FieldName[]) {
     normalized[field] = clampNumericField(field, normalized[field]) as never;
   }
+
+  for (const field of urlFields) {
+    const value = normalized[field];
+
+    if (typeof value === "string") {
+      normalized[field] = normalizeUrlValue(value) as never;
+    }
+  }
+
+  normalized.phone_number = sanitizePhoneNumber(normalized.phone_number);
+  normalized.whatsapp_number = sanitizePhoneNumber(normalized.whatsapp_number);
 
   if (
     normalized.recommendation_letters_count === null ||
@@ -221,7 +276,7 @@ function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload
     normalized.publications_count = 0;
   }
 
-  return normalized;
+  return constrainProfilePayload(normalized);
 }
 
 function completionFromProfile(profile: StudentProfile | null): ProfileCompletion {
@@ -302,6 +357,98 @@ function buildPreferredIntakeOptions() {
 
 const PREFERRED_INTAKE_OPTIONS = buildPreferredIntakeOptions();
 
+const TODAY_DATE = new Date().toISOString().slice(0, 10);
+
+const HSK_LEVELS = ["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"];
+
+const phoneFields: FieldName[] = ["phone_number", "whatsapp_number"];
+
+const urlFields: FieldName[] = ["linkedin_url", "portfolio_url", "github_url"];
+
+function sanitizePhoneNumber(value: string) {
+  const cleaned = value.replace(/[^0-9+()\-\s]/g, "");
+  return cleaned.replace(/(?!^)\+/g, "");
+}
+
+function normalizeUrlValue(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+function isValidHttpUrl(value: string) {
+  if (!value) {
+    return true;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function hasFutureDate(value: string | null) {
+  return Boolean(value && value > TODAY_DATE);
+}
+
+function hasPastDate(value: string | null) {
+  return Boolean(value && value < TODAY_DATE);
+}
+
+function validatePhoneField(label: string, value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const digitCount = value.replace(/\D/g, "").length;
+
+  if (digitCount < 7 || digitCount > 15) {
+    return `${label} should contain 7 to 15 digits.`;
+  }
+
+  return null;
+}
+
+function validateProfilePayload(payload: StudentProfilePayload) {
+  const phoneError = validatePhoneField("Phone number", payload.phone_number);
+  if (phoneError) {
+    return phoneError;
+  }
+
+  const whatsappError = validatePhoneField("WhatsApp number", payload.whatsapp_number);
+  if (whatsappError) {
+    return whatsappError;
+  }
+
+  if (hasFutureDate(payload.date_of_birth)) {
+    return "Date of birth cannot be in the future.";
+  }
+
+  if (payload.has_passport && hasPastDate(payload.passport_expiry_date)) {
+    return "Passport expiry date must be today or a future date.";
+  }
+
+  for (const field of urlFields) {
+    const value = payload[field];
+
+    if (typeof value === "string" && value && !isValidHttpUrl(value)) {
+      return "Please enter valid profile links, for example https://linkedin.com/in/your-name.";
+    }
+  }
+
+  return null;
+}
+
 function TextField({
   label,
   type = "text",
@@ -311,6 +458,8 @@ function TextField({
   min,
   max,
   step,
+  inputMode,
+  maxLength,
   onChange,
 }: {
   label: string;
@@ -318,29 +467,49 @@ function TextField({
   helper?: string;
   placeholder?: string;
   value: StudentProfilePayload[FieldName];
-  min?: number;
-  max?: number;
+  min?: number | string;
+  max?: number | string;
   step?: number | string;
+  inputMode?: "text" | "tel" | "url" | "numeric" | "decimal";
+  maxLength?: number;
   onChange: (value: string) => void;
 }) {
   function handleChange(rawValue: string) {
-    if (type === "number" && rawValue !== "") {
-      const parsed = Number(rawValue);
-
-      if (!Number.isNaN(parsed)) {
-        let next = parsed;
-
-        if (typeof min === "number" && min === 0 && next < min) {
-          next = min;
-        }
-
-        if (typeof max === "number" && next > max) {
-          next = max;
-        }
-
-        onChange(String(next));
+    if (type === "number") {
+      if (rawValue === "") {
+        onChange("");
         return;
       }
+
+      if (!/^\d*\.?\d*$/.test(rawValue)) {
+        return;
+      }
+
+      const parsed = Number(rawValue);
+
+      if (Number.isNaN(parsed)) {
+        return;
+      }
+
+      let next = parsed;
+      const minValue = typeof min === "number" ? min : undefined;
+      const maxValue = typeof max === "number" ? max : undefined;
+
+      if (typeof minValue === "number" && next < minValue) {
+        next = minValue;
+      }
+
+      if (typeof maxValue === "number" && next > maxValue) {
+        next = maxValue;
+      }
+
+      onChange(String(next));
+      return;
+    }
+
+    if (type === "tel") {
+      onChange(sanitizePhoneNumber(rawValue));
+      return;
     }
 
     onChange(rawValue);
@@ -354,6 +523,8 @@ function TextField({
         min={min}
         max={max}
         step={step}
+        inputMode={inputMode}
+        maxLength={maxLength}
         value={getTextInputValue(value)}
         onChange={(event) => handleChange(event.target.value)}
         placeholder={placeholder}
@@ -640,7 +811,7 @@ function ProfilePageContent() {
         const profile = await getStudentProfile();
 
         if (mounted) {
-          setForm({ ...EMPTY_PROFILE, ...profile });
+          setForm(constrainProfilePayload({ ...EMPTY_PROFILE, ...profile }));
           setCompletion(completionFromProfile(profile));
           setProfileExists(true);
           setHasUnsavedChanges(false);
@@ -747,7 +918,13 @@ function ProfilePageContent() {
 
   function setField<K extends FieldName>(name: K, value: StudentProfilePayload[K]) {
     markUnsaved();
-    setForm((current) => ({ ...current, [name]: value }));
+
+    const sanitizedValue = sanitizeFieldValue(name, value) as StudentProfilePayload[K];
+
+    setForm((current) => ({
+      ...current,
+      [name]: sanitizedValue,
+    }));
   }
 
   function toggleArrayValue(name: ArrayField, value: string) {
@@ -804,7 +981,7 @@ function ProfilePageContent() {
         ? await patchStudentProfile(payload)
         : await createStudentProfile(payload);
 
-      setForm({ ...EMPTY_PROFILE, ...profile });
+      setForm(constrainProfilePayload({ ...EMPTY_PROFILE, ...profile }));
       setCompletion(completionFromProfile(profile));
       setProfileExists(true);
       setHasUnsavedChanges(false);
@@ -993,9 +1170,26 @@ function ProfilePageContent() {
           title="Personal details"
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <TextField label="Phone number" {...textField("phone_number")} />
-            <TextField label="WhatsApp number" {...textField("whatsapp_number")} />
-            <TextField label="Date of birth" type="date" {...textField("date_of_birth")} />
+            <TextField
+              label="Phone number"
+              type="tel"
+              inputMode="tel"
+              maxLength={20}
+              {...textField("phone_number")}
+            />
+            <TextField
+              label="WhatsApp number"
+              type="tel"
+              inputMode="tel"
+              maxLength={20}
+              {...textField("whatsapp_number")}
+            />
+            <TextField
+              label="Date of birth"
+              type="date"
+              max={TODAY_DATE}
+              {...textField("date_of_birth")}
+            />
             <TextField label="Nationality" {...textField("nationality")} />
             <SelectField
               label="Current country"
@@ -1163,7 +1357,7 @@ function ProfilePageContent() {
                 max={90}
                 {...textField("pte_score")}
               />
-              <TextField label="HSK level" {...textField("hsk_level")} />
+              <SelectField label="HSK level" options={HSK_LEVELS} {...textField("hsk_level")} />
               <TextField
                 label="GRE score"
                 type="number"
@@ -1223,6 +1417,7 @@ function ProfilePageContent() {
               <TextField
                 label="Passport expiry date"
                 type="date"
+                min={TODAY_DATE}
                 {...textField("passport_expiry_date")}
               />
               <TextField
@@ -1267,6 +1462,8 @@ function ProfilePageContent() {
               <TextField
                 label="Publications count"
                 type="number"
+                min={0}
+                max={500}
                 {...textField("publications_count")}
               />
               <TextField label="Supervisor country" {...textField("supervisor_country")} />
@@ -1279,9 +1476,27 @@ function ProfilePageContent() {
                 step="0.5"
                 {...textField("work_experience_years")}
               />
-              <TextField label="LinkedIn URL" {...textField("linkedin_url")} />
-              <TextField label="Portfolio URL" {...textField("portfolio_url")} />
-              <TextField label="GitHub URL" {...textField("github_url")} />
+              <TextField
+                label="LinkedIn URL"
+                type="text"
+                inputMode="url"
+                placeholder="linkedin.com/in/your-name"
+                {...textField("linkedin_url")}
+              />
+              <TextField
+                label="Portfolio URL"
+                type="text"
+                inputMode="url"
+                placeholder="your-portfolio.com"
+                {...textField("portfolio_url")}
+              />
+              <TextField
+                label="GitHub URL"
+                type="text"
+                inputMode="url"
+                placeholder="github.com/username"
+                {...textField("github_url")}
+              />
             </div>
 
             <CommaField
@@ -1353,19 +1568,6 @@ function ProfilePageContent() {
               {...booleanField("profile_data_consent")}
             />
             <BooleanField label="AI autofill reviewed" {...booleanField("ai_autofill_reviewed")} />
-          </div>
-
-          <div className="mt-4">
-            <SelectField
-              label="Profile source"
-              options={[
-                { label: "Manual", value: "manual" },
-                { label: "CV imported", value: "cv_imported" },
-                { label: "Admin created", value: "admin_created" },
-                { label: "Mixed", value: "mixed" },
-              ]}
-              {...textField("profile_source")}
-            />
           </div>
         </Section>
 
