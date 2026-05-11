@@ -269,6 +269,90 @@ function MatchScoreSidebarCard({
   );
 }
 
+function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
+  const lastVerified = scholarship.last_verified_at
+    ? formatDate(scholarship.last_verified_at)
+    : null;
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Verification</p>
+            <h2 className="mt-2 text-lg font-bold text-ink">Source and trust</h2>
+          </div>
+          <Badge tone={scholarship.verified_status ? "mint" : "neutral"}>
+            {scholarship.verified_status ? <BadgeCheck size={13} aria-hidden="true" /> : null}
+            {scholarship.verified_status ? "Verified" : "Verify official source"}
+          </Badge>
+        </div>
+
+        <div className="mt-4 grid gap-3 text-sm leading-6 text-ink/65">
+          {lastVerified ? (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                Last verified
+              </p>
+              <p className="mt-1 font-semibold text-ink">{lastVerified}</p>
+            </div>
+          ) : null}
+
+          {scholarship.source_name ? (
+            <div className="flex items-start gap-3">
+              <Globe2 size={18} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Source</p>
+                <p className="mt-1 font-semibold text-ink">{scholarship.source_name}</p>
+              </div>
+            </div>
+          ) : null}
+
+          {scholarship.verification_note ? (
+            <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+              {scholarship.verification_note}
+            </p>
+          ) : null}
+
+          {!scholarship.verified_status ? (
+            <p className="rounded-2xl border border-saffron/30 bg-saffron/15 px-4 py-3">
+              Please confirm final deadlines and requirements on the official source.
+            </p>
+          ) : null}
+        </div>
+
+        {scholarship.official_link || scholarship.source_url ? (
+          <div className="mt-4 grid gap-2">
+            {scholarship.official_link ? (
+              <a
+                href={scholarship.official_link}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+              >
+                Official Website
+                <ExternalLink size={15} aria-hidden="true" />
+              </a>
+            ) : null}
+
+            {scholarship.source_url ? (
+              <a
+                href={scholarship.source_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+              >
+                Source Page
+                <ExternalLink size={15} aria-hidden="true" />
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ScholarshipDetailPage() {
   const params = useParams<{ slug: string }>();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -466,7 +550,11 @@ export default function ScholarshipDetailPage() {
                             <BadgeCheck size={13} aria-hidden="true" />
                             Verified
                           </Badge>
-                        ) : null}
+                        ) : (
+                          <Badge tone="neutral" className="text-ink/60">
+                            Verify official source
+                          </Badge>
+                        )}
                         {isSaved ? <Badge tone="sky">Saved</Badge> : null}
                         {scholarship.tags.slice(0, 3).map((tag) => (
                           <Badge key={tag} tone="neutral">
@@ -642,6 +730,8 @@ export default function ScholarshipDetailPage() {
                     />
                   ) : null}
 
+                  <TrustSidebarCard scholarship={scholarship} />
+
                   <Card>
                     <CardContent className="p-5">
                       <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
@@ -707,36 +797,6 @@ export default function ScholarshipDetailPage() {
                             </div>
                           </div>
                         ) : null}
-                      </CardContent>
-                    </Card>
-                  ) : null}
-
-                  {scholarship.source_name || scholarship.source_url ? (
-                    <Card>
-                      <CardContent className="p-5">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-                          Source
-                        </p>
-                        <div className="mt-3 flex items-start gap-3 text-sm leading-6 text-ink/65">
-                          <Globe2
-                            size={18}
-                            className="mt-1 shrink-0 text-pine"
-                            aria-hidden="true"
-                          />
-                          <div>
-                            <p>{scholarship.source_name || "Official source"}</p>
-                            {scholarship.source_url ? (
-                              <a
-                                href={scholarship.source_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="font-semibold text-pine hover:text-ink"
-                              >
-                                Visit source
-                              </a>
-                            ) : null}
-                          </div>
-                        </div>
                       </CardContent>
                     </Card>
                   ) : null}

@@ -16,7 +16,9 @@ class OpportunityAdmin(admin.ModelAdmin):
         "deadline",
         "status",
         "featured",
+        "display_content_quality",
         "verified_status",
+        "last_verified_at",
         "updated_at",
     )
     list_filter = (
@@ -55,6 +57,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "updated_at",
         "published_at",
         "last_verified_at",
+        "display_content_quality",
         "display_country",
         "display_eligible_countries",
         "display_eligible_regions",
@@ -71,6 +74,7 @@ class OpportunityAdmin(admin.ModelAdmin):
                     "status",
                     "featured",
                     "verified_status",
+                    "display_content_quality",
                     "verification_note",
                     "last_verified_at",
                 )
@@ -218,6 +222,48 @@ class OpportunityAdmin(admin.ModelAdmin):
 
         return self.join_names(obj.study_field_refs.all())
 
+    @admin.display(description="Content quality")
+    def display_content_quality(self, obj):
+        if self.has_sample_text(obj.short_description) or self.has_sample_text(
+            obj.description
+        ):
+            return "Sample text"
+
+        if self.is_blank(obj.official_link):
+            return "Needs official link"
+
+        if self.is_blank(obj.source_url) or self.is_blank(obj.source_name):
+            return "Needs source"
+
+        if (
+            self.is_blank(obj.description)
+            or self.is_blank(obj.eligibility)
+            or self.is_blank(obj.benefits)
+        ):
+            return "Needs content"
+
+        if self.is_blank(obj.how_to_apply):
+            return "Needs content"
+
+        if obj.verified_status:
+            return "Verified"
+
+        return "Needs verification"
+
     def join_names(self, references):
         names = [reference.name for reference in references]
         return ", ".join(names) if names else "-"
+
+    def has_sample_text(self, value):
+        text = (value or "").casefold()
+        weak_phrases = (
+            "development sample",
+            "sample opportunity",
+            "verify details from the official source before using in production",
+            "sample data",
+            "placeholder",
+        )
+        return any(phrase in text for phrase in weak_phrases)
+
+    def is_blank(self, value):
+        return not (value or "").strip()

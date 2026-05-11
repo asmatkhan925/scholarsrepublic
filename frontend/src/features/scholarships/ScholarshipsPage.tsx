@@ -156,7 +156,11 @@ function ScholarshipCard({
                   <BadgeCheck size={13} aria-hidden="true" />
                   Verified
                 </Badge>
-              ) : null}
+              ) : (
+                <Badge tone="neutral" className="text-ink/60">
+                  Verify official source
+                </Badge>
+              )}
               {scholarship.featured ? (
                 <Badge tone="saffron">
                   <Star size={13} aria-hidden="true" />

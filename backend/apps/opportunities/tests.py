@@ -480,6 +480,100 @@ class OpportunityAPITests(APITestCase):
             "All Fields",
         )
 
+    def test_opportunity_admin_content_quality_display_helper(self):
+        opportunity_admin = OpportunityAdmin(Opportunity, AdminSite())
+        sample = self.opportunity(
+            slug="sample-content-quality",
+            short_description="Development sample opportunity.",
+            description="Current verified scholarship details.",
+            eligibility="Open to eligible students.",
+            benefits="Tuition support.",
+            how_to_apply="Apply through the official portal.",
+            official_link="https://example.com/apply",
+            source_url="https://example.com/source",
+            source_name="Official source",
+        )
+        verified = self.opportunity(
+            slug="verified-content-quality",
+            verified_status=True,
+            description="Current verified scholarship details.",
+            eligibility="Open to eligible students.",
+            benefits="Tuition support.",
+            how_to_apply="Apply through the official portal.",
+            official_link="https://example.com/apply",
+            source_url="https://example.com/source",
+            source_name="Official source",
+        )
+        missing_link = self.opportunity(slug="missing-link-content-quality")
+
+        self.assertEqual(opportunity_admin.display_content_quality(sample), "Sample text")
+        self.assertEqual(opportunity_admin.display_content_quality(verified), "Verified")
+        self.assertEqual(
+            opportunity_admin.display_content_quality(missing_link),
+            "Needs official link",
+        )
+
+    def test_audit_opportunity_content_handles_empty_database(self):
+        output = StringIO()
+
+        call_command("audit_opportunity_content", stdout=output)
+
+        text = output.getvalue()
+        self.assertIn("Total opportunities: 0", text)
+        self.assertIn("Published opportunities: 0", text)
+        self.assertIn("Dry audit only. No changes made.", text)
+
+    def test_audit_opportunity_content_reports_weak_sample_content(self):
+        self.opportunity(
+            slug="weak-sample-content",
+            short_description="Development sample opportunity.",
+            description="Placeholder sample data for internal review.",
+            eligibility="Open to eligible students.",
+            benefits="Tuition support.",
+            how_to_apply="Apply through the official portal.",
+            official_link="https://example.com/apply",
+            source_url="https://example.com/source",
+            source_name="Official source",
+        )
+        output = StringIO()
+
+        call_command("audit_opportunity_content", stdout=output)
+
+        text = output.getvalue()
+        self.assertIn("Weak/sample short_description: 1", text)
+        self.assertIn("Weak/sample description: 1", text)
+        self.assertIn("weak/sample short_description", text)
+        self.assertIn("weak-sample-content", text)
+
+    def test_audit_opportunity_content_reports_missing_trust_fields(self):
+        self.opportunity(
+            slug="missing-trust-fields",
+            short_description="Current scholarship summary.",
+            description="Current scholarship details.",
+            eligibility="",
+            benefits="",
+            how_to_apply="",
+            official_link="",
+            source_url="",
+            source_name="",
+            deadline=None,
+            is_rolling_deadline=False,
+        )
+        output = StringIO()
+
+        call_command("audit_opportunity_content", stdout=output)
+
+        text = output.getvalue()
+        self.assertIn("Missing official_link: 1", text)
+        self.assertIn("Missing source_url: 1", text)
+        self.assertIn("Missing source_name: 1", text)
+        self.assertIn("Missing eligibility: 1", text)
+        self.assertIn("Missing benefits: 1", text)
+        self.assertIn("Missing how_to_apply: 1", text)
+        self.assertIn("Missing deadline while is_rolling_deadline is false: 1", text)
+        self.assertIn("missing official_link", text)
+        self.assertIn("missing-trust-fields", text)
+
     def test_model_is_expired(self):
         opportunity = self.opportunity(deadline=timezone.localdate() - timedelta(days=1))
 
