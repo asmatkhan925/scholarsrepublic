@@ -20,7 +20,7 @@ class SavedOpportunityAdmin(admin.ModelAdmin):
     )
     list_filter = (
         "opportunity__opportunity_type",
-        "opportunity__country",
+        "opportunity__country_ref__name",
         "created_at",
     )
     readonly_fields = ("created_at", "updated_at")
@@ -55,7 +55,7 @@ class OpportunityApplicationAdmin(admin.ModelAdmin):
         "status",
         "priority",
         "opportunity__opportunity_type",
-        "opportunity__country",
+        "opportunity__country_ref__name",
         "personal_deadline",
         "created_at",
         "updated_at",

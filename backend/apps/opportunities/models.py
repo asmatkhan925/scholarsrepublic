@@ -106,7 +106,13 @@ class Opportunity(models.Model):
     )
     university_name = models.CharField(max_length=255, blank=True)
     company_name = models.CharField(max_length=255, blank=True)
-    country = models.CharField(max_length=100, blank=True, db_index=True)
+    country_ref = models.ForeignKey(
+        "reference_data.Country",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="opportunities",
+    )
     city = models.CharField(max_length=120, blank=True)
     location_type = models.CharField(max_length=50, choices=LocationType.choices, blank=True)
 
@@ -119,10 +125,23 @@ class Opportunity(models.Model):
     source_url = models.URLField(blank=True)
     source_name = models.CharField(max_length=255, blank=True)
 
-    eligible_countries = models.JSONField(default=list, blank=True)
+    eligible_country_refs = models.ManyToManyField(
+        "reference_data.Country",
+        blank=True,
+        related_name="eligible_opportunities",
+    )
+    eligible_region_refs = models.ManyToManyField(
+        "reference_data.Region",
+        blank=True,
+        related_name="eligible_opportunities",
+    )
     degree_levels = models.JSONField(default=list, blank=True)
-    fields_of_study = models.JSONField(default=list, blank=True)
-    target_regions = models.JSONField(default=list, blank=True)
+    study_field_refs = models.ManyToManyField(
+        "reference_data.StudyField",
+        blank=True,
+        related_name="opportunities",
+    )
+    all_study_fields = models.BooleanField(default=False, db_index=True)
     gender_eligibility = models.CharField(
         max_length=50,
         choices=GenderEligibility.choices,
@@ -180,13 +199,135 @@ class Opportunity(models.Model):
         indexes = [
             models.Index(fields=["opportunity_type"]),
             models.Index(fields=["status"]),
-            models.Index(fields=["country"]),
+            models.Index(fields=["country_ref"]),
             models.Index(fields=["deadline"]),
             models.Index(fields=["featured"]),
             models.Index(fields=["verified_status"]),
             models.Index(fields=["funding_type"]),
             models.Index(fields=["created_at"]),
         ]
+
+    @property
+    def country(self):
+        return self.country_ref.name if self.country_ref else ""
+
+    @country.setter
+    def country(self, value):
+        from apps.reference_data.models import Country
+
+        value = str(value or "").strip()
+
+        if not value:
+            self.country_ref = None
+            return
+
+        self.country_ref = Country.objects.filter(is_active=True, name__iexact=value).first()
+
+    @property
+    def eligible_countries(self):
+        if not self.pk:
+            return list(getattr(self, "_pending_eligible_countries", []))
+
+        return list(self.eligible_country_refs.values_list("name", flat=True))
+
+    @eligible_countries.setter
+    def eligible_countries(self, value):
+        self._pending_eligible_countries = value if isinstance(value, list) else value
+
+    @property
+    def fields_of_study(self):
+        if self.all_study_fields:
+            return ["All Fields"]
+
+        if not self.pk:
+            return list(getattr(self, "_pending_fields_of_study", []))
+
+        return list(self.study_field_refs.values_list("name", flat=True))
+
+    @fields_of_study.setter
+    def fields_of_study(self, value):
+        self._pending_fields_of_study = value if isinstance(value, list) else value
+
+    @property
+    def target_regions(self):
+        if not self.pk:
+            return list(getattr(self, "_pending_target_regions", []))
+
+        return list(self.eligible_region_refs.values_list("name", flat=True))
+
+    @target_regions.setter
+    def target_regions(self, value):
+        self._pending_target_regions = value if isinstance(value, list) else value
+
+    def _clean_pending_list(self, value):
+        if value in (None, ""):
+            return []
+
+        if not isinstance(value, list):
+            return []
+
+        cleaned = []
+        seen = set()
+
+        for item in value:
+            if not isinstance(item, str):
+                continue
+
+            item = item.strip()
+
+            if not item:
+                continue
+
+            key = item.casefold()
+
+            if key not in seen:
+                cleaned.append(item)
+                seen.add(key)
+
+        return cleaned
+
+    def _apply_pending_reference_lists(self):
+        if not self.pk:
+            return
+
+        from apps.reference_data.models import Country, Region, StudyField
+
+        if hasattr(self, "_pending_eligible_countries"):
+            countries = Country.objects.filter(
+                is_active=True,
+                name__in=self._clean_pending_list(self._pending_eligible_countries),
+            )
+            self.eligible_country_refs.set(countries)
+            delattr(self, "_pending_eligible_countries")
+
+        if hasattr(self, "_pending_target_regions"):
+            regions = Region.objects.filter(
+                is_active=True,
+                name__in=self._clean_pending_list(self._pending_target_regions),
+            )
+            self.eligible_region_refs.set(regions)
+            delattr(self, "_pending_target_regions")
+
+        if hasattr(self, "_pending_fields_of_study"):
+            field_names = self._clean_pending_list(self._pending_fields_of_study)
+            normalized_names = {name.casefold() for name in field_names}
+
+            if {"all fields", "all", "any"} & normalized_names:
+                type(self).objects.filter(pk=self.pk).update(all_study_fields=True)
+                self.all_study_fields = True
+                self.study_field_refs.clear()
+            else:
+                fields = StudyField.objects.filter(is_active=True, name__in=field_names)
+                self.study_field_refs.set(fields)
+                if self.all_study_fields:
+                    type(self).objects.filter(pk=self.pk).update(all_study_fields=False)
+                    self.all_study_fields = False
+
+            delattr(self, "_pending_fields_of_study")
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._apply_pending_reference_lists()
 
     def __str__(self) -> str:
         return self.title

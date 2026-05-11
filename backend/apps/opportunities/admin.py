@@ -8,7 +8,7 @@ class OpportunityAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "opportunity_type",
-        "country",
+        "country_ref",
         "provider_name",
         "funding_type",
         "deadline",
@@ -22,7 +22,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "status",
         "verified_status",
         "featured",
-        "country",
+        "country_ref",
         "funding_type",
         "application_fee_required",
         "ielts_required",
@@ -34,11 +34,17 @@ class OpportunityAdmin(admin.ModelAdmin):
         "provider_name",
         "university_name",
         "company_name",
-        "country",
+        "country_ref",
         "city",
         "search_keywords",
     )
     prepopulated_fields = {"slug": ("title",)}
+    autocomplete_fields = (
+        "country_ref",
+        "eligible_country_refs",
+        "eligible_region_refs",
+        "study_field_refs",
+    )
     readonly_fields = (
         "created_at",
         "updated_at",
@@ -69,7 +75,7 @@ class OpportunityAdmin(admin.ModelAdmin):
                     "organization_type",
                     "university_name",
                     "company_name",
-                    "country",
+                    "country_ref",
                     "city",
                     "location_type",
                 )
@@ -94,10 +100,12 @@ class OpportunityAdmin(admin.ModelAdmin):
             "Eligibility",
             {
                 "fields": (
-                    "eligible_countries",
+                    "eligible_country_refs",
+                    "eligible_region_refs",
                     "degree_levels",
-                    "fields_of_study",
-                    "target_regions",
+                    "study_field_refs",
+                    "all_study_fields",
+                    
                     "gender_eligibility",
                     "min_cgpa",
                     "min_percentage",

@@ -5,12 +5,68 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
+from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
+
+def create_reference_data(testcase):
+    testcase.asia, _ = Region.objects.get_or_create(
+        name="Asia",
+        defaults={"code": "ASIA", "display_order": 1},
+    )
+    testcase.europe, _ = Region.objects.get_or_create(
+        name="Europe",
+        defaults={"code": "EUROPE", "display_order": 2},
+    )
+
+    testcase.pakistan, _ = Country.objects.get_or_create(
+        name="Pakistan",
+        defaults={"region": testcase.asia, "iso2": "PK"},
+    )
+    testcase.china, _ = Country.objects.get_or_create(
+        name="China",
+        defaults={"region": testcase.asia, "iso2": "CN"},
+    )
+    testcase.germany, _ = Country.objects.get_or_create(
+        name="Germany",
+        defaults={"region": testcase.europe, "iso2": "DE"},
+    )
+    testcase.usa, _ = Country.objects.get_or_create(
+        name="USA",
+        defaults={"region": testcase.europe, "iso2": "US"},
+    )
+    testcase.turkey, _ = Country.objects.get_or_create(
+        name="Turkey",
+        defaults={"region": testcase.asia, "iso2": "TR"},
+    )
+
+    testcase.cs_category, _ = StudyFieldCategory.objects.get_or_create(
+        name="Computer Science & IT",
+        defaults={"display_order": 1},
+    )
+    testcase.computer_science, _ = StudyField.objects.get_or_create(
+        name="Computer Science",
+        defaults={"category": testcase.cs_category},
+    )
+    testcase.data_science, _ = StudyField.objects.get_or_create(
+        name="Data Science",
+        defaults={"category": testcase.cs_category},
+    )
+    testcase.medical_category, _ = StudyFieldCategory.objects.get_or_create(
+        name="Medical & Health Sciences",
+        defaults={"display_order": 2},
+    )
+    testcase.medicine, _ = StudyField.objects.get_or_create(
+        name="Medicine",
+        defaults={"category": testcase.medical_category},
+    )
+
+
 from apps.opportunities.models import Opportunity
 from apps.users.models import User
 
 
 class SavedOpportunityAPITests(APITestCase):
     def setUp(self):
+        create_reference_data(self)
         self.student = User.objects.create_user(
             email="student@example.com",
             password="StrongPassword123!",

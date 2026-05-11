@@ -232,9 +232,23 @@ class StudentProfile(models.Model):
     def nationality(self):
         return self.nationality_country.name if self.nationality_country else "Pakistan"
 
+    @nationality.setter
+    def nationality(self, value):
+        from apps.reference_data.models import Country
+
+        value = str(value or "").strip() or "Pakistan"
+        self.nationality_country = Country.objects.filter(is_active=True, name__iexact=value).first()
+
     @property
     def current_country(self):
         return self.current_country_ref.name if self.current_country_ref else "Pakistan"
+
+    @current_country.setter
+    def current_country(self, value):
+        from apps.reference_data.models import Country
+
+        value = str(value or "").strip() or "Pakistan"
+        self.current_country_ref = Country.objects.filter(is_active=True, name__iexact=value).first()
 
     @property
     def current_field_of_study(self):
@@ -243,22 +257,45 @@ class StudentProfile(models.Model):
 
         return self.custom_current_study_field
 
+    @current_field_of_study.setter
+    def current_field_of_study(self, value):
+        from apps.reference_data.models import StudyField
+
+        value = str(value or "").strip()
+
+        if not value:
+            self.current_study_field_ref = None
+            self.custom_current_study_field = ""
+            return
+
+        study_field = StudyField.objects.filter(is_active=True, name__iexact=value).first()
+        self.current_study_field_ref = study_field
+        self.custom_current_study_field = "" if study_field else value
+
     @property
     def target_countries(self):
         if not self.pk:
-            return []
+            return list(getattr(self, "_pending_target_countries", []))
 
         return list(self.target_country_refs.values_list("name", flat=True))
+
+    @target_countries.setter
+    def target_countries(self, value):
+        self._pending_target_countries = value if isinstance(value, list) else value
 
     @property
     def target_fields(self):
         if not self.pk:
-            return list(self.custom_target_study_fields or [])
+            return list(getattr(self, "_pending_target_fields", [])) or list(self.custom_target_study_fields or [])
 
         known_fields = list(self.target_study_field_refs.values_list("name", flat=True))
         custom_fields = list(self.custom_target_study_fields or [])
 
         return known_fields + [field for field in custom_fields if field not in known_fields]
+
+    @target_fields.setter
+    def target_fields(self, value):
+        self._pending_target_fields = value if isinstance(value, list) else value
 
     @property
     def supervisor_country(self):
@@ -266,6 +303,77 @@ class StudentProfile(models.Model):
             return self.supervisor_country_ref.name
 
         return self.custom_supervisor_country
+
+    @supervisor_country.setter
+    def supervisor_country(self, value):
+        from apps.reference_data.models import Country
+
+        value = str(value or "").strip()
+
+        if not value:
+            self.supervisor_country_ref = None
+            self.custom_supervisor_country = ""
+            return
+
+        country = Country.objects.filter(is_active=True, name__iexact=value).first()
+        self.supervisor_country_ref = country
+        self.custom_supervisor_country = "" if country else value
+
+    def _clean_pending_list(self, value):
+        if value in (None, ""):
+            return []
+
+        if not isinstance(value, list):
+            return []
+
+        cleaned = []
+        seen = set()
+
+        for item in value:
+            if not isinstance(item, str):
+                continue
+
+            item = item.strip()
+
+            if not item:
+                continue
+
+            key = item.casefold()
+
+            if key not in seen:
+                cleaned.append(item)
+                seen.add(key)
+
+        return cleaned
+
+    def _apply_pending_reference_lists(self):
+        if not self.pk:
+            return
+
+        from apps.reference_data.models import Country, StudyField
+
+        if hasattr(self, "_pending_target_countries"):
+            countries = Country.objects.filter(
+                is_active=True,
+                name__in=self._clean_pending_list(self._pending_target_countries),
+            )
+            self.target_country_refs.set(countries)
+            delattr(self, "_pending_target_countries")
+
+        if hasattr(self, "_pending_target_fields"):
+            field_names = self._clean_pending_list(self._pending_target_fields)
+            known_fields = list(StudyField.objects.filter(is_active=True, name__in=field_names))
+            known_names = {field.name.casefold() for field in known_fields}
+            custom_fields = [name for name in field_names if name.casefold() not in known_names]
+
+            self.target_study_field_refs.set(known_fields)
+            type(self).objects.filter(pk=self.pk).update(custom_target_study_fields=custom_fields)
+            self.custom_target_study_fields = custom_fields
+            delattr(self, "_pending_target_fields")
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._apply_pending_reference_lists()
 
     def __str__(self) -> str:
         return f"{self.user.email} opportunity profile"

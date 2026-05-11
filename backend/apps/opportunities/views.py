@@ -64,7 +64,11 @@ class OpportunityFilterMixin:
 
         country = params.get("country")
         if country:
-            queryset = queryset.filter(country__iexact=country)
+            queryset = queryset.filter(
+                Q(country_ref__name__iexact=country)
+                | Q(eligible_country_refs__name__iexact=country)
+                | Q(eligible_region_refs__name__iexact=country)
+            ).distinct()
 
         degree_level = params.get("degree_level")
         if degree_level:
@@ -73,8 +77,8 @@ class OpportunityFilterMixin:
         field = params.get("field")
         if field:
             queryset = queryset.filter(
-                Q(fields_of_study__contains=[field]) | Q(fields_of_study__contains=["All Fields"])
-            )
+                Q(study_field_refs__name__iexact=field) | Q(all_study_fields=True)
+            ).distinct()
 
         funding_type = params.get("funding_type")
         if funding_type:
@@ -115,7 +119,10 @@ class OpportunityFilterMixin:
                 | Q(provider_name__icontains=search)
                 | Q(university_name__icontains=search)
                 | Q(company_name__icontains=search)
-                | Q(country__icontains=search)
+                | Q(country_ref__name__icontains=search)
+                | Q(eligible_country_refs__name__icontains=search)
+                | Q(eligible_region_refs__name__icontains=search)
+                | Q(study_field_refs__name__icontains=search)
                 | Q(city__icontains=search)
                 | Q(short_description__icontains=search)
                 | Q(description__icontains=search)
@@ -138,7 +145,11 @@ class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        return Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
+        return Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED).select_related("country_ref").prefetch_related(
+            "eligible_country_refs",
+            "eligible_region_refs",
+            "study_field_refs",
+        )
 
 
 class PublicOpportunityDetailView(generics.RetrieveAPIView):
@@ -147,7 +158,11 @@ class PublicOpportunityDetailView(generics.RetrieveAPIView):
     lookup_field = "slug"
 
     def get_queryset(self):
-        return Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
+        return Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED).select_related("country_ref").prefetch_related(
+            "eligible_country_refs",
+            "eligible_region_refs",
+            "study_field_refs",
+        )
 
 
 class PublicScholarshipListView(PublicOpportunityListView):

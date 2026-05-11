@@ -1,6 +1,10 @@
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from apps.reference_data.serializers import CountrySerializer, RegionSerializer, StudyFieldSerializer
+
+LEGACY_REFERENCE_LIST_FIELDS = ("eligible_countries", "fields_of_study", "target_regions")
+
 from apps.applications.models import OpportunityApplication, SavedOpportunity
 
 from apps.opportunities.models import Opportunity, OpportunityComment
@@ -9,6 +13,26 @@ from apps.opportunities.models import Opportunity, OpportunityComment
 class OpportunityListSerializer(serializers.ModelSerializer):
     is_expired = serializers.BooleanField(read_only=True)
     days_until_deadline = serializers.IntegerField(read_only=True)
+    country = serializers.CharField(read_only=True)
+    eligible_countries = serializers.ListField(read_only=True)
+    fields_of_study = serializers.ListField(read_only=True)
+    target_regions = serializers.ListField(read_only=True)
+    country_ref_detail = CountrySerializer(source="country_ref", read_only=True)
+    eligible_country_ref_details = CountrySerializer(
+        source="eligible_country_refs",
+        many=True,
+        read_only=True,
+    )
+    eligible_region_ref_details = RegionSerializer(
+        source="eligible_region_refs",
+        many=True,
+        read_only=True,
+    )
+    study_field_ref_details = StudyFieldSerializer(
+        source="study_field_refs",
+        many=True,
+        read_only=True,
+    )
 
     class Meta:
         model = Opportunity
@@ -32,6 +56,11 @@ class OpportunityListSerializer(serializers.ModelSerializer):
             "degree_levels",
             "fields_of_study",
             "eligible_countries",
+            "target_regions",
+            "study_field_ref_details",
+            "eligible_region_ref_details",
+            "eligible_country_ref_details",
+            "country_ref_detail",
             "deadline",
             "is_rolling_deadline",
             "application_fee_required",
@@ -52,6 +81,26 @@ class OpportunityListSerializer(serializers.ModelSerializer):
 class OpportunityDetailSerializer(serializers.ModelSerializer):
     is_expired = serializers.BooleanField(read_only=True)
     days_until_deadline = serializers.IntegerField(read_only=True)
+    country = serializers.CharField(read_only=True)
+    eligible_countries = serializers.ListField(read_only=True)
+    fields_of_study = serializers.ListField(read_only=True)
+    target_regions = serializers.ListField(read_only=True)
+    country_ref_detail = CountrySerializer(source="country_ref", read_only=True)
+    eligible_country_ref_details = CountrySerializer(
+        source="eligible_country_refs",
+        many=True,
+        read_only=True,
+    )
+    eligible_region_ref_details = RegionSerializer(
+        source="eligible_region_refs",
+        many=True,
+        read_only=True,
+    )
+    study_field_ref_details = StudyFieldSerializer(
+        source="study_field_refs",
+        many=True,
+        read_only=True,
+    )
     is_saved = serializers.SerializerMethodField()
     saved_opportunity_id = serializers.SerializerMethodField()
     is_tracking = serializers.SerializerMethodField()
@@ -109,6 +158,13 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
 
 class OpportunityAdminSerializer(serializers.ModelSerializer):
+    def to_internal_value(self, data):
+        for field_name in LEGACY_REFERENCE_LIST_FIELDS:
+            if field_name in data and not isinstance(data[field_name], list):
+                raise serializers.ValidationError({field_name: "Must be a list."})
+
+        return super().to_internal_value(data)
+
     is_expired = serializers.BooleanField(read_only=True)
     days_until_deadline = serializers.IntegerField(read_only=True)
 
