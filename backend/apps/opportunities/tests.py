@@ -1,6 +1,7 @@
 from datetime import timedelta
 from io import StringIO
 
+from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -72,6 +73,7 @@ def create_reference_data(testcase):
     )
 
 
+from apps.opportunities.admin import OpportunityAdmin
 from apps.opportunities.models import Opportunity
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
@@ -449,6 +451,34 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Opportunity.objects.filter(id=opportunity.id).exists())
+
+    def test_opportunity_admin_reference_display_helpers(self):
+        opportunity = self.opportunity()
+        opportunity.eligible_region_refs.set([self.asia])
+        opportunity_admin = OpportunityAdmin(Opportunity, AdminSite())
+
+        self.assertEqual(opportunity_admin.display_country(opportunity), "China")
+        self.assertEqual(
+            opportunity_admin.display_eligible_countries(opportunity),
+            "Pakistan",
+        )
+        self.assertEqual(
+            opportunity_admin.display_eligible_regions(opportunity),
+            "Asia",
+        )
+        self.assertEqual(
+            opportunity_admin.display_study_fields(opportunity),
+            "Computer Science",
+        )
+
+        all_fields = self.opportunity(
+            slug="all-fields-admin-display",
+            fields_of_study=["All Fields"],
+        )
+        self.assertEqual(
+            opportunity_admin.display_study_fields(all_fields),
+            "All Fields",
+        )
 
     def test_model_is_expired(self):
         opportunity = self.opportunity(deadline=timezone.localdate() - timedelta(days=1))

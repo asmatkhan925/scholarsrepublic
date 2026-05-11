@@ -8,35 +8,40 @@ class OpportunityAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "opportunity_type",
-        "country_ref",
         "provider_name",
+        "display_country",
+        "display_eligible_countries",
+        "display_study_fields",
         "funding_type",
         "deadline",
         "status",
-        "verified_status",
         "featured",
+        "verified_status",
         "updated_at",
     )
     list_filter = (
-        "opportunity_type",
         "status",
-        "verified_status",
-        "featured",
-        "country_ref",
+        "opportunity_type",
         "funding_type",
-        "application_fee_required",
-        "ielts_required",
-        "hec_required",
-        "location_type",
+        "featured",
+        "verified_status",
+        "country_ref",
+        "eligible_country_refs",
+        "eligible_region_refs",
+        "all_study_fields",
+        "study_field_refs",
+        "deadline",
     )
     search_fields = (
         "title",
         "provider_name",
         "university_name",
-        "company_name",
-        "country_ref",
-        "city",
+        "country_ref__name",
+        "eligible_country_refs__name",
+        "eligible_region_refs__name",
+        "study_field_refs__name",
         "search_keywords",
+        "tags",
     )
     prepopulated_fields = {"slug": ("title",)}
     autocomplete_fields = (
@@ -50,6 +55,10 @@ class OpportunityAdmin(admin.ModelAdmin):
         "updated_at",
         "published_at",
         "last_verified_at",
+        "display_country",
+        "display_eligible_countries",
+        "display_eligible_regions",
+        "display_study_fields",
     )
     fieldsets = (
         (
@@ -75,7 +84,6 @@ class OpportunityAdmin(admin.ModelAdmin):
                     "organization_type",
                     "university_name",
                     "company_name",
-                    "country_ref",
                     "city",
                     "location_type",
                 )
@@ -97,15 +105,26 @@ class OpportunityAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Country, eligibility, and study fields",
+            {
+                "fields": (
+                    "display_country",
+                    "display_eligible_countries",
+                    "display_eligible_regions",
+                    "display_study_fields",
+                    "country_ref",
+                    "eligible_country_refs",
+                    "eligible_region_refs",
+                    "study_field_refs",
+                    "all_study_fields",
+                )
+            },
+        ),
+        (
             "Eligibility",
             {
                 "fields": (
-                    "eligible_country_refs",
-                    "eligible_region_refs",
                     "degree_levels",
-                    "study_field_refs",
-                    "all_study_fields",
-                    
                     "gender_eligibility",
                     "min_cgpa",
                     "min_percentage",
@@ -167,3 +186,38 @@ class OpportunityAdmin(admin.ModelAdmin):
             {"fields": ("published_at", "created_at", "updated_at")},
         ),
     )
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("country_ref")
+            .prefetch_related(
+                "eligible_country_refs",
+                "eligible_region_refs",
+                "study_field_refs",
+            )
+        )
+
+    @admin.display(description="Country", ordering="country_ref__name")
+    def display_country(self, obj):
+        return obj.country_ref.name if obj.country_ref else "-"
+
+    @admin.display(description="Eligible countries")
+    def display_eligible_countries(self, obj):
+        return self.join_names(obj.eligible_country_refs.all())
+
+    @admin.display(description="Eligible regions")
+    def display_eligible_regions(self, obj):
+        return self.join_names(obj.eligible_region_refs.all())
+
+    @admin.display(description="Study fields")
+    def display_study_fields(self, obj):
+        if obj.all_study_fields:
+            return "All Fields"
+
+        return self.join_names(obj.study_field_refs.all())
+
+    def join_names(self, references):
+        names = [reference.name for reference in references]
+        return ", ".join(names) if names else "-"
