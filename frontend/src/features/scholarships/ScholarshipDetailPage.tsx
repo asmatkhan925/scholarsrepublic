@@ -454,8 +454,13 @@ export default function ScholarshipDetailPage() {
       <SiteHeader />
 
       <main className="bg-[#f7faf8]">
-        <section className="mx-auto max-w-7xl px-4 py-5 sm:px-5 md:px-8 md:py-8">
-          <ButtonLink href="/scholarships" className="mb-4" size="sm" variant="ghost">
+        <section className="mx-auto max-w-7xl px-4 py-3 sm:px-5 md:px-8 md:py-5">
+          <ButtonLink
+            href="/scholarships"
+            className="mb-3 h-8 px-2 text-xs"
+            size="sm"
+            variant="ghost"
+          >
             <ArrowLeft size={15} aria-hidden="true" />
             Back to Scholarships
           </ButtonLink>
