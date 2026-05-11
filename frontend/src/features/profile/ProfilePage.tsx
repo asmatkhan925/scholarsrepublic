@@ -630,7 +630,8 @@ function ProfilePageContent() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+  const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
+  const [saveAndNavigate, setSaveAndNavigate] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -644,7 +645,6 @@ function ProfilePageContent() {
           setCompletion(completionFromProfile(profile));
           setProfileExists(true);
           setHasUnsavedChanges(false);
-          setShowUnsavedPrompt(false);
         }
       } catch (requestError) {
         if (mounted) {
@@ -671,11 +671,79 @@ function ProfilePageContent() {
   function markUnsaved() {
     setHasUnsavedChanges(true);
     setMessage(null);
-
-    if (!showUnsavedPrompt) {
-      setShowUnsavedPrompt(true);
-    }
   }
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsavedChanges) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    function handleDocumentClick(event: MouseEvent) {
+      if (!hasUnsavedChanges) {
+        return;
+      }
+
+      if (
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+
+      if (!anchor) {
+        return;
+      }
+
+      if (anchor.target && anchor.target !== "_self") {
+        return;
+      }
+
+      const href = anchor.href;
+
+      if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) {
+        return;
+      }
+
+      const currentUrl = new URL(window.location.href);
+      const nextUrl = new URL(href, window.location.href);
+
+      if (
+        currentUrl.pathname === nextUrl.pathname &&
+        currentUrl.search === nextUrl.search &&
+        currentUrl.hash !== nextUrl.hash
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setPendingNavigationHref(nextUrl.href);
+    }
+
+    document.addEventListener("click", handleDocumentClick, true);
+
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [hasUnsavedChanges]);
 
   function setField<K extends FieldName>(name: K, value: StudentProfilePayload[K]) {
     markUnsaved();
@@ -740,7 +808,14 @@ function ProfilePageContent() {
       setCompletion(completionFromProfile(profile));
       setProfileExists(true);
       setHasUnsavedChanges(false);
-      setShowUnsavedPrompt(false);
+
+      if (saveAndNavigate && pendingNavigationHref) {
+        window.location.assign(pendingNavigationHref);
+        return;
+      }
+
+      setSaveAndNavigate(false);
+      setPendingNavigationHref(null);
       setMessage("Profile saved successfully.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -1291,7 +1366,7 @@ function ProfilePageContent() {
           </div>
         </Section>
 
-        {showUnsavedPrompt && hasUnsavedChanges ? (
+        {pendingNavigationHref && hasUnsavedChanges ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 px-4 py-5 backdrop-blur-sm sm:items-center">
             <div className="w-full max-w-md rounded-[1.5rem] border border-pine/10 bg-white p-5 shadow-2xl">
               <div className="flex items-start gap-3">
@@ -1301,23 +1376,51 @@ function ProfilePageContent() {
                 <div>
                   <h2 className="text-lg font-bold text-ink">You have unsaved changes</h2>
                   <p className="mt-2 text-sm leading-6 text-ink/65">
-                    Save your profile now, or ignore this reminder and continue editing.
+                    Save your profile before leaving, or continue without saving these changes.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                <Button type="button" variant="outline" onClick={() => setShowUnsavedPrompt(false)}>
-                  Ignore for now
-                </Button>
+              <div className="mt-5 grid gap-2">
                 <Button
                   type="button"
                   disabled={saving}
-                  onClick={() => formRef.current?.requestSubmit()}
+                  onClick={() => {
+                    setSaveAndNavigate(true);
+                    formRef.current?.requestSubmit();
+                  }}
                 >
                   <Save size={16} aria-hidden="true" />
-                  {saving ? "Saving..." : "Save Changes"}
+                  {saving ? "Saving..." : "Save and leave"}
                 </Button>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const href = pendingNavigationHref;
+                      setHasUnsavedChanges(false);
+                      setPendingNavigationHref(null);
+
+                      if (href) {
+                        window.location.assign(href);
+                      }
+                    }}
+                  >
+                    Leave without saving
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setSaveAndNavigate(false);
+                      setPendingNavigationHref(null);
+                    }}
+                  >
+                    Keep editing
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
