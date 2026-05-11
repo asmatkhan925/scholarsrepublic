@@ -18,7 +18,6 @@ import {
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { StartApplicationButton } from "@/components/applications/StartApplicationButton";
-import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
 import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
@@ -155,7 +154,23 @@ function FactItem({ label, value, helper }: { label: string; value: string; help
   );
 }
 
-function CompactMatchCard({
+function getReadinessTone(level: string): "mint" | "saffron" | "danger" | "sky" {
+  if (level === "High") {
+    return "mint";
+  }
+
+  if (level === "Medium") {
+    return "saffron";
+  }
+
+  if (level === "Low") {
+    return "danger";
+  }
+
+  return "sky";
+}
+
+function MatchScoreSidebarCard({
   match,
   matchLoading,
   matchError,
@@ -166,53 +181,91 @@ function CompactMatchCard({
 }) {
   if (matchLoading) {
     return (
-      <div className="rounded-2xl border border-pine/10 bg-mint/35 p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
-        <p className="mt-2 text-sm text-ink/65">Calculating your fit...</p>
-      </div>
-    );
-  }
-
-  if (match) {
-    return (
-      <div className="rounded-2xl border border-pine/10 bg-mint/45 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
-            <p className="mt-1 text-sm font-semibold text-ink/65">Based on your profile</p>
-          </div>
-          <MatchScoreBadge score={match.score} readinessLevel={match.readiness_level} />
-        </div>
-
-        {match.matched_reasons.length > 0 ? (
-          <ul className="mt-3 grid gap-1.5">
-            {match.matched_reasons.slice(0, 3).map((reason) => (
-              <li key={reason} className="flex gap-2 text-xs leading-5 text-ink/65">
-                <ShieldCheck size={14} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
-                <span>{reason}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+      <Card>
+        <CardContent className="p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
+          <p className="mt-3 text-sm leading-6 text-ink/65">Calculating your profile match...</p>
+        </CardContent>
+      </Card>
     );
   }
 
   if (matchError) {
     return (
-      <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
-        <p className="mt-2 text-sm leading-6 text-ink/65">
-          Complete your profile to calculate your fit.
-        </p>
-        <ButtonLink href="/dashboard/profile" className="mt-3" size="sm" variant="secondary">
-          Complete Profile
-        </ButtonLink>
-      </div>
+      <Card>
+        <CardContent className="p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
+          <h2 className="mt-2 text-lg font-bold text-ink">Complete your profile first</h2>
+          <p className="mt-2 text-sm leading-6 text-ink/65">
+            Add your education, goals, and target countries to calculate your fit for this
+            scholarship.
+          </p>
+          <ButtonLink href="/dashboard/profile" className="mt-4" size="sm" variant="secondary">
+            Complete Profile
+          </ButtonLink>
+        </CardContent>
+      </Card>
     );
   }
 
-  return null;
+  if (!match) {
+    return null;
+  }
+
+  const score = Math.min(Math.max(match.score, 0), 100);
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
+            <h2 className="mt-2 text-lg font-bold text-ink">Based on your profile</h2>
+          </div>
+          <Badge tone={getReadinessTone(match.readiness_level)}>{match.readiness_level}</Badge>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-pine/10 bg-mint/35 p-4">
+          <div className="flex items-end justify-between gap-3">
+            <p className="text-3xl font-black tracking-tight text-pine">
+              {score}
+              <span className="text-base font-bold text-ink/45">/100</span>
+            </p>
+            <p className="text-sm font-semibold text-ink/60">Profile fit</p>
+          </div>
+
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-pine" style={{ width: `${score}%` }} />
+          </div>
+        </div>
+
+        {match.matched_reasons.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-sm font-bold text-ink">Why it may fit</p>
+            <ul className="mt-2 grid gap-2">
+              {match.matched_reasons.slice(0, 3).map((reason) => (
+                <li key={reason} className="flex gap-2 text-sm leading-6 text-ink/65">
+                  <ShieldCheck size={15} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
+                  <span>{reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {match.missing_requirements.length > 0 ? (
+          <div className="mt-4 rounded-2xl border border-saffron/30 bg-saffron/15 p-3">
+            <p className="text-sm font-bold text-ink">Check before applying</p>
+            <ul className="mt-2 grid gap-1 text-sm leading-6 text-ink/65">
+              {match.missing_requirements.slice(0, 3).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function ScholarshipDetailPage() {
@@ -461,14 +514,6 @@ export default function ScholarshipDetailPage() {
                     </div>
 
                     <div className="grid gap-3 rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
-                      {user?.role === "student" ? (
-                        <CompactMatchCard
-                          match={match}
-                          matchError={matchError}
-                          matchLoading={matchLoading}
-                        />
-                      ) : null}
-
                       <div>
                         <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
                           Student actions
@@ -590,6 +635,14 @@ export default function ScholarshipDetailPage() {
                 </div>
 
                 <aside className="grid content-start gap-5">
+                  {user?.role === "student" ? (
+                    <MatchScoreSidebarCard
+                      match={match}
+                      matchError={matchError}
+                      matchLoading={matchLoading}
+                    />
+                  ) : null}
+
                   <Card>
                     <CardContent className="p-5">
                       <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
