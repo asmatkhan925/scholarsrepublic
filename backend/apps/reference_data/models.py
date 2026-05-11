@@ -41,3 +41,45 @@ class Country(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class StudyField(models.Model):
+    class Category(models.TextChoices):
+        COMPUTER_SCIENCE = "Computer Science & IT", "Computer Science & IT"
+        ENGINEERING = "Engineering", "Engineering"
+        MEDICAL = "Medical & Health Sciences", "Medical & Health Sciences"
+        BUSINESS = "Business & Economics", "Business & Economics"
+        SOCIAL_SCIENCES = "Social Sciences", "Social Sciences"
+        NATURAL_SCIENCES = "Natural Sciences", "Natural Sciences"
+        AGRICULTURE = "Agriculture & Environment", "Agriculture & Environment"
+        ARTS = "Arts & Humanities", "Arts & Humanities"
+        EDUCATION = "Education", "Education"
+        LAW = "Law & Public Policy", "Law & Public Policy"
+        OTHER = "Other", "Other"
+
+    name = models.CharField(max_length=150, unique=True)
+    slug = models.SlugField(max_length=170, unique=True, blank=True)
+    category = models.CharField(max_length=80, choices=Category.choices, db_index=True)
+    aliases = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    display_order = models.PositiveIntegerField(default=1000, db_index=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("category", "display_order", "name")
+        indexes = [
+            models.Index(fields=["category", "is_active"]),
+            models.Index(fields=["is_active", "display_order"]),
+            models.Index(fields=["slug"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.name

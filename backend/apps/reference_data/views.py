@@ -4,8 +4,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.reference_data.models import Country
-from apps.reference_data.serializers import CountrySerializer
+from apps.reference_data.models import Country, StudyField
+from apps.reference_data.serializers import CountrySerializer, StudyFieldSerializer
 
 
 class CountryListView(APIView):
@@ -29,5 +29,31 @@ class CountryListView(APIView):
                 "count": countries.count(),
                 "results": serializer.data,
                 "regions": regions,
+            }
+        )
+
+
+
+class StudyFieldListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        fields = StudyField.objects.filter(is_active=True).order_by(
+            "category",
+            "display_order",
+            "name",
+        )
+
+        serializer = StudyFieldSerializer(fields, many=True)
+        categories = OrderedDict()
+
+        for field in serializer.data:
+            categories.setdefault(field["category"], []).append(field["name"])
+
+        return Response(
+            {
+                "count": fields.count(),
+                "results": serializer.data,
+                "categories": categories,
             }
         )

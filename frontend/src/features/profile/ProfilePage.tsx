@@ -21,6 +21,7 @@ import {
   createStudentProfile,
   getCountries,
   getStudentProfile,
+  getStudyFields,
   patchStudentProfile,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
@@ -53,6 +54,11 @@ type ArrayField =
 type FieldName = keyof StudentProfilePayload;
 type SelectOption = string | { label: string; value: string };
 type CountryRegionMap = Record<string, readonly string[]>;
+type FieldCategoryMap = Record<string, readonly string[]>;
+
+const FALLBACK_STUDY_FIELD_CATEGORIES: FieldCategoryMap = {
+  Popular: COMMON_FIELDS_OF_STUDY,
+};
 
 const EMPTY_PROFILE: StudentProfilePayload = {
   phone_number: "",
@@ -244,10 +250,12 @@ function constrainProfilePayload(payload: StudentProfilePayload): StudentProfile
 }
 
 function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload {
-  const normalized = constrainProfilePayload({
-    ...payload,
-    profile_source: payload.profile_source || "manual",
-  });
+  const normalized = constrainProfilePayload(
+    withProfileDefaults({
+      ...payload,
+      profile_source: payload.profile_source || "manual",
+    }),
+  );
 
   for (const field of nullableFields) {
     if (normalized[field] === "") {
@@ -282,6 +290,15 @@ function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload
   }
 
   return constrainProfilePayload(normalized);
+}
+
+function withProfileDefaults(payload: StudentProfilePayload): StudentProfilePayload {
+  return {
+    ...payload,
+    nationality: payload.nationality || "Pakistan",
+    current_country: payload.current_country || "Pakistan",
+    profile_source: payload.profile_source || "manual",
+  };
 }
 
 function completionFromProfile(profile: StudentProfile | null): ProfileCompletion {
@@ -645,6 +662,205 @@ function MultiCheckboxField({
   );
 }
 
+function StudyFieldSelect({
+  label,
+  value,
+  fieldCategories,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  fieldCategories: FieldCategoryMap;
+  onChange: (value: string) => void;
+}) {
+  const categoryNames = Object.keys(fieldCategories);
+  const [category, setCategory] = useState(categoryNames[0] ?? "");
+  const [selectedField, setSelectedField] = useState("");
+  const [customField, setCustomField] = useState("");
+
+  const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
+  const isKnownField = Object.values(fieldCategories).flat().includes(value);
+  const isCustom = Boolean(value && !isKnownField);
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-medium text-ink/80">{label}</p>
+
+      <div className="grid gap-2 md:grid-cols-[14rem_1fr]">
+        <select
+          value={category}
+          onChange={(event) => {
+            setCategory(event.target.value);
+            setSelectedField("");
+          }}
+          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        >
+          {categoryNames.map((categoryName) => (
+            <option key={categoryName} value={categoryName}>
+              {categoryName}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={isKnownField ? value : selectedField}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setSelectedField(nextValue);
+
+            if (nextValue === "Other") {
+              onChange(customField);
+              return;
+            }
+
+            onChange(nextValue);
+          }}
+          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        >
+          <option value="">Select field</option>
+          {fieldsForCategory.map((fieldName) => (
+            <option key={fieldName} value={fieldName}>
+              {fieldName}
+            </option>
+          ))}
+          <option value="Other">Other / write my own</option>
+        </select>
+      </div>
+
+      {selectedField === "Other" || isCustom ? (
+        <TextField
+          label="Write field of study"
+          placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
+          value={customField || value}
+          onChange={(nextValue) => {
+            setCustomField(nextValue);
+            onChange(nextValue);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function StudyFieldMultiPicker({
+  label,
+  values,
+  fieldCategories,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  fieldCategories: FieldCategoryMap;
+  onChange: (value: string[]) => void;
+}) {
+  const categoryNames = Object.keys(fieldCategories);
+  const [category, setCategory] = useState(categoryNames[0] ?? "");
+  const [field, setField] = useState("");
+  const [customField, setCustomField] = useState("");
+
+  const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
+
+  function addField(fieldName: string) {
+    const cleaned = fieldName.trim();
+
+    if (!cleaned || values.includes(cleaned)) {
+      return;
+    }
+
+    onChange([...values, cleaned]);
+    setField("");
+    setCustomField("");
+  }
+
+  function removeField(fieldName: string) {
+    onChange(values.filter((item) => item !== fieldName));
+  }
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-medium text-ink/80">{label}</p>
+
+      <div className="grid gap-2 md:grid-cols-[14rem_1fr_auto]">
+        <select
+          value={category}
+          onChange={(event) => {
+            setCategory(event.target.value);
+            setField("");
+            setCustomField("");
+          }}
+          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        >
+          {categoryNames.map((categoryName) => (
+            <option key={categoryName} value={categoryName}>
+              {categoryName}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={field}
+          onChange={(event) => setField(event.target.value)}
+          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        >
+          <option value="">Select field</option>
+          {fieldsForCategory.map((fieldName) => (
+            <option key={fieldName} value={fieldName} disabled={values.includes(fieldName)}>
+              {fieldName}
+            </option>
+          ))}
+          <option value="Other">Other / write my own</option>
+        </select>
+
+        {field !== "Other" ? (
+          <Button type="button" onClick={() => addField(field)} disabled={!field} variant="outline">
+            Add
+          </Button>
+        ) : null}
+      </div>
+
+      {field === "Other" ? (
+        <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+          <TextField
+            label="Write field"
+            placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
+            value={customField}
+            onChange={setCustomField}
+          />
+          <div className="flex items-end">
+            <Button
+              type="button"
+              onClick={() => addField(customField)}
+              disabled={!customField.trim()}
+              variant="outline"
+            >
+              Add
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {values.length > 0 ? (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {values.map((fieldName) => (
+            <button
+              key={fieldName}
+              type="button"
+              onClick={() => removeField(fieldName)}
+              className="rounded-2xl border border-pine/15 bg-mint px-3 py-1.5 text-sm font-medium text-pine transition hover:bg-saffron/20"
+            >
+              {fieldName} ×
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs leading-5 text-ink/45">
+          Select from common fields, or choose Other to write your own.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CountryRegionPicker({
   label,
   values,
@@ -801,6 +1017,9 @@ function ProfilePageContent() {
   const [countryRegions, setCountryRegions] = useState<CountryRegionMap>(
     COUNTRY_REGIONS as CountryRegionMap,
   );
+  const [studyFieldCategories, setStudyFieldCategories] = useState<FieldCategoryMap>(
+    FALLBACK_STUDY_FIELD_CATEGORIES,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -819,7 +1038,7 @@ function ProfilePageContent() {
         const profile = await getStudentProfile();
 
         if (mounted) {
-          setForm(constrainProfilePayload({ ...EMPTY_PROFILE, ...profile }));
+          setForm(constrainProfilePayload(withProfileDefaults({ ...EMPTY_PROFILE, ...profile })));
           setCompletion(completionFromProfile(profile));
           setProfileExists(true);
           setHasUnsavedChanges(false);
@@ -862,6 +1081,28 @@ function ProfilePageContent() {
     }
 
     void loadCountries();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadStudyFields() {
+      try {
+        const response = await getStudyFields();
+
+        if (mounted && Object.keys(response.categories).length > 0) {
+          setStudyFieldCategories(response.categories);
+        }
+      } catch {
+        // Keep frontend fallback study fields if reference API is unavailable.
+      }
+    }
+
+    void loadStudyFields();
 
     return () => {
       mounted = false;
@@ -1019,7 +1260,7 @@ function ProfilePageContent() {
         ? await patchStudentProfile(payload)
         : await createStudentProfile(payload);
 
-      setForm(constrainProfilePayload({ ...EMPTY_PROFILE, ...profile }));
+      setForm(constrainProfilePayload(withProfileDefaults({ ...EMPTY_PROFILE, ...profile })));
       setCompletion(completionFromProfile(profile));
       setProfileExists(true);
       setHasUnsavedChanges(false);
@@ -1068,7 +1309,6 @@ function ProfilePageContent() {
   const countryOptions = useMemo(() => {
     return Array.from(new Set(Object.values(countryRegions).flat())).sort();
   }, [countryRegions]);
-
   const nextProfileSteps = useMemo(() => {
     return [
       ...completion.missing_profile_fields.slice(0, 3),
@@ -1260,7 +1500,12 @@ function ProfilePageContent() {
               {...textField("current_education_level")}
             />
             <TextField label="Current institution" {...textField("current_institution")} />
-            <TextField label="Current field of study" {...textField("current_field_of_study")} />
+            <StudyFieldSelect
+              label="Current field of study"
+              value={String(form.current_field_of_study || "")}
+              fieldCategories={studyFieldCategories}
+              onChange={(value) => setField("current_field_of_study", value)}
+            />
             <TextField
               label="Graduation year"
               type="number"
@@ -1344,11 +1589,11 @@ function ProfilePageContent() {
               onChange={(value) => setField("target_countries", value)}
             />
 
-            <MultiCheckboxField
+            <StudyFieldMultiPicker
               label="Target fields"
-              helper="Select the fields you want to study."
-              options={COMMON_FIELDS_OF_STUDY}
-              {...multiField("target_fields")}
+              values={form.target_fields}
+              fieldCategories={studyFieldCategories}
+              onChange={(value) => setField("target_fields", value)}
             />
           </div>
         </Section>

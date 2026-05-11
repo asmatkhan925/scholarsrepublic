@@ -14,3 +14,18 @@ export type CountryListResponse = {
   results: CountryOption[];
   regions: Record<string, string[]>;
 };
+
+export type StudyFieldOption = {
+  id: number;
+  name: string;
+  slug: string;
+  category: string;
+  aliases: string[];
+  display_order: number;
+};
+
+export type StudyFieldListResponse = {
+  count: number;
+  results: StudyFieldOption[];
+  categories: Record<string, string[]>;
+};
