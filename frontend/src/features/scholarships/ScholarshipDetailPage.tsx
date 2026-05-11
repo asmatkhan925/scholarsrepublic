@@ -721,25 +721,6 @@ export default function ScholarshipDetailPage() {
                     </Card>
                   ) : null}
 
-                  {user?.role === "student" ? (
-                    <MatchScoreSidebarCard
-                      match={match}
-                      matchLoading={matchLoading}
-                      matchError={matchError}
-                    />
-                  ) : isAuthenticated ? (
-                    <Card>
-                      <CardContent className="p-5">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-                          Personalized matching
-                        </p>
-                        <p className="mt-3 text-sm leading-6 text-ink/65">
-                          Student match scores are available from student accounts.
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ) : null}
-
                   {scholarship.source_name || scholarship.source_url ? (
                     <Card>
                       <CardContent className="p-5">
