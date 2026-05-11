@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Bell,
   BookOpen,
@@ -626,8 +626,11 @@ function ProfilePageContent() {
   const [completion, setCompletion] = useState(completionFromProfile(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -640,6 +643,8 @@ function ProfilePageContent() {
           setForm({ ...EMPTY_PROFILE, ...profile });
           setCompletion(completionFromProfile(profile));
           setProfileExists(true);
+          setHasUnsavedChanges(false);
+          setShowUnsavedPrompt(false);
         }
       } catch (requestError) {
         if (mounted) {
@@ -663,11 +668,22 @@ function ProfilePageContent() {
     };
   }, []);
 
+  function markUnsaved() {
+    setHasUnsavedChanges(true);
+    setMessage(null);
+
+    if (!showUnsavedPrompt) {
+      setShowUnsavedPrompt(true);
+    }
+  }
+
   function setField<K extends FieldName>(name: K, value: StudentProfilePayload[K]) {
+    markUnsaved();
     setForm((current) => ({ ...current, [name]: value }));
   }
 
   function toggleArrayValue(name: ArrayField, value: string) {
+    markUnsaved();
     setForm((current) => {
       const values = current[name];
 
@@ -723,6 +739,8 @@ function ProfilePageContent() {
       setForm({ ...EMPTY_PROFILE, ...profile });
       setCompletion(completionFromProfile(profile));
       setProfileExists(true);
+      setHasUnsavedChanges(false);
+      setShowUnsavedPrompt(false);
       setMessage("Profile saved successfully.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -781,7 +799,7 @@ function ProfilePageContent() {
       hideHeader
       title="Student Profile"
     >
-      <form onSubmit={handleSubmit} className="grid gap-4">
+      <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4">
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
           <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 md:px-5">
             <div className="grid gap-4 xl:grid-cols-[1fr_20rem] xl:items-center">
@@ -1273,12 +1291,46 @@ function ProfilePageContent() {
           </div>
         </Section>
 
+        {showUnsavedPrompt && hasUnsavedChanges ? (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 px-4 py-5 backdrop-blur-sm sm:items-center">
+            <div className="w-full max-w-md rounded-[1.5rem] border border-pine/10 bg-white p-5 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-saffron/25 text-pine">
+                  <Save size={18} aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-bold text-ink">You have unsaved changes</h2>
+                  <p className="mt-2 text-sm leading-6 text-ink/65">
+                    Save your profile now, or ignore this reminder and continue editing.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <Button type="button" variant="outline" onClick={() => setShowUnsavedPrompt(false)}>
+                  Ignore for now
+                </Button>
+                <Button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => formRef.current?.requestSubmit()}
+                >
+                  <Save size={16} aria-hidden="true" />
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <Card className="sticky bottom-3 z-10 border-pine/15 bg-white/95 shadow-lg backdrop-blur">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold text-ink">Save your profile</p>
               <p className="text-sm leading-6 text-ink/60">
-                Save partial progress now. Better profile data improves matches and recommendations.
+                {hasUnsavedChanges
+                  ? "You have changes that are not saved yet."
+                  : "Better profile data improves matches and recommendations."}
               </p>
             </div>
 
@@ -1288,7 +1340,7 @@ function ProfilePageContent() {
               </ButtonLink>
               <Button type="submit" disabled={saving}>
                 <Save size={16} aria-hidden="true" />
-                {saving ? "Saving..." : "Save Profile"}
+                {saving ? "Saving..." : hasUnsavedChanges ? "Save Changes" : "Save Profile"}
               </Button>
             </div>
           </CardContent>
