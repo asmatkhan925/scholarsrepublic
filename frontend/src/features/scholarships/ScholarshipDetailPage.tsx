@@ -22,6 +22,7 @@ import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunit
 import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 import { getSavedOpportunitySlugs, getScholarship, getScholarshipMatch } from "@/lib/api";
+import { ScholarshipComments } from "@/features/scholarships/ScholarshipComments";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityDetail, OpportunityMatch } from "@/types/opportunity";
 
@@ -757,6 +758,8 @@ export default function ScholarshipDetailPage() {
                   ) : null}
                 </aside>
               </section>
+
+              <ScholarshipComments slug={scholarship.slug} />
             </div>
           ) : null}
         </section>

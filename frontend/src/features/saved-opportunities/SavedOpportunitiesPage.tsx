@@ -14,11 +14,7 @@ import {
   startApplicationFromSaved,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type {
-  OpportunityApplication,
-  SavedOpportunity,
-  SavedOpportunityResponse,
-} from "@/types/opportunity";
+import type { SavedOpportunity, SavedOpportunityResponse } from "@/types/opportunity";
 
 function humanize(value: string) {
   if (!value) {

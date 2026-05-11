@@ -108,6 +108,40 @@ export type OpportunityMatch = {
   suggestions: string[];
 };
 
+export type ScholarshipCommentReply = {
+  id: number;
+  user: number;
+  user_name: string;
+  user_role: string;
+  body: string;
+  is_deleted: boolean;
+  can_delete: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ScholarshipComment = {
+  id: number;
+  user: number;
+  user_name: string;
+  user_role: string;
+  body: string;
+  is_deleted: boolean;
+  replies: ScholarshipCommentReply[];
+  can_delete: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ScholarshipCommentResponse = {
+  count: number;
+  results: ScholarshipComment[];
+};
+
+export type CreateScholarshipCommentPayload = {
+  body: string;
+};
+
 export type RecommendedOpportunity = {
   opportunity: OpportunityListItem;
   match: OpportunityMatch;

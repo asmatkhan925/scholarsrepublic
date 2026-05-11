@@ -1,12 +1,13 @@
 import axios from "axios";
-import type { AIJobStatus, GenerateSOPPayload, SubmitAIJobResponse } from "@/types/ai";
+
 import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types/auth";
-import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
+import type { AIJobStatus, GenerateSOPPayload, SubmitAIJobResponse } from "@/types/ai";
 import type {
   ApplicationQueryParams,
   ApplicationSummary,
   CreateApplicationPayload,
   CreateSavedOpportunityPayload,
+  CreateScholarshipCommentPayload,
   OpportunityAdminPayload,
   OpportunityApplication,
   OpportunityApplicationResponse,
@@ -18,8 +19,12 @@ import type {
   SavedOpportunity,
   SavedOpportunityResponse,
   SavedOpportunitySlugsResponse,
+  ScholarshipComment,
+  ScholarshipCommentReply,
+  ScholarshipCommentResponse,
   UpdateApplicationPayload,
 } from "@/types/opportunity";
+import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api",
@@ -252,6 +257,35 @@ export async function startApplicationByScholarshipSlug(slug: string) {
     `/scholarships/${slug}/start-application/`,
   );
   return response.data;
+}
+
+export async function getScholarshipComments(slug: string) {
+  const response = await api.get<ScholarshipCommentResponse>(`/scholarships/${slug}/comments/`);
+  return response.data;
+}
+
+export async function createScholarshipComment(
+  slug: string,
+  payload: CreateScholarshipCommentPayload,
+) {
+  const response = await api.post<ScholarshipComment>(`/scholarships/${slug}/comments/`, payload);
+  return response.data;
+}
+
+export async function replyToScholarshipComment(
+  slug: string,
+  commentId: number,
+  payload: CreateScholarshipCommentPayload,
+) {
+  const response = await api.post<ScholarshipCommentReply>(
+    `/scholarships/${slug}/comments/${commentId}/replies/`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function deleteScholarshipComment(commentId: number) {
+  await api.delete(`/scholarship-comments/${commentId}/`);
 }
 
 // AI tools
