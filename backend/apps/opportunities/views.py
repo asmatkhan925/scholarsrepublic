@@ -64,10 +64,19 @@ class OpportunityFilterMixin:
 
         country = params.get("country")
         if country:
+            country_text_fallback = (
+                Q(title__icontains=country)
+                | Q(short_description__icontains=country)
+                | Q(provider_name__icontains=country)
+                | Q(university_name__icontains=country)
+                | Q(search_keywords__icontains=country)
+            )
+
             queryset = queryset.filter(
                 Q(country_ref__name__iexact=country)
                 | Q(eligible_country_refs__name__iexact=country)
                 | Q(eligible_region_refs__name__iexact=country)
+                | country_text_fallback
             ).distinct()
 
         degree_level = params.get("degree_level")
