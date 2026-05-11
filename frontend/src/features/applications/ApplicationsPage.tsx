@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -401,19 +400,15 @@ function ApplicationsSummaryHeader({
             </p>
           </div>
 
-          <div className="rounded-2xl border border-pine/10 bg-white/80 px-4 py-3 shadow-sm lg:max-w-xs">
-            <p className="flex items-center gap-2 text-sm font-bold text-ink">
-              <BookmarkCheck size={16} className="text-pine" aria-hidden="true" />
-              Need more applications?
-            </p>
-            <Link
-              href="/dashboard/saved"
-              className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-pine transition hover:text-ink"
-            >
-              Start from saved shortlist
-              <ArrowRight size={14} aria-hidden="true" />
-            </Link>
-          </div>
+          <ButtonLink
+            href="/dashboard/saved"
+            className="w-full whitespace-nowrap border-pine/20 bg-white text-pine shadow-sm hover:bg-mint sm:w-auto"
+            size="sm"
+            variant="outline"
+          >
+            <BookmarkCheck size={15} aria-hidden="true" />
+            Add from Saved
+          </ButtonLink>
         </div>
       </div>
 
