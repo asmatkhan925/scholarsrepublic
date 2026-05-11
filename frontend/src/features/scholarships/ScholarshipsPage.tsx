@@ -121,7 +121,7 @@ function ScholarshipCard({
       ? "Admin"
       : profileRequired
         ? "Complete Profile"
-        : "Saved List";
+        : "Open Shortlist";
 
   const provider =
     scholarship.university_name ||
@@ -138,20 +138,37 @@ function ScholarshipCard({
     <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
       <CardContent className="flex h-full flex-col p-0">
         <div className="flex-1 p-4 md:p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={deadlineTone}>{getDeadlineLabel(scholarship)}</Badge>
-            {scholarship.verified_status ? (
-              <Badge tone="mint">
-                <BadgeCheck size={13} aria-hidden="true" />
-                Verified
-              </Badge>
-            ) : null}
-            {scholarship.featured ? (
-              <Badge tone="saffron">
-                <Star size={13} aria-hidden="true" />
-                Featured
-              </Badge>
-            ) : null}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={deadlineTone}>{getDeadlineLabel(scholarship)}</Badge>
+              {initiallySaved ? (
+                <Badge tone="sky">
+                  <BookmarkCheck size={13} aria-hidden="true" />
+                  Saved
+                </Badge>
+              ) : null}
+              {scholarship.verified_status ? (
+                <Badge tone="mint">
+                  <BadgeCheck size={13} aria-hidden="true" />
+                  Verified
+                </Badge>
+              ) : null}
+              {scholarship.featured ? (
+                <Badge tone="saffron">
+                  <Star size={13} aria-hidden="true" />
+                  Featured
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="w-full shrink-0 sm:w-36">
+              <SaveOpportunityButton
+                opportunityType="scholarship"
+                slug={scholarship.slug}
+                initiallySaved={initiallySaved}
+                onSavedChange={(saved) => onSavedChange?.(scholarship.slug, saved)}
+              />
+            </div>
           </div>
 
           <h2 className="mt-4 text-lg font-bold leading-snug text-ink md:text-xl">
@@ -251,15 +268,6 @@ function ScholarshipCard({
             <ButtonLink href={secondaryHref} size="sm" variant="secondary">
               {secondaryLabel}
             </ButtonLink>
-          </div>
-
-          <div className="mt-3">
-            <SaveOpportunityButton
-              opportunityType="scholarship"
-              slug={scholarship.slug}
-              initiallySaved={initiallySaved}
-              onSavedChange={(saved) => onSavedChange?.(scholarship.slug, saved)}
-            />
           </div>
         </div>
       </CardContent>

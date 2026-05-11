@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BookmarkCheck, BookmarkPlus, Loader2, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { Button, ButtonLink } from "@/components/ui";
 import {
   saveOpportunityBySlug,
   saveScholarshipBySlug,
@@ -31,6 +32,7 @@ export function SaveOpportunityButton({
   const [saved, setSaved] = useState(initiallySaved);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const isScholarship = opportunityType === "scholarship";
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export function SaveOpportunityButton({
         } else {
           await unsaveOpportunityBySlug(slug);
         }
+
         setSaved(false);
         onSavedChange?.(false);
       } else {
@@ -56,6 +59,7 @@ export function SaveOpportunityButton({
         } else {
           await saveOpportunityBySlug(slug);
         }
+
         setSaved(true);
         onSavedChange?.(true);
       }
@@ -66,46 +70,57 @@ export function SaveOpportunityButton({
     }
   }
 
-  if (!isAuthenticated && !authLoading) {
+  if (authLoading) {
     return (
-      <Link
-        href="/login"
-        className="rounded border border-ink/15 px-4 py-2 text-center text-sm font-semibold text-ink hover:bg-ink/5"
-      >
+      <Button className="w-full whitespace-nowrap" disabled size="sm" variant="outline">
+        <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+        Checking
+      </Button>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <ButtonLink href="/login" className="w-full whitespace-nowrap" size="sm" variant="secondary">
+        <BookmarkPlus size={15} aria-hidden="true" />
         Login to Save
-      </Link>
+      </ButtonLink>
     );
   }
 
   if (user?.role === "admin") {
     return (
-      <button
-        type="button"
-        disabled
-        className="cursor-not-allowed rounded border border-ink/10 px-4 py-2 text-sm font-semibold text-ink/40"
-      >
-        Student save only
-      </button>
+      <Button className="w-full whitespace-nowrap" disabled size="sm" variant="outline">
+        <ShieldCheck size={15} aria-hidden="true" />
+        Student Only
+      </Button>
     );
   }
 
   return (
     <div className="grid gap-2">
-      <button
-        type="button"
-        disabled={disabled || loading || authLoading}
-        onClick={handleToggle}
-        aria-label={saved ? `Remove saved ${slug}` : `Save ${slug}`}
+      <Button
         className={
           saved
-            ? "rounded border border-pine/25 bg-mint px-4 py-2 text-sm font-semibold text-pine hover:bg-mint/70 disabled:opacity-60"
-            : "rounded bg-pine px-4 py-2 text-sm font-semibold text-white hover:bg-pine/90 disabled:opacity-60"
+            ? "w-full whitespace-nowrap border-pine/20 bg-mint/60 text-pine shadow-sm hover:bg-mint"
+            : "w-full whitespace-nowrap shadow-sm"
         }
+        disabled={disabled || loading}
+        onClick={handleToggle}
+        size="sm"
+        variant={saved ? "outline" : "primary"}
       >
-        {loading ? "Saving..." : saved ? "Remove Saved" : "Save Opportunity"}
-      </button>
-      {saved && <p className="text-xs font-semibold text-pine">Saved</p>}
-      {error && <p className="text-xs text-red-700">{error}</p>}
+        {loading ? (
+          <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+        ) : saved ? (
+          <BookmarkCheck size={15} aria-hidden="true" />
+        ) : (
+          <BookmarkPlus size={15} aria-hidden="true" />
+        )}
+        {loading ? "Saving..." : saved ? "Remove Saved" : "Save"}
+      </Button>
+
+      {error ? <p className="text-xs font-medium text-red-700">{error}</p> : null}
     </div>
   );
 }
