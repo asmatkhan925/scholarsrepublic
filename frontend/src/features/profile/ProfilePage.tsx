@@ -17,13 +17,17 @@ import {
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
-import { createStudentProfile, getStudentProfile, patchStudentProfile } from "@/lib/api";
+import {
+  createStudentProfile,
+  getCountries,
+  getStudentProfile,
+  patchStudentProfile,
+} from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import {
   APPLICATION_FEE_PREFERENCES,
   COMMON_FIELDS_OF_STUDY,
   COMMON_SKILLS,
-  COUNTRIES,
   COUNTRY_REGIONS,
   DOCUMENT_OPTIONS,
   EDUCATION_LEVELS,
@@ -48,6 +52,7 @@ type ArrayField =
 
 type FieldName = keyof StudentProfilePayload;
 type SelectOption = string | { label: string; value: string };
+type CountryRegionMap = Record<string, readonly string[]>;
 
 const EMPTY_PROFILE: StudentProfilePayload = {
   phone_number: "",
@@ -793,6 +798,9 @@ function ProfilePageContent() {
   const [form, setForm] = useState(EMPTY_PROFILE);
   const [profileExists, setProfileExists] = useState(false);
   const [completion, setCompletion] = useState(completionFromProfile(null));
+  const [countryRegions, setCountryRegions] = useState<CountryRegionMap>(
+    COUNTRY_REGIONS as CountryRegionMap,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -832,6 +840,28 @@ function ProfilePageContent() {
     }
 
     void loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCountries() {
+      try {
+        const response = await getCountries();
+
+        if (mounted && Object.keys(response.regions).length > 0) {
+          setCountryRegions(response.regions);
+        }
+      } catch {
+        // Keep frontend fallback countries if reference API is unavailable.
+      }
+    }
+
+    void loadCountries();
 
     return () => {
       mounted = false;
@@ -977,6 +1007,14 @@ function ProfilePageContent() {
 
     try {
       const payload = normalizePayload(form);
+      const validationError = validateProfilePayload(payload);
+
+      if (validationError) {
+        setError(validationError);
+        setSaving(false);
+        return;
+      }
+
       const profile = profileExists
         ? await patchStudentProfile(payload)
         : await createStudentProfile(payload);
@@ -1026,6 +1064,10 @@ function ProfilePageContent() {
 
     return coreDocuments + form.additional_documents.length;
   }, [form]);
+
+  const countryOptions = useMemo(() => {
+    return Array.from(new Set(Object.values(countryRegions).flat())).sort();
+  }, [countryRegions]);
 
   const nextProfileSteps = useMemo(() => {
     return [
@@ -1190,10 +1232,14 @@ function ProfilePageContent() {
               max={TODAY_DATE}
               {...textField("date_of_birth")}
             />
-            <TextField label="Nationality" {...textField("nationality")} />
+            <SelectField
+              label="Nationality"
+              options={countryOptions}
+              {...textField("nationality")}
+            />
             <SelectField
               label="Current country"
-              options={COUNTRIES}
+              options={countryOptions}
               {...textField("current_country")}
             />
             <TextField label="City" {...textField("city")} />
@@ -1294,7 +1340,7 @@ function ProfilePageContent() {
             <CountryRegionPicker
               label="Target countries"
               values={form.target_countries}
-              countryRegions={COUNTRY_REGIONS}
+              countryRegions={countryRegions}
               onChange={(value) => setField("target_countries", value)}
             />
 

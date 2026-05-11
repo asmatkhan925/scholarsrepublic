@@ -1,5 +1,6 @@
 import axios from "axios";
 
+import type { CountryListResponse } from "@/types/reference";
 import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types/auth";
 import type { AIJobStatus, GenerateSOPPayload, SubmitAIJobResponse } from "@/types/ai";
 import type {
@@ -42,6 +43,11 @@ export type HealthResponse = {
 
 export async function getHealth(): Promise<HealthResponse> {
   const response = await api.get<HealthResponse>("/health/");
+  return response.data;
+}
+
+export async function getCountries() {
+  const response = await api.get<CountryListResponse>("/reference/countries/");
   return response.data;
 }
 

@@ -8,6 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from config.views import health_check
 
 urlpatterns = [
+    path("api/reference/", include("apps.reference_data.urls")),
     path("admin/", admin.site.urls),
     path("api/health/", health_check, name="api-health"),
     path("api/auth/", include("apps.users.urls")),
