@@ -454,7 +454,7 @@ export default function ScholarshipDetailPage() {
       <SiteHeader />
 
       <main className="bg-[#f7faf8]">
-        <section className="mx-auto max-w-7xl px-4 py-2 sm:px-5 md:px-8 md:py-3">
+        <section className="mx-auto max-w-7xl px-4 py-1 sm:px-5 md:px-8 md:py-2">
           <ButtonLink
             href="/scholarships"
             className="mb-3 h-8 px-2 text-xs"
@@ -480,10 +480,10 @@ export default function ScholarshipDetailPage() {
           ) : null}
 
           {!loading && !error && scholarship ? (
-            <div className="grid gap-5">
+            <div className="grid gap-3">
               <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
                 <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 md:px-7">
-                  <div className="grid gap-5 xl:grid-cols-[1fr_21rem] xl:items-start">
+                  <div className="grid gap-3 xl:grid-cols-[1fr_21rem] xl:items-start">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={getDeadlineTone(scholarship)}>
@@ -615,8 +615,8 @@ export default function ScholarshipDetailPage() {
                 </div>
               </section>
 
-              <section className="grid gap-5 lg:grid-cols-[1fr_22rem]">
-                <div className="grid gap-5">
+              <section className="grid gap-3 lg:grid-cols-[1fr_22rem]">
+                <div className="grid gap-3">
                   <DetailSection
                     title="Overview"
                     content={scholarship.description || scholarship.short_description}
@@ -648,7 +648,7 @@ export default function ScholarshipDetailPage() {
                   />
                 </div>
 
-                <aside className="grid content-start gap-5">
+                <aside className="grid content-start gap-3">
                   {user?.role === "student" ? (
                     <MatchScoreSidebarCard
                       match={match}
