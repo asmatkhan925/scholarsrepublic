@@ -1,13 +1,21 @@
 from django.utils.text import slugify
 from rest_framework import serializers
 
-from apps.reference_data.serializers import CountrySerializer, RegionSerializer, StudyFieldSerializer
-
-LEGACY_REFERENCE_LIST_FIELDS = ("eligible_countries", "fields_of_study", "target_regions")
-
 from apps.applications.models import OpportunityApplication, SavedOpportunity
-
 from apps.opportunities.models import Opportunity, OpportunityComment
+from apps.reference_data.models import Country, Region, StudyField
+from apps.reference_data.serializers import (
+    CountrySerializer,
+    RegionSerializer,
+    StudyFieldSerializer,
+)
+
+LEGACY_REFERENCE_LIST_FIELDS = (
+    "eligible_countries",
+    "fields_of_study",
+    "target_regions",
+)
+ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
 
 
 class OpportunityListSerializer(serializers.ModelSerializer):
@@ -158,12 +166,168 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
 
 class OpportunityAdminSerializer(serializers.ModelSerializer):
-    def to_internal_value(self, data):
-        for field_name in LEGACY_REFERENCE_LIST_FIELDS:
-            if field_name in data and not isinstance(data[field_name], list):
-                raise serializers.ValidationError({field_name: "Must be a list."})
+    def clean_text_list(self, value, field_name):
+        if value in (None, ""):
+            return []
 
-        return super().to_internal_value(data)
+        if not isinstance(value, list):
+            raise serializers.ValidationError({field_name: "Must be a list."})
+
+        cleaned = []
+        seen = set()
+
+        for item in value:
+            if not isinstance(item, str):
+                raise serializers.ValidationError(
+                    {field_name: "Must be a list of strings."}
+                )
+
+            item = item.strip()
+
+            if not item:
+                continue
+
+            key = item.casefold()
+
+            if key not in seen:
+                cleaned.append(item)
+                seen.add(key)
+
+        return cleaned
+
+    def clean_text_value(self, value, field_name):
+        if value in (None, ""):
+            return ""
+
+        if not isinstance(value, str):
+            raise serializers.ValidationError({field_name: "Must be a string."})
+
+        return value.strip()
+
+    def resolve_country_name(self, name, field_name):
+        if not name:
+            return None
+
+        country = Country.objects.filter(is_active=True, name__iexact=name).first()
+
+        if not country:
+            raise serializers.ValidationError(
+                {field_name: f'Unknown country "{name}".'}
+            )
+
+        return country
+
+    def resolve_region_name(self, name, field_name):
+        region = Region.objects.filter(is_active=True, name__iexact=name).first()
+
+        if not region:
+            raise serializers.ValidationError({field_name: f'Unknown region "{name}".'})
+
+        return region
+
+    def resolve_study_field_name(self, name, field_name):
+        study_field = StudyField.objects.filter(
+            is_active=True,
+            name__iexact=name,
+        ).first()
+
+        if not study_field:
+            raise serializers.ValidationError(
+                {field_name: f'Unknown study field "{name}".'}
+            )
+
+        return study_field
+
+    def resolve_reference_names(self, names, resolver, field_name):
+        resolved = []
+        errors = []
+
+        for name in names:
+            try:
+                resolved.append(resolver(name, field_name))
+            except serializers.ValidationError as error:
+                errors.append(error.detail[field_name])
+
+        if errors:
+            raise serializers.ValidationError({field_name: errors})
+
+        return resolved
+
+    def extract_legacy_references(self, data):
+        references = {}
+        errors = {}
+
+        if "country" in data:
+            try:
+                country_name = self.clean_text_value(data.pop("country"), "country")
+                references["country_ref"] = self.resolve_country_name(
+                    country_name,
+                    "country",
+                )
+            except serializers.ValidationError as error:
+                errors.update(error.detail)
+
+        if "eligible_countries" in data:
+            try:
+                country_names = self.clean_text_list(
+                    data.pop("eligible_countries"),
+                    "eligible_countries",
+                )
+                references["eligible_country_refs"] = self.resolve_reference_names(
+                    country_names,
+                    self.resolve_country_name,
+                    "eligible_countries",
+                )
+            except serializers.ValidationError as error:
+                errors.update(error.detail)
+
+        if "target_regions" in data:
+            try:
+                region_names = self.clean_text_list(
+                    data.pop("target_regions"),
+                    "target_regions",
+                )
+                references["eligible_region_refs"] = self.resolve_reference_names(
+                    region_names,
+                    self.resolve_region_name,
+                    "target_regions",
+                )
+            except serializers.ValidationError as error:
+                errors.update(error.detail)
+
+        if "fields_of_study" in data:
+            try:
+                field_names = self.clean_text_list(
+                    data.pop("fields_of_study"),
+                    "fields_of_study",
+                )
+                normalized_names = {name.casefold() for name in field_names}
+
+                if normalized_names & ALL_STUDY_FIELD_MARKERS:
+                    references["all_study_fields"] = True
+                    references["study_field_refs"] = []
+                else:
+                    references["all_study_fields"] = False
+                    references["study_field_refs"] = self.resolve_reference_names(
+                        field_names,
+                        self.resolve_study_field_name,
+                        "fields_of_study",
+                    )
+            except serializers.ValidationError as error:
+                errors.update(error.detail)
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return references
+
+    def to_internal_value(self, data):
+        data = data.copy()
+        legacy_references = self.extract_legacy_references(data)
+        internal_value = super().to_internal_value(data)
+        internal_value.update(legacy_references)
+
+        return internal_value
 
     is_expired = serializers.BooleanField(read_only=True)
     days_until_deadline = serializers.IntegerField(read_only=True)

@@ -266,6 +266,99 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["title"], "Admin Created Scholarship")
 
+    def test_admin_can_create_opportunity_with_normalized_reference_ids(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/opportunities/",
+            {
+                "title": "Normalized Reference Scholarship",
+                "slug": "normalized-reference-scholarship",
+                "opportunity_type": Opportunity.OpportunityType.SCHOLARSHIP,
+                "status": Opportunity.Status.PUBLISHED,
+                "provider_name": "Normalized Provider",
+                "deadline": timezone.localdate() + timedelta(days=45),
+                "country_ref": self.china.id,
+                "eligible_country_refs": [self.usa.id],
+                "study_field_refs": [self.computer_science.id],
+                "all_study_fields": False,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        opportunity = Opportunity.objects.get(slug="normalized-reference-scholarship")
+        self.assertEqual(opportunity.country_ref.name, "China")
+        self.assertEqual(
+            list(opportunity.eligible_country_refs.values_list("name", flat=True)),
+            ["USA"],
+        )
+        self.assertEqual(
+            list(opportunity.study_field_refs.values_list("name", flat=True)),
+            ["Computer Science"],
+        )
+
+    def test_admin_can_create_opportunity_with_legacy_reference_names(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/opportunities/",
+            {
+                "title": "Legacy Reference Scholarship",
+                "slug": "legacy-reference-scholarship",
+                "opportunity_type": Opportunity.OpportunityType.SCHOLARSHIP,
+                "status": Opportunity.Status.PUBLISHED,
+                "provider_name": "Legacy Provider",
+                "deadline": timezone.localdate() + timedelta(days=45),
+                "country": "China",
+                "eligible_countries": ["USA"],
+                "fields_of_study": ["Medicine"],
+                "target_regions": ["Asia"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        opportunity = Opportunity.objects.get(slug="legacy-reference-scholarship")
+        self.assertEqual(opportunity.country_ref.name, "China")
+        self.assertEqual(
+            list(opportunity.eligible_country_refs.values_list("name", flat=True)),
+            ["USA"],
+        )
+        self.assertEqual(
+            list(opportunity.study_field_refs.values_list("name", flat=True)),
+            ["Medicine"],
+        )
+        self.assertEqual(
+            list(opportunity.eligible_region_refs.values_list("name", flat=True)),
+            ["Asia"],
+        )
+
+    def test_admin_create_rejects_unknown_legacy_reference_names(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/opportunities/",
+            {
+                "title": "Unknown Reference Scholarship",
+                "slug": "unknown-reference-scholarship",
+                "opportunity_type": Opportunity.OpportunityType.SCHOLARSHIP,
+                "status": Opportunity.Status.PUBLISHED,
+                "provider_name": "Unknown Provider",
+                "country": "Fake Country",
+                "eligible_countries": ["Fake Country"],
+                "fields_of_study": ["Fake Field"],
+                "target_regions": ["Fake Region"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("country", response.data)
+        self.assertIn("eligible_countries", response.data)
+        self.assertIn("fields_of_study", response.data)
+        self.assertIn("target_regions", response.data)
+
     def test_student_cannot_create_admin_opportunity(self):
         self.client.force_authenticate(self.student)
 
@@ -302,6 +395,31 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["title"], "Updated Opportunity")
         self.assertEqual(response.data["status"], Opportunity.Status.ARCHIVED)
+
+    def test_admin_can_patch_opportunity_with_legacy_reference_names(self):
+        opportunity = self.opportunity(
+            slug="legacy-patch-reference-scholarship",
+            country="China",
+            fields_of_study=["Computer Science"],
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.patch(
+            f"/api/admin/opportunities/{opportunity.id}/",
+            {
+                "country": "USA",
+                "fields_of_study": ["Medicine"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.country_ref.name, "USA")
+        self.assertEqual(
+            list(opportunity.study_field_refs.values_list("name", flat=True)),
+            ["Medicine"],
+        )
 
     def test_admin_can_delete_opportunity(self):
         opportunity = self.opportunity()
