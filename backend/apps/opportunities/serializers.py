@@ -1,6 +1,8 @@
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from apps.applications.models import OpportunityApplication, SavedOpportunity
+
 from apps.opportunities.models import Opportunity, OpportunityComment
 
 
@@ -50,6 +52,10 @@ class OpportunityListSerializer(serializers.ModelSerializer):
 class OpportunityDetailSerializer(serializers.ModelSerializer):
     is_expired = serializers.BooleanField(read_only=True)
     days_until_deadline = serializers.IntegerField(read_only=True)
+    is_saved = serializers.SerializerMethodField()
+    saved_opportunity_id = serializers.SerializerMethodField()
+    is_tracking = serializers.SerializerMethodField()
+    application_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Opportunity
@@ -58,9 +64,53 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             "id",
             "is_expired",
             "days_until_deadline",
+            "is_saved",
+            "saved_opportunity_id",
+            "is_tracking",
+            "application_id",
             "created_at",
             "updated_at",
         )
+
+    def _student_user(self):
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return None
+
+        if getattr(request.user, "role", None) != "student":
+            return None
+
+        return request.user
+
+    def get_saved_opportunity_id(self, obj):
+        user = self._student_user()
+        if not user:
+            return None
+
+        saved = (
+            SavedOpportunity.objects.filter(user=user, opportunity=obj)
+            .only("id")
+            .first()
+        )
+        return saved.id if saved else None
+
+    def get_is_saved(self, obj):
+        return self.get_saved_opportunity_id(obj) is not None
+
+    def get_application_id(self, obj):
+        user = self._student_user()
+        if not user:
+            return None
+
+        application = (
+            OpportunityApplication.objects.filter(user=user, opportunity=obj)
+            .only("id")
+            .first()
+        )
+        return application.id if application else None
+
+    def get_is_tracking(self, obj):
+        return self.get_application_id(obj) is not None
 
 
 class OpportunityAdminSerializer(serializers.ModelSerializer):
