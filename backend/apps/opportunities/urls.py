@@ -9,11 +9,14 @@ from apps.applications.views import (
 from apps.opportunities.views import (
     AdminOpportunityDetailView,
     AdminOpportunityListCreateView,
+    OpportunityCommentDeleteView,
     OpportunityMatchView,
     PublicOpportunityDetailView,
     PublicOpportunityListView,
     PublicScholarshipDetailView,
     PublicScholarshipListView,
+    ScholarshipCommentListCreateView,
+    ScholarshipCommentReplyCreateView,
     RecommendedOpportunitiesView,
     RecommendedScholarshipsView,
     ScholarshipMatchView,
@@ -56,6 +59,21 @@ urlpatterns = [
         "scholarships/<slug:slug>/match/",
         ScholarshipMatchView.as_view(),
         name="scholarship-match",
+    ),
+    path(
+        "scholarships/<slug:slug>/comments/",
+        ScholarshipCommentListCreateView.as_view(),
+        name="scholarship-comments",
+    ),
+    path(
+        "scholarships/<slug:slug>/comments/<int:pk>/replies/",
+        ScholarshipCommentReplyCreateView.as_view(),
+        name="scholarship-comment-replies",
+    ),
+    path(
+        "scholarship-comments/<int:pk>/",
+        OpportunityCommentDeleteView.as_view(),
+        name="scholarship-comment-delete",
     ),
     path(
         "scholarships/<slug:slug>/save/",

@@ -1,7 +1,7 @@
 from django.utils.text import slugify
 from rest_framework import serializers
 
-from apps.opportunities.models import Opportunity
+from apps.opportunities.models import Opportunity, OpportunityComment
 
 
 class OpportunityListSerializer(serializers.ModelSerializer):
@@ -138,3 +138,121 @@ class OpportunityAdminSerializer(serializers.ModelSerializer):
 class RecommendedOpportunitySerializer(serializers.Serializer):
     opportunity = OpportunityListSerializer(read_only=True)
     match = serializers.DictField(read_only=True)
+
+
+class OpportunityCommentReplySerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_role = serializers.CharField(source="user.role", read_only=True)
+    can_delete = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OpportunityComment
+        fields = (
+            "id",
+            "user",
+            "user_name",
+            "user_role",
+            "body",
+            "is_deleted",
+            "can_delete",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "user",
+            "user_name",
+            "user_role",
+            "is_deleted",
+            "can_delete",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_user_name(self, obj):
+        if obj.is_deleted:
+            return "Deleted user"
+
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name or obj.user.email
+
+    def get_can_delete(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+
+        return (
+            obj.user_id == request.user.id
+            or request.user.role == "admin"
+            or request.user.is_staff
+            or request.user.is_superuser
+        )
+
+
+class OpportunityCommentSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_role = serializers.CharField(source="user.role", read_only=True)
+    replies = OpportunityCommentReplySerializer(many=True, read_only=True)
+    can_delete = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OpportunityComment
+        fields = (
+            "id",
+            "user",
+            "user_name",
+            "user_role",
+            "body",
+            "is_deleted",
+            "replies",
+            "can_delete",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "user",
+            "user_name",
+            "user_role",
+            "is_deleted",
+            "replies",
+            "can_delete",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_user_name(self, obj):
+        if obj.is_deleted:
+            return "Deleted user"
+
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name or obj.user.email
+
+    def get_can_delete(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+
+        return (
+            obj.user_id == request.user.id
+            or request.user.role == "admin"
+            or request.user.is_staff
+            or request.user.is_superuser
+        )
+
+
+class OpportunityCommentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OpportunityComment
+        fields = ("body",)
+
+    def validate_body(self, value):
+        value = value.strip()
+
+        if not value:
+            raise serializers.ValidationError("Comment cannot be empty.")
+
+        if len(value) > 2000:
+            raise serializers.ValidationError("Comment is too long.")
+
+        return value

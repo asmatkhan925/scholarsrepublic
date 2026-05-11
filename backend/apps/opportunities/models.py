@@ -276,3 +276,60 @@ class Opportunity(models.Model):
 
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class OpportunityComment(models.Model):
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    user = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="opportunity_comments",
+    )
+    parent = models.ForeignKey(
+        "opportunities.OpportunityComment",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+    )
+    body = models.TextField(max_length=2000)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("created_at",)
+        indexes = [
+            models.Index(fields=["opportunity", "created_at"]),
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["parent", "created_at"]),
+            models.Index(fields=["is_deleted"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Comment by {self.user.email} on {self.opportunity.title}"
+
+    def clean(self):
+        errors = {}
+
+        if self.opportunity_id and self.opportunity.status != Opportunity.Status.PUBLISHED:
+            errors["opportunity"] = "Comments are only allowed on published opportunities."
+
+        if self.parent_id:
+            if self.parent.parent_id is not None:
+                errors["parent"] = "Nested replies deeper than one level are not allowed."
+
+            if self.parent.opportunity_id != self.opportunity_id:
+                errors["parent"] = "Reply must belong to the same opportunity."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def soft_delete(self):
+        self.is_deleted = True
+        self.body = ""
+        self.save(update_fields=["is_deleted", "body", "updated_at"])

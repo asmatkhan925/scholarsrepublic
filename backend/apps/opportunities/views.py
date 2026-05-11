@@ -4,10 +4,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.opportunities.matching import calculate_opportunity_match
-from apps.opportunities.models import Opportunity
+from apps.opportunities.models import Opportunity, OpportunityComment
 from apps.opportunities.serializers import (
     OpportunityAdminSerializer,
     OpportunityDetailSerializer,
+    OpportunityCommentCreateSerializer,
+    OpportunityCommentReplySerializer,
+    OpportunityCommentSerializer,
     OpportunityListSerializer,
 )
 from apps.users.models import User
@@ -246,3 +249,118 @@ class RecommendedOpportunitiesView(OpportunityFilterMixin, StudentMatchMixin, AP
 
 class RecommendedScholarshipsView(RecommendedOpportunitiesView):
     opportunity_type = Opportunity.OpportunityType.SCHOLARSHIP
+
+
+class ScholarshipCommentListCreateView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get_opportunity(self, slug):
+        return Opportunity.objects.get(
+            slug=slug,
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+            status=Opportunity.Status.PUBLISHED,
+        )
+
+    def get(self, request, slug):
+        try:
+            opportunity = self.get_opportunity(slug)
+        except Opportunity.DoesNotExist:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        comments = (
+            OpportunityComment.objects.filter(opportunity=opportunity, parent__isnull=True)
+            .select_related("user")
+            .prefetch_related("replies__user")
+            .order_by("-created_at")
+        )
+
+        serializer = OpportunityCommentSerializer(
+            comments,
+            many=True,
+            context={"request": request},
+        )
+        return Response({"count": comments.count(), "results": serializer.data})
+
+    def post(self, request, slug):
+        if not request.user or not request.user.is_authenticated:
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            opportunity = self.get_opportunity(slug)
+        except Opportunity.DoesNotExist:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = OpportunityCommentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        comment = OpportunityComment.objects.create(
+            opportunity=opportunity,
+            user=request.user,
+            body=serializer.validated_data["body"],
+        )
+
+        return Response(
+            OpportunityCommentSerializer(comment, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ScholarshipCommentReplyCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, slug, pk):
+        try:
+            opportunity = Opportunity.objects.get(
+                slug=slug,
+                opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+                status=Opportunity.Status.PUBLISHED,
+            )
+        except Opportunity.DoesNotExist:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            parent = OpportunityComment.objects.get(
+                pk=pk,
+                opportunity=opportunity,
+                parent__isnull=True,
+            )
+        except OpportunityComment.DoesNotExist:
+            return Response({"detail": "Comment not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = OpportunityCommentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reply = OpportunityComment.objects.create(
+            opportunity=opportunity,
+            user=request.user,
+            parent=parent,
+            body=serializer.validated_data["body"],
+        )
+
+        return Response(
+            OpportunityCommentReplySerializer(reply, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class OpportunityCommentDeleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        try:
+            comment = OpportunityComment.objects.select_related("user").get(pk=pk)
+        except OpportunityComment.DoesNotExist:
+            return Response({"detail": "Comment not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        can_delete = (
+            comment.user_id == request.user.id
+            or request.user.role == User.Role.ADMIN
+            or request.user.is_staff
+            or request.user.is_superuser
+        )
+
+        if not can_delete:
+            return Response({"detail": "You cannot delete this comment."}, status=status.HTTP_403_FORBIDDEN)
+
+        comment.soft_delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
