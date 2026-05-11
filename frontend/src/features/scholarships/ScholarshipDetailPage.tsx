@@ -1,13 +1,12 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   ArrowLeft,
   BadgeCheck,
   BookOpenCheck,
-  CalendarDays,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -91,7 +90,7 @@ function DetailSection({
 }: {
   title: string;
   content: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   if (!content) {
     return null;
@@ -104,7 +103,7 @@ function DetailSection({
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
             {icon}
           </span>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-xl font-bold text-ink">{title}</h2>
             <div className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/70">{content}</div>
           </div>
@@ -114,15 +113,7 @@ function DetailSection({
   );
 }
 
-function ListSection({
-  title,
-  items,
-  icon,
-}: {
-  title: string;
-  items: string[];
-  icon: React.ReactNode;
-}) {
+function ListSection({ title, items, icon }: { title: string; items: string[]; icon: ReactNode }) {
   if (items.length === 0) {
     return null;
   }
@@ -136,7 +127,7 @@ function ListSection({
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold text-ink">{title}</h2>
-            <ul className="mt-4 grid gap-2">
+            <ul className="mt-4 grid gap-2 md:grid-cols-2">
               {items.map((item) => (
                 <li
                   key={item}
@@ -164,7 +155,7 @@ function FactItem({ label, value, helper }: { label: string; value: string; help
   );
 }
 
-function MatchPanel({
+function CompactMatchCard({
   match,
   matchLoading,
   matchError,
@@ -173,98 +164,55 @@ function MatchPanel({
   matchLoading: boolean;
   matchError: string | null;
 }) {
-  return (
-    <Card>
-      <CardContent className="p-5 md:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-              Personalized match
-            </p>
-            <h2 className="mt-2 text-xl font-bold text-ink">Your scholarship fit</h2>
-          </div>
+  if (matchLoading) {
+    return (
+      <div className="rounded-2xl border border-pine/10 bg-mint/35 p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
+        <p className="mt-2 text-sm text-ink/65">Calculating your fit...</p>
+      </div>
+    );
+  }
 
-          {match ? (
-            <MatchScoreBadge score={match.score} readinessLevel={match.readiness_level} />
-          ) : null}
+  if (match) {
+    return (
+      <div className="rounded-2xl border border-pine/10 bg-mint/45 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
+            <p className="mt-1 text-sm font-semibold text-ink/65">Based on your profile</p>
+          </div>
+          <MatchScoreBadge score={match.score} readinessLevel={match.readiness_level} />
         </div>
 
-        {matchLoading ? (
-          <p className="mt-4 text-sm text-ink/65">Calculating your personalized match...</p>
+        {match.matched_reasons.length > 0 ? (
+          <ul className="mt-3 grid gap-1.5">
+            {match.matched_reasons.slice(0, 3).map((reason) => (
+              <li key={reason} className="flex gap-2 text-xs leading-5 text-ink/65">
+                <ShieldCheck size={14} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
+                <span>{reason}</span>
+              </li>
+            ))}
+          </ul>
         ) : null}
+      </div>
+    );
+  }
 
-        {matchError ? (
-          <div className="mt-4 rounded-2xl border border-saffron/30 bg-saffron/15 p-4 text-sm leading-6 text-ink/70">
-            {matchError}
-            <div className="mt-3">
-              <ButtonLink href="/dashboard/profile" size="sm" variant="secondary">
-                Complete Profile
-              </ButtonLink>
-            </div>
-          </div>
-        ) : null}
+  if (matchError) {
+    return (
+      <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
+        <p className="mt-2 text-sm leading-6 text-ink/65">
+          Complete your profile to calculate your fit.
+        </p>
+        <ButtonLink href="/dashboard/profile" className="mt-3" size="sm" variant="secondary">
+          Complete Profile
+        </ButtonLink>
+      </div>
+    );
+  }
 
-        {!match && !matchError && !matchLoading ? (
-          <div className="mt-4 rounded-2xl border border-pine/10 bg-mint/35 p-4 text-sm leading-6 text-ink/70">
-            Complete your profile to calculate match score, missing requirements, and suggestions.
-            <div className="mt-3">
-              <ButtonLink href="/dashboard/profile" size="sm" variant="secondary">
-                Complete Profile
-              </ButtonLink>
-            </div>
-          </div>
-        ) : null}
-
-        {match ? (
-          <div className="mt-5 grid gap-4">
-            {match.matched_reasons.length > 0 ? (
-              <div>
-                <h3 className="text-sm font-bold text-ink">Why it may fit</h3>
-                <ul className="mt-2 grid gap-2">
-                  {match.matched_reasons.slice(0, 4).map((reason) => (
-                    <li key={reason} className="flex gap-2 text-sm leading-6 text-ink/65">
-                      <ShieldCheck
-                        size={16}
-                        className="mt-1 shrink-0 text-pine"
-                        aria-hidden="true"
-                      />
-                      <span>{reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {match.missing_requirements.length > 0 ? (
-              <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4">
-                <h3 className="text-sm font-bold text-ink">Check these gaps</h3>
-                <ul className="mt-2 grid gap-2">
-                  {match.missing_requirements.slice(0, 4).map((item) => (
-                    <li key={item} className="text-sm leading-6 text-ink/65">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {match.suggestions.length > 0 ? (
-              <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-4">
-                <h3 className="text-sm font-bold text-ink">Suggested next steps</h3>
-                <ul className="mt-2 grid gap-2">
-                  {match.suggestions.slice(0, 4).map((item) => (
-                    <li key={item} className="text-sm leading-6 text-ink/65">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
+  return null;
 }
 
 export default function ScholarshipDetailPage() {
@@ -397,7 +345,6 @@ export default function ScholarshipDetailPage() {
       {
         label: "Deadline",
         value: formatDate(scholarship.deadline),
-        helper: getDeadlineLabel(scholarship),
       },
       {
         label: "Funding",
@@ -478,7 +425,7 @@ export default function ScholarshipDetailPage() {
             <div className="grid gap-5">
               <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
                 <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 md:px-7">
-                  <div className="grid gap-5 xl:grid-cols-[1fr_18rem] xl:items-start">
+                  <div className="grid gap-5 xl:grid-cols-[1fr_21rem] xl:items-start">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={getDeadlineTone(scholarship)}>
@@ -513,72 +460,83 @@ export default function ScholarshipDetailPage() {
                       ) : null}
                     </div>
 
-                    <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-                        Student actions
-                      </p>
+                    <div className="grid gap-3 rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
+                      {user?.role === "student" ? (
+                        <CompactMatchCard
+                          match={match}
+                          matchError={matchError}
+                          matchLoading={matchLoading}
+                        />
+                      ) : null}
 
-                      <div className="mt-3 grid gap-2">
-                        {isAuthenticated && user?.role === "student" ? (
-                          <>
-                            <SaveOpportunityButton
-                              opportunityType="scholarship"
-                              slug={scholarship.slug}
-                              initiallySaved={isSaved}
-                              onSavedChange={setIsSaved}
-                            />
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
+                          Student actions
+                        </p>
 
-                            <StartApplicationButton
-                              opportunitySlug={scholarship.slug}
-                              opportunityType="scholarship"
-                            />
-                          </>
-                        ) : isAuthenticated ? (
-                          <ButtonLink
-                            href="/admin"
-                            className="w-full"
-                            size="sm"
-                            variant="secondary"
-                          >
-                            Admin Dashboard
-                          </ButtonLink>
-                        ) : (
-                          <>
+                        <div className="mt-3 grid gap-2">
+                          {isAuthenticated && user?.role === "student" ? (
+                            <>
+                              <SaveOpportunityButton
+                                opportunityType="scholarship"
+                                slug={scholarship.slug}
+                                initiallySaved={isSaved}
+                                onSavedChange={setIsSaved}
+                              />
+
+                              <StartApplicationButton
+                                opportunitySlug={scholarship.slug}
+                                opportunityType="scholarship"
+                              />
+                            </>
+                          ) : isAuthenticated ? (
                             <ButtonLink
-                              href="/register"
+                              href="/admin"
                               className="w-full"
                               size="sm"
                               variant="secondary"
                             >
-                              Create Free Profile
+                              Admin Dashboard
                             </ButtonLink>
-                            <ButtonLink
-                              href="/login"
-                              className="w-full"
-                              size="sm"
-                              variant="outline"
+                          ) : (
+                            <>
+                              <ButtonLink
+                                href="/register"
+                                className="w-full"
+                                size="sm"
+                                variant="secondary"
+                              >
+                                Create Free Profile
+                              </ButtonLink>
+                              <ButtonLink
+                                href="/login"
+                                className="w-full"
+                                size="sm"
+                                variant="outline"
+                              >
+                                Login to Save
+                              </ButtonLink>
+                            </>
+                          )}
+
+                          {scholarship.official_link ? (
+                            <a
+                              href={scholarship.official_link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
                             >
-                              Login to Save
-                            </ButtonLink>
-                          </>
-                        )}
+                              Official Website
+                              <ExternalLink size={15} aria-hidden="true" />
+                            </a>
+                          ) : null}
+                        </div>
 
-                        {scholarship.official_link ? (
-                          <a
-                            href={scholarship.official_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
-                          >
-                            Official Website
-                            <ExternalLink size={15} aria-hidden="true" />
-                          </a>
-                        ) : null}
+                        <p className="mt-3 text-xs leading-5 text-ink/50">
+                          Always verify final deadlines and rules on the official scholarship
+                          website.
+                        </p>
                       </div>
-
-                      <p className="mt-3 text-xs leading-5 text-ink/50">
-                        Always verify final deadlines and rules on the official scholarship website.
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -701,40 +659,40 @@ export default function ScholarshipDetailPage() {
                     </Card>
                   ) : null}
 
-                  {user?.role === "student" ? (
-                    <MatchPanel match={match} matchLoading={matchLoading} matchError={matchError} />
-                  ) : isAuthenticated ? (
-                    <Card>
-                      <CardContent className="p-5">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-                          Personalized matching
-                        </p>
-                        <p className="mt-3 text-sm leading-6 text-ink/65">
-                          Student match scores are available from student accounts.
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="p-5">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-                          Check your eligibility
-                        </p>
-                        <p className="mt-3 text-sm leading-6 text-ink/65">
-                          Create a free profile to check match score, missing requirements, and
-                          saved scholarships.
-                        </p>
-                        <div className="mt-4 grid gap-2">
-                          <ButtonLink href="/register" size="sm" variant="secondary">
-                            Create Free Profile
-                          </ButtonLink>
-                          <ButtonLink href="/login" size="sm" variant="outline">
-                            Login
-                          </ButtonLink>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                  {user?.role !== "student" ? (
+                    isAuthenticated ? (
+                      <Card>
+                        <CardContent className="p-5">
+                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
+                            Personalized matching
+                          </p>
+                          <p className="mt-3 text-sm leading-6 text-ink/65">
+                            Student match scores are available from student accounts.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card>
+                        <CardContent className="p-5">
+                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
+                            Check your eligibility
+                          </p>
+                          <p className="mt-3 text-sm leading-6 text-ink/65">
+                            Create a free profile to check match score, missing requirements, and
+                            saved scholarships.
+                          </p>
+                          <div className="mt-4 grid gap-2">
+                            <ButtonLink href="/register" size="sm" variant="secondary">
+                              Create Free Profile
+                            </ButtonLink>
+                            <ButtonLink href="/login" size="sm" variant="outline">
+                              Login
+                            </ButtonLink>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  ) : null}
 
                   {scholarship.source_name || scholarship.source_url ? (
                     <Card>
