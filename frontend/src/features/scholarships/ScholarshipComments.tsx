@@ -38,7 +38,7 @@ function ReplyItem({
   onDelete: (id: number) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-pine/10 bg-white px-4 py-3">
+    <div className="rounded-2xl border border-pine/10 bg-white px-4 py-3 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-bold text-ink">{reply.user_name}</p>
@@ -116,7 +116,7 @@ function CommentItem({
   }
 
   return (
-    <div className="rounded-3xl border border-pine/10 bg-[#f7faf8] p-4">
+    <div className="rounded-3xl border border-pine/10 bg-[#f7faf8] p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-bold text-ink">{comment.user_name}</p>
@@ -255,11 +255,13 @@ export function ScholarshipComments({ slug }: { slug: string }) {
             </p>
           </div>
 
-          <Badge tone="sky">{comments.length} comments</Badge>
+          <Badge tone="sky">
+            {comments.length === 1 ? "1 comment" : `${comments.length} comments`}
+          </Badge>
         </div>
 
         {isAuthenticated ? (
-          <div className="mt-5 rounded-3xl border border-pine/10 bg-[#f7faf8] p-4">
+          <div className="mt-5 rounded-3xl border border-pine/10 bg-[#f7faf8] p-4 shadow-sm">
             <textarea
               value={body}
               onChange={(event) => setBody(event.target.value)}
@@ -284,16 +286,16 @@ export function ScholarshipComments({ slug }: { slug: string }) {
             </div>
           </div>
         ) : (
-          <div className="mt-5 rounded-3xl border border-pine/10 bg-mint/35 p-4">
+          <div className="mt-5 rounded-3xl border border-pine/10 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-pine">
                   <MessageCircle size={18} aria-hidden="true" />
                 </span>
                 <div>
-                  <p className="font-bold text-ink">Login to join the discussion</p>
+                  <p className="font-bold text-ink">Want to ask or reply?</p>
                   <p className="mt-1 text-sm leading-6 text-ink/65">
-                    Students can ask questions and reply after creating a free profile.
+                    Login or create a free profile. Everyone can still read public comments.
                   </p>
                 </div>
               </div>
@@ -319,7 +321,8 @@ export function ScholarshipComments({ slug }: { slug: string }) {
 
         {!loading && !error && comments.length === 0 ? (
           <div className="mt-5 rounded-3xl border border-dashed border-pine/20 bg-white p-5 text-sm leading-6 text-ink/65">
-            No comments yet. Be the first student to ask a useful question about this scholarship.
+            No comments yet. Ask a useful question once you login, or check back later for student
+            updates.
           </div>
         ) : null}
 
