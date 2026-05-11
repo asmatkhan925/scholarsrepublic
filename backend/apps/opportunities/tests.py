@@ -1,11 +1,15 @@
 from datetime import timedelta
+from io import StringIO
 
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
+
 
 def create_reference_data(testcase):
     testcase.asia, _ = Region.objects.get_or_create(
@@ -24,6 +28,14 @@ def create_reference_data(testcase):
     testcase.china, _ = Country.objects.get_or_create(
         name="China",
         defaults={"region": testcase.asia, "iso2": "CN"},
+    )
+    testcase.taiwan, _ = Country.objects.get_or_create(
+        name="Taiwan",
+        defaults={"region": testcase.asia, "iso2": "TW"},
+    )
+    testcase.malaysia, _ = Country.objects.get_or_create(
+        name="Malaysia",
+        defaults={"region": testcase.asia, "iso2": "MY"},
     )
     testcase.germany, _ = Country.objects.get_or_create(
         name="Germany",
@@ -97,6 +109,14 @@ class OpportunityAPITests(APITestCase):
         }
         data.update(overrides)
         return Opportunity.objects.create(**data)
+
+    def empty_opportunity(self, slug, title="Repair Test Scholarship"):
+        return Opportunity.objects.create(
+            title=title,
+            slug=slug,
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+            status=Opportunity.Status.PUBLISHED,
+        )
 
     def profile(self, user=None, **overrides):
         data = {
@@ -458,6 +478,74 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_repair_opportunity_references_dry_run_does_not_modify_records(self):
+        opportunity = self.empty_opportunity("fulbright-pakistan")
+        output = StringIO()
+
+        call_command("repair_opportunity_references", stdout=output)
+
+        opportunity.refresh_from_db()
+        self.assertIsNone(opportunity.country_ref)
+        self.assertEqual(list(opportunity.eligible_country_refs.all()), [])
+        self.assertFalse(opportunity.all_study_fields)
+        self.assertIn("Dry run only. No changes made.", output.getvalue())
+
+    def test_repair_opportunity_references_fix_updates_mapped_opportunity(self):
+        opportunity = self.empty_opportunity("fulbright-pakistan")
+        output = StringIO()
+
+        call_command("repair_opportunity_references", "--fix", stdout=output)
+
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.country_ref.name, "USA")
+        self.assertEqual(
+            list(opportunity.eligible_country_refs.values_list("name", flat=True)),
+            ["Pakistan"],
+        )
+        self.assertTrue(opportunity.all_study_fields)
+        self.assertEqual(list(opportunity.study_field_refs.all()), [])
+        self.assertIn("Opportunity references repaired.", output.getvalue())
+
+    def test_repair_opportunity_references_aborts_when_mapping_reference_missing(self):
+        opportunity = self.empty_opportunity("fulbright-pakistan")
+        self.malaysia.is_active = False
+        self.malaysia.save(update_fields=["is_active"])
+
+        with self.assertRaises(CommandError) as error:
+            call_command("repair_opportunity_references", "--fix", stdout=StringIO())
+
+        self.assertIn(
+            "Missing active country references: Malaysia",
+            str(error.exception),
+        )
+        opportunity.refresh_from_db()
+        self.assertIsNone(opportunity.country_ref)
+
+    def test_repair_opportunity_references_skips_unmapped_opportunities(self):
+        opportunity = self.empty_opportunity("manual-unmapped-scholarship")
+        output = StringIO()
+
+        call_command("repair_opportunity_references", "--fix", stdout=output)
+
+        opportunity.refresh_from_db()
+        self.assertIsNone(opportunity.country_ref)
+        self.assertIn(
+            "Skipped opportunities without explicit mapping",
+            output.getvalue(),
+        )
+        self.assertIn("manual-unmapped-scholarship", output.getvalue())
+
+    def test_repair_opportunity_references_broad_scholarship_clears_fields(self):
+        opportunity = self.empty_opportunity("chinese-government-scholarship")
+        opportunity.study_field_refs.set([self.computer_science])
+
+        call_command("repair_opportunity_references", "--fix", stdout=StringIO())
+
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.country_ref.name, "China")
+        self.assertTrue(opportunity.all_study_fields)
+        self.assertEqual(list(opportunity.study_field_refs.all()), [])
 
     def test_guest_cannot_access_match_endpoint(self):
         opportunity = self.opportunity()
