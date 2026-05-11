@@ -513,75 +513,84 @@ export default function ScholarshipDetailPage() {
                       ) : null}
                     </div>
 
-                    <div className="grid gap-3 rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-                          Student actions
-                        </p>
+                    <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
+                        {isAuthenticated && user?.role === "student"
+                          ? "Student actions"
+                          : isAuthenticated
+                            ? "Admin actions"
+                            : "Check eligibility"}
+                      </p>
 
-                        <div className="mt-3 grid gap-2">
-                          {isAuthenticated && user?.role === "student" ? (
-                            <>
-                              <SaveOpportunityButton
-                                opportunityType="scholarship"
-                                slug={scholarship.slug}
-                                initiallySaved={isSaved}
-                                onSavedChange={setIsSaved}
-                              />
+                      <p className="mt-2 text-sm leading-6 text-ink/65">
+                        {isAuthenticated && user?.role === "student"
+                          ? "Save this scholarship or add it to your tracker."
+                          : isAuthenticated
+                            ? "Review this scholarship from your admin account."
+                            : "Create a profile to save, track, and check your match."}
+                      </p>
 
-                              <StartApplicationButton
-                                opportunitySlug={scholarship.slug}
-                                opportunityType="scholarship"
-                              />
-                            </>
-                          ) : isAuthenticated ? (
+                      <div className="mt-3 grid gap-2">
+                        {isAuthenticated && user?.role === "student" ? (
+                          <>
+                            <SaveOpportunityButton
+                              opportunityType="scholarship"
+                              slug={scholarship.slug}
+                              initiallySaved={isSaved}
+                              onSavedChange={setIsSaved}
+                            />
+
+                            <StartApplicationButton
+                              opportunitySlug={scholarship.slug}
+                              opportunityType="scholarship"
+                            />
+                          </>
+                        ) : isAuthenticated ? (
+                          <ButtonLink
+                            href="/admin"
+                            className="w-full"
+                            size="sm"
+                            variant="secondary"
+                          >
+                            Admin Dashboard
+                          </ButtonLink>
+                        ) : (
+                          <>
                             <ButtonLink
-                              href="/admin"
+                              href="/register"
                               className="w-full"
                               size="sm"
                               variant="secondary"
                             >
-                              Admin Dashboard
+                              Create Free Profile
                             </ButtonLink>
-                          ) : (
-                            <>
-                              <ButtonLink
-                                href="/register"
-                                className="w-full"
-                                size="sm"
-                                variant="secondary"
-                              >
-                                Create Free Profile
-                              </ButtonLink>
-                              <ButtonLink
-                                href="/login"
-                                className="w-full"
-                                size="sm"
-                                variant="outline"
-                              >
-                                Login to Save
-                              </ButtonLink>
-                            </>
-                          )}
-
-                          {scholarship.official_link ? (
-                            <a
-                              href={scholarship.official_link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                            <ButtonLink
+                              href="/login"
+                              className="w-full"
+                              size="sm"
+                              variant="outline"
                             >
-                              Official Website
-                              <ExternalLink size={15} aria-hidden="true" />
-                            </a>
-                          ) : null}
-                        </div>
+                              Login to Save
+                            </ButtonLink>
+                          </>
+                        )}
 
-                        <p className="mt-3 text-xs leading-5 text-ink/50">
-                          Always verify final deadlines and rules on the official scholarship
-                          website.
-                        </p>
+                        {scholarship.official_link ? (
+                          <a
+                            href={scholarship.official_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                          >
+                            Official Website
+                            <ExternalLink size={15} aria-hidden="true" />
+                          </a>
+                        ) : null}
                       </div>
+
+                      <p className="mt-3 text-xs leading-5 text-ink/50">
+                        Verify details on official site.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -712,39 +721,23 @@ export default function ScholarshipDetailPage() {
                     </Card>
                   ) : null}
 
-                  {user?.role !== "student" ? (
-                    isAuthenticated ? (
-                      <Card>
-                        <CardContent className="p-5">
-                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-                            Personalized matching
-                          </p>
-                          <p className="mt-3 text-sm leading-6 text-ink/65">
-                            Student match scores are available from student accounts.
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <Card>
-                        <CardContent className="p-5">
-                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-                            Check your eligibility
-                          </p>
-                          <p className="mt-3 text-sm leading-6 text-ink/65">
-                            Create a free profile to check match score, missing requirements, and
-                            saved scholarships.
-                          </p>
-                          <div className="mt-4 grid gap-2">
-                            <ButtonLink href="/register" size="sm" variant="secondary">
-                              Create Free Profile
-                            </ButtonLink>
-                            <ButtonLink href="/login" size="sm" variant="outline">
-                              Login
-                            </ButtonLink>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
+                  {user?.role === "student" ? (
+                    <MatchScoreSidebarCard
+                      match={match}
+                      matchLoading={matchLoading}
+                      matchError={matchError}
+                    />
+                  ) : isAuthenticated ? (
+                    <Card>
+                      <CardContent className="p-5">
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
+                          Personalized matching
+                        </p>
+                        <p className="mt-3 text-sm leading-6 text-ink/65">
+                          Student match scores are available from student accounts.
+                        </p>
+                      </CardContent>
+                    </Card>
                   ) : null}
 
                   {scholarship.source_name || scholarship.source_url ? (
