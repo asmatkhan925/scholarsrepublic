@@ -1,6 +1,10 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
-from apps.opportunities.models import Opportunity, OpportunityPathway
+from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
+from apps.opportunities.services.opportunity_draft_importer import (
+    import_opportunity_draft,
+    validate_opportunity_draft_payload,
+)
 
 
 @admin.register(OpportunityPathway)
@@ -25,6 +29,102 @@ class OpportunityPathwayAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
     autocomplete_fields = ("country_ref", "parent")
     ordering = ("display_order", "title")
+
+
+@admin.register(OpportunityDraft)
+class OpportunityDraftAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "status",
+        "source_name",
+        "confidence",
+        "created_opportunity",
+        "updated_at",
+        "imported_at",
+    )
+    list_filter = ("status", "confidence", "source_name", "updated_at")
+    search_fields = (
+        "title",
+        "slug",
+        "source_url",
+        "source_name",
+        "created_opportunity__title",
+    )
+    readonly_fields = (
+        "validation_warnings",
+        "validation_errors",
+        "created_opportunity",
+        "imported_at",
+        "created_at",
+        "updated_at",
+    )
+    prepopulated_fields = {"slug": ("title",)}
+    actions = ("validate_selected_drafts", "import_selected_drafts")
+
+    def save_model(self, request, obj, form, change):
+        if not obj.created_by_id and request.user.is_authenticated:
+            obj.created_by = request.user
+
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Validate selected drafts")
+    def validate_selected_drafts(self, request, queryset):
+        validated_count = 0
+        error_count = 0
+
+        for draft in queryset:
+            cleaned, warnings, errors = validate_opportunity_draft_payload(draft.raw_payload)
+            opportunity = cleaned.get("opportunity", {})
+            draft.confidence = cleaned.get("confidence", "")
+            draft.source_url = opportunity.get("source_url", "")
+            draft.source_name = opportunity.get("source_name", "")
+            draft.validation_warnings = warnings
+            draft.validation_errors = errors
+            draft.status = (
+                OpportunityDraft.Status.ERROR if errors else OpportunityDraft.Status.VALIDATED
+            )
+            draft.save(
+                update_fields=[
+                    "confidence",
+                    "source_url",
+                    "source_name",
+                    "validation_warnings",
+                    "validation_errors",
+                    "status",
+                    "updated_at",
+                ]
+            )
+
+            if errors:
+                error_count += 1
+            else:
+                validated_count += 1
+
+        self.message_user(
+            request,
+            f"Validated {validated_count} draft(s); {error_count} draft(s) have errors.",
+            messages.INFO,
+        )
+
+    @admin.action(description="Import selected drafts as draft opportunities")
+    def import_selected_drafts(self, request, queryset):
+        imported_count = 0
+        error_count = 0
+
+        for draft in queryset:
+            opportunity = import_opportunity_draft(draft, user=request.user)
+
+            if opportunity:
+                imported_count += 1
+            else:
+                error_count += 1
+
+        self.message_user(
+            request,
+            f"Imported {imported_count} draft opportunity(s); "
+            f"{error_count} draft(s) have errors.",
+            messages.INFO if error_count == 0 else messages.WARNING,
+        )
 
 
 @admin.register(Opportunity)

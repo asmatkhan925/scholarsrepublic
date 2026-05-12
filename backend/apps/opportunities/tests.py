@@ -5,6 +5,7 @@ from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.test import RequestFactory
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -81,8 +82,9 @@ def create_reference_data(testcase):
     )
 
 
-from apps.opportunities.admin import OpportunityAdmin
-from apps.opportunities.models import Opportunity, OpportunityPathway
+from apps.opportunities.admin import OpportunityAdmin, OpportunityDraftAdmin
+from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
+from apps.opportunities.services.opportunity_draft_importer import import_opportunity_draft
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
 
@@ -172,6 +174,84 @@ class OpportunityAPITests(APITestCase):
             "degree_levels": ["Undergraduate"],
             "fields_of_study": ["All Fields"],
             "required_documents": ["Passport", "CV"],
+        }
+
+    def pathway(self):
+        parent = OpportunityPathway.objects.create(
+            title="China Scholarships",
+            slug="china-scholarships-draft-import",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+            display_order=10,
+        )
+        program = OpportunityPathway.objects.create(
+            title="Chinese Government Scholarship / CSC",
+            slug="chinese-government-scholarship-csc-draft-import",
+            country_ref=self.china,
+            parent=parent,
+            pathway_type=OpportunityPathway.PathwayType.GOVERNMENT_PROGRAM,
+            display_order=20,
+        )
+        return OpportunityPathway.objects.create(
+            title="CSC University Track",
+            slug="csc-university-track-draft-import",
+            country_ref=self.china,
+            parent=program,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+            display_order=30,
+        )
+
+    def draft_payload(self, **opportunity_overrides):
+        pathway = opportunity_overrides.pop("pathway", self.pathway().full_path)
+        opportunity = {
+            "title": "CSC Scholarship at Example University 2026",
+            "slug": "csc-scholarship-example-university-2026",
+            "pathway": pathway,
+            "country": "China",
+            "eligible_countries": ["Pakistan"],
+            "university_name": "Example University",
+            "department_name": "",
+            "lab_name": "",
+            "professor_name": "",
+            "application_track": "university",
+            "opportunity_type": "scholarship",
+            "funding_type": "fully_funded",
+            "degree_levels": ["Master", "PhD"],
+            "fields_of_study": ["All Fields"],
+            "all_study_fields": True,
+            "deadline": "2026-03-15",
+            "is_rolling_deadline": False,
+            "official_link": "https://example.edu/scholarship",
+            "source_url": "https://example.edu/scholarship",
+            "source_name": "Example University official website",
+            "short_description": "A concise student-facing summary.",
+            "description": "Longer explanation.",
+            "benefits": "Funding benefits from official source.",
+            "eligibility": "Eligibility from official source.",
+            "required_documents": ["Passport", "Transcripts", "Study plan"],
+            "how_to_apply": "How to apply from official source.",
+            "tags": ["China", "CSC", "University Track"],
+        }
+        opportunity.update(opportunity_overrides)
+        return {
+            "draft_type": "specific_opportunity",
+            "parent_program": "Chinese Government Scholarship / CSC",
+            "confidence": "medium",
+            "publish_recommendation": "save_as_draft",
+            "source_notes": [
+                {
+                    "source_name": "Official university page",
+                    "url": "https://example.edu/scholarship",
+                    "used_for": ["deadline", "eligibility", "application process"],
+                }
+            ],
+            "opportunity": opportunity,
+            "social_posts": {"facebook": "", "instagram": "", "x": ""},
+            "admin_review_checklist": [
+                "Verify final deadline on official source",
+                "Verify eligibility",
+                "Verify required documents",
+            ],
         }
 
     def results(self, response):
@@ -716,6 +796,155 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(lab_group.parent.slug, "south-korea-scholarships")
         self.assertEqual(Opportunity.objects.count(), 0)
         self.assertIn("Opportunity pathways seeded.", output.getvalue())
+
+    def test_opportunity_draft_import_creates_draft_opportunity(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import",
+            slug="draft-import",
+            raw_payload=self.draft_payload(),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(opportunity.status, Opportunity.Status.DRAFT)
+        self.assertFalse(opportunity.verified_status)
+        self.assertEqual(opportunity.country_ref.name, "China")
+        self.assertEqual(opportunity.pathway.title, "CSC University Track")
+        self.assertEqual(opportunity.application_track, Opportunity.ApplicationTrack.UNIVERSITY)
+        self.assertEqual(opportunity.university_name, "Example University")
+        self.assertTrue(opportunity.all_study_fields)
+        self.assertEqual(list(opportunity.study_field_refs.all()), [])
+        self.assertEqual(
+            list(opportunity.eligible_country_refs.values_list("name", flat=True)),
+            ["Pakistan"],
+        )
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.IMPORTED)
+        self.assertEqual(draft.created_opportunity, opportunity)
+        self.assertEqual(draft.validation_errors, [])
+        self.assertIsNotNone(draft.imported_at)
+
+    def test_opportunity_draft_import_missing_required_fields_sets_error(self):
+        draft = OpportunityDraft.objects.create(
+            title="Invalid Draft Import",
+            slug="invalid-draft-import",
+            raw_payload=self.draft_payload(
+                title="",
+                official_link="",
+                source_url="",
+                short_description="",
+                description="",
+            ),
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNone(opportunity)
+        self.assertEqual(Opportunity.objects.count(), 0)
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.ERROR)
+        self.assertIn(
+            "Missing required opportunity field: title.",
+            draft.validation_errors,
+        )
+        self.assertIn(
+            "Missing required opportunity field: official_link or source_url.",
+            draft.validation_errors,
+        )
+
+    def test_opportunity_draft_import_duplicate_slug_does_not_overwrite(self):
+        existing = self.opportunity(
+            title="Existing Scholarship",
+            slug="csc-scholarship-example-university-2026",
+            short_description="Original summary.",
+        )
+        draft = OpportunityDraft.objects.create(
+            title="Duplicate Slug Import",
+            slug="duplicate-slug-import",
+            raw_payload=self.draft_payload(title="Replacement Scholarship"),
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNone(opportunity)
+        self.assertEqual(Opportunity.objects.count(), 1)
+        existing.refresh_from_db()
+        self.assertEqual(existing.title, "Existing Scholarship")
+        self.assertEqual(existing.short_description, "Original summary.")
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.ERROR)
+        self.assertIn(
+            'Opportunity with slug "csc-scholarship-example-university-2026" already exists.',
+            draft.validation_errors,
+        )
+
+    def test_opportunity_draft_import_unknown_application_track_becomes_other(self):
+        draft = OpportunityDraft.objects.create(
+            title="Unknown Track Import",
+            slug="unknown-track-import",
+            raw_payload=self.draft_payload(application_track="nomination"),
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(opportunity.application_track, Opportunity.ApplicationTrack.OTHER)
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.IMPORTED)
+        self.assertIn(
+            'Unknown application_track "nomination" changed to "other".',
+            draft.validation_warnings,
+        )
+
+    def test_opportunity_draft_import_unknown_fields_error_when_not_all_fields(self):
+        draft = OpportunityDraft.objects.create(
+            title="Unknown Fields Import",
+            slug="unknown-fields-import",
+            raw_payload=self.draft_payload(
+                all_study_fields=False,
+                fields_of_study=["Fake Field"],
+            ),
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNone(opportunity)
+        self.assertEqual(Opportunity.objects.count(), 0)
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.ERROR)
+        self.assertIn('Unknown study field "Fake Field" skipped.', draft.validation_warnings)
+        self.assertIn(
+            "At least one known study field is required when all_study_fields is false.",
+            draft.validation_errors,
+        )
+
+    def test_opportunity_draft_admin_validate_action_updates_status(self):
+        draft = OpportunityDraft.objects.create(
+            title="Admin Validate Draft",
+            slug="admin-validate-draft",
+            raw_payload=self.draft_payload(),
+        )
+        request = RequestFactory().post("/admin/opportunities/opportunitydraft/")
+        request.user = self.admin
+        draft_admin = OpportunityDraftAdmin(OpportunityDraft, AdminSite())
+        draft_admin.message_user = lambda *args, **kwargs: None
+
+        draft_admin.validate_selected_drafts(
+            request,
+            OpportunityDraft.objects.filter(pk=draft.pk),
+        )
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.VALIDATED)
+        self.assertEqual(draft.validation_errors, [])
+        self.assertEqual(draft.confidence, "medium")
 
     def test_model_is_expired(self):
         opportunity = self.opportunity(deadline=timezone.localdate() - timedelta(days=1))

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -515,6 +516,71 @@ class Opportunity(models.Model):
             self.last_verified_at = now
 
         self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class OpportunityDraft(models.Model):
+    class Status(models.TextChoices):
+        NEW = "new", "New"
+        VALIDATED = "validated", "Validated"
+        IMPORTED = "imported", "Imported"
+        ERROR = "error", "Error"
+
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=280, unique=True, blank=True)
+    raw_payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.NEW,
+        db_index=True,
+    )
+    source_url = models.URLField(blank=True)
+    source_name = models.CharField(max_length=255, blank=True)
+    confidence = models.CharField(max_length=32, blank=True)
+    validation_warnings = models.JSONField(default=list, blank=True)
+    validation_errors = models.JSONField(default=list, blank=True)
+    created_opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_drafts",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="opportunity_drafts",
+    )
+    imported_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-updated_at", "title")
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["slug"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title)[:250] or "opportunity-draft"
+            slug = base_slug
+            counter = 2
+
+            while OpportunityDraft.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"[:280]
+                counter += 1
+
+            self.slug = slug
+
         super().save(*args, **kwargs)
 
 
