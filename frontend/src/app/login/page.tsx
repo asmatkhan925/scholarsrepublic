@@ -27,6 +27,18 @@ function resendStorageKey(email: string) {
   return `sr_verification_resend_until:${email.trim().toLowerCase()}`;
 }
 
+function verifiedStorageKey(email: string) {
+  return `sr_email_verified:${email.trim().toLowerCase()}`;
+}
+
+function isStoredVerified(email: string) {
+  if (!email.trim() || typeof window === "undefined") {
+    return false;
+  }
+
+  return Boolean(window.localStorage.getItem(verifiedStorageKey(email)));
+}
+
 function getStoredCooldownRemaining(email: string) {
   if (!email.trim()) {
     return 0;
@@ -80,6 +92,27 @@ export default function LoginPage() {
     setCooldownRemaining(seconds);
   }, []);
 
+  const markCurrentEmailVerified = useCallback(
+    (verifiedEmail = email) => {
+      if (!verifiedEmail.trim()) {
+        return;
+      }
+
+      if (!isStoredVerified(verifiedEmail)) {
+        return;
+      }
+
+      setShowResendVerification(false);
+      setResendMessage(null);
+      setResendError(null);
+      setCooldownRemaining(0);
+      setNotice("Email verified successfully. Please enter your password to continue.");
+      setNoticeTone("emerald");
+      setError(null);
+    },
+    [email],
+  );
+
   const redirectAfterLogin = useCallback(
     (role: string) => {
       const safeNextPath = getSafeNextPath(nextPath);
@@ -132,9 +165,49 @@ export default function LoginPage() {
     }, 1000);
 
     setCooldownRemaining(getStoredCooldownRemaining(email));
+    markCurrentEmailVerified(email);
 
     return () => window.clearInterval(timer);
-  }, [email]);
+  }, [email, markCurrentEmailVerified]);
+
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key === verifiedStorageKey(email)) {
+        markCurrentEmailVerified(email);
+      }
+    }
+
+    function handleFocus() {
+      markCurrentEmailVerified(email);
+    }
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+
+    let channel: BroadcastChannel | null = null;
+
+    try {
+      channel = new BroadcastChannel("sr_auth");
+      channel.onmessage = (event) => {
+        if (
+          event.data?.type === "email_verified" &&
+          String(event.data.email).toLowerCase() === email.trim().toLowerCase()
+        ) {
+          markCurrentEmailVerified(email);
+        }
+      };
+    } catch {
+      channel = null;
+    }
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+      channel?.close();
+    };
+  }, [email, markCurrentEmailVerified]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
