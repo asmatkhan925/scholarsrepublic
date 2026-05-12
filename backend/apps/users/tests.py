@@ -1,5 +1,7 @@
 from datetime import timedelta
+from unittest.mock import patch
 
+from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.urls import reverse
 from django.utils import timezone
@@ -9,8 +11,13 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.users.models import User
+from apps.users.safe_redirects import clean_next_path
 from apps.users.tokens import email_verification_token
-from apps.users.utils import build_email_verification_url
+from apps.users.utils import (
+    build_email_verification_url,
+    build_password_reset_url,
+    send_verification_email,
+)
 
 
 class AuthenticationAPITests(APITestCase):
@@ -41,6 +48,16 @@ class AuthenticationAPITests(APITestCase):
         self.assertFalse(user.is_active)
         self.assertIsNotNone(user.email_verification_sent_at)
         self.assertEqual(len(mail.outbox), 1)
+
+    def test_register_does_not_return_tokens(self):
+        response = self.client.post(
+            reverse("register"),
+            self.register_payload(email="no-tokens@example.com"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertNotIn("tokens", response.data)
 
     def test_register_requires_core_fields(self):
         for field_name in ["full_name", "email", "password", "password_confirm"]:
@@ -88,6 +105,25 @@ class AuthenticationAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("verify", str(response.data).lower())
 
+    def test_inactive_verified_user_cannot_login(self):
+        User.objects.create_user(
+            email="inactive@example.com",
+            password="StrongPassword123!",
+            full_name="Inactive Verified",
+            is_active=False,
+            email_verified=True,
+        )
+        response = self.client.post(
+            reverse("login"),
+            {
+                "email": "inactive@example.com",
+                "password": "StrongPassword123!",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertNotIn("tokens", response.data)
+
     def test_verify_email_success_does_not_return_tokens(self):
         user = User.objects.create_user(
             email="ali@example.com",
@@ -119,6 +155,28 @@ class AuthenticationAPITests(APITestCase):
         self.assertTrue(user.email_verified)
         self.assertTrue(user.is_active)
 
+    def test_verify_email_activates_user(self):
+        user = User.objects.create_user(
+            email="activate@example.com",
+            password="StrongPassword123!",
+            full_name="Activate User",
+            is_active=False,
+            email_verified=False,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = email_verification_token.make_token(user)
+
+        response = self.client.post(
+            reverse("verify-email"),
+            {"uid": uid, "token": token},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.email_verified)
+        self.assertTrue(user.is_active)
+
     def test_login_after_email_verification_succeeds(self):
         user = User.objects.create_user(
             email="ali@example.com",
@@ -145,6 +203,9 @@ class AuthenticationAPITests(APITestCase):
 
     def test_resend_immediately_after_register_is_throttled(self):
         self.client.post(reverse("register"), self.register_payload(), format="json")
+        user = User.objects.get(email="ali@example.com")
+        original_nonce = user.email_verification_nonce
+        original_sent_at = user.email_verification_sent_at
 
         response = self.client.post(
             reverse("resend-verification"),
@@ -156,6 +217,9 @@ class AuthenticationAPITests(APITestCase):
         self.assertFalse(response.data["email_sent"])
         self.assertGreater(response.data["retry_after_seconds"], 0)
         self.assertEqual(len(mail.outbox), 1)
+        user.refresh_from_db()
+        self.assertEqual(user.email_verification_nonce, original_nonce)
+        self.assertEqual(user.email_verification_sent_at, original_sent_at)
 
     def test_resend_after_cooldown_sends_email(self):
         self.client.post(reverse("register"), self.register_payload(), format="json")
@@ -204,6 +268,88 @@ class AuthenticationAPITests(APITestCase):
         self.assertFalse(verified_response.data["email_sent"])
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_resend_invalidates_previous_token_and_latest_token_works(self):
+        self.client.post(reverse("register"), self.register_payload(), format="json")
+        user = User.objects.get(email="ali@example.com")
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        old_token = email_verification_token.make_token(user)
+        user.email_verification_sent_at = timezone.now() - timedelta(seconds=61)
+        user.save(update_fields=["email_verification_sent_at", "updated_at"])
+
+        response = self.client.post(
+            reverse("resend-verification"),
+            {"email": "ali@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        latest_token = email_verification_token.make_token(user)
+        self.assertFalse(email_verification_token.check_token(user, old_token))
+        self.assertTrue(email_verification_token.check_token(user, latest_token))
+
+        old_response = self.client.post(
+            reverse("verify-email"),
+            {"uid": uid, "token": old_token},
+            format="json",
+        )
+        latest_response = self.client.post(
+            reverse("verify-email"),
+            {"uid": uid, "token": latest_token},
+            format="json",
+        )
+
+        self.assertEqual(old_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(latest_response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("tokens", latest_response.data)
+
+    def test_verification_token_cannot_be_reused_after_success(self):
+        user = User.objects.create_user(
+            email="reuse@example.com",
+            password="StrongPassword123!",
+            full_name="Reuse User",
+            is_active=False,
+            email_verified=False,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = email_verification_token.make_token(user)
+
+        first_response = self.client.post(
+            reverse("verify-email"),
+            {"uid": uid, "token": token},
+            format="json",
+        )
+        second_response = self.client.post(
+            reverse("verify-email"),
+            {"uid": uid, "token": token},
+            format="json",
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertNotIn("tokens", first_response.data)
+        self.assertNotIn("tokens", second_response.data)
+
+    def test_failed_verification_email_send_does_not_rotate_nonce(self):
+        user = User.objects.create_user(
+            email="send-fails@example.com",
+            password="StrongPassword123!",
+            full_name="Send Fails",
+            is_active=False,
+            email_verified=False,
+            email_verification_nonce="original-nonce",
+            email_verification_sent_at=timezone.now() - timedelta(days=1),
+        )
+        original_sent_at = user.email_verification_sent_at
+
+        with patch("apps.users.utils.send_mail", side_effect=RuntimeError("SMTP failed")):
+            with self.assertRaises(RuntimeError):
+                send_verification_email(user)
+
+        user.refresh_from_db()
+        self.assertEqual(user.email_verification_nonce, "original-nonce")
+        self.assertEqual(user.email_verification_sent_at, original_sent_at)
+
     def test_safe_next_path_is_included_in_verification_link(self):
         user = User.objects.create_user(
             email="ali@example.com",
@@ -216,6 +362,27 @@ class AuthenticationAPITests(APITestCase):
         url = build_email_verification_url(user, next_path="/scholarships/example-slug")
 
         self.assertIn("next=%2Fscholarships%2Fexample-slug", url)
+
+    def test_safe_next_path_accepts_valid_relative_paths(self):
+        for next_path in [
+            "/scholarships",
+            "/scholarships/some-slug",
+            "/dashboard/saved",
+        ]:
+            with self.subTest(next_path=next_path):
+                self.assertEqual(clean_next_path(next_path), next_path)
+
+    def test_safe_next_path_rejects_external_or_auth_paths(self):
+        for next_path in [
+            "https://evil.com",
+            "//evil.com",
+            "/api/health/",
+            "/login",
+            "/register",
+            "/verify-email",
+        ]:
+            with self.subTest(next_path=next_path):
+                self.assertEqual(clean_next_path(next_path), "")
 
     def test_unsafe_next_path_is_ignored_in_verification_link(self):
         user = User.objects.create_user(
@@ -271,6 +438,152 @@ class AuthenticationAPITests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_password_reset_request_sends_email_for_existing_user(self):
+        User.objects.create_user(
+            email="reset@example.com",
+            password="StrongPassword123!",
+            full_name="Reset User",
+            email_verified=True,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "reset@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["detail"],
+            "If an account exists for that email, a password reset link will be sent.",
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/reset-password?", mail.outbox[0].body)
+        self.assertIn("uid=", mail.outbox[0].body)
+        self.assertIn("token=", mail.outbox[0].body)
+
+    def test_password_reset_request_does_not_reveal_missing_email(self):
+        response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "missing@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["detail"],
+            "If an account exists for that email, a password reset link will be sent.",
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_confirm_updates_password_without_tokens(self):
+        user = User.objects.create_user(
+            email="reset@example.com",
+            password="OldStrongPassword123!",
+            full_name="Reset User",
+            email_verified=True,
+            is_active=True,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": token,
+                "password": "NewStrongPassword123!",
+                "password_confirm": "NewStrongPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["detail"],
+            "Password reset successful. Please log in with your new password.",
+        )
+        self.assertEqual(response.data["email"], "reset@example.com")
+        self.assertNotIn("tokens", response.data)
+
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewStrongPassword123!"))
+
+        login_response = self.client.post(
+            reverse("login"),
+            {
+                "email": "reset@example.com",
+                "password": "NewStrongPassword123!",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+    def test_password_reset_confirm_rejects_invalid_token(self):
+        user = User.objects.create_user(
+            email="reset@example.com",
+            password="OldStrongPassword123!",
+            full_name="Reset User",
+            email_verified=True,
+            is_active=True,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": "invalid-token",
+                "password": "NewStrongPassword123!",
+                "password_confirm": "NewStrongPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("OldStrongPassword123!"))
+
+    def test_password_reset_confirm_validates_password(self):
+        user = User.objects.create_user(
+            email="reset@example.com",
+            password="OldStrongPassword123!",
+            full_name="Reset User",
+            email_verified=True,
+            is_active=True,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": token,
+                "password": "password",
+                "password_confirm": "password",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("OldStrongPassword123!"))
+
+    def test_password_reset_url_contains_uid_and_token(self):
+        user = User.objects.create_user(
+            email="reset@example.com",
+            password="StrongPassword123!",
+            full_name="Reset User",
+        )
+
+        url = build_password_reset_url(user)
+
+        self.assertIn("/reset-password?", url)
+        self.assertIn("uid=", url)
+        self.assertIn("token=", url)
 
     def test_me_requires_auth(self):
         response = self.client.get(reverse("me"))

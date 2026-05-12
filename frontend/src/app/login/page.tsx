@@ -38,14 +38,6 @@ function verifiedStorageKey(email: string) {
   return `sr_email_verified:${normalizeEmail(email)}`;
 }
 
-function loginSuccessStorageKey(email: string) {
-  return `sr_login_success:${normalizeEmail(email)}`;
-}
-
-function loginDestinationStorageKey(email: string) {
-  return `sr_login_destination:${normalizeEmail(email)}`;
-}
-
 function isFreshTimestamp(value: string | null) {
   const timestamp = value ? Number(value) : 0;
 
@@ -62,18 +54,6 @@ function clearAuthTabEvents(email: string) {
   }
 
   window.localStorage.removeItem(verifiedStorageKey(email));
-  window.localStorage.removeItem(loginSuccessStorageKey(email));
-  window.localStorage.removeItem(loginDestinationStorageKey(email));
-}
-
-function getScholarshipRedirectPath(nextPath: string) {
-  const safeNextPath = getSafeNextPath(nextPath);
-
-  if (safeNextPath.startsWith("/scholarships")) {
-    return safeNextPath;
-  }
-
-  return "/scholarships";
 }
 
 function getStoredCooldownRemaining(email: string) {
@@ -139,55 +119,8 @@ export default function LoginPage() {
     setError(null);
   }, []);
 
-  const broadcastLoginSuccess = useCallback((loggedInEmail: string, destination: string) => {
-    if (!loggedInEmail.trim()) {
-      return;
-    }
-
-    window.localStorage.setItem(loginSuccessStorageKey(loggedInEmail), String(Date.now()));
-    window.localStorage.setItem(loginDestinationStorageKey(loggedInEmail), destination);
-
-    try {
-      const channel = new BroadcastChannel("sr_auth");
-      channel.postMessage({
-        type: "login_success",
-        email: loggedInEmail,
-        destination,
-        timestamp: Date.now(),
-      });
-      channel.close();
-    } catch {
-      // BroadcastChannel is optional; storage events are enough in modern browsers.
-    }
-  }, []);
-
-  const redirectOriginalTabAfterOtherLogin = useCallback(
-    (loggedInEmail: string, destination?: string) => {
-      const normalizedLoggedInEmail = normalizeEmail(loggedInEmail);
-      const normalizedCurrentEmail = normalizeEmail(email);
-
-      if (!normalizedLoggedInEmail || normalizedLoggedInEmail !== normalizedCurrentEmail) {
-        return;
-      }
-
-      const storedDestination = window.localStorage.getItem(
-        loginDestinationStorageKey(loggedInEmail),
-      );
-
-      const finalDestination =
-        destination && destination.startsWith("/scholarships")
-          ? destination
-          : storedDestination && storedDestination.startsWith("/scholarships")
-            ? storedDestination
-            : "/scholarships";
-
-      router.replace(finalDestination);
-    },
-    [email, router],
-  );
-
   const redirectAfterLogin = useCallback(
-    (role: string, loggedInEmail: string) => {
+    (role: string) => {
       const safeNextPath = getSafeNextPath(nextPath);
       const destination =
         safeNextPath !== "/dashboard"
@@ -196,10 +129,9 @@ export default function LoginPage() {
             ? "/admin"
             : "/dashboard";
 
-      broadcastLoginSuccess(loggedInEmail, getScholarshipRedirectPath(safeNextPath));
       router.replace(destination);
     },
-    [broadcastLoginSuccess, nextPath, router],
+    [nextPath, router],
   );
 
   useEffect(() => {
@@ -207,6 +139,7 @@ export default function LoginPage() {
     const queryEmail = params.get("email") ?? "";
     const registered = params.get("registered") === "1";
     const verified = params.get("verified") === "1";
+    const reset = params.get("reset") === "1";
     const safeNextPath = getSafeNextPath(params.get("next"));
 
     setNextPath(safeNextPath);
@@ -237,6 +170,13 @@ export default function LoginPage() {
       setNotice("Email verified successfully. Please enter your password to continue.");
       setNoticeTone("emerald");
       setShowResendVerification(false);
+      return;
+    }
+
+    if (reset) {
+      setNotice("Password reset successful. Please log in with your new password.");
+      setNoticeTone("emerald");
+      setShowResendVerification(false);
     }
   }, [startCooldown]);
 
@@ -259,13 +199,6 @@ export default function LoginPage() {
       if (event.key === verifiedStorageKey(email) && isFreshTimestamp(event.newValue)) {
         showVerifiedNotice();
       }
-
-      if (
-        event.key === loginSuccessStorageKey(email) &&
-        isFreshTimestamp(event.newValue)
-      ) {
-        redirectOriginalTabAfterOtherLogin(email);
-      }
     }
 
     window.addEventListener("storage", handleStorage);
@@ -284,15 +217,6 @@ export default function LoginPage() {
         if (event.data?.type === "email_verified") {
           showVerifiedNotice();
         }
-
-        if (event.data?.type === "login_success") {
-          redirectOriginalTabAfterOtherLogin(
-            eventEmail,
-            typeof event.data.destination === "string"
-              ? event.data.destination
-              : undefined,
-          );
-        }
       };
     } catch {
       channel = null;
@@ -302,7 +226,7 @@ export default function LoginPage() {
       window.removeEventListener("storage", handleStorage);
       channel?.close();
     };
-  }, [email, redirectOriginalTabAfterOtherLogin, showVerifiedNotice]);
+  }, [email, showVerifiedNotice]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -314,7 +238,7 @@ export default function LoginPage() {
 
     try {
       const response = await login({ email, password });
-      redirectAfterLogin(response.user.role, response.user.email);
+      redirectAfterLogin(response.user.role);
     } catch (authError) {
       const message =
         getErrorMessage(authError) ?? "Login failed. Please try again.";
@@ -427,7 +351,15 @@ export default function LoginPage() {
             </label>
 
             <label className="block text-sm font-medium text-slate-700">
-              Password
+              <span className="flex items-center justify-between gap-3">
+                <span>Password</span>
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  Forgot password?
+                </Link>
+              </span>
               <input
                 className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
                 value={password}

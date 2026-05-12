@@ -4,6 +4,8 @@ from apps.users.views import (
     LoginView,
     LogoutView,
     MeView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     RegisterView,
     ResendVerificationEmailView,
     VerifyEmailView,
@@ -12,6 +14,16 @@ from apps.users.views import (
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", LoginView.as_view(), name="login"),
+    path(
+        "password-reset/request/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    path(
+        "password-reset/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
     path("verify-email/", VerifyEmailView.as_view(), name="verify-email"),
     path(
         "resend-verification/",

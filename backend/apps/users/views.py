@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.encoding import force_str
@@ -11,15 +13,21 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.serializers import (
     LoginSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     RegisterSerializer,
     UserSerializer,
 )
 from apps.users.safe_redirects import clean_next_path
 from apps.users.tokens import email_verification_token
-from apps.users.utils import send_verification_email
+from apps.users.utils import send_password_reset_email, send_verification_email
 
 User = get_user_model()
 RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
+PASSWORD_RESET_REQUEST_DETAIL = (
+    "If an account exists for that email, a password reset link will be sent."
+)
+logger = logging.getLogger(__name__)
 
 
 def auth_response_for_user(user, status_code=status.HTTP_200_OK):
@@ -162,6 +170,41 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         return auth_response_for_user(serializer.validated_data["user"])
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user and user.has_usable_password():
+            try:
+                send_password_reset_email(user)
+            except Exception:
+                logger.exception("Password reset email could not be sent.")
+
+        return Response({"detail": PASSWORD_RESET_REQUEST_DETAIL})
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response(
+            {
+                "detail": "Password reset successful. Please log in with your new password.",
+                "email": user.email,
+            }
+        )
 
 
 class MeView(APIView):

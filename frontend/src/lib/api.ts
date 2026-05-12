@@ -1,7 +1,21 @@
 import axios from "axios";
 
 import type { CountryListResponse, StudyFieldListResponse } from "@/types/reference";
-import type { AuthResponse, LoginPayload, RegisterPayload, RegisterResponse, ResendVerificationPayload, ResendVerificationResponse, User, VerifyEmailPayload, VerifyEmailResponse } from "@/types/auth";
+import type {
+  AuthResponse,
+  LoginPayload,
+  PasswordResetConfirmPayload,
+  PasswordResetConfirmResponse,
+  PasswordResetRequestPayload,
+  PasswordResetRequestResponse,
+  RegisterPayload,
+  RegisterResponse,
+  ResendVerificationPayload,
+  ResendVerificationResponse,
+  User,
+  VerifyEmailPayload,
+  VerifyEmailResponse,
+} from "@/types/auth";
 import type { AIJobStatus, GenerateSOPPayload, SubmitAIJobResponse } from "@/types/ai";
 import type {
   ApplicationQueryParams,
@@ -83,6 +97,22 @@ export async function verifyEmail(payload: VerifyEmailPayload) {
 export async function resendVerificationEmail(payload: ResendVerificationPayload) {
   const response = await api.post<ResendVerificationResponse>(
     "/auth/resend-verification/",
+    payload,
+  );
+  return response.data;
+}
+
+export async function requestPasswordReset(payload: PasswordResetRequestPayload) {
+  const response = await api.post<PasswordResetRequestResponse>(
+    "/auth/password-reset/request/",
+    payload,
+  );
+  return response.data;
+}
+
+export async function confirmPasswordReset(payload: PasswordResetConfirmPayload) {
+  const response = await api.post<PasswordResetConfirmResponse>(
+    "/auth/password-reset/confirm/",
     payload,
   );
   return response.data;

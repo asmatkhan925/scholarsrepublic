@@ -60,3 +60,23 @@ export type ResendVerificationResponse = {
   email_sent?: boolean;
   retry_after_seconds?: number;
 };
+
+export type PasswordResetRequestPayload = {
+  email: string;
+};
+
+export type PasswordResetRequestResponse = {
+  detail: string;
+};
+
+export type PasswordResetConfirmPayload = {
+  uid: string;
+  token: string;
+  password: string;
+  password_confirm: string;
+};
+
+export type PasswordResetConfirmResponse = {
+  detail: string;
+  email?: string;
+};
