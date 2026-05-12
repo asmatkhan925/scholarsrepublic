@@ -54,9 +54,6 @@ class RegisterView(APIView):
                 "Please check email settings and try again."
             ) from exc
 
-        user.email_verification_sent_at = timezone.now()
-        user.save(update_fields=["email_verification_sent_at", "updated_at"])
-
         return Response(
             {
                 "detail": "Account created. Please check your email to verify your address before logging in. The email may take 1–2 minutes to arrive. Also check spam or promotions.",
