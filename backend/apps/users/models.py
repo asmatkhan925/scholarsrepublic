@@ -14,6 +14,7 @@ class User(AbstractUser):
     full_name = models.CharField(max_length=255)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.STUDENT)
     email_verified = models.BooleanField(default=True)
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

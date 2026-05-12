@@ -13,7 +13,6 @@ import {
 import {
   clearAuthToken,
   getCurrentUser,
-  googleLoginUser,
   loginUser,
   logoutUser,
   registerUser,
@@ -35,6 +34,7 @@ import type {
   RegisterResponse,
   User,
   VerifyEmailPayload,
+  VerifyEmailResponse,
 } from "@/types/auth";
 
 type AuthContextValue = {
@@ -42,9 +42,8 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   login: (payload: LoginPayload) => Promise<AuthResponse>;
-  loginWithGoogle: (credential: string) => Promise<AuthResponse>;
   register: (payload: RegisterPayload) => Promise<RegisterResponse>;
-  verifyEmail: (payload: VerifyEmailPayload) => Promise<AuthResponse>;
+  verifyEmail: (payload: VerifyEmailPayload) => Promise<VerifyEmailResponse>;
   logout: () => Promise<void>;
   refreshCurrentUser: () => Promise<User | null>;
 };
@@ -111,25 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyAuthResponse],
   );
 
-  const loginWithGoogle = useCallback(
-    async (credential: string) => {
-      const response = await googleLoginUser({ credential });
-      return applyAuthResponse(response);
-    },
-    [applyAuthResponse],
-  );
-
   const register = useCallback(async (payload: RegisterPayload) => {
     return registerUser(payload);
   }, []);
 
-  const verifyEmail = useCallback(
-    async (payload: VerifyEmailPayload) => {
-      const response = await verifyEmailRequest(payload);
-      return applyAuthResponse(response);
-    },
-    [applyAuthResponse],
-  );
+  const verifyEmail = useCallback(async (payload: VerifyEmailPayload) => {
+    return verifyEmailRequest(payload);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -147,13 +134,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAuthenticated: Boolean(user),
       login,
-      loginWithGoogle,
       register,
       verifyEmail,
       logout,
       refreshCurrentUser,
     }),
-    [loading, login, loginWithGoogle, logout, refreshCurrentUser, register, user, verifyEmail],
+    [loading, login, logout, refreshCurrentUser, register, user, verifyEmail],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SiteHeader } from "@/components/site-header";
 import { getErrorMessage } from "@/lib/errors";
+import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -16,13 +17,21 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [nextPath, setNextPath] = useState("/dashboard");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setNextPath(getSafeNextPath(params.get("next")));
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setLoading(true);
+
+    const cleanedNextPath = getSafeNextPath(nextPath);
 
     try {
       await register({
@@ -30,11 +39,23 @@ export default function RegisterPage() {
         email,
         password,
         password_confirm: passwordConfirm,
+        next: cleanedNextPath,
       });
 
-      router.replace(`/login?registered=1&email=${encodeURIComponent(email)}`);
+      const params = new URLSearchParams({
+        registered: "1",
+        email,
+      });
+
+      if (cleanedNextPath !== "/dashboard") {
+        params.set("next", cleanedNextPath);
+      }
+
+      router.replace(`/login?${params.toString()}`);
     } catch (authError) {
-      setError(getErrorMessage(authError));
+      setError(
+        getErrorMessage(authError) ?? "Registration failed. Please try again.",
+      );
       setLoading(false);
     }
   }
@@ -49,9 +70,12 @@ export default function RegisterPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
               Scholars Republic
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-950">Create Free Profile</h1>
+            <h1 className="mt-2 text-3xl font-bold text-slate-950">
+              Create Free Profile
+            </h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Register as a student. You will need to verify your email before logging in.
+              Register as a student. You will need to verify your email before
+              logging in.
             </p>
           </div>
 
@@ -120,7 +144,10 @@ export default function RegisterPage() {
 
           <p className="mt-6 text-center text-sm text-slate-600">
             Already registered?{" "}
-            <Link href="/login" className="font-semibold text-emerald-700 hover:text-emerald-800">
+            <Link
+              href={buildAuthPath("/login", nextPath)}
+              className="font-semibold text-emerald-700 hover:text-emerald-800"
+            >
               Login
             </Link>
           </p>

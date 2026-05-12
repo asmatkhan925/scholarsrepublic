@@ -1,9 +1,7 @@
-from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token as google_id_token
 from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -16,10 +14,12 @@ from apps.users.serializers import (
     RegisterSerializer,
     UserSerializer,
 )
+from apps.users.safe_redirects import clean_next_path
 from apps.users.tokens import email_verification_token
 from apps.users.utils import send_verification_email
 
 User = get_user_model()
+RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
 
 
 def auth_response_for_user(user, status_code=status.HTTP_200_OK):
@@ -42,10 +42,11 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        next_path = clean_next_path(request.data.get("next"))
         user = serializer.save()
 
         try:
-            send_verification_email(user)
+            send_verification_email(user, next_path=next_path)
         except Exception as exc:
             user.delete()
             raise APIException(
@@ -53,9 +54,13 @@ class RegisterView(APIView):
                 "Please check email settings and try again."
             ) from exc
 
+        user.email_verification_sent_at = timezone.now()
+        user.save(update_fields=["email_verification_sent_at", "updated_at"])
+
         return Response(
             {
                 "detail": "Account created. Please check your email to verify your address before logging in. The email may take 1–2 minutes to arrive. Also check spam or promotions.",
+                "email_sent": True,
                 "user": UserSerializer(user).data,
             },
             status=status.HTTP_201_CREATED,
@@ -94,98 +99,63 @@ class VerifyEmailView(APIView):
         user.is_active = True
         user.save(update_fields=["email_verified", "is_active", "updated_at"])
 
-        return auth_response_for_user(user)
+        return Response(
+            {
+                "detail": "Email verified successfully. Please log in to continue.",
+                "email": user.email,
+                "user": UserSerializer(user).data,
+            }
+        )
 
 
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = User.objects.normalize_email(request.data.get("email", "").strip())
+        email = User.objects.normalize_email(str(request.data.get("email", "")).strip())
+        next_path = clean_next_path(request.data.get("next"))
         user = User.objects.filter(email__iexact=email).first()
 
-        if user and not user.email_verified:
-            try:
-                send_verification_email(user)
-            except Exception as exc:
-                raise APIException(
-                    "Verification email could not be sent. Please try again later."
-                ) from exc
+        if not user or user.email_verified:
+            return Response(
+                {
+                    "detail": "If this account needs verification, a verification email will be sent.",
+                    "email_sent": False,
+                }
+            )
+
+        now = timezone.now()
+        if user.email_verification_sent_at:
+            elapsed_seconds = int((now - user.email_verification_sent_at).total_seconds())
+            remaining_seconds = RESEND_VERIFICATION_COOLDOWN_SECONDS - elapsed_seconds
+
+            if remaining_seconds > 0:
+                return Response(
+                    {
+                        "detail": "Please wait before requesting another verification email.",
+                        "retry_after_seconds": remaining_seconds,
+                        "email_sent": False,
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
+        try:
+            send_verification_email(user, next_path=next_path)
+        except Exception as exc:
+            raise APIException(
+                "Verification email could not be sent. Please try again later."
+            ) from exc
+
+        user.email_verification_sent_at = now
+        user.save(update_fields=["email_verification_sent_at", "updated_at"])
 
         return Response(
             {
-                "detail": "If this account needs verification, a new verification email has been sent."
+                "detail": "Verification email sent. It may take 1-2 minutes to arrive. Also check spam or promotions.",
+                "retry_after_seconds": RESEND_VERIFICATION_COOLDOWN_SECONDS,
+                "email_sent": True,
             }
         )
-
-
-class GoogleLoginView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        credential = request.data.get("credential")
-
-        if not credential:
-            return Response(
-                {"detail": "Google credential is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not settings.GOOGLE_OAUTH_CLIENT_ID:
-            return Response(
-                {"detail": "Google login is not configured yet."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
-        try:
-            google_user = google_id_token.verify_oauth2_token(
-                credential,
-                google_requests.Request(),
-                settings.GOOGLE_OAUTH_CLIENT_ID,
-            )
-        except ValueError:
-            return Response(
-                {"detail": "Invalid Google sign-in token."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        email = User.objects.normalize_email(google_user.get("email", ""))
-        email_verified = bool(google_user.get("email_verified"))
-
-        if not email or not email_verified:
-            return Response(
-                {"detail": "Google account email must be verified."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        full_name = google_user.get("name") or email.split("@")[0]
-        user = User.objects.filter(email__iexact=email).first()
-
-        if user is None:
-            user = User.objects.create_user(
-                email=email,
-                password=None,
-                full_name=full_name,
-                role=User.Role.STUDENT,
-                is_active=True,
-                email_verified=True,
-            )
-        else:
-            changed_fields = []
-            if not user.email_verified:
-                user.email_verified = True
-                changed_fields.append("email_verified")
-            if not user.is_active:
-                user.is_active = True
-                changed_fields.append("is_active")
-            if not user.full_name:
-                user.full_name = full_name
-                changed_fields.append("full_name")
-            if changed_fields:
-                changed_fields.append("updated_at")
-                user.save(update_fields=changed_fields)
-
-        return auth_response_for_user(user)
 
 
 class LoginView(APIView):

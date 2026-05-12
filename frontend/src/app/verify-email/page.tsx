@@ -7,24 +7,32 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SiteHeader } from "@/components/site-header";
 import { getErrorMessage } from "@/lib/errors";
+import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
   const { verifyEmail } = useAuth();
   const didRunRef = useRef(false);
 
-  const [status, setStatus] = useState<"checking" | "success" | "error">("checking");
+  const [status, setStatus] = useState<"checking" | "success" | "error">(
+    "checking",
+  );
   const [message, setMessage] = useState("Verifying your email address...");
+  const [loginHref, setLoginHref] = useState("/login");
 
   useEffect(() => {
     if (didRunRef.current) {
       return;
     }
+
     didRunRef.current = true;
 
     const params = new URLSearchParams(window.location.search);
     const uid = params.get("uid");
     const token = params.get("token");
+    const nextPath = getSafeNextPath(params.get("next"));
+
+    setLoginHref(buildAuthPath("/login", nextPath));
 
     if (!uid || !token) {
       setStatus("error");
@@ -32,21 +40,27 @@ export default function VerifyEmailPage() {
       return;
     }
 
-    const verificationPayload = { uid, token };
+    const verificationPayload = {
+      uid,
+      token,
+    };
 
     async function runVerification() {
       try {
         const response = await verifyEmail(verificationPayload);
-        const destination = response.user.role === "admin" ? "/admin" : "/dashboard";
+        const destination = buildAuthPath("/login", nextPath, {
+          verified: "1",
+          email: response.email,
+        });
 
         setStatus("success");
-        setMessage("Email verified successfully. Opening your dashboard...");
+        setMessage("Email verified successfully. Redirecting you to login...");
 
         window.setTimeout(() => {
           router.replace(destination);
 
           window.setTimeout(() => {
-            if (window.location.pathname !== destination) {
+            if (!window.location.pathname.startsWith("/login")) {
               window.location.assign(destination);
             }
           }, 700);
@@ -72,7 +86,9 @@ export default function VerifyEmailPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
             Scholars Republic
           </p>
-          <h1 className="mt-3 text-3xl font-bold text-slate-950">Email verification</h1>
+          <h1 className="mt-3 text-3xl font-bold text-slate-950">
+            Email verification
+          </h1>
 
           <div
             className={`mt-6 rounded-2xl border px-4 py-4 text-sm leading-6 ${
@@ -88,7 +104,7 @@ export default function VerifyEmailPage() {
 
           {status === "error" && (
             <Link
-              href="/login"
+              href={loginHref}
               className="mt-6 inline-flex rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
             >
               Back to login

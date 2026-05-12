@@ -1,16 +1,7 @@
 import axios from "axios";
 
 import type { CountryListResponse, StudyFieldListResponse } from "@/types/reference";
-import type {
-  AuthResponse,
-  GoogleLoginPayload,
-  LoginPayload,
-  RegisterPayload,
-  RegisterResponse,
-  ResendVerificationPayload,
-  User,
-  VerifyEmailPayload,
-} from "@/types/auth";
+import type { AuthResponse, LoginPayload, RegisterPayload, RegisterResponse, ResendVerificationPayload, ResendVerificationResponse, User, VerifyEmailPayload, VerifyEmailResponse } from "@/types/auth";
 import type { AIJobStatus, GenerateSOPPayload, SubmitAIJobResponse } from "@/types/ai";
 import type {
   ApplicationQueryParams,
@@ -80,27 +71,22 @@ export async function registerUser(payload: RegisterPayload) {
   const response = await api.post<RegisterResponse>("/auth/register/", payload);
   return response.data;
 }
-
 export async function loginUser(payload: LoginPayload) {
   const response = await api.post<AuthResponse>("/auth/login/", payload);
   return response.data;
 }
 
-export async function googleLoginUser(payload: GoogleLoginPayload) {
-  const response = await api.post<AuthResponse>("/auth/google/", payload);
-  return response.data;
-}
-
 export async function verifyEmail(payload: VerifyEmailPayload) {
-  const response = await api.post<AuthResponse>("/auth/verify-email/", payload);
+  const response = await api.post<VerifyEmailResponse>("/auth/verify-email/", payload);
   return response.data;
 }
-
 export async function resendVerificationEmail(payload: ResendVerificationPayload) {
-  const response = await api.post<{ detail: string }>("/auth/resend-verification/", payload);
+  const response = await api.post<ResendVerificationResponse>(
+    "/auth/resend-verification/",
+    payload,
+  );
   return response.data;
 }
-
 export async function getCurrentUser() {
   const response = await api.get<User>("/auth/me/");
   return response.data;

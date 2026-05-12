@@ -22,6 +22,7 @@ export type AuthResponse = {
 
 export type RegisterResponse = {
   detail: string;
+  email_sent?: boolean;
   user: User;
 };
 
@@ -30,6 +31,7 @@ export type RegisterPayload = {
   email: string;
   password: string;
   password_confirm: string;
+  next?: string;
 };
 
 export type LoginPayload = {
@@ -37,15 +39,24 @@ export type LoginPayload = {
   password: string;
 };
 
-export type GoogleLoginPayload = {
-  credential: string;
-};
-
 export type VerifyEmailPayload = {
   uid: string;
   token: string;
 };
 
+export type VerifyEmailResponse = {
+  detail: string;
+  email: string;
+  user: User;
+};
+
 export type ResendVerificationPayload = {
   email: string;
+  next?: string;
+};
+
+export type ResendVerificationResponse = {
+  detail: string;
+  email_sent?: boolean;
+  retry_after_seconds?: number;
 };

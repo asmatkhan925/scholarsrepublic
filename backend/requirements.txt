@@ -8,4 +8,3 @@ Pillow
 django-filter
 drf-spectacular
 requests
-google-auth

@@ -2,44 +2,20 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SiteHeader } from "@/components/site-header";
 import { resendVerificationEmail } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
+import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 
-type GoogleCredentialResponse = {
-  credential?: string;
-};
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: GoogleCredentialResponse) => void;
-          }) => void;
-          renderButton: (
-            element: HTMLElement,
-            options: {
-              theme: "outline";
-              size: "large";
-              width?: string;
-              text?: "signin_with";
-              shape?: "rectangular" | "pill";
-            },
-          ) => void;
-        };
-      };
-    };
-  }
-}
-
-const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 const verificationNotice =
   "Account created. Please check your email to verify your address before logging in. The email may take 1–2 minutes to arrive. Also check spam or promotions.";
 
@@ -47,36 +23,123 @@ function isVerificationError(message: string) {
   return message.toLowerCase().includes("verify your email");
 }
 
+function resendStorageKey(email: string) {
+  return `sr_verification_resend_until:${email.trim().toLowerCase()}`;
+}
+
+function getStoredCooldownRemaining(email: string) {
+  if (!email.trim()) {
+    return 0;
+  }
+
+  const rawUntil = window.localStorage.getItem(resendStorageKey(email));
+  const until = rawUntil ? Number(rawUntil) : 0;
+
+  if (!Number.isFinite(until) || until <= Date.now()) {
+    return 0;
+  }
+
+  return Math.ceil((until - Date.now()) / 1000);
+}
+
+function storeCooldown(email: string, seconds: number) {
+  if (!email.trim() || seconds <= 0) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    resendStorageKey(email),
+    String(Date.now() + seconds * 1000),
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loginWithGoogle } = useAuth();
-
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const googleRenderedRef = useRef(false);
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [nextPath, setNextPath] = useState("/dashboard");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [registeredNotice, setRegisteredNotice] = useState(false);
+  const [noticeTone, setNoticeTone] = useState<"amber" | "emerald">("amber");
   const [showResendVerification, setShowResendVerification] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [googleScriptReady, setGoogleScriptReady] = useState(false);
+
+  const registerHref = useMemo(
+    () => buildAuthPath("/register", nextPath),
+    [nextPath],
+  );
+
+  const startCooldown = useCallback((targetEmail: string, seconds: number) => {
+    storeCooldown(targetEmail, seconds);
+    setCooldownRemaining(seconds);
+  }, []);
 
   const redirectAfterLogin = useCallback(
     (role: string) => {
-      router.push(role === "admin" ? "/admin" : "/dashboard");
+      const safeNextPath = getSafeNextPath(nextPath);
+      const destination =
+        safeNextPath !== "/dashboard"
+          ? safeNextPath
+          : role === "admin"
+            ? "/admin"
+            : "/dashboard";
+
+      router.replace(destination);
     },
-    [router],
+    [nextPath, router],
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const queryEmail = params.get("email") ?? "";
+    const registered = params.get("registered") === "1";
+    const verified = params.get("verified") === "1";
+    const safeNextPath = getSafeNextPath(params.get("next"));
+
+    setNextPath(safeNextPath);
+
+    if (queryEmail) {
+      setEmail(queryEmail);
+    }
+
+    setPassword("");
+
+    if (registered) {
+      setNotice(verificationNotice);
+      setNoticeTone("amber");
+      setShowResendVerification(true);
+
+      if (queryEmail) {
+        startCooldown(queryEmail, 60);
+      }
+    } else if (verified) {
+      setNotice(
+        "Email verified successfully. Please enter your password to continue.",
+      );
+      setNoticeTone("emerald");
+    }
+  }, [startCooldown]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCooldownRemaining(getStoredCooldownRemaining(email));
+    }, 1000);
+
+    setCooldownRemaining(getStoredCooldownRemaining(email));
+
+    return () => window.clearInterval(timer);
+  }, [email]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    setNotice(registeredNotice ? verificationNotice : null);
+    setNotice(null);
     setResendMessage(null);
     setResendError(null);
     setLoading(true);
@@ -85,14 +148,12 @@ export default function LoginPage() {
       const response = await login({ email, password });
       redirectAfterLogin(response.user.role);
     } catch (authError) {
-      const message = getErrorMessage(authError) ?? "Login failed. Please try again.";
+      const message =
+        getErrorMessage(authError) ?? "Login failed. Please try again.";
 
       if (isVerificationError(message)) {
-        setNotice(
-          "Please verify your email address before logging in. Check your inbox, spam, or promotions folder.",
-        );
+        setError("Please verify your email address before logging in.");
         setShowResendVerification(true);
-        setError(null);
       } else {
         setError(message);
       }
@@ -111,12 +172,35 @@ export default function LoginPage() {
       return;
     }
 
+    const remaining = getStoredCooldownRemaining(trimmedEmail);
+    if (remaining > 0) {
+      setCooldownRemaining(remaining);
+      setResendError(
+        `Please wait ${remaining}s before requesting another verification email.`,
+      );
+      return;
+    }
+
     setResendLoading(true);
 
     try {
-      const response = await resendVerificationEmail({ email: trimmedEmail });
+      const response = await resendVerificationEmail({
+        email: trimmedEmail,
+        next: nextPath,
+      });
+
       setResendMessage(response.detail);
+      startCooldown(trimmedEmail, response.retry_after_seconds ?? 60);
     } catch (resendRequestError) {
+      const retryAfterSeconds =
+        (resendRequestError as {
+          response?: { data?: { retry_after_seconds?: number } };
+        }).response?.data?.retry_after_seconds ?? 0;
+
+      if (retryAfterSeconds > 0) {
+        startCooldown(trimmedEmail, retryAfterSeconds);
+      }
+
       setResendError(
         getErrorMessage(resendRequestError) ??
           "Verification email could not be sent. Please try again later.",
@@ -126,84 +210,9 @@ export default function LoginPage() {
     }
   }
 
-  const handleGoogleCredential = useCallback(
-    async (credential: string) => {
-      setError(null);
-      setNotice(null);
-      setLoading(true);
-
-      try {
-        const response = await loginWithGoogle(credential);
-        redirectAfterLogin(response.user.role);
-      } catch (authError) {
-        setError(getErrorMessage(authError));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [loginWithGoogle, redirectAfterLogin],
-  );
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const queryEmail = params.get("email");
-    const registered = params.get("registered") === "1";
-
-    if (queryEmail) {
-      setEmail(queryEmail);
-    }
-
-    setPassword("");
-
-    if (registered) {
-      setNotice(verificationNotice);
-      setRegisteredNotice(true);
-      setShowResendVerification(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (
-      !googleClientId ||
-      !googleScriptReady ||
-      !googleButtonRef.current ||
-      !window.google ||
-      googleRenderedRef.current
-    ) {
-      return;
-    }
-
-    window.google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: (response) => {
-        if (response.credential) {
-          void handleGoogleCredential(response.credential);
-        }
-      },
-    });
-
-    window.google.accounts.id.renderButton(googleButtonRef.current, {
-      theme: "outline",
-      size: "large",
-      width: "320",
-      text: "signin_with",
-      shape: "pill",
-    });
-
-    googleRenderedRef.current = true;
-  }, [googleScriptReady, handleGoogleCredential]);
-
   return (
     <>
       <SiteHeader />
-
-      {googleClientId && (
-        <Script
-          src="https://accounts.google.com/gsi/client"
-          strategy="afterInteractive"
-          onLoad={() => setGoogleScriptReady(true)}
-        />
-      )}
 
       <main className="min-h-screen bg-slate-50 px-4 py-12">
         <section className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -213,39 +222,26 @@ export default function LoginPage() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-slate-950">Login</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Sign in to access your dashboard, saved opportunities, application tracker, and AI
-              tools.
+              Sign in to access your dashboard, saved opportunities, application
+              tracker, and AI tools.
             </p>
           </div>
 
-          {error && (
-            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
+          {notice && (
+            <div
+              className={`mb-4 rounded-2xl border px-4 py-3 text-sm leading-6 ${
+                noticeTone === "emerald"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-amber-200 bg-amber-50 text-amber-800"
+              }`}
+            >
+              {notice}
             </div>
           )}
 
-          {notice && (
-            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
-              <p>{notice}</p>
-
-              {showResendVerification ? (
-                <div className="mt-3 grid gap-2">
-                  <button
-                    type="button"
-                    disabled={resendLoading}
-                    onClick={handleResendVerification}
-                    className="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                  >
-                    {resendLoading ? "Sending..." : "Resend verification email"}
-                  </button>
-
-                  {resendMessage ? (
-                    <p className="text-sm text-emerald-800">{resendMessage}</p>
-                  ) : null}
-
-                  {resendError ? <p className="text-sm text-red-700">{resendError}</p> : null}
-                </div>
-              ) : null}
+          {error && (
+            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+              {error}
             </div>
           )}
 
@@ -283,42 +279,49 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" />
-            or
-            <span className="h-px flex-1 bg-slate-200" />
-          </div>
+          {showResendVerification && (
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm leading-6 text-slate-600">
+                Did not receive the verification email? Wait at least one minute
+                before requesting another one.
+              </p>
 
-          {googleClientId ? (
-            <div className="flex justify-center" ref={googleButtonRef} />
-          ) : (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Google login is not configured yet.
+              {resendMessage && (
+                <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                  {resendMessage}
+                </div>
+              )}
+
+              {resendError && (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {resendError}
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={resendLoading || cooldownRemaining > 0}
+                onClick={handleResendVerification}
+                className="mt-3 w-full rounded-2xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {resendLoading
+                  ? "Sending..."
+                  : cooldownRemaining > 0
+                    ? `Wait ${cooldownRemaining}s before resending`
+                    : "Resend verification email"}
+              </button>
             </div>
           )}
 
           <p className="mt-6 text-center text-sm text-slate-600">
             New here?{" "}
             <Link
-              href="/register"
+              href={registerHref}
               className="font-semibold text-emerald-700 hover:text-emerald-800"
             >
               Create your profile
             </Link>
           </p>
-
-          <button
-            type="button"
-            className="mt-3 w-full text-center text-xs text-slate-500 hover:text-slate-700"
-            onClick={() => {
-              setNotice(
-                "After registration, check your email and verify your account before logging in.",
-              );
-              setShowResendVerification(true);
-            }}
-          >
-            I created an account but cannot log in
-          </button>
         </section>
       </main>
     </>

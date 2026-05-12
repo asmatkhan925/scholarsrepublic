@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { getSafeNextPath } from "@/lib/redirects";
 import type { UserRole } from "@/types/auth";
 
 type ProtectedRouteProps = {
@@ -19,37 +20,40 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      const currentSearch =
+        typeof window !== "undefined" ? window.location.search : "";
+      const nextPath = getSafeNextPath(`${pathname}${currentSearch}`);
+      router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
     }
   }, [isAuthenticated, loading, pathname, router]);
 
   if (loading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-skyglass px-4 text-sm font-medium text-ink/70">
+      <main className="min-h-screen bg-slate-50 px-4 py-20 text-center text-slate-600">
         Loading your workspace...
-      </div>
+      </main>
     );
   }
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="grid min-h-screen place-items-center bg-skyglass px-4 text-sm font-medium text-ink/70">
+      <main className="min-h-screen bg-slate-50 px-4 py-20 text-center text-slate-600">
         Redirecting to login...
-      </div>
+      </main>
     );
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return (
-      <main className="grid min-h-screen place-items-center bg-skyglass px-4">
-        <section className="max-w-md rounded border border-ink/10 bg-white p-6 text-center shadow-soft">
-          <h1 className="text-2xl font-semibold text-ink">Access denied</h1>
-          <p className="mt-3 text-sm leading-6 text-ink/70">
+      <main className="min-h-screen bg-slate-50 px-4 py-20">
+        <section className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-2xl font-bold text-slate-950">Access denied</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
             Your account does not have permission to open this area.
           </p>
           <Link
             href="/dashboard"
-            className="mt-6 inline-flex rounded bg-pine px-4 py-2 text-sm font-semibold text-white hover:bg-pine/90"
+            className="mt-6 inline-flex rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
           >
             Go to dashboard
           </Link>
