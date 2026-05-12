@@ -4,38 +4,62 @@ const ACCESS_TOKEN_KEY = "scholars_republic_access_token";
 const REFRESH_TOKEN_KEY = "scholars_republic_refresh_token";
 const USER_KEY = "scholars_republic_user";
 
-function hasBrowserStorage() {
-  return typeof window !== "undefined";
+function getBrowserStorage() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function isStoredUser(value: unknown): value is User {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const user = value as Partial<User>;
+  return (
+    typeof user.id === "number" &&
+    typeof user.email === "string" &&
+    typeof user.full_name === "string" &&
+    (user.role === "student" || user.role === "admin") &&
+    typeof user.is_active === "boolean" &&
+    typeof user.email_verified === "boolean" &&
+    typeof user.date_joined === "string"
+  );
 }
 
 export function saveTokens(tokens: AuthTokens) {
-  if (!hasBrowserStorage()) {
+  const storage = getBrowserStorage();
+  if (!storage) {
     return;
   }
-  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
+
+  storage.setItem(ACCESS_TOKEN_KEY, tokens.access);
+  storage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
 }
 
 export function getAccessToken() {
-  if (!hasBrowserStorage()) {
+  const storage = getBrowserStorage();
+  if (!storage) {
     return null;
   }
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
-}
 
-export function getRefreshToken() {
-  if (!hasBrowserStorage()) {
-    return null;
-  }
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return storage.getItem(ACCESS_TOKEN_KEY);
 }
 
 export function removeTokens() {
-  if (!hasBrowserStorage()) {
+  const storage = getBrowserStorage();
+  if (!storage) {
     return;
   }
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+
+  storage.removeItem(ACCESS_TOKEN_KEY);
+  storage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 export function isAuthenticated() {
@@ -43,33 +67,43 @@ export function isAuthenticated() {
 }
 
 export function saveUser(user: User) {
-  if (!hasBrowserStorage()) {
+  const storage = getBrowserStorage();
+  if (!storage) {
     return;
   }
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+  storage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function getStoredUser() {
-  if (!hasBrowserStorage()) {
+  const storage = getBrowserStorage();
+  if (!storage) {
     return null;
   }
 
-  const storedUser = localStorage.getItem(USER_KEY);
+  const storedUser = storage.getItem(USER_KEY);
   if (!storedUser) {
     return null;
   }
 
   try {
-    return JSON.parse(storedUser) as User;
+    const parsedUser = JSON.parse(storedUser);
+    if (isStoredUser(parsedUser)) {
+      return parsedUser;
+    }
   } catch {
-    localStorage.removeItem(USER_KEY);
-    return null;
+    // Invalid localStorage state should not break app startup.
   }
+
+  storage.removeItem(USER_KEY);
+  return null;
 }
 
 export function removeUser() {
-  if (!hasBrowserStorage()) {
+  const storage = getBrowserStorage();
+  if (!storage) {
     return;
   }
-  localStorage.removeItem(USER_KEY);
+
+  storage.removeItem(USER_KEY);
 }

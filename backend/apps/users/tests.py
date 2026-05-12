@@ -1,6 +1,7 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.urls import reverse
@@ -21,11 +22,14 @@ from apps.users.utils import (
 
 
 PASSWORD_RESET_REQUEST_DETAIL = (
-    "If an account exists for this email, a password reset link has been sent."
+    "If an eligible account exists for this email, password reset instructions have been sent."
 )
 
 
 class AuthenticationAPITests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
     def register_payload(self, email="ali@example.com"):
         return {
             "full_name": "Ali Khan",
@@ -433,6 +437,57 @@ class AuthenticationAPITests(APITestCase):
         self.assertIn("access", response.data["tokens"])
         self.assertIn("refresh", response.data["tokens"])
 
+    def test_raw_simplejwt_token_endpoint_is_not_public(self):
+        User.objects.create_user(
+            email="ali@example.com",
+            password="StrongPassword123!",
+            full_name="Ali Khan",
+            email_verified=True,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            "/api/auth/token/",
+            {
+                "email": "ali@example.com",
+                "password": "StrongPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_raw_simplejwt_refresh_endpoint_is_not_public(self):
+        response = self.client.post(
+            "/api/auth/token/refresh/",
+            {"refresh": "not-a-real-token"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_login_throttle_triggers_after_configured_limit(self):
+        User.objects.create_user(
+            email="throttle-login@example.com",
+            password="StrongPassword123!",
+            full_name="Throttle Login",
+            email_verified=True,
+            is_active=True,
+        )
+        payload = {
+            "email": "throttle-login@example.com",
+            "password": "WrongPassword123!",
+        }
+
+        responses = [
+            self.client.post(reverse("login"), payload, format="json")
+            for _ in range(6)
+        ]
+
+        for response in responses[:5]:
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(responses[5].status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
     def test_login_invalid_credentials(self):
         response = self.client.post(
             reverse("login"),
@@ -517,6 +572,29 @@ class AuthenticationAPITests(APITestCase):
         response = self.client.post(
             reverse("password-reset-request"),
             {"email": "inactive-reset@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertNotIn("user", response.data)
+        self.assertNotIn("email_sent", response.data)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_request_unusable_password_user_returns_generic_and_sends_no_email(self):
+        user = User.objects.create_user(
+            email="unusable-reset@example.com",
+            password="StrongPassword123!",
+            full_name="Unusable Password",
+            email_verified=True,
+            is_active=True,
+        )
+        user.set_unusable_password()
+        user.save(update_fields=["password", "updated_at"])
+
+        response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "unusable-reset@example.com"},
             format="json",
         )
 

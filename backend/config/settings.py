@@ -166,6 +166,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_RATES": {
+        "auth_login": "5/minute",
+        "auth_register": "5/hour",
+        "auth_resend_verification": "3/hour",
+        "auth_password_reset_request": "3/hour",
+        "auth_password_reset_confirm": "10/hour",
+    },
 }
 
 SIMPLE_JWT = {
@@ -188,12 +195,11 @@ AI_SERVICE_TOKEN = os.getenv("AI_SERVICE_TOKEN", "")
 AI_SOP_MONTHLY_LIMIT = env_int("AI_SOP_MONTHLY_LIMIT", 5)
 
 
-# Authentication, email verification, and Google sign-in
+# Authentication and email verification
 FRONTEND_URL = os.getenv(
     "FRONTEND_URL",
     "http://localhost:3000" if DEBUG else "https://scholarsrepublic.org",
 )
-GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
 
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",

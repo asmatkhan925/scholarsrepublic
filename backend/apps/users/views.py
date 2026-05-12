@@ -19,6 +19,13 @@ from apps.users.serializers import (
     UserSerializer,
 )
 from apps.users.safe_redirects import clean_next_path
+from apps.users.throttles import (
+    LoginRateThrottle,
+    PasswordResetConfirmRateThrottle,
+    PasswordResetRequestRateThrottle,
+    RegisterRateThrottle,
+    ResendVerificationRateThrottle,
+)
 from apps.users.tokens import email_verification_token
 from apps.users.utils import send_password_reset_email, send_verification_email
 
@@ -26,7 +33,7 @@ User = get_user_model()
 RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
 PASSWORD_RESET_COOLDOWN_SECONDS = 60
 PASSWORD_RESET_REQUEST_DETAIL = (
-    "If an account exists for this email, a password reset link has been sent."
+    "If an eligible account exists for this email, password reset instructions have been sent."
 )
 logger = logging.getLogger(__name__)
 
@@ -47,6 +54,7 @@ def auth_response_for_user(user, status_code=status.HTTP_200_OK):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [RegisterRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -116,6 +124,7 @@ class VerifyEmailView(APIView):
 
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ResendVerificationRateThrottle]
 
     def post(self, request):
         email = User.objects.normalize_email(str(request.data.get("email", "")).strip())
@@ -166,6 +175,7 @@ class ResendVerificationEmailView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
@@ -175,6 +185,7 @@ class LoginView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetRequestRateThrottle]
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -212,6 +223,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetConfirmRateThrottle]
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
