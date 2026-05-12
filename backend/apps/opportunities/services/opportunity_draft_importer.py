@@ -51,18 +51,6 @@ def validate_opportunity_draft_payload(payload):
     source_url = clean_text(opportunity_payload.get("source_url"))
     source_name = clean_text(opportunity_payload.get("source_name"))
     official_link = clean_text(opportunity_payload.get("official_link"))
-    source_notes = payload.get("source_notes")
-
-    if isinstance(source_notes, list):
-        for note in source_notes:
-            if not isinstance(note, dict):
-                continue
-
-            source_url = source_url or clean_text(note.get("url"))
-            source_name = source_name or clean_text(note.get("source_name"))
-
-            if source_url and source_name:
-                break
 
     opportunity["official_link"] = official_link
     opportunity["source_url"] = source_url
