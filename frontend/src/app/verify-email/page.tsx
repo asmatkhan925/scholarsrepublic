@@ -39,11 +39,20 @@ export default function VerifyEmailPage() {
     async function runVerification() {
       try {
         const response = await verifyEmail(verificationPayload);
+        const destination = response.user.role === "admin" ? "/admin" : "/dashboard";
+
         setStatus("success");
-        setMessage("Email verified successfully. Redirecting to your dashboard...");
+        setMessage("Email verified successfully. Opening your dashboard...");
+
         window.setTimeout(() => {
-          router.push(response.user.role === "admin" ? "/admin" : "/dashboard");
-        }, 1200);
+          router.replace(destination);
+
+          window.setTimeout(() => {
+            if (window.location.pathname !== destination) {
+              window.location.assign(destination);
+            }
+          }, 700);
+        }, 300);
       } catch (error) {
         setStatus("error");
         setMessage(getErrorMessage(error) ?? "Email verification failed. Please try again or request a new verification email.");
