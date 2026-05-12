@@ -19,20 +19,6 @@ function verifiedStorageKey(email: string) {
   return `sr_email_verified:${normalizeEmail(email)}`;
 }
 
-function verifiedNextStorageKey(email: string) {
-  return `sr_email_verified_next:${normalizeEmail(email)}`;
-}
-
-function getScholarshipRedirectPath(nextPath: string) {
-  const safeNextPath = getSafeNextPath(nextPath);
-
-  if (safeNextPath.startsWith("/scholarships")) {
-    return safeNextPath;
-  }
-
-  return "/scholarships";
-}
-
 export default function VerifyEmailPage() {
   const router = useRouter();
   const { verifyEmail } = useAuth();
@@ -89,15 +75,10 @@ export default function VerifyEmailPage() {
           verified: "1",
           email: response.email,
         });
-        const otherTabDestination = getScholarshipRedirectPath(nextPath);
 
         window.localStorage.setItem(
           verifiedStorageKey(response.email),
           String(Date.now()),
-        );
-        window.localStorage.setItem(
-          verifiedNextStorageKey(response.email),
-          otherTabDestination,
         );
 
         try {
@@ -105,7 +86,6 @@ export default function VerifyEmailPage() {
           channel.postMessage({
             type: "email_verified",
             email: response.email,
-            destination: otherTabDestination,
             timestamp: Date.now(),
           });
           channel.close();
