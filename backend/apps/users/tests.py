@@ -20,6 +20,11 @@ from apps.users.utils import (
 )
 
 
+PASSWORD_RESET_REQUEST_DETAIL = (
+    "If an account exists for this email, a password reset link has been sent."
+)
+
+
 class AuthenticationAPITests(APITestCase):
     def register_payload(self, email="ali@example.com"):
         return {
@@ -439,8 +444,8 @@ class AuthenticationAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_password_reset_request_sends_email_for_existing_user(self):
-        User.objects.create_user(
+    def test_password_reset_request_existing_verified_user_sends_email(self):
+        user = User.objects.create_user(
             email="reset@example.com",
             password="StrongPassword123!",
             full_name="Reset User",
@@ -455,16 +460,18 @@ class AuthenticationAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data["detail"],
-            "If an account exists for that email, a password reset link will be sent.",
-        )
+        self.assertEqual(response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertNotIn("user", response.data)
+        self.assertNotIn("email_sent", response.data)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("/reset-password?", mail.outbox[0].body)
         self.assertIn("uid=", mail.outbox[0].body)
         self.assertIn("token=", mail.outbox[0].body)
+        self.assertNotIn("StrongPassword123!", mail.outbox[0].body)
+        user.refresh_from_db()
+        self.assertIsNotNone(user.password_reset_sent_at)
 
-    def test_password_reset_request_does_not_reveal_missing_email(self):
+    def test_password_reset_request_unknown_email_returns_generic_and_sends_no_email(self):
         response = self.client.post(
             reverse("password-reset-request"),
             {"email": "missing@example.com"},
@@ -472,13 +479,105 @@ class AuthenticationAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data["detail"],
-            "If an account exists for that email, a password reset link will be sent.",
-        )
+        self.assertEqual(response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertNotIn("user", response.data)
+        self.assertNotIn("email_sent", response.data)
         self.assertEqual(len(mail.outbox), 0)
 
-    def test_password_reset_confirm_updates_password_without_tokens(self):
+    def test_password_reset_request_unverified_user_returns_generic_and_sends_no_email(self):
+        User.objects.create_user(
+            email="unverified@example.com",
+            password="StrongPassword123!",
+            full_name="Unverified User",
+            email_verified=False,
+            is_active=False,
+        )
+
+        response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "unverified@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertNotIn("user", response.data)
+        self.assertNotIn("email_sent", response.data)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_request_inactive_user_returns_generic_and_sends_no_email(self):
+        User.objects.create_user(
+            email="inactive-reset@example.com",
+            password="StrongPassword123!",
+            full_name="Inactive User",
+            email_verified=True,
+            is_active=False,
+        )
+
+        response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "inactive-reset@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertNotIn("user", response.data)
+        self.assertNotIn("email_sent", response.data)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_request_is_case_insensitive(self):
+        user = User.objects.create_user(
+            email="case-reset@example.com",
+            password="StrongPassword123!",
+            full_name="Case User",
+            email_verified=True,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "CASE-RESET@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertEqual(len(mail.outbox), 1)
+        user.refresh_from_db()
+        self.assertIsNotNone(user.password_reset_sent_at)
+
+    def test_password_reset_request_throttles_repeat_send_for_same_user(self):
+        user = User.objects.create_user(
+            email="throttle-reset@example.com",
+            password="StrongPassword123!",
+            full_name="Throttle User",
+            email_verified=True,
+            is_active=True,
+        )
+
+        first_response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "throttle-reset@example.com"},
+            format="json",
+        )
+        user.refresh_from_db()
+        first_sent_at = user.password_reset_sent_at
+        second_response = self.client.post(
+            reverse("password-reset-request"),
+            {"email": "throttle-reset@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertEqual(second_response.data["detail"], PASSWORD_RESET_REQUEST_DETAIL)
+        self.assertEqual(len(mail.outbox), 1)
+        user.refresh_from_db()
+        self.assertEqual(user.password_reset_sent_at, first_sent_at)
+
+    def test_password_reset_confirm_valid_token_changes_password(self):
         user = User.objects.create_user(
             email="reset@example.com",
             password="OldStrongPassword123!",
@@ -505,16 +604,95 @@ class AuthenticationAPITests(APITestCase):
             response.data["detail"],
             "Password reset successful. Please log in with your new password.",
         )
-        self.assertEqual(response.data["email"], "reset@example.com")
-        self.assertNotIn("tokens", response.data)
 
         user.refresh_from_db()
         self.assertTrue(user.check_password("NewStrongPassword123!"))
 
+    def test_password_reset_confirm_does_not_return_tokens(self):
+        user = User.objects.create_user(
+            email="no-reset-tokens@example.com",
+            password="OldStrongPassword123!",
+            full_name="No Tokens",
+            email_verified=True,
+            is_active=True,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": token,
+                "password": "NewStrongPassword123!",
+                "password_confirm": "NewStrongPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("tokens", response.data)
+        self.assertNotIn("user", response.data)
+        self.assertNotIn("email", response.data)
+
+    def test_old_password_fails_after_reset(self):
+        user = User.objects.create_user(
+            email="old-password@example.com",
+            password="OldStrongPassword123!",
+            full_name="Old Password",
+            email_verified=True,
+            is_active=True,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": token,
+                "password": "NewStrongPassword123!",
+                "password_confirm": "NewStrongPassword123!",
+            },
+            format="json",
+        )
+
         login_response = self.client.post(
             reverse("login"),
             {
-                "email": "reset@example.com",
+                "email": "old-password@example.com",
+                "password": "OldStrongPassword123!",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_new_password_works_after_reset(self):
+        user = User.objects.create_user(
+            email="new-password@example.com",
+            password="OldStrongPassword123!",
+            full_name="New Password",
+            email_verified=True,
+            is_active=True,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": token,
+                "password": "NewStrongPassword123!",
+                "password_confirm": "NewStrongPassword123!",
+            },
+            format="json",
+        )
+
+        login_response = self.client.post(
+            reverse("login"),
+            {
+                "email": "new-password@example.com",
                 "password": "NewStrongPassword123!",
             },
             format="json",
@@ -538,6 +716,32 @@ class AuthenticationAPITests(APITestCase):
                 "token": "invalid-token",
                 "password": "NewStrongPassword123!",
                 "password_confirm": "NewStrongPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("OldStrongPassword123!"))
+
+    def test_password_reset_confirm_password_mismatch_rejected(self):
+        user = User.objects.create_user(
+            email="mismatch-reset@example.com",
+            password="OldStrongPassword123!",
+            full_name="Mismatch User",
+            email_verified=True,
+            is_active=True,
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": token,
+                "password": "NewStrongPassword123!",
+                "password_confirm": "DifferentStrongPassword123!",
             },
             format="json",
         )

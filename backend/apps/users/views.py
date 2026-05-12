@@ -24,8 +24,9 @@ from apps.users.utils import send_password_reset_email, send_verification_email
 
 User = get_user_model()
 RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
+PASSWORD_RESET_COOLDOWN_SECONDS = 60
 PASSWORD_RESET_REQUEST_DETAIL = (
-    "If an account exists for that email, a password reset link will be sent."
+    "If an account exists for this email, a password reset link has been sent."
 )
 logger = logging.getLogger(__name__)
 
@@ -182,11 +183,29 @@ class PasswordResetRequestView(APIView):
         email = serializer.validated_data["email"]
         user = User.objects.filter(email__iexact=email).first()
 
-        if user and user.has_usable_password():
-            try:
-                send_password_reset_email(user)
-            except Exception:
-                logger.exception("Password reset email could not be sent.")
+        is_eligible_user = (
+            user
+            and user.has_usable_password()
+            and user.is_active
+            and user.email_verified
+        )
+
+        if not is_eligible_user:
+            return Response({"detail": PASSWORD_RESET_REQUEST_DETAIL})
+
+        now = timezone.now()
+        if user.password_reset_sent_at:
+            elapsed_seconds = int((now - user.password_reset_sent_at).total_seconds())
+            if elapsed_seconds < PASSWORD_RESET_COOLDOWN_SECONDS:
+                return Response({"detail": PASSWORD_RESET_REQUEST_DETAIL})
+
+        try:
+            send_password_reset_email(user)
+        except Exception:
+            logger.exception("Password reset email could not be sent.")
+        else:
+            user.password_reset_sent_at = now
+            user.save(update_fields=["password_reset_sent_at", "updated_at"])
 
         return Response({"detail": PASSWORD_RESET_REQUEST_DETAIL})
 
@@ -202,7 +221,6 @@ class PasswordResetConfirmView(APIView):
         return Response(
             {
                 "detail": "Password reset successful. Please log in with your new password.",
-                "email": user.email,
             }
         )
 

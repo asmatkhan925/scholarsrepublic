@@ -174,7 +174,7 @@ export default function LoginPage() {
     }
 
     if (reset) {
-      setNotice("Password reset successful. Please log in with your new password.");
+      setNotice("Password reset successfully. Please log in with your new password.");
       setNoticeTone("emerald");
       setShowResendVerification(false);
     }

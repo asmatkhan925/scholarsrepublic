@@ -40,6 +40,11 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    if (!password || !passwordConfirm) {
+      setError("Enter and confirm your new password.");
+      return;
+    }
+
     if (password !== passwordConfirm) {
       setError("Passwords do not match.");
       return;
@@ -48,19 +53,13 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await confirmPasswordReset({
+      await confirmPasswordReset({
         uid,
         token,
         password,
         password_confirm: passwordConfirm,
       });
-      const params = new URLSearchParams({ reset: "1" });
-
-      if (response.email) {
-        params.set("email", response.email);
-      }
-
-      router.replace(`/login?${params.toString()}`);
+      router.replace("/login?reset=1");
     } catch (resetError) {
       setError(
         getErrorMessage(resetError) ??

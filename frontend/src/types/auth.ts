@@ -78,5 +78,4 @@ export type PasswordResetConfirmPayload = {
 
 export type PasswordResetConfirmResponse = {
   detail: string;
-  email?: string;
 };

@@ -1,27 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { SiteHeader } from "@/components/site-header";
-import { getErrorMessage } from "@/lib/errors";
 import { requestPasswordReset } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
+
+const RESET_REQUEST_SUCCESS_MESSAGE =
+  "If an account exists for this email, we sent password reset instructions. Please check your inbox and spam folder.";
+
+const RESET_REQUEST_COOLDOWN_SECONDS = 60;
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  useEffect(() => {
+    if (cooldownRemaining <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setCooldownRemaining((remaining) => Math.max(remaining - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [cooldownRemaining]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
+    if (cooldownRemaining > 0) {
+      return;
+    }
+
     setMessage(null);
     setError(null);
     setLoading(true);
 
     try {
-      const response = await requestPasswordReset({ email });
-      setMessage(response.detail);
+      await requestPasswordReset({ email });
+      setMessage(RESET_REQUEST_SUCCESS_MESSAGE);
+      setCooldownRemaining(RESET_REQUEST_COOLDOWN_SECONDS);
     } catch (resetError) {
       setError(
         getErrorMessage(resetError) ??
@@ -48,6 +72,9 @@ export default function ForgotPasswordPage() {
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Enter your account email and we will send a secure reset link if
               the account exists.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              For security, we cannot confirm whether an email is registered.
             </p>
           </div>
 
@@ -78,10 +105,14 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || cooldownRemaining > 0}
               className="w-full rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Sending reset link..." : "Send reset link"}
+              {loading
+                ? "Sending reset link..."
+                : cooldownRemaining > 0
+                  ? `Try again in ${cooldownRemaining}s`
+                  : "Send reset link"}
             </button>
           </form>
 
