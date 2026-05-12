@@ -1,3 +1,4 @@
+from secrets import token_urlsafe
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -28,10 +29,17 @@ def build_email_verification_url(user, next_path="") -> str:
 
 
 def send_verification_email(user, next_path="") -> None:
-    # Rotate verification timestamp before generating the token.
-    # This invalidates all older verification links whenever a new one is sent.
+    # Rotate nonce before generating the token.
+    # This invalidates older verification links while keeping the newest link valid.
+    user.email_verification_nonce = token_urlsafe(32)
     user.email_verification_sent_at = timezone.now()
-    user.save(update_fields=["email_verification_sent_at", "updated_at"])
+    user.save(
+        update_fields=[
+            "email_verification_nonce",
+            "email_verification_sent_at",
+            "updated_at",
+        ]
+    )
 
     verification_url = build_email_verification_url(user, next_path=next_path)
     subject = "Verify your Scholars Republic email address"
