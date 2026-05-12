@@ -13,16 +13,28 @@ from apps.opportunities.views import (
     OpportunityMatchView,
     PublicOpportunityDetailView,
     PublicOpportunityListView,
+    PublicOpportunityPathwayDetailView,
+    PublicOpportunityPathwayListView,
     PublicScholarshipDetailView,
     PublicScholarshipListView,
-    ScholarshipCommentListCreateView,
-    ScholarshipCommentReplyCreateView,
     RecommendedOpportunitiesView,
     RecommendedScholarshipsView,
+    ScholarshipCommentListCreateView,
+    ScholarshipCommentReplyCreateView,
     ScholarshipMatchView,
 )
 
 urlpatterns = [
+    path(
+        "opportunity-pathways/",
+        PublicOpportunityPathwayListView.as_view(),
+        name="opportunity-pathway-list",
+    ),
+    path(
+        "opportunity-pathways/<slug:slug>/",
+        PublicOpportunityPathwayDetailView.as_view(),
+        name="opportunity-pathway-detail",
+    ),
     path("opportunities/", PublicOpportunityListView.as_view(), name="opportunity-list"),
     path(
         "opportunities/recommended/",

@@ -408,6 +408,198 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(detail_response.data["professor_name"], "Professor Example")
         self.assertNotIn("professor_email", detail_response.data)
 
+    def test_public_pathway_list_returns_active_pathways_only(self):
+        active = OpportunityPathway.objects.create(
+            title="Active China Pathway",
+            slug="active-china-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        inactive = OpportunityPathway.objects.create(
+            title="Inactive China Pathway",
+            slug="inactive-china-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+            is_active=False,
+        )
+
+        response = self.client.get("/api/opportunity-pathways/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(active.slug, slugs)
+        self.assertNotIn(inactive.slug, slugs)
+
+        item = [item for item in self.results(response) if item["slug"] == active.slug][0]
+        self.assertEqual(item["children_count"], 0)
+        self.assertEqual(item["published_opportunity_count"], 0)
+        self.assertTrue(item["is_active"])
+
+    def test_public_pathway_list_filters(self):
+        root = OpportunityPathway.objects.create(
+            title="China Pathway Filter Root",
+            slug="china-pathway-filter-root",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+            display_order=10,
+        )
+        child = OpportunityPathway.objects.create(
+            title="CSC Pathway Filter Child",
+            slug="csc-pathway-filter-child",
+            country_ref=self.china,
+            parent=root,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+            display_order=20,
+        )
+        italy = OpportunityPathway.objects.create(
+            title="Italy Pathway Filter Root",
+            slug="italy-pathway-filter-root",
+            country_ref=self.italy,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+            display_order=30,
+        )
+
+        root_response = self.client.get("/api/opportunity-pathways/?root_only=true")
+        parent_response = self.client.get(f"/api/opportunity-pathways/?parent={root.slug}")
+        country_response = self.client.get("/api/opportunity-pathways/?country=china")
+        type_response = self.client.get("/api/opportunity-pathways/?pathway_type=application_track")
+
+        root_slugs = [item["slug"] for item in self.results(root_response)]
+        self.assertIn(root.slug, root_slugs)
+        self.assertIn(italy.slug, root_slugs)
+        self.assertNotIn(child.slug, root_slugs)
+
+        self.assertEqual(
+            [item["slug"] for item in self.results(parent_response)],
+            [child.slug],
+        )
+
+        country_slugs = [item["slug"] for item in self.results(country_response)]
+        self.assertIn(root.slug, country_slugs)
+        self.assertIn(child.slug, country_slugs)
+        self.assertNotIn(italy.slug, country_slugs)
+
+        type_slugs = [item["slug"] for item in self.results(type_response)]
+        self.assertIn(child.slug, type_slugs)
+        self.assertNotIn(root.slug, type_slugs)
+
+    def test_public_pathway_detail_only_returns_active_pathways(self):
+        active = OpportunityPathway.objects.create(
+            title="Active Detail Pathway",
+            slug="active-detail-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        inactive = OpportunityPathway.objects.create(
+            title="Inactive Detail Pathway",
+            slug="inactive-detail-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+            is_active=False,
+        )
+        self.opportunity(slug="active-detail-opportunity", pathway=active)
+        self.opportunity(
+            slug="active-detail-draft-opportunity",
+            pathway=active,
+            status=Opportunity.Status.DRAFT,
+        )
+
+        active_response = self.client.get(f"/api/opportunity-pathways/{active.slug}/")
+        inactive_response = self.client.get(f"/api/opportunity-pathways/{inactive.slug}/")
+
+        self.assertEqual(active_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(active_response.data["slug"], active.slug)
+        self.assertEqual(active_response.data["published_opportunity_count"], 1)
+        self.assertEqual(inactive_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_scholarship_pathway_filter_includes_descendants_and_hides_drafts(self):
+        root = OpportunityPathway.objects.create(
+            title="China Scholarships Filter",
+            slug="china-scholarships-filter",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        csc = OpportunityPathway.objects.create(
+            title="CSC Filter",
+            slug="csc-filter",
+            country_ref=self.china,
+            parent=root,
+            pathway_type=OpportunityPathway.PathwayType.GOVERNMENT_PROGRAM,
+        )
+        university_track = OpportunityPathway.objects.create(
+            title="CSC University Track Filter",
+            slug="csc-university-track-filter",
+            country_ref=self.china,
+            parent=csc,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+        italy = OpportunityPathway.objects.create(
+            title="Italy Scholarships Filter",
+            slug="italy-scholarships-filter",
+            country_ref=self.italy,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        published = self.opportunity(
+            slug="descendant-pathway-scholarship",
+            pathway=university_track,
+            application_track=Opportunity.ApplicationTrack.UNIVERSITY,
+        )
+        draft = self.opportunity(
+            slug="draft-descendant-pathway-scholarship",
+            pathway=university_track,
+            status=Opportunity.Status.DRAFT,
+        )
+        outside = self.opportunity(slug="outside-pathway-scholarship", pathway=italy)
+
+        response = self.client.get(f"/api/scholarships/?pathway={csc.slug}")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(published.slug, slugs)
+        self.assertNotIn(draft.slug, slugs)
+        self.assertNotIn(outside.slug, slugs)
+
+    def test_scholarship_pathway_filter_can_match_exact_pathway(self):
+        csc = OpportunityPathway.objects.create(
+            title="CSC Exact Filter",
+            slug="csc-exact-filter",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.GOVERNMENT_PROGRAM,
+        )
+        university_track = OpportunityPathway.objects.create(
+            title="CSC Exact University Track",
+            slug="csc-exact-university-track",
+            country_ref=self.china,
+            parent=csc,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+        direct = self.opportunity(slug="exact-pathway-scholarship", pathway=csc)
+        descendant = self.opportunity(
+            slug="exact-descendant-pathway-scholarship",
+            pathway=university_track,
+        )
+
+        response = self.client.get(f"/api/scholarships/?pathway={csc.slug}&exact_pathway=true")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(direct.slug, slugs)
+        self.assertNotIn(descendant.slug, slugs)
+
+    def test_scholarship_application_track_filter(self):
+        university = self.opportunity(
+            slug="university-track-scholarship",
+            application_track=Opportunity.ApplicationTrack.UNIVERSITY,
+        )
+        embassy = self.opportunity(
+            slug="embassy-track-scholarship",
+            application_track=Opportunity.ApplicationTrack.EMBASSY,
+        )
+
+        response = self.client.get("/api/scholarships/?application_track=university")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(university.slug, slugs)
+        self.assertNotIn(embassy.slug, slugs)
+
     def test_scholarships_alias_returns_only_scholarships(self):
         scholarship = self.opportunity(slug="scholarship-only")
         self.opportunity(

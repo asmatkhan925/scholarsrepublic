@@ -22,6 +22,10 @@ export type OpportunityPathwayDetail = {
   full_path: string;
   description: string;
   official_link: string;
+  display_order: number;
+  is_active: boolean;
+  children_count: number;
+  published_opportunity_count: number;
 };
 
 export type OpportunityListItem = {
@@ -107,6 +111,13 @@ export type OpportunityListResponse = {
   next: string | null;
   previous: string | null;
   results: OpportunityListItem[];
+};
+
+export type OpportunityPathwayListResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: OpportunityPathwayDetail[];
 };
 
 export type MatchBreakdown = {
@@ -292,6 +303,11 @@ export type ApplicationQueryParams = {
 export type OpportunityQueryParams = {
   search?: string;
   opportunity_type?: OpportunityType;
+  pathway?: string;
+  pathway_id?: number;
+  pathway_type?: string;
+  application_track?: string;
+  exact_pathway?: boolean;
   country?: string;
   degree_level?: string;
   field?: string;
@@ -303,6 +319,16 @@ export type OpportunityQueryParams = {
   hec_required?: boolean;
   remote?: boolean;
   ordering?: string;
+};
+
+export type OpportunityPathwayQueryParams = {
+  search?: string;
+  country?: string;
+  country_id?: number;
+  pathway_type?: string;
+  parent?: string;
+  parent_id?: number;
+  root_only?: boolean;
 };
 
 export type OpportunityAdminPayload = Partial<OpportunityDetail> & {

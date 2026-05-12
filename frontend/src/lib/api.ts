@@ -15,6 +15,9 @@ import type {
   OpportunityDetail,
   OpportunityListResponse,
   OpportunityMatch,
+  OpportunityPathwayDetail,
+  OpportunityPathwayListResponse,
+  OpportunityPathwayQueryParams,
   OpportunityQueryParams,
   RecommendedOpportunityResponse,
   SavedOpportunity,
@@ -118,6 +121,18 @@ export async function getOpportunities(params?: OpportunityQueryParams) {
 
 export async function getOpportunity(slug: string) {
   const response = await api.get<OpportunityDetail>(`/opportunities/${slug}/`);
+  return response.data;
+}
+
+export async function getOpportunityPathways(params?: OpportunityPathwayQueryParams) {
+  const response = await api.get<OpportunityPathwayListResponse>("/opportunity-pathways/", {
+    params,
+  });
+  return response.data;
+}
+
+export async function getOpportunityPathway(slug: string) {
+  const response = await api.get<OpportunityPathwayDetail>(`/opportunity-pathways/${slug}/`);
   return response.data;
 }
 

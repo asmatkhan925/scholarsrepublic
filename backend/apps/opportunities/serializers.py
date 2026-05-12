@@ -24,6 +24,8 @@ class OpportunityPathwaySerializer(serializers.ModelSerializer):
     parent = serializers.SerializerMethodField()
     parent_id = serializers.IntegerField(read_only=True)
     full_path = serializers.CharField(read_only=True)
+    children_count = serializers.SerializerMethodField()
+    published_opportunity_count = serializers.SerializerMethodField()
 
     class Meta:
         model = OpportunityPathway
@@ -39,6 +41,10 @@ class OpportunityPathwaySerializer(serializers.ModelSerializer):
             "full_path",
             "description",
             "official_link",
+            "display_order",
+            "is_active",
+            "children_count",
+            "published_opportunity_count",
         )
 
     def get_country(self, obj):
@@ -46,6 +52,18 @@ class OpportunityPathwaySerializer(serializers.ModelSerializer):
 
     def get_parent(self, obj):
         return obj.parent.title if obj.parent else ""
+
+    def get_children_count(self, obj):
+        if hasattr(obj, "active_children_count"):
+            return obj.active_children_count
+
+        return obj.children.filter(is_active=True).count()
+
+    def get_published_opportunity_count(self, obj):
+        if hasattr(obj, "direct_published_opportunity_count"):
+            return obj.direct_published_opportunity_count
+
+        return obj.opportunities.filter(status=Opportunity.Status.PUBLISHED).count()
 
 
 class OpportunityListSerializer(serializers.ModelSerializer):

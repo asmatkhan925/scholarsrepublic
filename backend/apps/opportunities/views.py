@@ -1,11 +1,11 @@
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.opportunities.matching import calculate_opportunity_match
-from apps.opportunities.models import Opportunity, OpportunityComment
+from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityPathway
 from apps.opportunities.serializers import (
     OpportunityAdminSerializer,
     OpportunityCommentCreateSerializer,
@@ -13,6 +13,7 @@ from apps.opportunities.serializers import (
     OpportunityCommentSerializer,
     OpportunityDetailSerializer,
     OpportunityListSerializer,
+    OpportunityPathwaySerializer,
 )
 from apps.users.models import User
 
@@ -21,6 +22,59 @@ def parse_bool(value):
     if value is None:
         return None
     return str(value).lower() in {"1", "true", "yes", "on"}
+
+
+def parse_positive_int(value):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    return parsed if parsed > 0 else None
+
+
+def collect_pathway_and_descendant_ids(pathways):
+    seen = set()
+    queue = list(pathways.values_list("id", flat=True))
+
+    while queue:
+        current_ids = []
+
+        for pathway_id in queue:
+            if pathway_id not in seen:
+                current_ids.append(pathway_id)
+                seen.add(pathway_id)
+
+        if not current_ids:
+            break
+
+        queue = list(
+            OpportunityPathway.objects.filter(
+                is_active=True,
+                parent_id__in=current_ids,
+            ).values_list("id", flat=True)
+        )
+
+    return list(seen)
+
+
+def public_pathway_queryset():
+    return (
+        OpportunityPathway.objects.filter(is_active=True)
+        .select_related("country_ref", "parent")
+        .annotate(
+            active_children_count=Count(
+                "children",
+                filter=Q(children__is_active=True),
+                distinct=True,
+            ),
+            direct_published_opportunity_count=Count(
+                "opportunities",
+                filter=Q(opportunities__status=Opportunity.Status.PUBLISHED),
+                distinct=True,
+            ),
+        )
+    )
 
 
 class IsPlatformAdmin(permissions.BasePermission):
@@ -61,6 +115,38 @@ class OpportunityFilterMixin:
         opportunity_type = params.get("opportunity_type")
         if opportunity_type:
             queryset = queryset.filter(opportunity_type=opportunity_type)
+
+        pathway_id = parse_positive_int(params.get("pathway_id"))
+        pathway = params.get("pathway")
+        if pathway_id or pathway:
+            pathways = OpportunityPathway.objects.filter(is_active=True)
+
+            if pathway_id:
+                pathways = pathways.filter(pk=pathway_id)
+            else:
+                pathway_as_id = parse_positive_int(pathway)
+                if pathway_as_id:
+                    pathways = pathways.filter(pk=pathway_as_id)
+                else:
+                    pathways = pathways.filter(slug=pathway)
+
+            if parse_bool(params.get("exact_pathway")):
+                pathway_ids = list(pathways.values_list("id", flat=True))
+            else:
+                pathway_ids = collect_pathway_and_descendant_ids(pathways)
+
+            if not pathway_ids:
+                return queryset.none()
+
+            queryset = queryset.filter(pathway_id__in=pathway_ids)
+
+        pathway_type = params.get("pathway_type")
+        if pathway_type:
+            queryset = queryset.filter(pathway__pathway_type=pathway_type)
+
+        application_track = params.get("application_track")
+        if application_track:
+            queryset = queryset.filter(application_track=application_track)
 
         country = params.get("country")
         if country:
@@ -147,6 +233,57 @@ class OpportunityFilterMixin:
             F("deadline").asc(nulls_last=True),
             "-published_at",
         )
+
+
+class PublicOpportunityPathwayListView(generics.ListAPIView):
+    serializer_class = OpportunityPathwaySerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        queryset = public_pathway_queryset()
+        params = self.request.query_params
+
+        country = params.get("country")
+        if country:
+            queryset = queryset.filter(
+                Q(country_ref__name__iexact=country) | Q(country_ref__slug__iexact=country)
+            )
+
+        country_id = parse_positive_int(params.get("country_id"))
+        if country_id:
+            queryset = queryset.filter(country_ref_id=country_id)
+
+        pathway_type = params.get("pathway_type")
+        if pathway_type:
+            queryset = queryset.filter(pathway_type=pathway_type)
+
+        parent = params.get("parent")
+        if parent:
+            queryset = queryset.filter(parent__slug=parent)
+
+        parent_id = parse_positive_int(params.get("parent_id"))
+        if parent_id:
+            queryset = queryset.filter(parent_id=parent_id)
+
+        if parse_bool(params.get("root_only")):
+            queryset = queryset.filter(parent__isnull=True)
+
+        search = params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(description__icontains=search)
+            )
+
+        return queryset.order_by("display_order", "title")
+
+
+class PublicOpportunityPathwayDetailView(generics.RetrieveAPIView):
+    serializer_class = OpportunityPathwaySerializer
+    permission_classes = [permissions.AllowAny]
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        return public_pathway_queryset()
 
 
 class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
