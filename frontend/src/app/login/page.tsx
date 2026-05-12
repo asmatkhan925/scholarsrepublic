@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -29,6 +30,24 @@ function resendStorageKey(email: string) {
 
 function verifiedStorageKey(email: string) {
   return `sr_email_verified:${email.trim().toLowerCase()}`;
+}
+
+function loginSuccessStorageKey(email: string) {
+  return `sr_login_success:${email.trim().toLowerCase()}`;
+}
+
+function loginDestinationStorageKey(email: string) {
+  return `sr_login_destination:${email.trim().toLowerCase()}`;
+}
+
+function getScholarshipRedirectPath(nextPath: string) {
+  const safeNextPath = getSafeNextPath(nextPath);
+
+  if (safeNextPath.startsWith("/scholarships")) {
+    return safeNextPath;
+  }
+
+  return "/scholarships";
 }
 
 function isStoredVerified(email: string) {
@@ -106,15 +125,41 @@ export default function LoginPage() {
       setResendMessage(null);
       setResendError(null);
       setCooldownRemaining(0);
-      setNotice("Email verified successfully. Please enter your password to continue.");
+      setNotice(
+        "Email verified successfully. Please enter your password to continue.",
+      );
       setNoticeTone("emerald");
       setError(null);
     },
     [email],
   );
 
+  const broadcastLoginSuccess = useCallback(
+    (loggedInEmail: string, destination: string) => {
+      if (!loggedInEmail.trim()) {
+        return;
+      }
+
+      window.localStorage.setItem(loginSuccessStorageKey(loggedInEmail), String(Date.now()));
+      window.localStorage.setItem(loginDestinationStorageKey(loggedInEmail), destination);
+
+      try {
+        const channel = new BroadcastChannel("sr_auth");
+        channel.postMessage({
+          type: "login_success",
+          email: loggedInEmail,
+          destination,
+        });
+        channel.close();
+      } catch {
+        // BroadcastChannel is optional. localStorage/focus fallback still works.
+      }
+    },
+    [],
+  );
+
   const redirectAfterLogin = useCallback(
-    (role: string) => {
+    (role: string, loggedInEmail: string) => {
       const safeNextPath = getSafeNextPath(nextPath);
       const destination =
         safeNextPath !== "/dashboard"
@@ -123,9 +168,41 @@ export default function LoginPage() {
             ? "/admin"
             : "/dashboard";
 
+      const otherTabDestination = getScholarshipRedirectPath(safeNextPath);
+      broadcastLoginSuccess(loggedInEmail, otherTabDestination);
+
       router.replace(destination);
     },
-    [nextPath, router],
+    [broadcastLoginSuccess, nextPath, router],
+  );
+
+  const redirectThisOriginalTabAfterOtherLogin = useCallback(
+    (loggedInEmail = email, destination?: string) => {
+      if (!loggedInEmail.trim()) {
+        return;
+      }
+
+      const normalizedLoggedInEmail = loggedInEmail.trim().toLowerCase();
+      const normalizedCurrentEmail = email.trim().toLowerCase();
+
+      if (normalizedCurrentEmail && normalizedLoggedInEmail !== normalizedCurrentEmail) {
+        return;
+      }
+
+      const storedDestination = window.localStorage.getItem(
+        loginDestinationStorageKey(loggedInEmail),
+      );
+
+      const finalDestination =
+        destination && destination.startsWith("/scholarships")
+          ? destination
+          : storedDestination && storedDestination.startsWith("/scholarships")
+            ? storedDestination
+            : "/scholarships";
+
+      router.replace(finalDestination);
+    },
+    [email, router],
   );
 
   useEffect(() => {
@@ -156,6 +233,7 @@ export default function LoginPage() {
         "Email verified successfully. Please enter your password to continue.",
       );
       setNoticeTone("emerald");
+      setShowResendVerification(false);
     }
   }, [startCooldown]);
 
@@ -175,10 +253,21 @@ export default function LoginPage() {
       if (event.key === verifiedStorageKey(email)) {
         markCurrentEmailVerified(email);
       }
+
+      if (event.key === loginSuccessStorageKey(email)) {
+        redirectThisOriginalTabAfterOtherLogin(email);
+      }
     }
 
     function handleFocus() {
       markCurrentEmailVerified(email);
+
+      if (
+        email.trim() &&
+        window.localStorage.getItem(loginSuccessStorageKey(email))
+      ) {
+        redirectThisOriginalTabAfterOtherLogin(email);
+      }
     }
 
     window.addEventListener("storage", handleStorage);
@@ -196,6 +285,18 @@ export default function LoginPage() {
         ) {
           markCurrentEmailVerified(email);
         }
+
+        if (
+          event.data?.type === "login_success" &&
+          String(event.data.email).toLowerCase() === email.trim().toLowerCase()
+        ) {
+          redirectThisOriginalTabAfterOtherLogin(
+            email,
+            typeof event.data.destination === "string"
+              ? event.data.destination
+              : undefined,
+          );
+        }
       };
     } catch {
       channel = null;
@@ -207,7 +308,7 @@ export default function LoginPage() {
       document.removeEventListener("visibilitychange", handleFocus);
       channel?.close();
     };
-  }, [email, markCurrentEmailVerified]);
+  }, [email, markCurrentEmailVerified, redirectThisOriginalTabAfterOtherLogin]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -219,7 +320,7 @@ export default function LoginPage() {
 
     try {
       const response = await login({ email, password });
-      redirectAfterLogin(response.user.role);
+      redirectAfterLogin(response.user.role, response.user.email);
     } catch (authError) {
       const message =
         getErrorMessage(authError) ?? "Login failed. Please try again.";
