@@ -3,16 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SiteHeader } from "@/components/site-header";
+import { resendVerificationEmail } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 
 type GoogleCredentialResponse = {
@@ -45,6 +40,12 @@ declare global {
 }
 
 const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+const verificationNotice =
+  "Account created. Please check your email to verify your address before logging in. The email may take 1–2 minutes to arrive. Also check spam or promotions.";
+
+function isVerificationError(message: string) {
+  return message.toLowerCase().includes("verify your email");
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,6 +58,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [registeredNotice, setRegisteredNotice] = useState(false);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleScriptReady, setGoogleScriptReady] = useState(false);
 
@@ -70,16 +76,53 @@ export default function LoginPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    setNotice(null);
+    setNotice(registeredNotice ? verificationNotice : null);
+    setResendMessage(null);
+    setResendError(null);
     setLoading(true);
 
     try {
       const response = await login({ email, password });
       redirectAfterLogin(response.user.role);
     } catch (authError) {
-      setError(getErrorMessage(authError));
+      const message = getErrorMessage(authError) ?? "Login failed. Please try again.";
+
+      if (isVerificationError(message)) {
+        setNotice(
+          "Please verify your email address before logging in. Check your inbox, spam, or promotions folder.",
+        );
+        setShowResendVerification(true);
+        setError(null);
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    const trimmedEmail = email.trim();
+    setResendMessage(null);
+    setResendError(null);
+
+    if (!trimmedEmail) {
+      setResendError("Enter your email address first.");
+      return;
+    }
+
+    setResendLoading(true);
+
+    try {
+      const response = await resendVerificationEmail({ email: trimmedEmail });
+      setResendMessage(response.detail);
+    } catch (resendRequestError) {
+      setResendError(
+        getErrorMessage(resendRequestError) ??
+          "Verification email could not be sent. Please try again later.",
+      );
+    } finally {
+      setResendLoading(false);
     }
   }
 
@@ -100,6 +143,24 @@ export default function LoginPage() {
     },
     [loginWithGoogle, redirectAfterLogin],
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const queryEmail = params.get("email");
+    const registered = params.get("registered") === "1";
+
+    if (queryEmail) {
+      setEmail(queryEmail);
+    }
+
+    setPassword("");
+
+    if (registered) {
+      setNotice(verificationNotice);
+      setRegisteredNotice(true);
+      setShowResendVerification(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (
@@ -152,8 +213,8 @@ export default function LoginPage() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-slate-950">Login</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Sign in to access your dashboard, saved opportunities, application
-              tracker, and AI tools.
+              Sign in to access your dashboard, saved opportunities, application tracker, and AI
+              tools.
             </p>
           </div>
 
@@ -164,8 +225,27 @@ export default function LoginPage() {
           )}
 
           {notice && (
-            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              {notice}
+            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
+              <p>{notice}</p>
+
+              {showResendVerification ? (
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    disabled={resendLoading}
+                    onClick={handleResendVerification}
+                    className="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    {resendLoading ? "Sending..." : "Resend verification email"}
+                  </button>
+
+                  {resendMessage ? (
+                    <p className="text-sm text-emerald-800">{resendMessage}</p>
+                  ) : null}
+
+                  {resendError ? <p className="text-sm text-red-700">{resendError}</p> : null}
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -230,11 +310,12 @@ export default function LoginPage() {
           <button
             type="button"
             className="mt-3 w-full text-center text-xs text-slate-500 hover:text-slate-700"
-            onClick={() =>
+            onClick={() => {
               setNotice(
                 "After registration, check your email and verify your account before logging in.",
-              )
-            }
+              );
+              setShowResendVerification(true);
+            }}
           >
             I created an account but cannot log in
           </button>

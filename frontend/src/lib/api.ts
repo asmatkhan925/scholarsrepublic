@@ -1,7 +1,16 @@
 import axios from "axios";
 
 import type { CountryListResponse, StudyFieldListResponse } from "@/types/reference";
-import type { AuthResponse, GoogleLoginPayload, LoginPayload, RegisterPayload, RegisterResponse, ResendVerificationPayload, User, VerifyEmailPayload } from "@/types/auth";
+import type {
+  AuthResponse,
+  GoogleLoginPayload,
+  LoginPayload,
+  RegisterPayload,
+  RegisterResponse,
+  ResendVerificationPayload,
+  User,
+  VerifyEmailPayload,
+} from "@/types/auth";
 import type { AIJobStatus, GenerateSOPPayload, SubmitAIJobResponse } from "@/types/ai";
 import type {
   ApplicationQueryParams,
@@ -88,10 +97,7 @@ export async function verifyEmail(payload: VerifyEmailPayload) {
 }
 
 export async function resendVerificationEmail(payload: ResendVerificationPayload) {
-  const response = await api.post<{ detail: string }>(
-    "/auth/resend-verification/",
-    payload,
-  );
+  const response = await api.post<{ detail: string }>("/auth/resend-verification/", payload);
   return response.data;
 }
 

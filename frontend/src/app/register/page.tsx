@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -9,35 +10,31 @@ import { getErrorMessage } from "@/lib/errors";
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const router = useRouter();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    setSuccessMessage(null);
     setLoading(true);
 
     try {
-      const response = await register({
+      await register({
         full_name: fullName,
         email,
         password,
         password_confirm: passwordConfirm,
       });
 
-      setSuccessMessage(response.detail);
-      setPassword("");
-      setPasswordConfirm("");
+      router.replace(`/login?registered=1&email=${encodeURIComponent(email)}`);
     } catch (authError) {
       setError(getErrorMessage(authError));
-    } finally {
       setLoading(false);
     }
   }
@@ -52,24 +49,15 @@ export default function RegisterPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
               Scholars Republic
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-950">
-              Create Free Profile
-            </h1>
+            <h1 className="mt-2 text-3xl font-bold text-slate-950">Create Free Profile</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Register as a student. You will need to verify your email before
-              logging in.
+              Register as a student. You will need to verify your email before logging in.
             </p>
           </div>
 
           {error && (
             <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
-              {successMessage}
             </div>
           )}
 
@@ -132,10 +120,7 @@ export default function RegisterPage() {
 
           <p className="mt-6 text-center text-sm text-slate-600">
             Already registered?{" "}
-            <Link
-              href="/login"
-              className="font-semibold text-emerald-700 hover:text-emerald-800"
-            >
+            <Link href="/login" className="font-semibold text-emerald-700 hover:text-emerald-800">
               Login
             </Link>
           </p>

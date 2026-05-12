@@ -13,9 +13,7 @@ export default function VerifyEmailPage() {
   const { verifyEmail } = useAuth();
   const didRunRef = useRef(false);
 
-  const [status, setStatus] = useState<"checking" | "success" | "error">(
-    "checking",
-  );
+  const [status, setStatus] = useState<"checking" | "success" | "error">("checking");
   const [message, setMessage] = useState("Verifying your email address...");
 
   useEffect(() => {
@@ -55,7 +53,10 @@ export default function VerifyEmailPage() {
         }, 300);
       } catch (error) {
         setStatus("error");
-        setMessage(getErrorMessage(error) ?? "Email verification failed. Please try again or request a new verification email.");
+        setMessage(
+          getErrorMessage(error) ??
+            "Email verification failed. Please try again or request a new verification email.",
+        );
       }
     }
 
@@ -71,9 +72,7 @@ export default function VerifyEmailPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
             Scholars Republic
           </p>
-          <h1 className="mt-3 text-3xl font-bold text-slate-950">
-            Email verification
-          </h1>
+          <h1 className="mt-3 text-3xl font-bold text-slate-950">Email verification</h1>
 
           <div
             className={`mt-6 rounded-2xl border px-4 py-4 text-sm leading-6 ${
