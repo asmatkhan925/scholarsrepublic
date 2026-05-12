@@ -2,28 +2,80 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import Script from "next/script";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SiteHeader } from "@/components/site-header";
 import { getErrorMessage } from "@/lib/errors";
 
+type GoogleCredentialResponse = {
+  credential?: string;
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: GoogleCredentialResponse) => void;
+          }) => void;
+          renderButton: (
+            element: HTMLElement,
+            options: {
+              theme: "outline";
+              size: "large";
+              width?: string;
+              text?: "signin_with";
+              shape?: "rectangular" | "pill";
+            },
+          ) => void;
+        };
+      };
+    };
+  }
+}
+
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
+
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleRenderedRef = useRef(false);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleScriptReady, setGoogleScriptReady] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const redirectAfterLogin = useCallback(
+    (role: string) => {
+      router.push(role === "admin" ? "/admin" : "/dashboard");
+    },
+    [router],
+  );
+
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setNotice(null);
     setLoading(true);
 
     try {
       const response = await login({ email, password });
-      router.push(response.user.role === "admin" ? "/admin" : "/dashboard");
+      redirectAfterLogin(response.user.role);
     } catch (authError) {
       setError(getErrorMessage(authError));
     } finally {
@@ -31,28 +83,97 @@ export default function LoginPage() {
     }
   }
 
+  const handleGoogleCredential = useCallback(
+    async (credential: string) => {
+      setError(null);
+      setNotice(null);
+      setLoading(true);
+
+      try {
+        const response = await loginWithGoogle(credential);
+        redirectAfterLogin(response.user.role);
+      } catch (authError) {
+        setError(getErrorMessage(authError));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginWithGoogle, redirectAfterLogin],
+  );
+
+  useEffect(() => {
+    if (
+      !googleClientId ||
+      !googleScriptReady ||
+      !googleButtonRef.current ||
+      !window.google ||
+      googleRenderedRef.current
+    ) {
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (response) => {
+        if (response.credential) {
+          void handleGoogleCredential(response.credential);
+        }
+      },
+    });
+
+    window.google.accounts.id.renderButton(googleButtonRef.current, {
+      theme: "outline",
+      size: "large",
+      width: "320",
+      text: "signin_with",
+      shape: "pill",
+    });
+
+    googleRenderedRef.current = true;
+  }, [googleScriptReady, handleGoogleCredential]);
+
   return (
-    <main>
+    <>
       <SiteHeader />
-      <section className="mx-auto grid min-h-[calc(100vh-65px)] max-w-md content-center px-4 py-12">
-        <div className="rounded border border-ink/10 bg-white p-6 shadow-soft">
-          <h1 className="text-2xl font-semibold text-ink">Login</h1>
-          <p className="mt-2 text-sm leading-6 text-ink/65">
-            Sign in to access your student dashboard, saved opportunities, and future application
-            tracking.
-          </p>
+
+      {googleClientId && (
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+          onLoad={() => setGoogleScriptReady(true)}
+        />
+      )}
+
+      <main className="min-h-screen bg-slate-50 px-4 py-12">
+        <section className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+              Scholars Republic
+            </p>
+            <h1 className="mt-2 text-3xl font-bold text-slate-950">Login</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Sign in to access your dashboard, saved opportunities, application
+              tracker, and AI tools.
+            </p>
+          </div>
 
           {error && (
-            <div className="mt-5 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
 
-          <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-            <label className="grid gap-2 text-sm font-medium text-ink">
+          {notice && (
+            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              {notice}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block text-sm font-medium text-slate-700">
               Email address
               <input
-                className="rounded border border-ink/15 px-4 py-3 font-normal outline-none focus:border-pine"
+                className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
@@ -60,10 +181,11 @@ export default function LoginPage() {
                 required
               />
             </label>
-            <label className="grid gap-2 text-sm font-medium text-ink">
+
+            <label className="block text-sm font-medium text-slate-700">
               Password
               <input
-                className="rounded border border-ink/15 px-4 py-3 font-normal outline-none focus:border-pine"
+                className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Your password"
@@ -71,22 +193,53 @@ export default function LoginPage() {
                 required
               />
             </label>
+
             <button
-              className="rounded bg-pine px-4 py-3 font-semibold text-white hover:bg-pine/90 disabled:cursor-not-allowed disabled:opacity-60"
               type="submit"
               disabled={loading}
+              className="w-full rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Logging in..." : "Login"}
             </button>
           </form>
-          <p className="mt-5 text-sm text-ink/65">
+
+          <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            or
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          {googleClientId ? (
+            <div className="flex justify-center" ref={googleButtonRef} />
+          ) : (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Google login is not configured yet.
+            </div>
+          )}
+
+          <p className="mt-6 text-center text-sm text-slate-600">
             New here?{" "}
-            <Link href="/register" className="font-semibold text-pine">
+            <Link
+              href="/register"
+              className="font-semibold text-emerald-700 hover:text-emerald-800"
+            >
               Create your profile
             </Link>
           </p>
-        </div>
-      </section>
-    </main>
+
+          <button
+            type="button"
+            className="mt-3 w-full text-center text-xs text-slate-500 hover:text-slate-700"
+            onClick={() =>
+              setNotice(
+                "After registration, check your email and verify your account before logging in.",
+              )
+            }
+          >
+            I created an account but cannot log in
+          </button>
+        </section>
+      </main>
+    </>
   );
 }

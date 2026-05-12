@@ -13,10 +13,12 @@ import {
 import {
   clearAuthToken,
   getCurrentUser,
+  googleLoginUser,
   loginUser,
   logoutUser,
   registerUser,
   setAuthToken,
+  verifyEmail as verifyEmailRequest,
 } from "@/lib/api";
 import {
   getAccessToken,
@@ -26,14 +28,23 @@ import {
   saveTokens,
   saveUser,
 } from "@/lib/auth";
-import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types/auth";
+import type {
+  AuthResponse,
+  LoginPayload,
+  RegisterPayload,
+  RegisterResponse,
+  User,
+  VerifyEmailPayload,
+} from "@/types/auth";
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
   login: (payload: LoginPayload) => Promise<AuthResponse>;
-  register: (payload: RegisterPayload) => Promise<AuthResponse>;
+  loginWithGoogle: (credential: string) => Promise<AuthResponse>;
+  register: (payload: RegisterPayload) => Promise<RegisterResponse>;
+  verifyEmail: (payload: VerifyEmailPayload) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   refreshCurrentUser: () => Promise<User | null>;
 };
@@ -88,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedUser) {
       setUser(storedUser);
     }
+
     void refreshCurrentUser();
   }, [refreshCurrentUser]);
 
@@ -99,9 +111,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyAuthResponse],
   );
 
-  const register = useCallback(
-    async (payload: RegisterPayload) => {
-      const response = await registerUser(payload);
+  const loginWithGoogle = useCallback(
+    async (credential: string) => {
+      const response = await googleLoginUser({ credential });
+      return applyAuthResponse(response);
+    },
+    [applyAuthResponse],
+  );
+
+  const register = useCallback(async (payload: RegisterPayload) => {
+    return registerUser(payload);
+  }, []);
+
+  const verifyEmail = useCallback(
+    async (payload: VerifyEmailPayload) => {
+      const response = await verifyEmailRequest(payload);
       return applyAuthResponse(response);
     },
     [applyAuthResponse],
@@ -123,11 +147,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAuthenticated: Boolean(user),
       login,
+      loginWithGoogle,
       register,
+      verifyEmail,
       logout,
       refreshCurrentUser,
     }),
-    [loading, login, logout, refreshCurrentUser, register, user],
+    [
+      loading,
+      login,
+      loginWithGoogle,
+      logout,
+      refreshCurrentUser,
+      register,
+      user,
+      verifyEmail,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

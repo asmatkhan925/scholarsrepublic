@@ -186,3 +186,27 @@ AI_FEATURES_ENABLED = env_bool("AI_FEATURES_ENABLED", False)
 AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "")
 AI_SERVICE_TOKEN = os.getenv("AI_SERVICE_TOKEN", "")
 AI_SOP_MONTHLY_LIMIT = env_int("AI_SOP_MONTHLY_LIMIT", 5)
+
+
+# Authentication, email verification, and Google sign-in
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:3000" if DEBUG else "https://scholarsrepublic.org",
+)
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    "Scholars Republic <noreply@scholarsrepublic.org>",
+)

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import type { CountryListResponse, StudyFieldListResponse } from "@/types/reference";
-import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types/auth";
+import type { AuthResponse, GoogleLoginPayload, LoginPayload, RegisterPayload, RegisterResponse, ResendVerificationPayload, User, VerifyEmailPayload } from "@/types/auth";
 import type { AIJobStatus, GenerateSOPPayload, SubmitAIJobResponse } from "@/types/ai";
 import type {
   ApplicationQueryParams,
@@ -68,12 +68,30 @@ export function clearAuthToken() {
 }
 
 export async function registerUser(payload: RegisterPayload) {
-  const response = await api.post<AuthResponse>("/auth/register/", payload);
+  const response = await api.post<RegisterResponse>("/auth/register/", payload);
   return response.data;
 }
 
 export async function loginUser(payload: LoginPayload) {
   const response = await api.post<AuthResponse>("/auth/login/", payload);
+  return response.data;
+}
+
+export async function googleLoginUser(payload: GoogleLoginPayload) {
+  const response = await api.post<AuthResponse>("/auth/google/", payload);
+  return response.data;
+}
+
+export async function verifyEmail(payload: VerifyEmailPayload) {
+  const response = await api.post<AuthResponse>("/auth/verify-email/", payload);
+  return response.data;
+}
+
+export async function resendVerificationEmail(payload: ResendVerificationPayload) {
+  const response = await api.post<{ detail: string }>(
+    "/auth/resend-verification/",
+    payload,
+  );
   return response.data;
 }
 
