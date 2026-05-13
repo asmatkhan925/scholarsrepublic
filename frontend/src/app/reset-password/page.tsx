@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
+import { AuthPageShell } from "@/components/auth/AuthPageShell";
 import { confirmPasswordReset } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -63,83 +62,75 @@ export default function ResetPasswordPage() {
       router.replace("/login?reset=1");
     } catch (resetError) {
       setError(
-        getErrorMessage(resetError) ??
-          "Password reset failed. Please request a new reset link.",
+        getErrorMessage(resetError) ?? "Password reset failed. Please request a new reset link.",
       );
       setLoading(false);
     }
   }
 
   return (
-    <>
-      <SiteHeader variant="auth" />
-
-      <main className="min-h-screen bg-slate-50 px-4 py-12">
-        <section className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-6">
-            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
-              Scholars Republic
-            </p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-950">
-              Choose New Password
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Enter a strong password for your Scholars Republic account.
-            </p>
-          </div>
-
-          {error && (
-            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block text-sm font-medium text-slate-700">
-              New password
-              <input
-                className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="StrongPassword123!"
-                type="password"
-                required
-              />
-            </label>
-
-            <label className="block text-sm font-medium text-slate-700">
-              Confirm new password
-              <input
-                className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
-                value={passwordConfirm}
-                onChange={(event) => setPasswordConfirm(event.target.value)}
-                placeholder="StrongPassword123!"
-                type="password"
-                required
-              />
-            </label>
-
-            <button
-              type="submit"
-              disabled={loading || !uid || !token}
-              className="w-full rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? "Resetting password..." : "Reset password"}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-slate-600">
-            Need a new link?{" "}
-            <Link
-              href="/forgot-password"
-              className="font-semibold text-emerald-700 hover:text-emerald-800"
-            >
-              Request password reset
-            </Link>
+    <AuthPageShell>
+      <section className="mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-6">
+          <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+            Scholars Republic
           </p>
-        </section>
-      </main>
-      <SiteFooter variant="auth" />
-    </>
+          <h1 className="mt-2 text-3xl font-bold text-slate-950">Choose New Password</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Enter a strong password for your Scholars Republic account.
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="block text-sm font-medium text-slate-700">
+            New password
+            <input
+              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="StrongPassword123!"
+              type="password"
+              required
+            />
+          </label>
+
+          <label className="block text-sm font-medium text-slate-700">
+            Confirm new password
+            <input
+              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+              value={passwordConfirm}
+              onChange={(event) => setPasswordConfirm(event.target.value)}
+              placeholder="StrongPassword123!"
+              type="password"
+              required
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={loading || !uid || !token}
+            className="w-full rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Resetting password..." : "Reset password"}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-slate-600">
+          Need a new link?{" "}
+          <Link
+            href="/forgot-password"
+            className="font-semibold text-emerald-700 hover:text-emerald-800"
+          >
+            Request password reset
+          </Link>
+        </p>
+      </section>
+    </AuthPageShell>
   );
 }

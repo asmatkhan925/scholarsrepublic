@@ -1,12 +1,10 @@
-
 "use client";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { AuthPageShell } from "@/components/auth/AuthPageShell";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { getErrorMessage } from "@/lib/errors";
 import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 
@@ -25,9 +23,7 @@ export default function VerifyEmailPage() {
   const { verifyEmail } = useAuth();
   const didRunRef = useRef(false);
 
-  const [status, setStatus] = useState<"checking" | "success" | "error">(
-    "checking",
-  );
+  const [status, setStatus] = useState<"checking" | "success" | "error">("checking");
   const [message, setMessage] = useState("Verifying your email address...");
 
   useEffect(() => {
@@ -77,10 +73,7 @@ export default function VerifyEmailPage() {
           email: response.email,
         });
 
-        window.localStorage.setItem(
-          verifiedStorageKey(response.email),
-          String(Date.now()),
-        );
+        window.localStorage.setItem(verifiedStorageKey(response.email), String(Date.now()));
 
         try {
           const channel = new BroadcastChannel("sr_auth");
@@ -110,8 +103,7 @@ export default function VerifyEmailPage() {
         setStatus("error");
         setMessage(
           `${
-            getErrorMessage(error) ??
-            "This verification link is invalid or expired."
+            getErrorMessage(error) ?? "This verification link is invalid or expired."
           } Redirecting you to registration...`,
         );
         redirectToRegister();
@@ -122,32 +114,25 @@ export default function VerifyEmailPage() {
   }, [router, verifyEmail]);
 
   return (
-    <>
-      <SiteHeader variant="auth" />
+    <AuthPageShell mainClassName="py-12 md:py-16">
+      <section className="mx-auto w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+          Scholars Republic
+        </p>
+        <h1 className="mt-3 text-3xl font-bold text-slate-950">Email verification</h1>
 
-      <main className="min-h-screen bg-slate-50 px-4 py-16">
-        <section className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
-            Scholars Republic
-          </p>
-          <h1 className="mt-3 text-3xl font-bold text-slate-950">
-            Email verification
-          </h1>
-
-          <div
-            className={`mt-6 rounded-2xl border px-4 py-4 text-sm leading-6 ${
-              status === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : status === "error"
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-slate-200 bg-slate-50 text-slate-700"
-            }`}
-          >
-            {message}
-          </div>
-        </section>
-      </main>
-      <SiteFooter variant="auth" />
-    </>
+        <div
+          className={`mt-6 rounded-2xl border px-4 py-4 text-sm leading-6 ${
+            status === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : status === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-slate-200 bg-slate-50 text-slate-700"
+          }`}
+        >
+          {message}
+        </div>
+      </section>
+    </AuthPageShell>
   );
 }
