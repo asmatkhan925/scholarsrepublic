@@ -167,13 +167,14 @@ test("login page renders auth fields and query notices", async ({ page }) => {
   await page.goto("/login?registered=1&email=test@example.com");
 
   await expect(page.getByLabel("Email address")).toHaveValue("test@example.com");
-  await expect(page.getByLabel("Password")).toHaveValue("");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Show password" })).toBeVisible();
   await expect(page.getByText("Account created. Please check your email")).toBeVisible();
 
   await page.goto("/login?verified=1&email=test@example.com");
 
   await expect(page.getByLabel("Email address")).toHaveValue("test@example.com");
-  await expect(page.getByLabel("Password")).toHaveValue("");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
   await expect(
     page.getByText("Email verified successfully. Please enter your password to continue."),
   ).toBeVisible();
@@ -181,7 +182,7 @@ test("login page renders auth fields and query notices", async ({ page }) => {
   await page.goto("/login?reset=1");
 
   await expect(page.getByLabel("Email address")).toHaveValue("");
-  await expect(page.getByLabel("Password")).toHaveValue("");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
   await expect(
     page.getByText("Password reset successfully. Please log in with your new password."),
   ).toBeVisible();
