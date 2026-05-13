@@ -445,6 +445,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const [noApplicationFee, setNoApplicationFee] = useState(false);
   const [verified, setVerified] = useState(false);
   const [filters, setFilters] = useState<OpportunityQueryParams>({ ordering: "deadline" });
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
 
   const { user, loading: authLoading, isAuthenticated } = useAuth();
 
@@ -595,6 +596,28 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
     return { urgent, rolling, fullyFunded };
   }, [hasLoadedResults, scholarships]);
+
+  const selectedFundingLabel = useMemo(() => {
+    return FUNDING_TYPES.find((item) => item.value === fundingType)?.label ?? "";
+  }, [fundingType]);
+
+  const activeAdvancedFilters = useMemo(() => {
+    return [
+      country,
+      field,
+      selectedFundingLabel,
+      noIelts ? "No IELTS" : "",
+      noApplicationFee ? "No application fee" : "",
+      verified ? "Verified only" : "",
+    ].filter(Boolean);
+  }, [country, field, noApplicationFee, noIelts, selectedFundingLabel, verified]);
+
+  const activeFilterSummary = useMemo(() => {
+    return [
+      ...activeAdvancedFilters,
+      selectedPathway ? selectedPathway.full_path : "",
+    ].filter(Boolean);
+  }, [activeAdvancedFilters, selectedPathway]);
 
   const heroCopy = useMemo(() => {
     if (authLoading) {
@@ -861,10 +884,10 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
               <form onSubmit={handleFilterSubmit} className="grid gap-3">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal size={16} className="text-pine" aria-hidden="true" />
-                  <h2 className="text-sm font-bold text-ink">Filter scholarships</h2>
+                  <h2 className="text-sm font-bold text-ink">Search scholarships</h2>
                 </div>
 
-                <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-[minmax(220px,1.35fr)_minmax(145px,0.75fr)_minmax(180px,1fr)_minmax(155px,0.85fr)_auto] xl:items-end">
+                <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                   <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
                     Search
                     <div className="relative">
@@ -882,97 +905,144 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                     </div>
                   </label>
 
-                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
-                    Country
-                    <select
-                      value={country}
-                      onChange={(event) => setCountry(event.target.value)}
-                      className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    >
-                      <option value="">All countries</option>
-                      {countryOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
-                    Field
-                    <select
-                      value={field}
-                      onChange={(event) => setField(event.target.value)}
-                      className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    >
-                      <option value="">All fields</option>
-                      {fieldOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
-                    Funding
-                    <select
-                      value={fundingType}
-                      onChange={(event) => setFundingType(event.target.value)}
-                      className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    >
-                      <option value="">All funding</option>
-                      {FUNDING_TYPES.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="grid grid-cols-2 gap-2 lg:col-span-2 xl:col-span-1 xl:flex xl:shrink-0">
-                    <Button type="submit" className="h-8 w-full px-3 text-xs xl:w-auto" size="sm">
+                  <div className="grid grid-cols-2 gap-2 sm:flex lg:shrink-0">
+                    <Button type="submit" className="h-9 w-full px-3 text-xs sm:w-auto" size="sm">
                       Apply
                     </Button>
                     <Button
                       type="button"
-                      className="h-8 w-full px-3 text-xs xl:w-auto"
+                      aria-expanded={advancedFiltersOpen}
+                      className="h-9 w-full whitespace-nowrap px-3 text-xs sm:w-auto"
+                      onClick={() => setAdvancedFiltersOpen((current) => !current)}
+                      size="sm"
+                      variant={activeAdvancedFilters.length > 0 ? "outline" : "ghost"}
+                    >
+                      <SlidersHorizontal size={14} aria-hidden="true" />
+                      Filters
+                      {activeAdvancedFilters.length > 0 ? ` (${activeAdvancedFilters.length})` : ""}
+                    </Button>
+                  </div>
+                </div>
+
+                {activeFilterSummary.length > 0 ? (
+                  <div className="flex flex-col gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-xs text-ink/65 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="min-w-0">
+                      <span className="font-bold text-ink/70">Filtered by:</span>{" "}
+                      <span className="break-words">{activeFilterSummary.join(" · ")}</span>
+                    </p>
+                    <Button
+                      type="button"
+                      className="h-8 shrink-0 px-2.5 text-xs"
                       onClick={handleClearFilters}
                       size="sm"
                       variant="ghost"
                     >
                       <X size={14} aria-hidden="true" />
-                      Reset
+                      Clear
                     </Button>
                   </div>
-                </div>
+                ) : null}
 
-                <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { label: "No IELTS", checked: noIelts, onChange: setNoIelts },
-                      {
-                        label: "No application fee",
-                        checked: noApplicationFee,
-                        onChange: setNoApplicationFee,
-                      },
-                      { label: "Verified only", checked: verified, onChange: setVerified },
-                    ].map((item) => (
-                      <label
-                        key={item.label}
-                        className="flex items-center gap-1.5 rounded-2xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-mint/40"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          onChange={(event) => item.onChange(event.target.checked)}
-                          className="h-3.5 w-3.5 accent-pine"
-                        />
-                        {item.label}
+                {advancedFiltersOpen ? (
+                  <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3">
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
+                        Country
+                        <select
+                          value={country}
+                          onChange={(event) => setCountry(event.target.value)}
+                          className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        >
+                          <option value="">All countries</option>
+                          {countryOptions.map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
                       </label>
-                    ))}
+
+                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
+                        Field
+                        <select
+                          value={field}
+                          onChange={(event) => setField(event.target.value)}
+                          className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        >
+                          <option value="">All fields</option>
+                          {fieldOptions.map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
+                        Funding
+                        <select
+                          value={fundingType}
+                          onChange={(event) => setFundingType(event.target.value)}
+                          className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        >
+                          <option value="">All funding</option>
+                          {FUNDING_TYPES.map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { label: "No IELTS", checked: noIelts, onChange: setNoIelts },
+                          {
+                            label: "No application fee",
+                            checked: noApplicationFee,
+                            onChange: setNoApplicationFee,
+                          },
+                          { label: "Verified only", checked: verified, onChange: setVerified },
+                        ].map((item) => (
+                          <label
+                            key={item.label}
+                            className="flex items-center gap-1.5 rounded-2xl border border-pine/10 bg-white px-2.5 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-mint/40"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={item.checked}
+                              onChange={(event) => item.onChange(event.target.checked)}
+                              className="h-3.5 w-3.5 accent-pine"
+                            />
+                            {item.label}
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 sm:flex lg:shrink-0">
+                        <Button
+                          type="submit"
+                          className="h-8 w-full px-3 text-xs sm:w-auto"
+                          size="sm"
+                        >
+                          Apply
+                        </Button>
+                        <Button
+                          type="button"
+                          className="h-8 w-full px-3 text-xs sm:w-auto"
+                          onClick={handleClearFilters}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          <X size={14} aria-hidden="true" />
+                          Reset
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5">
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
