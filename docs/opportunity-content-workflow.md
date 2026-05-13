@@ -44,6 +44,12 @@ Before publishing, each opportunity should have:
 - Source name
 - Source URL
 
+Optional stipend or allowance fields:
+
+- Fill `stipend_summary` only when the official source confirms the stipend, allowance, or monthly support amount.
+- Leave `stipend_summary` blank if the stipend is not confirmed.
+- Do not estimate, infer, or invent stipend amounts from general benefits text.
+
 ## 4. Verification rules
 
 Set verified_status=true only after manually checking the official source.
@@ -115,6 +121,7 @@ Before setting status=published:
 - Official source is open and checked.
 - Deadline is current or rolling deadline is accurate.
 - Funding claim is supported.
+- Stipend or allowance summary is blank unless confirmed by the official source.
 - Eligibility is clear.
 - Benefits are clear.
 - How-to-apply instructions are clear.

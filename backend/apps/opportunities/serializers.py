@@ -115,6 +115,7 @@ class OpportunityListSerializer(serializers.ModelSerializer):
             "location_type",
             "short_description",
             "funding_type",
+            "stipend_summary",
             "degree_levels",
             "fields_of_study",
             "eligible_countries",

@@ -623,6 +623,20 @@ export default function ScholarshipDetailPage({
                           {scholarship.short_description}
                         </p>
                       ) : null}
+
+                      {scholarship.stipend_summary ? (
+                        <div className="mt-3 inline-flex max-w-full items-start gap-2 rounded-2xl border border-saffron/35 bg-saffron/20 px-3 py-2 text-sm font-semibold text-ink">
+                          <Sparkles
+                            size={16}
+                            className="mt-0.5 shrink-0 text-pine"
+                            aria-hidden="true"
+                          />
+                          <span>
+                            Stipend / allowance:{" "}
+                            <span className="font-bold">{scholarship.stipend_summary}</span>
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">

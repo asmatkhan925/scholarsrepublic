@@ -14,6 +14,13 @@ WEAK_SAMPLE_PHRASES = (
     "placeholder",
 )
 
+WEAK_STIPEND_PHRASES = WEAK_SAMPLE_PHRASES + (
+    "tbd",
+    "unknown",
+    "fake",
+    "sample",
+)
+
 SUSPICIOUS_SOURCE_DOMAINS = (
     "example.com",
     "localhost",
@@ -56,6 +63,10 @@ class Command(BaseCommand):
                 self.has_weak_sample_text(opportunity.description)
                 for opportunity in published
             ),
+            "weak_sample_stipend_summary": sum(
+                self.has_weak_stipend_summary(opportunity.stipend_summary)
+                for opportunity in published
+            ),
             "missing_eligibility": sum(
                 self.is_blank(opportunity.eligibility) for opportunity in published
             ),
@@ -95,6 +106,10 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             f"Weak/sample description: {totals['weak_sample_description']}"
+        )
+        self.stdout.write(
+            "Weak/sample stipend_summary: "
+            f"{totals['weak_sample_stipend_summary']}"
         )
         self.stdout.write(f"Missing eligibility: {totals['missing_eligibility']}")
         self.stdout.write(f"Missing benefits: {totals['missing_benefits']}")
@@ -158,6 +173,8 @@ class Command(BaseCommand):
             issues.append("weak/sample short_description")
         if self.has_weak_sample_text(opportunity.description):
             issues.append("weak/sample description")
+        if self.has_weak_stipend_summary(opportunity.stipend_summary):
+            issues.append("weak/sample stipend_summary")
         if self.is_blank(opportunity.eligibility):
             issues.append("missing eligibility")
         if self.is_blank(opportunity.benefits):
@@ -209,6 +226,10 @@ class Command(BaseCommand):
     def has_weak_sample_text(self, value):
         text = (value or "").casefold()
         return any(phrase in text for phrase in WEAK_SAMPLE_PHRASES)
+
+    def has_weak_stipend_summary(self, value):
+        text = (value or "").casefold().strip()
+        return bool(text) and any(phrase in text for phrase in WEAK_STIPEND_PHRASES)
 
     def is_blank(self, value):
         return not (value or "").strip()

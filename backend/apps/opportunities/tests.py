@@ -258,12 +258,13 @@ class OpportunityAPITests(APITestCase):
         return response.data["results"]
 
     def test_public_can_list_published_opportunities(self):
-        opportunity = self.opportunity()
+        opportunity = self.opportunity(stipend_summary="Official monthly allowance listed")
 
         response = self.client.get("/api/opportunities/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn(opportunity.slug, [item["slug"] for item in self.results(response)])
+        list_item = [item for item in self.results(response) if item["slug"] == opportunity.slug][0]
+        self.assertEqual(list_item["stipend_summary"], "Official monthly allowance listed")
 
     def test_public_cannot_list_draft_opportunities(self):
         draft = self.opportunity(
@@ -277,12 +278,13 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn(draft.slug, [item["slug"] for item in self.results(response)])
 
     def test_public_can_view_published_opportunity_detail(self):
-        opportunity = self.opportunity()
+        opportunity = self.opportunity(stipend_summary="Official monthly allowance listed")
 
         response = self.client.get(f"/api/opportunities/{opportunity.slug}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["slug"], opportunity.slug)
+        self.assertEqual(response.data["stipend_summary"], "Official monthly allowance listed")
 
     def test_public_cannot_view_draft_detail(self):
         opportunity = self.opportunity(status=Opportunity.Status.DRAFT)
@@ -925,6 +927,7 @@ class OpportunityAPITests(APITestCase):
             slug="weak-sample-content",
             short_description="Development sample opportunity.",
             description="Placeholder sample data for internal review.",
+            stipend_summary="TBD sample stipend",
             eligibility="Open to eligible students.",
             benefits="Tuition support.",
             how_to_apply="Apply through the official portal.",
@@ -939,7 +942,9 @@ class OpportunityAPITests(APITestCase):
         text = output.getvalue()
         self.assertIn("Weak/sample short_description: 1", text)
         self.assertIn("Weak/sample description: 1", text)
+        self.assertIn("Weak/sample stipend_summary: 1", text)
         self.assertIn("weak/sample short_description", text)
+        self.assertIn("weak/sample stipend_summary", text)
         self.assertIn("weak-sample-content", text)
 
     def test_audit_opportunity_content_reports_missing_trust_fields(self):

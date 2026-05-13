@@ -203,6 +203,11 @@ function ScholarshipCard({
             <span className="font-medium text-ink/60">
               Funding: {humanize(scholarship.funding_type)}
             </span>
+            {scholarship.stipend_summary ? (
+              <Badge tone="saffron" className="px-2.5 py-0.5 text-[11px]">
+                Stipend: {scholarship.stipend_summary}
+              </Badge>
+            ) : null}
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">

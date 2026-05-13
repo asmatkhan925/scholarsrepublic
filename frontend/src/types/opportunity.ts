@@ -50,6 +50,7 @@ export type OpportunityListItem = {
   location_type: string;
   short_description: string;
   funding_type: string;
+  stipend_summary: string;
   degree_levels: string[];
   fields_of_study: string[];
   eligible_countries: string[];

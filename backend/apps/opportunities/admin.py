@@ -151,6 +151,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "status",
         "opportunity_type",
         "funding_type",
+        "stipend_summary",
         "featured",
         "verified_status",
         "pathway",
@@ -171,6 +172,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "eligible_country_refs__name",
         "eligible_region_refs__name",
         "study_field_refs__name",
+        "stipend_summary",
         "search_keywords",
         "tags",
     )
@@ -286,6 +288,7 @@ class OpportunityAdmin(admin.ModelAdmin):
                     "funding_type",
                     "funding_amount",
                     "funding_currency",
+                    "stipend_summary",
                     "application_fee_required",
                     "application_fee_amount",
                     "application_fee_currency",

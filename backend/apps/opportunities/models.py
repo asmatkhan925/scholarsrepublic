@@ -257,6 +257,7 @@ class Opportunity(models.Model):
     )
     funding_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     funding_currency = models.CharField(max_length=10, blank=True)
+    stipend_summary = models.CharField(max_length=255, blank=True, default="")
     application_fee_required = models.BooleanField(default=False)
     application_fee_amount = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True

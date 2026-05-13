@@ -29,6 +29,7 @@ const scholarshipListItem = {
   location_type: "on_site",
   short_description: "A mocked scholarship used only for browser smoke tests.",
   funding_type: "fully_funded",
+  stipend_summary: "",
   degree_levels: ["Master"],
   fields_of_study: ["Computer Science"],
   eligible_countries: ["Pakistan"],
