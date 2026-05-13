@@ -72,10 +72,10 @@ export function SaveOpportunityButton({
 
   if (authLoading) {
     return (
-      <Button className="w-full whitespace-nowrap" disabled size="sm" variant="outline">
-        <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-        Checking
-      </Button>
+      <span
+        className="block h-9 w-full rounded-xl border border-pine/10 bg-ink/5"
+        aria-hidden="true"
+      />
     );
   }
 
