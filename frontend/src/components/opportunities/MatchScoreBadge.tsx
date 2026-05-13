@@ -172,7 +172,7 @@ export function MatchScoreDialog({ match, open, onClose }: MatchScoreDialogProps
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="max-h-[92vh] w-full max-w-lg overflow-hidden rounded-3xl border border-pine/10 bg-white shadow-xl"
+        className="max-h-[92vh] w-[min(92vw,44rem)] overflow-hidden rounded-3xl border border-pine/10 bg-white shadow-xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-pine/10 px-5 py-4">
           <div>
