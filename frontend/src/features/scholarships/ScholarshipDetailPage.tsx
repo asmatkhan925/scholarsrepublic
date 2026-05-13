@@ -750,7 +750,7 @@ export default function ScholarshipDetailPage({
                 </div>
               </section>
 
-              <section className="grid gap-3 lg:grid-cols-[1fr_22rem]">
+              <section className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="grid gap-3">
                   <DetailSection
                     title="Overview"
