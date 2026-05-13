@@ -40,16 +40,21 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
     <footer className="border-t border-pine/10 bg-[#f7faf8] text-ink">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-5 md:px-8 md:py-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-lg">
-            <Link href="/" className="inline-flex items-center gap-2.5 font-bold text-ink">
+          <div className="flex max-w-2xl items-start gap-2.5">
+            <Link href="/" className="shrink-0 text-ink" aria-label="Scholars Republic home">
               <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-mint text-pine">
                 <GraduationCap size={19} aria-hidden="true" />
               </span>
-              <span className="text-base">Scholars Republic</span>
             </Link>
 
-            <p className="mt-2 text-sm leading-6 text-ink/62">
-              Find scholarships, save opportunities, and track applications.
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-6 text-ink/62">
+              <Link href="/" className="text-base font-bold text-ink transition hover:text-pine">
+                Scholars Republic
+              </Link>
+              <span className="text-ink/35" aria-hidden="true">
+                &mdash;
+              </span>
+              <span>Find scholarships, save opportunities, and track applications.</span>
             </p>
           </div>
 
