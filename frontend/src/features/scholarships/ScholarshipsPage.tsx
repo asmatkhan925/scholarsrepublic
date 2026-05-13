@@ -448,11 +448,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [pathwaysOpen, setPathwaysOpen] = useState(false);
 
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
-
-  const isStudent = user?.role === "student";
-  const isAdmin = user?.role === "admin";
-  const isLoggedIn = isAuthenticated && !authLoading;
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     hasResultsRef.current = Boolean(data || recommendedData);
@@ -684,70 +680,14 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
         <section className="mx-auto max-w-7xl px-4 py-2.5 sm:px-5 md:px-8 md:py-3">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
             <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-2.5 md:px-6">
-              <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
-                <div className="min-w-0">
-                  <div className="flex min-w-0 flex-col gap-1 md:flex-row md:items-baseline md:gap-2">
-                    <h1 className="shrink-0 text-xl font-bold tracking-tight text-ink md:text-2xl">
-                      Find scholarships worth applying to.
-                    </h1>
-                    <span className="hidden text-lg font-bold text-pine/45 md:inline">·</span>
-                    <p className="max-w-4xl text-sm leading-5 text-ink/70 md:truncate">
-                      Search verified opportunities by country, funding, deadline, and pathway.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-2 sm:flex xl:justify-end">
-                  {isLoggedIn && isStudent ? (
-                    <>
-                      <ButtonLink
-                        href="/dashboard/saved"
-                        className="w-full sm:w-auto"
-                        size="sm"
-                        variant="outline"
-                      >
-                        <BookmarkCheck size={15} aria-hidden="true" />
-                        Saved
-                      </ButtonLink>
-                      <ButtonLink
-                        href="/dashboard/applications"
-                        className="w-full sm:w-auto"
-                        size="sm"
-                        variant="secondary"
-                      >
-                        Tracker
-                      </ButtonLink>
-                    </>
-                  ) : isLoggedIn && isAdmin ? (
-                    <ButtonLink
-                      href="/admin"
-                      className="w-full sm:w-auto"
-                      size="sm"
-                      variant="secondary"
-                    >
-                      Admin Dashboard
-                    </ButtonLink>
-                  ) : (
-                    <>
-                      <ButtonLink
-                        href="/register"
-                        className="w-full sm:w-auto"
-                        size="sm"
-                        variant="secondary"
-                      >
-                        Create Profile
-                      </ButtonLink>
-                      <ButtonLink
-                        href="/login"
-                        className="w-full sm:w-auto"
-                        size="sm"
-                        variant="outline"
-                      >
-                        Login
-                      </ButtonLink>
-                    </>
-                  )}
-                </div>
+              <div className="flex min-w-0 flex-col gap-1 md:flex-row md:items-baseline md:gap-2">
+                <h1 className="shrink-0 text-xl font-bold tracking-tight text-ink md:text-2xl">
+                  Find scholarships worth applying to.
+                </h1>
+                <span className="hidden text-lg font-bold text-pine/45 md:inline">·</span>
+                <p className="max-w-4xl text-sm leading-5 text-ink/70 md:truncate">
+                  Search verified opportunities by country, funding, deadline, and pathway.
+                </p>
               </div>
             </div>
           </div>
@@ -1031,20 +971,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 </span>
                 <ButtonLink href="/dashboard/profile" size="sm" variant="secondary">
                   Complete Profile
-                </ButtonLink>
-              </div>
-            </div>
-          ) : null}
-
-          {!authLoading && !isAuthenticated && !loading && !error && scholarships.length > 0 ? (
-            <div className="mt-2 rounded-2xl border border-pine/10 bg-white px-3 py-2.5 text-sm text-ink/70 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <span className="flex items-center gap-2">
-                  <Sparkles size={16} className="shrink-0 text-pine" aria-hidden="true" />
-                  Create a profile to save scholarships and unlock match scores.
-                </span>
-                <ButtonLink href="/register" size="sm" variant="secondary">
-                  Create Profile
                 </ButtonLink>
               </div>
             </div>
