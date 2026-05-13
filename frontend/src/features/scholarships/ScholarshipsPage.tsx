@@ -778,37 +778,42 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             </div>
 
             {hasLoadedResults && quickStats ? (
-              <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-                <div className="px-5 py-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                    Results
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-ink">{resultCount}</p>
-                  <p className="mt-1 text-xs text-ink/50">
-                    {recommendedData ? "Personalized matches" : "Published scholarships"}
-                  </p>
-                </div>
-                <div className="px-5 py-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                    Urgent
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-ink">{quickStats.urgent}</p>
-                  <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
-                </div>
-                <div className="px-5 py-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                    Fully funded
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-ink">{quickStats.fullyFunded}</p>
-                  <p className="mt-1 text-xs text-ink/50">In current results</p>
-                </div>
-                <div className="px-5 py-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                    Rolling
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-ink">{quickStats.rolling}</p>
-                  <p className="mt-1 text-xs text-ink/50">No fixed deadline</p>
-                </div>
+              <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8]/70 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  {
+                    label: "Results",
+                    value: resultCount,
+                    description: recommendedData ? "Personalized matches" : "Published scholarships",
+                  },
+                  {
+                    label: "Urgent",
+                    value: quickStats.urgent,
+                    description: "Due within 14 days",
+                  },
+                  {
+                    label: "Fully funded",
+                    value: quickStats.fullyFunded,
+                    description: "In current results",
+                  },
+                  {
+                    label: "Rolling",
+                    value: quickStats.rolling,
+                    description: "No fixed deadline",
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-pine/10 bg-white/85 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-ink/40">
+                        {stat.label}
+                      </p>
+                      <p className="truncate text-[11px] text-ink/55">{stat.description}</p>
+                    </div>
+                    <p className="shrink-0 text-xl font-bold text-ink">{stat.value}</p>
+                  </div>
+                ))}
               </div>
             ) : loading ? (
               <div className="border-t border-pine/10 px-5 py-4" aria-hidden="true">
@@ -818,19 +823,19 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           </div>
 
           <Card className="mt-5">
-            <CardContent className="p-4 md:p-5">
-              <form onSubmit={handleFilterSubmit} className="grid gap-4">
+            <CardContent className="p-3 md:p-4">
+              <form onSubmit={handleFilterSubmit} className="grid gap-3">
                 <div className="flex items-center gap-2">
-                  <SlidersHorizontal size={18} className="text-pine" aria-hidden="true" />
-                  <h2 className="font-bold text-ink">Filter scholarships</h2>
+                  <SlidersHorizontal size={16} className="text-pine" aria-hidden="true" />
+                  <h2 className="text-sm font-bold text-ink">Filter scholarships</h2>
                 </div>
 
-                <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,2fr)]">
-                  <label className="grid gap-2 text-sm font-semibold text-ink">
+                <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-[minmax(220px,1.35fr)_minmax(145px,0.75fr)_minmax(180px,1fr)_minmax(155px,0.85fr)_auto] xl:items-end">
+                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
                     Search
                     <div className="relative">
                       <Search
-                        size={16}
+                        size={15}
                         className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35"
                         aria-hidden="true"
                       />
@@ -838,64 +843,78 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Country, provider, degree, field..."
-                        className="w-full rounded-2xl border border-pine/15 bg-white py-3 pl-9 pr-4 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        className="w-full rounded-2xl border border-pine/15 bg-white py-2.5 pl-9 pr-3 text-[13px] text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
                       />
                     </div>
                   </label>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <label className="grid gap-2 text-sm font-semibold text-ink">
-                      Country
-                      <select
-                        value={country}
-                        onChange={(event) => setCountry(event.target.value)}
-                        className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                      >
-                        <option value="">All countries</option>
-                        {countryOptions.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
+                    Country
+                    <select
+                      value={country}
+                      onChange={(event) => setCountry(event.target.value)}
+                      className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    >
+                      <option value="">All countries</option>
+                      {countryOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                    <label className="grid gap-2 text-sm font-semibold text-ink">
-                      Field
-                      <select
-                        value={field}
-                        onChange={(event) => setField(event.target.value)}
-                        className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                      >
-                        <option value="">All fields</option>
-                        {fieldOptions.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
+                    Field
+                    <select
+                      value={field}
+                      onChange={(event) => setField(event.target.value)}
+                      className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    >
+                      <option value="">All fields</option>
+                      {fieldOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                    <label className="grid gap-2 text-sm font-semibold text-ink">
-                      Funding
-                      <select
-                        value={fundingType}
-                        onChange={(event) => setFundingType(event.target.value)}
-                        className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                      >
-                        <option value="">All funding</option>
-                        {FUNDING_TYPES.map((item) => (
-                          <option key={item.value} value={item.value}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
+                    Funding
+                    <select
+                      value={fundingType}
+                      onChange={(event) => setFundingType(event.target.value)}
+                      className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    >
+                      <option value="">All funding</option>
+                      {FUNDING_TYPES.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2 lg:col-span-2 xl:col-span-1 xl:flex xl:shrink-0">
+                    <Button type="submit" className="h-8 w-full px-3 text-xs xl:w-auto" size="sm">
+                      Apply
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-8 w-full px-3 text-xs xl:w-auto"
+                      onClick={handleClearFilters}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <X size={14} aria-hidden="true" />
+                      Reset
+                    </Button>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="flex flex-wrap gap-1.5">
                     {[
                       { label: "No IELTS", checked: noIelts, onChange: setNoIelts },
                       {
@@ -907,59 +926,49 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                     ].map((item) => (
                       <label
                         key={item.label}
-                        className="flex items-center gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] px-3 py-2 text-sm font-medium text-ink/70 transition hover:bg-mint/40"
+                        className="flex items-center gap-1.5 rounded-2xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-mint/40"
                       >
                         <input
                           type="checkbox"
                           checked={item.checked}
                           onChange={(event) => item.onChange(event.target.checked)}
-                          className="h-4 w-4 accent-pine"
+                          className="h-3.5 w-3.5 accent-pine"
                         />
                         {item.label}
                       </label>
                     ))}
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2 sm:flex xl:shrink-0">
-                    <Button type="submit" className="w-full sm:min-w-28" size="sm">
-                      Apply
-                    </Button>
-                    <Button
-                      type="button"
-                      className="w-full sm:min-w-28"
-                      onClick={handleClearFilters}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      <X size={15} aria-hidden="true" />
-                      Reset
-                    </Button>
-                  </div>
                 </div>
 
-                <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3">
+                <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-ink">Browse by pathway</h3>
-                      <p className="mt-1 text-xs leading-5 text-ink/55">
+                    <div className="min-w-0">
+                      <h3 className="text-xs font-bold text-ink">Browse by pathway</h3>
+                      <p className="mt-0.5 text-[11px] leading-4 text-ink/55">
                         Explore scholarship families, programs, and application tracks.
                       </p>
                     </div>
 
                     {selectedPathway ? (
-                      <Button type="button" size="sm" variant="ghost" onClick={handleClearPathway}>
-                        <X size={15} aria-hidden="true" />
+                      <Button
+                        type="button"
+                        className="h-8 px-2.5 text-xs"
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleClearPathway}
+                      >
+                        <X size={14} aria-hidden="true" />
                         Clear pathway
                       </Button>
                     ) : null}
                   </div>
 
                   {pathwaysLoading && rootPathways.length === 0 ? (
-                    <p className="text-sm text-ink/55">Loading pathways...</p>
+                    <p className="text-xs text-ink/55">Loading pathways...</p>
                   ) : null}
 
                   {sortedRootPathways.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {sortedRootPathways.map((pathway) => {
                         const selected = selectedPathwaySlug === pathway.slug;
                         const hasPublished = pathway.published_opportunity_count > 0;
@@ -969,7 +978,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                             key={pathway.slug}
                             type="button"
                             onClick={() => handleRootPathwaySelect(pathway)}
-                            className={`rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition ${
+                            className={`min-w-0 rounded-2xl border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
                               selected
                                 ? "border-pine bg-pine text-white"
                                 : "border-pine/10 bg-white text-ink/75 hover:border-pine/30 hover:bg-mint/35"
@@ -978,7 +987,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                             <span>{pathway.title}</span>
                             {!hasPublished ? (
                               <span
-                                className={`ml-2 text-xs font-medium ${
+                                className={`ml-1.5 text-[11px] font-medium ${
                                   selected ? "text-white/75" : "text-ink/40"
                                 }`}
                               >
@@ -992,7 +1001,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   ) : null}
 
                   {selectedRootPathwaySlug && sortedChildPathways.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 border-t border-pine/10 pt-3">
+                    <div className="flex flex-wrap gap-1.5 border-t border-pine/10 pt-2">
                       {sortedChildPathways.map((pathway) => {
                         const selected = selectedPathwaySlug === pathway.slug;
 
@@ -1001,7 +1010,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                             key={pathway.slug}
                             type="button"
                             onClick={() => handlePathwaySelect(pathway)}
-                            className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
+                            className={`rounded-2xl border px-2.5 py-1.5 text-xs font-semibold transition ${
                               selected
                                 ? "border-pine bg-white text-pine shadow-sm"
                                 : "border-pine/10 bg-white text-ink/65 hover:border-pine/30 hover:bg-mint/35"
@@ -1015,9 +1024,11 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   ) : null}
 
                   {selectedPathway ? (
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-ink/65">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink/65">
                       <span>Showing pathway:</span>
-                      <Badge tone="mint">{selectedPathway.full_path}</Badge>
+                      <Badge tone="mint" className="px-2 py-0.5 text-[11px]">
+                        {selectedPathway.full_path}
+                      </Badge>
                     </div>
                   ) : null}
                 </div>
