@@ -9,7 +9,6 @@ import {
   CalendarDays,
   GraduationCap,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Star,
@@ -225,28 +224,8 @@ function ScholarshipCard({
           </div>
 
           {match ? (
-            <div className="mt-3 rounded-2xl border border-pine/10 bg-mint/35 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <MatchScoreBadge score={match.score} readinessLevel={match.readiness_level} />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-pine">
-                  Profile match
-                </span>
-              </div>
-
-              {match.matched_reasons.length > 0 ? (
-                <ul className="mt-3 grid gap-2 text-sm leading-5 text-ink/65">
-                  {match.matched_reasons.slice(0, 2).map((reason) => (
-                    <li key={reason} className="flex gap-2">
-                      <ShieldCheck
-                        size={15}
-                        className="mt-0.5 shrink-0 text-pine"
-                        aria-hidden="true"
-                      />
-                      <span>{reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+            <div className="mt-3">
+              <MatchScoreBadge match={match} />
             </div>
           ) : null}
 

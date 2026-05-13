@@ -87,7 +87,60 @@ const scholarshipDetail = {
   created_at: "2026-01-01T00:00:00Z",
 };
 
-async function mockScholarshipApi(page: Page, options: { delayScholarshipsMs?: number } = {}) {
+const scholarshipMatch = {
+  score: 82,
+  readiness_level: "High",
+  breakdown: {
+    eligibility: 20,
+    degree_level: 15,
+    field_fit: 15,
+    country_preference: 10,
+    funding_fee: 10,
+    language_test: 10,
+    academic_requirement: 7,
+    document_readiness: 4,
+    deadline_safety: 5,
+  },
+  matched_reasons: [
+    "Pakistani students are eligible.",
+    "Your target degree level matches this opportunity.",
+    "Your target field matches this opportunity.",
+  ],
+  missing_requirements: ["Recommendation letter"],
+  warnings: ["Confirm the final deadline on the official source."],
+  suggestions: ["Prepare Recommendation letter before applying."],
+};
+
+const studentUser = {
+  id: 7,
+  email: "student@example.com",
+  full_name: "E2E Student",
+  role: "student",
+  is_active: true,
+  email_verified: true,
+  date_joined: "2026-01-01T00:00:00Z",
+};
+
+async function mockStudentAuth(page: Page) {
+  await page.addInitScript((user) => {
+    window.localStorage.setItem("scholars_republic_access_token", "e2e-access-token");
+    window.localStorage.setItem("scholars_republic_refresh_token", "e2e-refresh-token");
+    window.localStorage.setItem("scholars_republic_user", JSON.stringify(user));
+  }, studentUser);
+
+  await page.route("**/api/auth/me/**", async (route) => {
+    await route.fulfill({ json: studentUser });
+  });
+
+  await page.route("**/api/saved-opportunities/slugs/**", async (route) => {
+    await route.fulfill({ json: { slugs: [], ids: [] } });
+  });
+}
+
+async function mockScholarshipApi(
+  page: Page,
+  options: { delayScholarshipsMs?: number; recommendedMatch?: typeof scholarshipMatch } = {},
+) {
   await page.route("**/api/reference/countries/**", async (route) => {
     await route.fulfill({
       json: { regions: { Asia: ["Pakistan"] } },
@@ -106,6 +159,16 @@ async function mockScholarshipApi(page: Page, options: { delayScholarshipsMs?: n
 
   await page.route("**/api/scholarships/**", async (route) => {
     const url = route.request().url();
+
+    if (url.includes("/recommended/") && options.recommendedMatch) {
+      await route.fulfill({
+        json: {
+          count: 1,
+          results: [{ opportunity: scholarshipListItem, match: options.recommendedMatch }],
+        },
+      });
+      return;
+    }
 
     if (url.includes("/verified-test-scholarship/comments/")) {
       await route.fulfill({ json: { count: 0, results: [] } });
@@ -166,6 +229,31 @@ test("scholarships page renders heading without placeholder zero stats", async (
 
   await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
   await expect(page.getByText("1 opportunity found")).toBeVisible();
+});
+
+test("scholarship match badge opens profile match modal", async ({ page }) => {
+  await mockStudentAuth(page);
+  await mockScholarshipApi(page, { recommendedMatch: scholarshipMatch });
+
+  await page.goto("/scholarships");
+
+  const matchBadge = page.getByRole("button", { name: /82% match/i });
+  await expect(matchBadge).toBeVisible();
+  await expect(page.getByText("Your target degree level matches this opportunity.")).toHaveCount(0);
+
+  await matchBadge.click();
+
+  await expect(page.getByRole("dialog", { name: "Profile match" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Profile match" })).toBeVisible();
+  await expect(page.getByText("Why this matches")).toBeVisible();
+  await expect(page.getByText("Your target degree level matches this opportunity.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Update profile" })).toHaveAttribute(
+    "href",
+    "/dashboard/profile",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Profile match" })).toHaveCount(0);
 });
 
 test("login page renders auth fields and query notices", async ({ page }) => {
