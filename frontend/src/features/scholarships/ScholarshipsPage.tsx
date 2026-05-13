@@ -553,7 +553,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     return new Map(recommendations.map((item) => [item.opportunity.id, item.match]));
   }, [recommendations]);
 
-  const hasLoadedResults = Boolean(recommendedData || data);
   const resultCount = recommendedData?.count ?? data?.count ?? 0;
 
   const selectedPathway = useMemo(() => {
@@ -578,30 +577,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       return first.display_order - second.display_order || first.title.localeCompare(second.title);
     });
   }, [childPathways]);
-
-  const quickStats = useMemo(() => {
-    if (!hasLoadedResults) {
-      return null;
-    }
-
-    const urgent = scholarships.filter((item) => {
-      return (
-        item.days_until_deadline !== null &&
-        item.days_until_deadline >= 0 &&
-        item.days_until_deadline <= 14
-      );
-    }).length;
-
-    const rolling = scholarships.filter((item) => item.deadline === null).length;
-    const fullyFunded = scholarships.filter((item) => item.funding_type === "fully_funded").length;
-    const nextDeadline = scholarships
-      .filter((item) => item.deadline && item.days_until_deadline !== null && item.days_until_deadline >= 0)
-      .sort((first, second) => {
-        return (first.days_until_deadline ?? 0) - (second.days_until_deadline ?? 0);
-      })[0];
-
-    return { urgent, rolling, fullyFunded, nextDeadline };
-  }, [hasLoadedResults, scholarships]);
 
   const selectedFundingLabel = useMemo(() => {
     return FUNDING_TYPES.find((item) => item.value === fundingType)?.label ?? "";
@@ -738,9 +713,9 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       <SiteHeader />
 
       <main className="bg-[#f7faf8]">
-        <section className="mx-auto max-w-7xl px-4 py-5 sm:px-5 md:px-8 md:py-8">
+        <section className="mx-auto max-w-7xl px-4 py-3 sm:px-5 md:px-8 md:py-4">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-3.5 md:px-7 md:py-4">
+            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-3 md:px-7">
               <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
                 <div className="min-w-0">
                   <Badge tone="mint" className="mb-2">
@@ -812,77 +787,14 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 </div>
               </div>
             </div>
-
-            {hasLoadedResults && quickStats ? (
-              <div className="flex flex-wrap gap-2 border-t border-pine/10 bg-[#f7faf8]/70 px-3 py-2">
-                {[
-                  {
-                    label: "Results",
-                    value: resultCount,
-                    description: recommendedData ? "Personalized matches" : "Published scholarships",
-                    show: true,
-                  },
-                  {
-                    label: "Next deadline",
-                    value: quickStats.nextDeadline ? formatDate(quickStats.nextDeadline.deadline) : "",
-                    description: quickStats.nextDeadline?.title ?? "",
-                    show: Boolean(quickStats.nextDeadline),
-                  },
-                  {
-                    label: "Urgent",
-                    value: quickStats.urgent,
-                    description: "Due within 14 days",
-                    show: quickStats.urgent > 0,
-                  },
-                  {
-                    label: "Fully funded",
-                    value: quickStats.fullyFunded,
-                    description: "In current results",
-                    show: quickStats.fullyFunded > 0,
-                  },
-                  {
-                    label: "Rolling",
-                    value: quickStats.rolling,
-                    description: "No fixed deadline",
-                    show: quickStats.rolling > 0,
-                  },
-                ].filter((stat) => stat.show).map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex min-w-0 max-w-full items-center gap-2 rounded-full border border-pine/10 bg-white/90 px-3 py-1.5"
-                  >
-                    <p className="shrink-0 text-sm font-bold leading-none text-ink">
-                      {stat.value}
-                    </p>
-                    <div className="min-w-0 leading-tight">
-                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.1em] text-ink/40">
-                        {stat.label}
-                      </p>
-                      <p className="max-w-48 truncate text-[11px] text-ink/55" title={stat.description}>
-                        {stat.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : loading ? (
-              <div className="border-t border-pine/10 px-5 py-4" aria-hidden="true">
-                <div className="h-4 w-48 rounded-full bg-slate-200" />
-              </div>
-            ) : null}
           </div>
 
-          <Card className="mt-5">
-            <CardContent className="p-3 md:p-4">
-              <form onSubmit={handleFilterSubmit} className="grid gap-3">
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal size={16} className="text-pine" aria-hidden="true" />
-                  <h2 className="text-sm font-bold text-ink">Search scholarships</h2>
-                </div>
-
+          <Card className="mt-3">
+            <CardContent className="p-2.5 md:p-3">
+              <form onSubmit={handleFilterSubmit} className="grid gap-2.5">
                 <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                   <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
-                    Search
+                    <span className="sr-only">Search scholarships</span>
                     <div className="relative">
                       <Search
                         size={15}
@@ -892,7 +804,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                       <input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Country, provider, degree, field..."
+                        placeholder="Search by scholarship, university, country..."
                         className="w-full rounded-2xl border border-pine/15 bg-white py-2.5 pl-9 pr-3 text-[13px] text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
                       />
                     </div>
@@ -1148,7 +1060,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           </Card>
 
           {matchNotice ? (
-            <div className="mt-5 rounded-2xl border border-saffron/30 bg-saffron/15 p-4 text-sm text-ink/70">
+            <div className="mt-3 rounded-2xl border border-saffron/30 bg-saffron/15 p-4 text-sm text-ink/70">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="flex items-center gap-2">
                   <Sparkles size={16} className="text-pine" aria-hidden="true" />
@@ -1162,7 +1074,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
 
           {!authLoading && !isAuthenticated && !loading && !error && scholarships.length > 0 ? (
-            <div className="mt-5 rounded-2xl border border-pine/10 bg-white px-4 py-3 text-sm text-ink/70 shadow-sm">
+            <div className="mt-3 rounded-2xl border border-pine/10 bg-white px-4 py-3 text-sm text-ink/70 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="flex items-center gap-2">
                   <Sparkles size={16} className="shrink-0 text-pine" aria-hidden="true" />
@@ -1176,20 +1088,20 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
 
           {loading ? (
-            <section className="mt-5 grid gap-4 lg:grid-cols-2" aria-label="Scholarship result placeholders">
+            <section className="mt-3 grid gap-4 lg:grid-cols-2" aria-label="Scholarship result placeholders">
               <ScholarshipCardSkeleton />
               <ScholarshipCardSkeleton />
             </section>
           ) : null}
 
           {error ? (
-            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+            <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
               {error}
             </div>
           ) : null}
 
           {!loading && !error && scholarships.length === 0 ? (
-            <div className="mt-5">
+            <div className="mt-3">
               <EmptyState
                 action={
                   <Button type="button" onClick={handleClearFilters}>
@@ -1212,18 +1124,23 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
 
           {!loading && !error && scholarships.length > 0 ? (
-            <section className="mt-5 grid gap-4 lg:grid-cols-2">
-              {scholarships.map((scholarship) => (
-                <ScholarshipCard
-                  key={scholarship.id}
-                  scholarship={scholarship}
-                  match={matchByOpportunityId.get(scholarship.id)}
-                  profileRequired={Boolean(matchNotice)}
-                  initiallySaved={savedSlugs.has(scholarship.slug)}
-                  onSavedChange={handleSavedChange}
-                />
-              ))}
-            </section>
+            <>
+              <p className="mt-3 text-xs font-medium text-ink/55">
+                {resultCount === 1 ? "1 opportunity found" : `${resultCount} opportunities found`}
+              </p>
+              <section className="mt-2 grid gap-4 lg:grid-cols-2">
+                {scholarships.map((scholarship) => (
+                  <ScholarshipCard
+                    key={scholarship.id}
+                    scholarship={scholarship}
+                    match={matchByOpportunityId.get(scholarship.id)}
+                    profileRequired={Boolean(matchNotice)}
+                    initiallySaved={savedSlugs.has(scholarship.slug)}
+                    onSavedChange={handleSavedChange}
+                  />
+                ))}
+              </section>
+            </>
           ) : null}
         </section>
       </main>

@@ -165,7 +165,7 @@ test("scholarships page renders heading without placeholder zero stats", async (
   expect(initialMainText).not.toContain("Urgent\n0\nDue within 14 days");
 
   await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
-  await expect(page.getByText("Published scholarships")).toBeVisible();
+  await expect(page.getByText("1 opportunity found")).toBeVisible();
 });
 
 test("login page renders auth fields and query notices", async ({ page }) => {
