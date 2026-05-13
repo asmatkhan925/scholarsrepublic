@@ -142,10 +142,10 @@ function ScholarshipCard({
   const deadlineTone = getDeadlineTone(scholarship);
 
   return (
-    <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
-      <CardContent className="flex h-full flex-col p-0">
-        <div className="flex-1 p-4 md:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="self-start overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
+      <CardContent className="flex flex-col p-0">
+        <div className="p-3.5 md:p-4">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={deadlineTone}>{getDeadlineLabel(scholarship)}</Badge>
               {initiallySaved ? (
@@ -182,21 +182,21 @@ function ScholarshipCard({
             </div>
           </div>
 
-          <h2 className="mt-3 text-base font-bold leading-snug text-ink md:text-lg">
+          <h2 className="mt-2.5 text-base font-bold leading-snug text-ink md:text-lg">
             {scholarship.title}
           </h2>
 
-          <p className="mt-1.5 text-sm leading-6 text-ink/65">
+          <p className="mt-1 text-sm leading-6 text-ink/65">
             {provider} · {scholarship.country || "Country not listed"}
           </p>
 
           {scholarship.short_description ? (
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink/65">
+            <p className="mt-1.5 line-clamp-2 text-sm leading-6 text-ink/65">
               {scholarship.short_description}
             </p>
           ) : null}
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink/65">
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-ink/65">
             <span className="inline-flex items-center gap-1.5 font-medium text-ink/75">
               <CalendarDays size={15} className="text-pine" aria-hidden="true" />
               <span>Deadline:</span>
@@ -212,7 +212,7 @@ function ScholarshipCard({
             ) : null}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             {degreeTags.map((degree) => (
               <Badge key={degree} tone="neutral">
                 {degree}
@@ -227,19 +227,19 @@ function ScholarshipCard({
           </div>
 
           {match ? (
-            <div className="mt-3">
+            <div className="mt-2.5">
               <MatchScoreBadge match={match} onClick={() => onMatchSelect?.(match)} />
             </div>
           ) : null}
 
           {isAuthenticated && isStudent && profileRequired ? (
-            <p className="mt-3 rounded-2xl bg-saffron/20 px-4 py-3 text-sm leading-6 text-ink/65">
+            <p className="mt-2.5 rounded-2xl bg-saffron/20 px-3 py-2.5 text-sm leading-6 text-ink/65">
               Complete your profile to see personalized match scores.
             </p>
           ) : null}
         </div>
 
-        <div className="border-t border-pine/10 bg-white p-3 md:p-4">
+        <div className="border-t border-pine/10 bg-white p-2.5 md:p-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <ButtonLink href={`/scholarships/${scholarship.slug}`} size="sm" variant="outline">
               View Details
