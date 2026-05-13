@@ -37,6 +37,7 @@ DJANGO_ALLOWED_HOSTS=scholarsrepublic.org,www.scholarsrepublic.org
 CORS_ALLOWED_ORIGINS=https://scholarsrepublic.org,https://www.scholarsrepublic.org
 CSRF_TRUSTED_ORIGINS=https://scholarsrepublic.org,https://www.scholarsrepublic.org
 FRONTEND_URL=https://scholarsrepublic.org
+SERVER_API_BASE_URL=http://127.0.0.1:8000/api
 
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.resend.com

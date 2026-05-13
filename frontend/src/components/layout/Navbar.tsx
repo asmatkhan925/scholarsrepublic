@@ -57,7 +57,7 @@ type NavbarProps = {
 };
 
 export function Navbar({ variant = "default" }: NavbarProps) {
-  const { user, loading, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -139,11 +139,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          {loading ? (
-            <span className="rounded-2xl border border-pine/10 bg-white px-4 py-2 text-sm font-semibold text-ink/60">
-              Loading
-            </span>
-          ) : isAuthenticated ? (
+          {isAuthenticated ? (
             <>
               <ButtonLink href={primaryHref} variant="outline">
                 {primaryLabel}
@@ -197,11 +193,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
           </nav>
 
           <div className="mt-4 grid gap-2 border-t border-pine/10 pt-4">
-            {loading ? (
-              <span className="rounded-2xl border border-pine/10 px-4 py-3 text-sm font-semibold text-ink/60">
-                Loading
-              </span>
-            ) : isAuthenticated ? (
+            {isAuthenticated ? (
               <>
                 <ButtonLink
                   href={primaryHref}

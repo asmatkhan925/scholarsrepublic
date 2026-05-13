@@ -826,8 +826,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 </div>
               </div>
             ) : loading ? (
-              <div className="border-t border-pine/10 px-5 py-4 text-sm font-medium text-ink/60">
-                Loading verified opportunities...
+              <div className="border-t border-pine/10 px-5 py-4" aria-hidden="true">
+                <div className="h-4 w-48 rounded-full bg-slate-200" />
               </div>
             ) : null}
           </div>
@@ -1051,7 +1051,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
 
           {loading ? (
-            <section className="mt-5 grid gap-4 lg:grid-cols-2" aria-label="Loading scholarships">
+            <section className="mt-5 grid gap-4 lg:grid-cols-2" aria-label="Scholarship result placeholders">
               <ScholarshipCardSkeleton />
               <ScholarshipCardSkeleton />
             </section>

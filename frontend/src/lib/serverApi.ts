@@ -1,6 +1,9 @@
 import type { OpportunityDetail, OpportunityListResponse } from "@/types/opportunity";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
+const API_BASE_URL =
+  process.env.SERVER_API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  "http://localhost:8000/api";
 const SERVER_FETCH_TIMEOUT_MS = 4_000;
 
 type ServerFetchResult<T> =
