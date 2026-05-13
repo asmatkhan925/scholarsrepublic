@@ -63,7 +63,7 @@ Backend URLs:
 
 - API health: `http://localhost:8000/api/health/`
 - Django Admin: `http://localhost:8000/admin/`
-- API docs: `http://localhost:8000/api/docs/`
+- API docs in local development: `http://localhost:8000/api/docs/`
 
 Create an admin user when you need Django Admin or the protected frontend admin placeholder:
 
@@ -151,10 +151,8 @@ Platform auth endpoints:
 - `GET /api/auth/me/`
 - `POST /api/auth/logout/`
 
-SimpleJWT utility endpoints are also available:
-
-- `POST /api/auth/token/`
-- `POST /api/auth/token/refresh/`
+JWT behavior:
+- Initial JWT tokens are issued only by `POST /api/auth/login/`.
 
 Frontend auth stores JWT tokens in `localStorage` for MVP development. This can move to httpOnly cookies later.
 

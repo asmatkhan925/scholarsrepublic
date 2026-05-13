@@ -285,6 +285,31 @@ function ScholarshipCard({
   );
 }
 
+function ScholarshipCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-5">
+        <div className="animate-pulse">
+          <div className="flex flex-wrap gap-2">
+            <div className="h-6 w-24 rounded-full bg-pine/10" />
+            <div className="h-6 w-20 rounded-full bg-pine/10" />
+          </div>
+          <div className="mt-5 h-6 w-3/4 rounded bg-pine/10" />
+          <div className="mt-3 h-4 w-1/2 rounded bg-pine/10" />
+          <div className="mt-5 grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-4">
+            <div className="h-4 w-32 rounded bg-pine/10" />
+            <div className="h-4 w-48 rounded bg-pine/10" />
+            <div className="flex gap-2">
+              <div className="h-6 w-24 rounded-full bg-pine/10" />
+              <div className="h-6 w-28 rounded-full bg-pine/10" />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ScholarshipsPage() {
   const [data, setData] = useState<OpportunityListResponse | null>(null);
   const [recommendedData, setRecommendedData] = useState<RecommendedOpportunityResponse | null>(
@@ -528,7 +553,8 @@ export default function ScholarshipsPage() {
     return new Map(recommendations.map((item) => [item.opportunity.id, item.match]));
   }, [recommendations]);
 
-  const resultCount = recommendedData?.count ?? data?.count ?? scholarships.length;
+  const hasLoadedResults = Boolean(recommendedData || data);
+  const resultCount = recommendedData?.count ?? data?.count ?? 0;
 
   const selectedPathway = useMemo(() => {
     return [...rootPathways, ...childPathways].find((item) => item.slug === selectedPathwaySlug);
@@ -554,6 +580,10 @@ export default function ScholarshipsPage() {
   }, [childPathways]);
 
   const quickStats = useMemo(() => {
+    if (!hasLoadedResults) {
+      return null;
+    }
+
     const urgent = scholarships.filter((item) => {
       return (
         item.days_until_deadline !== null &&
@@ -566,7 +596,7 @@ export default function ScholarshipsPage() {
     const fullyFunded = scholarships.filter((item) => item.funding_type === "fully_funded").length;
 
     return { urgent, rolling, fullyFunded };
-  }, [scholarships]);
+  }, [hasLoadedResults, scholarships]);
 
   const heroCopy = useMemo(() => {
     if (authLoading) {
@@ -754,32 +784,44 @@ export default function ScholarshipsPage() {
               </div>
             </div>
 
-            <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-              <div className="px-5 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Results</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{resultCount}</p>
-                <p className="mt-1 text-xs text-ink/50">
-                  {recommendedData ? "Personalized matches" : "Published scholarships"}
-                </p>
+            {hasLoadedResults && quickStats ? (
+              <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+                <div className="px-5 py-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                    Results
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{resultCount}</p>
+                  <p className="mt-1 text-xs text-ink/50">
+                    {recommendedData ? "Personalized matches" : "Published scholarships"}
+                  </p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                    Urgent
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{quickStats.urgent}</p>
+                  <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                    Fully funded
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{quickStats.fullyFunded}</p>
+                  <p className="mt-1 text-xs text-ink/50">In current results</p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                    Rolling
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{quickStats.rolling}</p>
+                  <p className="mt-1 text-xs text-ink/50">No fixed deadline</p>
+                </div>
               </div>
-              <div className="px-5 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{quickStats.urgent}</p>
-                <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
+            ) : (
+              <div className="border-t border-pine/10 px-5 py-4 text-sm font-medium text-ink/60">
+                Loading verified opportunities...
               </div>
-              <div className="px-5 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                  Fully funded
-                </p>
-                <p className="mt-1 text-2xl font-bold text-ink">{quickStats.fullyFunded}</p>
-                <p className="mt-1 text-xs text-ink/50">In current results</p>
-              </div>
-              <div className="px-5 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Rolling</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{quickStats.rolling}</p>
-                <p className="mt-1 text-xs text-ink/50">No fixed deadline</p>
-              </div>
-            </div>
+            )}
           </div>
 
           <Card className="mt-5">
@@ -1001,9 +1043,10 @@ export default function ScholarshipsPage() {
           ) : null}
 
           {loading ? (
-            <Card className="mt-5">
-              <CardContent className="p-6 text-sm text-ink/70">Loading scholarships...</CardContent>
-            </Card>
+            <section className="mt-5 grid gap-4 lg:grid-cols-2" aria-label="Loading scholarships">
+              <ScholarshipCardSkeleton />
+              <ScholarshipCardSkeleton />
+            </section>
           ) : null}
 
           {error ? (

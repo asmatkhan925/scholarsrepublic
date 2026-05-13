@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +32,10 @@ def env_int(name: str, default: int) -> int:
     if value is None or value.strip() == "":
         return default
     return int(value)
+
+
+def env_has_value(*names: str) -> bool:
+    return any(os.getenv(name, "").strip() for name in names)
 
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", os.getenv("SECRET_KEY", "dev-only-insecure-key"))
@@ -143,6 +148,39 @@ CORS_ALLOWED_ORIGINS = env_list(
     ["http://localhost:3000"] if DEBUG else [],
 )
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", [])
+
+if not DEBUG:
+    if not env_has_value("DJANGO_SECRET_KEY", "SECRET_KEY") or SECRET_KEY in {
+        "dev-only-insecure-key",
+        "change-me",
+        "change-me-only-for-local-development",
+    }:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set to a safe value when DEBUG=False.")
+
+    unsafe_hosts = {"localhost", "127.0.0.1", "testserver"}
+    if (
+        not env_has_value("DJANGO_ALLOWED_HOSTS", "ALLOWED_HOSTS")
+        or not ALLOWED_HOSTS
+        or "*" in ALLOWED_HOSTS
+        or any(host in unsafe_hosts for host in ALLOWED_HOSTS)
+    ):
+        raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must be explicit when DEBUG=False.")
+
+    if not CORS_ALLOWED_ORIGINS or "*" in CORS_ALLOWED_ORIGINS:
+        raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS must be explicit when DEBUG=False.")
+
+    if not CSRF_TRUSTED_ORIGINS or "*" in CSRF_TRUSTED_ORIGINS:
+        raise ImproperlyConfigured("CSRF_TRUSTED_ORIGINS must be explicit when DEBUG=False.")
+
+    unsafe_origins = [
+        origin
+        for origin in [*CORS_ALLOWED_ORIGINS, *CSRF_TRUSTED_ORIGINS]
+        if not origin.startswith("https://")
+    ]
+    if unsafe_origins:
+        raise ImproperlyConfigured(
+            "CORS_ALLOWED_ORIGINS and CSRF_TRUSTED_ORIGINS must use https:// when DEBUG=False."
+        )
 
 if env_bool("SECURE_PROXY_SSL_HEADER_ENABLED", not DEBUG):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

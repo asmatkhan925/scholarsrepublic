@@ -289,6 +289,16 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
         </div>
 
         <div className="mt-4 grid gap-3 text-sm leading-6 text-ink/65">
+          <div className="flex items-start gap-3">
+            <Globe2 size={18} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                Deadline
+              </p>
+              <p className="mt-1 font-semibold text-ink">{formatDate(scholarship.deadline)}</p>
+            </div>
+          </div>
+
           {lastVerified ? (
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
@@ -313,6 +323,11 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
               {scholarship.verification_note}
             </p>
           ) : null}
+
+          <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+            Always confirm deadline and requirements on the official scholarship page before
+            applying.
+          </p>
 
           {!scholarship.verified_status ? (
             <p className="rounded-2xl border border-saffron/30 bg-saffron/15 px-4 py-3">
@@ -667,7 +682,8 @@ export default function ScholarshipDetailPage() {
                       </div>
 
                       <p className="mt-3 text-xs leading-5 text-ink/50">
-                        Verify details on official site.
+                        Always confirm deadline and requirements on the official scholarship page
+                        before applying.
                       </p>
                     </div>
                   </div>
