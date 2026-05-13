@@ -608,23 +608,23 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     if (isStudent) {
       return {
         badge: "Student workspace",
-        title: "Build your scholarship shortlist.",
-        description: "Find, save, and track scholarships from one student workspace.",
+        title: "Find scholarships worth applying to.",
+        description: "Search scholarships by country, funding, deadline, and profile fit.",
       };
     }
 
     if (isAdmin) {
       return {
         badge: "Scholarship directory",
-        title: "Review published scholarships.",
-        description: "Browse the public scholarship directory as an administrator.",
+        title: "Find scholarships worth applying to.",
+        description: "Search scholarships by country, funding, deadline, and profile fit.",
       };
     }
 
     return {
       badge: "Scholarship search",
       title: "Find scholarships worth applying to.",
-      description: "Search by country, funding, and deadline. Create a profile when ready.",
+      description: "Search scholarships by country, funding, deadline, and profile fit.",
     };
   }, [authLoading, isAdmin, isStudent]);
 
@@ -711,10 +711,10 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       <main className="bg-[#f7faf8]">
         <section className="mx-auto max-w-7xl px-4 py-5 sm:px-5 md:px-8 md:py-8">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 md:px-7">
+            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-4 md:px-7 md:py-5">
               <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
                 <div className="min-w-0">
-                  <Badge tone="mint" className="mb-3">
+                  <Badge tone="mint" className="mb-2.5">
                     <GraduationCap size={14} aria-hidden="true" />
                     {heroCopy.badge}
                   </Badge>
@@ -726,6 +726,31 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/70 md:text-base xl:whitespace-nowrap">
                     {heroCopy.description}
                   </p>
+
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-semibold text-ink/65">
+                    {[
+                      {
+                        label: "Verified opportunities",
+                        icon: <BadgeCheck size={13} aria-hidden="true" />,
+                      },
+                      {
+                        label: "Deadline-aware search",
+                        icon: <CalendarDays size={13} aria-hidden="true" />,
+                      },
+                      {
+                        label: "Save and track after login",
+                        icon: <BookmarkCheck size={13} aria-hidden="true" />,
+                      },
+                    ].map((item) => (
+                      <span
+                        key={item.label}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-pine/10 bg-white/75 px-2.5 py-1 text-ink/70"
+                      >
+                        <span className="text-pine">{item.icon}</span>
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="grid gap-2 sm:flex xl:justify-end">
@@ -783,7 +808,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             </div>
 
             {hasLoadedResults && quickStats ? (
-              <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8]/70 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8]/70 p-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 {[
                   {
                     label: "Results",
@@ -808,15 +833,19 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 ].map((stat) => (
                   <div
                     key={stat.label}
-                    className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-pine/10 bg-white/85 px-3 py-2"
+                    className="flex min-w-0 items-center gap-2 rounded-2xl border border-pine/10 bg-white/90 px-3 py-2"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-ink/40">
+                    <p className="shrink-0 text-xl font-bold leading-none text-ink">
+                      {stat.value}
+                    </p>
+                    <div className="min-w-0 leading-tight">
+                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.1em] text-ink/40">
                         {stat.label}
                       </p>
-                      <p className="truncate text-[11px] text-ink/55">{stat.description}</p>
+                      <p className="truncate text-[11px] text-ink/55" title={stat.description}>
+                        {stat.description}
+                      </p>
                     </div>
-                    <p className="shrink-0 text-xl font-bold text-ink">{stat.value}</p>
                   </div>
                 ))}
               </div>
@@ -946,10 +975,11 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 </div>
 
                 <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <h3 className="text-xs font-bold text-ink">Browse by pathway</h3>
-                      <p className="mt-0.5 text-[11px] leading-4 text-ink/55">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-1.5">
+                      <h3 className="shrink-0 text-xs font-bold text-ink">Browse by pathway</h3>
+                      <span className="hidden text-xs text-ink/35 md:inline">·</span>
+                      <p className="min-w-0 text-[11px] leading-4 text-ink/55 md:truncate">
                         Explore scholarship families, programs, and application tracks.
                       </p>
                     </div>
