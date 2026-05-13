@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { requestPasswordReset } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -58,7 +59,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader variant="auth" />
 
       <main className="min-h-screen bg-slate-50 px-4 py-12">
         <section className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -127,6 +128,7 @@ export default function ForgotPasswordPage() {
           </p>
         </section>
       </main>
+      <SiteFooter variant="auth" />
     </>
   );
 }

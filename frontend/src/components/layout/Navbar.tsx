@@ -52,7 +52,11 @@ function isActiveLink(pathname: string, item: NavLink) {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function Navbar() {
+type NavbarProps = {
+  variant?: "default" | "auth";
+};
+
+export function Navbar({ variant = "default" }: NavbarProps) {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -68,6 +72,33 @@ export function Navbar() {
   const navLinks = isAuthenticated ? authLinks : publicLinks;
   const primaryHref = user?.role === "admin" ? "/admin" : "/dashboard";
   const primaryLabel = user?.role === "admin" ? "Admin" : "Dashboard";
+
+  if (variant === "auth") {
+    return (
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3 md:px-8">
+          <Link href="/" className="group flex items-center gap-3 font-bold text-ink">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pine text-white shadow-sm transition group-hover:bg-ink">
+              <GraduationCap size={23} aria-hidden="true" />
+            </span>
+            <span className="leading-tight">
+              <span className="block text-base sm:text-lg">Scholars Republic</span>
+              <span className="hidden text-[11px] font-semibold uppercase tracking-[0.22em] text-pine/70 sm:block">
+                Let&apos;s grow together
+              </span>
+            </span>
+          </Link>
+
+          <Link
+            href="/scholarships"
+            className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-pine/30 hover:bg-mint/40 hover:text-ink"
+          >
+            Browse scholarships
+          </Link>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-pine/10 bg-white/95 backdrop-blur-xl">

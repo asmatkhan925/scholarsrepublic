@@ -32,7 +32,32 @@ const footerSections = [
   },
 ];
 
-export function SiteFooter() {
+type SiteFooterProps = {
+  variant?: "default" | "auth";
+};
+
+export function SiteFooter({ variant = "default" }: SiteFooterProps) {
+  if (variant === "auth") {
+    return (
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-6 text-sm text-slate-600 md:flex-row md:items-center md:justify-between md:px-8">
+          <p>&copy; Scholars Republic. Helping students find and manage scholarship opportunities.</p>
+          <nav className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Auth footer navigation">
+            <Link href="/scholarships" className="font-semibold transition hover:text-emerald-700">
+              Scholarships
+            </Link>
+            <Link href="/blog" className="font-semibold transition hover:text-emerald-700">
+              Guides
+            </Link>
+            <Link href="/about" className="font-semibold transition hover:text-emerald-700">
+              About
+            </Link>
+          </nav>
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="border-t border-pine/10 bg-[#0f1f1b] text-white">
       <div className="mx-auto max-w-7xl px-5 py-12 md:px-8">

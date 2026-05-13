@@ -21,6 +21,7 @@ import {
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { resendVerificationEmail } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
@@ -335,7 +336,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader variant="auth" />
 
       <main className="min-h-screen bg-[#f7faf8] px-4 py-8 sm:px-5 md:px-8 md:py-12">
         <section className="mx-auto grid max-w-6xl overflow-hidden rounded-3xl border border-pine/10 bg-white shadow-soft lg:grid-cols-[0.95fr_1.05fr]">
@@ -517,6 +518,7 @@ export default function LoginPage() {
           </section>
         </section>
       </main>
+      <SiteFooter variant="auth" />
     </>
   );
 }

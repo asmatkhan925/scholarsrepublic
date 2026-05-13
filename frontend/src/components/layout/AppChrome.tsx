@@ -6,7 +6,13 @@ import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 
 const hiddenFooterPrefixes = ["/dashboard", "/admin"];
-const hiddenFooterExactPaths = ["/login", "/register"];
+const hiddenFooterExactPaths = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+];
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();

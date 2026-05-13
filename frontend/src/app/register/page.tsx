@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getErrorMessage } from "@/lib/errors";
 import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
@@ -62,7 +63,7 @@ export default function RegisterPage() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader variant="auth" />
 
       <main className="min-h-screen bg-slate-50 px-4 py-12">
         <section className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -153,6 +154,7 @@ export default function RegisterPage() {
           </p>
         </section>
       </main>
+      <SiteFooter variant="auth" />
     </>
   );
 }

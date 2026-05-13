@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getErrorMessage } from "@/lib/errors";
 import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
@@ -122,7 +123,7 @@ export default function VerifyEmailPage() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader variant="auth" />
 
       <main className="min-h-screen bg-slate-50 px-4 py-16">
         <section className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
@@ -146,6 +147,7 @@ export default function VerifyEmailPage() {
           </div>
         </section>
       </main>
+      <SiteFooter variant="auth" />
     </>
   );
 }
