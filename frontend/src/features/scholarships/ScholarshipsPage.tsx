@@ -9,7 +9,6 @@ import {
   CalendarDays,
   GraduationCap,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Star,
@@ -17,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { MatchScoreBadge } from "@/components/opportunities/MatchScoreBadge";
+import { MatchScoreBadge, MatchScoreDialog } from "@/components/opportunities/MatchScoreBadge";
 import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
@@ -32,6 +31,7 @@ import {
 import type {
   OpportunityListItem,
   OpportunityListResponse,
+  OpportunityMatch,
   OpportunityPathwayDetail,
   OpportunityQueryParams,
   RecommendedOpportunity,
@@ -100,12 +100,14 @@ function ScholarshipCard({
   profileRequired,
   initiallySaved,
   onSavedChange,
+  onMatchSelect,
 }: {
   scholarship: OpportunityListItem;
   match?: RecommendedOpportunity["match"];
   profileRequired?: boolean;
   initiallySaved?: boolean;
   onSavedChange?: (slug: string, saved: boolean) => void;
+  onMatchSelect?: (match: OpportunityMatch) => void;
 }) {
   const { user, isAuthenticated } = useAuth();
 
@@ -225,28 +227,8 @@ function ScholarshipCard({
           </div>
 
           {match ? (
-            <div className="mt-3 rounded-2xl border border-pine/10 bg-mint/35 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <MatchScoreBadge score={match.score} readinessLevel={match.readiness_level} />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-pine">
-                  Profile match
-                </span>
-              </div>
-
-              {match.matched_reasons.length > 0 ? (
-                <ul className="mt-3 grid gap-2 text-sm leading-5 text-ink/65">
-                  {match.matched_reasons.slice(0, 2).map((reason) => (
-                    <li key={reason} className="flex gap-2">
-                      <ShieldCheck
-                        size={15}
-                        className="mt-0.5 shrink-0 text-pine"
-                        aria-hidden="true"
-                      />
-                      <span>{reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+            <div className="mt-3">
+              <MatchScoreBadge match={match} onClick={() => onMatchSelect?.(match)} />
             </div>
           ) : null}
 
@@ -312,6 +294,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const hasResultsRef = useRef(Boolean(initialData));
   const [error, setError] = useState<string | null>(null);
   const [matchNotice, setMatchNotice] = useState<string | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<OpportunityMatch | null>(null);
   const [savedSlugs, setSavedSlugs] = useState<Set<string>>(new Set());
 
   const [search, setSearch] = useState("");
@@ -1026,6 +1009,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                     profileRequired={Boolean(matchNotice)}
                     initiallySaved={savedSlugs.has(scholarship.slug)}
                     onSavedChange={handleSavedChange}
+                    onMatchSelect={setSelectedMatch}
                   />
                 ))}
               </section>
@@ -1033,6 +1017,12 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
         </section>
       </main>
+
+      <MatchScoreDialog
+        match={selectedMatch}
+        open={Boolean(selectedMatch)}
+        onClose={() => setSelectedMatch(null)}
+      />
     </>
   );
 }
