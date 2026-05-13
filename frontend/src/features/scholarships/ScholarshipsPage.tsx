@@ -600,38 +600,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     ].filter(Boolean);
   }, [activeAdvancedFilters, selectedPathway]);
 
-  const heroCopy = useMemo(() => {
-    if (authLoading) {
-      return {
-        badge: "Scholarship search",
-        title: "Find scholarships worth applying to.",
-        description: "Search scholarships by country, funding, deadline, and profile fit.",
-      };
-    }
-
-    if (isStudent) {
-      return {
-        badge: "Student workspace",
-        title: "Find scholarships worth applying to.",
-        description: "Search scholarships by country, funding, deadline, and profile fit.",
-      };
-    }
-
-    if (isAdmin) {
-      return {
-        badge: "Scholarship directory",
-        title: "Find scholarships worth applying to.",
-        description: "Search scholarships by country, funding, deadline, and profile fit.",
-      };
-    }
-
-    return {
-      badge: "Scholarship search",
-      title: "Find scholarships worth applying to.",
-      description: "Search scholarships by country, funding, deadline, and profile fit.",
-    };
-  }, [authLoading, isAdmin, isStudent]);
-
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
 
@@ -713,22 +681,17 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       <SiteHeader />
 
       <main className="bg-[#f7faf8]">
-        <section className="mx-auto max-w-7xl px-4 py-3 sm:px-5 md:px-8 md:py-4">
+        <section className="mx-auto max-w-7xl px-4 py-2.5 sm:px-5 md:px-8 md:py-3">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-3 md:px-7">
-              <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-2.5 md:px-6">
+              <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
                 <div className="min-w-0">
-                  <Badge tone="mint" className="mb-2">
-                    <GraduationCap size={14} aria-hidden="true" />
-                    {heroCopy.badge}
-                  </Badge>
-
                   <div className="flex min-w-0 flex-col gap-1 md:flex-row md:items-baseline md:gap-2">
-                    <h1 className="shrink-0 text-2xl font-bold tracking-tight text-ink md:text-3xl">
-                      {heroCopy.title}
+                    <h1 className="shrink-0 text-xl font-bold tracking-tight text-ink md:text-2xl">
+                      Find scholarships worth applying to.
                     </h1>
                     <span className="hidden text-lg font-bold text-pine/45 md:inline">·</span>
-                    <p className="max-w-4xl text-sm leading-6 text-ink/70 md:truncate md:text-base">
+                    <p className="max-w-4xl text-sm leading-5 text-ink/70 md:truncate">
                       Search verified opportunities by country, funding, deadline, and pathway.
                     </p>
                   </div>
@@ -789,11 +752,11 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             </div>
           </div>
 
-          <Card className="mt-3">
-            <CardContent className="p-2.5 md:p-3">
-              <form onSubmit={handleFilterSubmit} className="grid gap-2.5">
+          <Card className="mt-2">
+            <CardContent className="p-2 md:p-2.5">
+              <form onSubmit={handleFilterSubmit} className="grid gap-2">
                 <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
+                  <label className="grid min-w-0 text-xs font-semibold text-ink">
                     <span className="sr-only">Search scholarships</span>
                     <div className="relative">
                       <Search
@@ -805,7 +768,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Search by scholarship, university, country..."
-                        className="w-full rounded-2xl border border-pine/15 bg-white py-2.5 pl-9 pr-3 text-[13px] text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        className="h-9 w-full rounded-2xl border border-pine/15 bg-white pl-9 pr-3 text-[13px] text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
                       />
                     </div>
                   </label>
@@ -1060,7 +1023,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           </Card>
 
           {matchNotice ? (
-            <div className="mt-3 rounded-2xl border border-saffron/30 bg-saffron/15 p-4 text-sm text-ink/70">
+            <div className="mt-2 rounded-2xl border border-saffron/30 bg-saffron/15 p-3 text-sm text-ink/70">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="flex items-center gap-2">
                   <Sparkles size={16} className="text-pine" aria-hidden="true" />
@@ -1074,7 +1037,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
 
           {!authLoading && !isAuthenticated && !loading && !error && scholarships.length > 0 ? (
-            <div className="mt-3 rounded-2xl border border-pine/10 bg-white px-4 py-3 text-sm text-ink/70 shadow-sm">
+            <div className="mt-2 rounded-2xl border border-pine/10 bg-white px-3 py-2.5 text-sm text-ink/70 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="flex items-center gap-2">
                   <Sparkles size={16} className="shrink-0 text-pine" aria-hidden="true" />
@@ -1088,20 +1051,20 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
 
           {loading ? (
-            <section className="mt-3 grid gap-4 lg:grid-cols-2" aria-label="Scholarship result placeholders">
+            <section className="mt-2 grid gap-4 lg:grid-cols-2" aria-label="Scholarship result placeholders">
               <ScholarshipCardSkeleton />
               <ScholarshipCardSkeleton />
             </section>
           ) : null}
 
           {error ? (
-            <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+            <div className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
               {error}
             </div>
           ) : null}
 
           {!loading && !error && scholarships.length === 0 ? (
-            <div className="mt-3">
+            <div className="mt-2">
               <EmptyState
                 action={
                   <Button type="button" onClick={handleClearFilters}>
@@ -1125,10 +1088,10 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
           {!loading && !error && scholarships.length > 0 ? (
             <>
-              <p className="mt-3 text-xs font-medium text-ink/55">
+              <p className="mt-2 text-xs font-medium text-ink/55">
                 {resultCount === 1 ? "1 opportunity found" : `${resultCount} opportunities found`}
               </p>
-              <section className="mt-2 grid gap-4 lg:grid-cols-2">
+              <section className="mt-1.5 grid gap-4 lg:grid-cols-2">
                 {scholarships.map((scholarship) => (
                   <ScholarshipCard
                     key={scholarship.id}
