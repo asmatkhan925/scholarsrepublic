@@ -446,6 +446,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const [verified, setVerified] = useState(false);
   const [filters, setFilters] = useState<OpportunityQueryParams>({ ordering: "deadline" });
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [pathwaysOpen, setPathwaysOpen] = useState(false);
 
   const { user, loading: authLoading, isAuthenticated } = useAuth();
 
@@ -593,8 +594,13 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
     const rolling = scholarships.filter((item) => item.deadline === null).length;
     const fullyFunded = scholarships.filter((item) => item.funding_type === "fully_funded").length;
+    const nextDeadline = scholarships
+      .filter((item) => item.deadline && item.days_until_deadline !== null && item.days_until_deadline >= 0)
+      .sort((first, second) => {
+        return (first.days_until_deadline ?? 0) - (second.days_until_deadline ?? 0);
+      })[0];
 
-    return { urgent, rolling, fullyFunded };
+    return { urgent, rolling, fullyFunded, nextDeadline };
   }, [hasLoadedResults, scholarships]);
 
   const selectedFundingLabel = useMemo(() => {
@@ -734,45 +740,22 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       <main className="bg-[#f7faf8]">
         <section className="mx-auto max-w-7xl px-4 py-5 sm:px-5 md:px-8 md:py-8">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-4 md:px-7 md:py-5">
+            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-3.5 md:px-7 md:py-4">
               <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
                 <div className="min-w-0">
-                  <Badge tone="mint" className="mb-2.5">
+                  <Badge tone="mint" className="mb-2">
                     <GraduationCap size={14} aria-hidden="true" />
                     {heroCopy.badge}
                   </Badge>
 
-                  <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl xl:whitespace-nowrap">
-                    {heroCopy.title}
-                  </h1>
-
-                  <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/70 md:text-base xl:whitespace-nowrap">
-                    {heroCopy.description}
-                  </p>
-
-                  <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-semibold text-ink/65">
-                    {[
-                      {
-                        label: "Verified opportunities",
-                        icon: <BadgeCheck size={13} aria-hidden="true" />,
-                      },
-                      {
-                        label: "Deadline-aware search",
-                        icon: <CalendarDays size={13} aria-hidden="true" />,
-                      },
-                      {
-                        label: "Save and track after login",
-                        icon: <BookmarkCheck size={13} aria-hidden="true" />,
-                      },
-                    ].map((item) => (
-                      <span
-                        key={item.label}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-pine/10 bg-white/75 px-2.5 py-1 text-ink/70"
-                      >
-                        <span className="text-pine">{item.icon}</span>
-                        {item.label}
-                      </span>
-                    ))}
+                  <div className="flex min-w-0 flex-col gap-1 md:flex-row md:items-baseline md:gap-2">
+                    <h1 className="shrink-0 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                      {heroCopy.title}
+                    </h1>
+                    <span className="hidden text-lg font-bold text-pine/45 md:inline">·</span>
+                    <p className="max-w-4xl text-sm leading-6 text-ink/70 md:truncate md:text-base">
+                      Search verified opportunities by country, funding, deadline, and pathway.
+                    </p>
                   </div>
                 </div>
 
@@ -831,41 +814,51 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             </div>
 
             {hasLoadedResults && quickStats ? (
-              <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8]/70 p-2.5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex flex-wrap gap-2 border-t border-pine/10 bg-[#f7faf8]/70 px-3 py-2">
                 {[
                   {
                     label: "Results",
                     value: resultCount,
                     description: recommendedData ? "Personalized matches" : "Published scholarships",
+                    show: true,
+                  },
+                  {
+                    label: "Next deadline",
+                    value: quickStats.nextDeadline ? formatDate(quickStats.nextDeadline.deadline) : "",
+                    description: quickStats.nextDeadline?.title ?? "",
+                    show: Boolean(quickStats.nextDeadline),
                   },
                   {
                     label: "Urgent",
                     value: quickStats.urgent,
                     description: "Due within 14 days",
+                    show: quickStats.urgent > 0,
                   },
                   {
                     label: "Fully funded",
                     value: quickStats.fullyFunded,
                     description: "In current results",
+                    show: quickStats.fullyFunded > 0,
                   },
                   {
                     label: "Rolling",
                     value: quickStats.rolling,
                     description: "No fixed deadline",
+                    show: quickStats.rolling > 0,
                   },
-                ].map((stat) => (
+                ].filter((stat) => stat.show).map((stat) => (
                   <div
                     key={stat.label}
-                    className="flex min-w-0 items-center gap-2 rounded-2xl border border-pine/10 bg-white/90 px-3 py-2"
+                    className="flex min-w-0 max-w-full items-center gap-2 rounded-full border border-pine/10 bg-white/90 px-3 py-1.5"
                   >
-                    <p className="shrink-0 text-xl font-bold leading-none text-ink">
+                    <p className="shrink-0 text-sm font-bold leading-none text-ink">
                       {stat.value}
                     </p>
                     <div className="min-w-0 leading-tight">
                       <p className="truncate text-[11px] font-bold uppercase tracking-[0.1em] text-ink/40">
                         {stat.label}
                       </p>
-                      <p className="truncate text-[11px] text-ink/55" title={stat.description}>
+                      <p className="max-w-48 truncate text-[11px] text-ink/55" title={stat.description}>
                         {stat.description}
                       </p>
                     </div>
@@ -920,6 +913,17 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                       <SlidersHorizontal size={14} aria-hidden="true" />
                       Filters
                       {activeAdvancedFilters.length > 0 ? ` (${activeAdvancedFilters.length})` : ""}
+                    </Button>
+                    <Button
+                      type="button"
+                      aria-expanded={pathwaysOpen}
+                      className="col-span-2 h-9 w-full whitespace-nowrap px-3 text-xs sm:col-span-1 sm:w-auto"
+                      onClick={() => setPathwaysOpen((current) => !current)}
+                      size="sm"
+                      variant={selectedPathway ? "outline" : "ghost"}
+                    >
+                      <GraduationCap size={14} aria-hidden="true" />
+                      Pathways{selectedPathway ? " (1)" : ""}
                     </Button>
                   </div>
                 </div>
@@ -1044,99 +1048,101 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   </div>
                 ) : null}
 
-                <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5">
-                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                    <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-1.5">
-                      <h3 className="shrink-0 text-xs font-bold text-ink">Browse by pathway</h3>
-                      <span className="hidden text-xs text-ink/35 md:inline">·</span>
-                      <p className="min-w-0 text-[11px] leading-4 text-ink/55 md:truncate">
-                        Explore scholarship families, programs, and application tracks.
-                      </p>
+                {pathwaysOpen ? (
+                  <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-1.5">
+                        <h3 className="shrink-0 text-xs font-bold text-ink">Browse by pathway</h3>
+                        <span className="hidden text-xs text-ink/35 md:inline">·</span>
+                        <p className="min-w-0 text-[11px] leading-4 text-ink/55 md:truncate">
+                          Explore scholarship families, programs, and application tracks.
+                        </p>
+                      </div>
+
+                      {selectedPathway ? (
+                        <Button
+                          type="button"
+                          className="h-8 px-2.5 text-xs"
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleClearPathway}
+                        >
+                          <X size={14} aria-hidden="true" />
+                          Clear pathway
+                        </Button>
+                      ) : null}
                     </div>
+
+                    {pathwaysLoading && rootPathways.length === 0 ? (
+                      <p className="text-xs text-ink/55">Loading pathways...</p>
+                    ) : null}
+
+                    {sortedRootPathways.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {sortedRootPathways.map((pathway) => {
+                          const selected = selectedPathwaySlug === pathway.slug;
+                          const hasPublished = pathway.published_opportunity_count > 0;
+
+                          return (
+                            <button
+                              key={pathway.slug}
+                              type="button"
+                              onClick={() => handleRootPathwaySelect(pathway)}
+                              className={`min-w-0 rounded-2xl border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
+                                selected
+                                  ? "border-pine bg-pine text-white"
+                                  : "border-pine/10 bg-white text-ink/75 hover:border-pine/30 hover:bg-mint/35"
+                              } ${hasPublished ? "" : "opacity-80"}`}
+                            >
+                              <span>{pathway.title}</span>
+                              {!hasPublished ? (
+                                <span
+                                  className={`ml-1.5 text-[11px] font-medium ${
+                                    selected ? "text-white/75" : "text-ink/40"
+                                  }`}
+                                >
+                                  Coming soon
+                                </span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {selectedRootPathwaySlug && sortedChildPathways.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 border-t border-pine/10 pt-2">
+                        {sortedChildPathways.map((pathway) => {
+                          const selected = selectedPathwaySlug === pathway.slug;
+
+                          return (
+                            <button
+                              key={pathway.slug}
+                              type="button"
+                              onClick={() => handlePathwaySelect(pathway)}
+                              className={`rounded-2xl border px-2.5 py-1.5 text-xs font-semibold transition ${
+                                selected
+                                  ? "border-pine bg-white text-pine shadow-sm"
+                                  : "border-pine/10 bg-white text-ink/65 hover:border-pine/30 hover:bg-mint/35"
+                              }`}
+                            >
+                              {pathway.title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
 
                     {selectedPathway ? (
-                      <Button
-                        type="button"
-                        className="h-8 px-2.5 text-xs"
-                        size="sm"
-                        variant="ghost"
-                        onClick={handleClearPathway}
-                      >
-                        <X size={14} aria-hidden="true" />
-                        Clear pathway
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink/65">
+                        <span>Showing pathway:</span>
+                        <Badge tone="mint" className="px-2 py-0.5 text-[11px]">
+                          {selectedPathway.full_path}
+                        </Badge>
+                      </div>
                     ) : null}
                   </div>
-
-                  {pathwaysLoading && rootPathways.length === 0 ? (
-                    <p className="text-xs text-ink/55">Loading pathways...</p>
-                  ) : null}
-
-                  {sortedRootPathways.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {sortedRootPathways.map((pathway) => {
-                        const selected = selectedPathwaySlug === pathway.slug;
-                        const hasPublished = pathway.published_opportunity_count > 0;
-
-                        return (
-                          <button
-                            key={pathway.slug}
-                            type="button"
-                            onClick={() => handleRootPathwaySelect(pathway)}
-                            className={`min-w-0 rounded-2xl border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
-                              selected
-                                ? "border-pine bg-pine text-white"
-                                : "border-pine/10 bg-white text-ink/75 hover:border-pine/30 hover:bg-mint/35"
-                            } ${hasPublished ? "" : "opacity-80"}`}
-                          >
-                            <span>{pathway.title}</span>
-                            {!hasPublished ? (
-                              <span
-                                className={`ml-1.5 text-[11px] font-medium ${
-                                  selected ? "text-white/75" : "text-ink/40"
-                                }`}
-                              >
-                                Coming soon
-                              </span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
-                  {selectedRootPathwaySlug && sortedChildPathways.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 border-t border-pine/10 pt-2">
-                      {sortedChildPathways.map((pathway) => {
-                        const selected = selectedPathwaySlug === pathway.slug;
-
-                        return (
-                          <button
-                            key={pathway.slug}
-                            type="button"
-                            onClick={() => handlePathwaySelect(pathway)}
-                            className={`rounded-2xl border px-2.5 py-1.5 text-xs font-semibold transition ${
-                              selected
-                                ? "border-pine bg-white text-pine shadow-sm"
-                                : "border-pine/10 bg-white text-ink/65 hover:border-pine/30 hover:bg-mint/35"
-                            }`}
-                          >
-                            {pathway.title}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
-                  {selectedPathway ? (
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink/65">
-                      <span>Showing pathway:</span>
-                      <Badge tone="mint" className="px-2 py-0.5 text-[11px]">
-                        {selectedPathway.full_path}
-                      </Badge>
-                    </div>
-                  ) : null}
-                </div>
+                ) : null}
               </form>
             </CardContent>
           </Card>
