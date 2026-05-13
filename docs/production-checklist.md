@@ -110,3 +110,17 @@ Auth smoke tests:
 - Never commit `backend/.env` or `frontend/.env.local`.
 - Never commit backups, patch files, API keys, SMTP credentials, DB passwords, SSH keys, or Cloudflare credentials.
 - Keep production `DJANGO_DEBUG=False`, explicit `DJANGO_ALLOWED_HOSTS`, explicit HTTPS `CORS_ALLOWED_ORIGINS`, and explicit HTTPS `CSRF_TRUSTED_ORIGINS`.
+
+## Opportunity content imports
+
+Before importing, bulk editing, or publishing many opportunities, take a backup and follow:
+
+- `docs/backup-restore.md`
+- `docs/opportunity-content-workflow.md`
+
+Run these audits after opportunity changes:
+
+    cd /home/scholarsrepublic/scholarsrepublic/backend
+    source venv/bin/activate
+    python manage.py audit_opportunity_references
+    python manage.py audit_opportunity_content

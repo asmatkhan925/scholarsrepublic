@@ -1,3 +1,6 @@
+from collections import defaultdict
+from urllib.parse import urlparse
+
 from django.core.management.base import BaseCommand
 
 from apps.opportunities.models import Opportunity
@@ -11,6 +14,12 @@ WEAK_SAMPLE_PHRASES = (
     "placeholder",
 )
 
+SUSPICIOUS_SOURCE_DOMAINS = (
+    "example.com",
+    "localhost",
+    "127.0.0.1",
+)
+
 
 class Command(BaseCommand):
     help = "Audit public opportunity content quality and trust signals."
@@ -19,6 +28,7 @@ class Command(BaseCommand):
         published = list(
             Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED).order_by("id")
         )
+        duplicate_groups = self.find_duplicate_groups()
 
         totals = {
             "total_opportunities": Opportunity.objects.count(),
@@ -59,6 +69,10 @@ class Command(BaseCommand):
                 opportunity.deadline is None and not opportunity.is_rolling_deadline
                 for opportunity in published
             ),
+            "suspicious_source_or_official_url": sum(
+                self.has_suspicious_source(opportunity) for opportunity in published
+            ),
+            "duplicate_title_provider_country_groups": len(duplicate_groups),
         }
 
         self.stdout.write("Opportunity content audit")
@@ -89,6 +103,14 @@ class Command(BaseCommand):
             "Missing deadline while is_rolling_deadline is false: "
             f"{totals['missing_deadline']}"
         )
+        self.stdout.write(
+            "Suspicious official/source URL: "
+            f"{totals['suspicious_source_or_official_url']}"
+        )
+        self.stdout.write(
+            "Duplicate title/provider/country groups: "
+            f"{totals['duplicate_title_provider_country_groups']}"
+        )
 
         problematic = []
         for opportunity in published:
@@ -109,12 +131,23 @@ class Command(BaseCommand):
                     f"issues={', '.join(issues)}"
                 )
 
+        if duplicate_groups:
+            self.stdout.write("")
+            self.stdout.write("Potential duplicate opportunity groups:")
+
+            for key, opportunities in duplicate_groups.items():
+                ids = ", ".join(str(opportunity.id) for opportunity in opportunities)
+                titles = " | ".join(opportunity.title for opportunity in opportunities)
+                self.stdout.write(f" - ids={ids}; key={key}; titles={titles}")
+
         self.stdout.write("")
         self.stdout.write("Dry audit only. No changes made.")
 
     def get_issues(self, opportunity):
         issues = []
 
+        if not opportunity.verified_status:
+            issues.append("published but unverified")
         if self.is_blank(opportunity.official_link):
             issues.append("missing official_link")
         if self.is_blank(opportunity.source_url):
@@ -133,8 +166,45 @@ class Command(BaseCommand):
             issues.append("missing how_to_apply")
         if opportunity.deadline is None and not opportunity.is_rolling_deadline:
             issues.append("missing deadline")
+        if self.has_suspicious_source(opportunity):
+            issues.append("suspicious official/source URL")
 
         return issues
+
+    def find_duplicate_groups(self):
+        groups = defaultdict(list)
+
+        opportunities = Opportunity.objects.all().select_related("country_ref").order_by("id")
+
+        for opportunity in opportunities:
+            key = (
+                self.normalize(opportunity.title),
+                self.normalize(opportunity.provider_name),
+                self.normalize(opportunity.country),
+            )
+            if any(key):
+                groups[key].append(opportunity)
+
+        return {
+            key: opportunities
+            for key, opportunities in groups.items()
+            if len(opportunities) > 1
+        }
+
+    def has_suspicious_source(self, opportunity):
+        values = (opportunity.official_link, opportunity.source_url)
+
+        for value in values:
+            if self.is_blank(value):
+                continue
+
+            host = urlparse(value).hostname or ""
+            host = host.casefold()
+
+            if any(domain in host for domain in SUSPICIOUS_SOURCE_DOMAINS):
+                return True
+
+        return False
 
     def has_weak_sample_text(self, value):
         text = (value or "").casefold()
@@ -142,3 +212,6 @@ class Command(BaseCommand):
 
     def is_blank(self, value):
         return not (value or "").strip()
+
+    def normalize(self, value):
+        return " ".join((value or "").casefold().split())
