@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   ArrowLeft,
@@ -368,39 +368,71 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
   );
 }
 
-export default function ScholarshipDetailPage() {
+type ScholarshipDetailPageProps = {
+  initialScholarship?: OpportunityDetail | null;
+  slug?: string;
+};
+
+export default function ScholarshipDetailPage({
+  initialScholarship = null,
+  slug,
+}: ScholarshipDetailPageProps) {
   const params = useParams<{ slug: string }>();
+  const scholarshipSlug = slug ?? params.slug;
   const { user, isAuthenticated, loading: authLoading } = useAuth();
 
-  const [scholarship, setScholarship] = useState<OpportunityDetail | null>(null);
+  const [scholarship, setScholarship] = useState<OpportunityDetail | null>(initialScholarship);
   const [match, setMatch] = useState<OpportunityMatch | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialScholarship);
+  const hasScholarshipRef = useRef(Boolean(initialScholarship));
+  const studentFieldsLoadedRef = useRef(false);
   const [matchLoading, setMatchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved] = useState(Boolean(initialScholarship?.is_saved));
+
+  useEffect(() => {
+    hasScholarshipRef.current = Boolean(scholarship);
+  }, [scholarship]);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadScholarship() {
-      if (authLoading || !params.slug) {
+      if (!scholarshipSlug) {
         return;
       }
 
-      setLoading(true);
+      const needsPublicFallback = !hasScholarshipRef.current;
+      const needsStudentFields =
+        !authLoading && user?.role === "student" && !studentFieldsLoadedRef.current;
+
+      if (!needsPublicFallback && !needsStudentFields) {
+        return;
+      }
+
+      setLoading(!hasScholarshipRef.current);
       setError(null);
 
       try {
-        const data = await getScholarship(params.slug);
+        const data = await getScholarship(scholarshipSlug);
 
         if (mounted) {
           setScholarship(data);
+          hasScholarshipRef.current = true;
           setIsSaved(Boolean(data.is_saved));
+          if (user?.role === "student") {
+            studentFieldsLoadedRef.current = true;
+          }
         }
       } catch (requestError) {
-        if (mounted) {
-          setError(getErrorMessage(requestError));
+        if (mounted && !hasScholarshipRef.current) {
+          const message = getErrorMessage(requestError);
+          setError(
+            message === "Not found." || message === "Scholarship not found."
+              ? "Scholarship not found."
+              : "Scholarship details are temporarily unavailable. Please try again later.",
+          );
         }
       } finally {
         if (mounted) {
@@ -414,13 +446,13 @@ export default function ScholarshipDetailPage() {
     return () => {
       mounted = false;
     };
-  }, [authLoading, isAuthenticated, params.slug, user?.role]);
+  }, [authLoading, scholarshipSlug, user?.role]);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadMatch() {
-      if (authLoading || user?.role !== "student" || !params.slug) {
+      if (authLoading || user?.role !== "student" || !scholarshipSlug) {
         return;
       }
 
@@ -428,7 +460,7 @@ export default function ScholarshipDetailPage() {
       setMatchError(null);
 
       try {
-        const data = await getScholarshipMatch(params.slug);
+        const data = await getScholarshipMatch(scholarshipSlug);
 
         if (mounted) {
           setMatch(data);
@@ -450,7 +482,7 @@ export default function ScholarshipDetailPage() {
     return () => {
       mounted = false;
     };
-  }, [authLoading, params.slug, user?.role]);
+  }, [authLoading, scholarshipSlug, user?.role]);
 
   const provider = useMemo(() => {
     if (!scholarship) {

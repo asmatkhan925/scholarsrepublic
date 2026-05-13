@@ -14,6 +14,9 @@ function withLocalhostNoProxy(value: string | undefined) {
 process.env.NO_PROXY = withLocalhostNoProxy(process.env.NO_PROXY);
 process.env.no_proxy = withLocalhostNoProxy(process.env.no_proxy);
 
+const e2ePort = Number(process.env.PLAYWRIGHT_PORT ?? 3002);
+const baseURL = `http://localhost:${e2ePort}`;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 45_000,
@@ -24,15 +27,15 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "retain-on-failure",
     launchOptions: {
       args: ["--no-proxy-server", "--proxy-bypass-list=<-loopback>;localhost;127.0.0.1"],
     },
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
+    command: `npm run dev -- -p ${e2ePort}`,
+    url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,
   },

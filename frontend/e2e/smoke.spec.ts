@@ -150,14 +150,18 @@ test("home page loads", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Browse Scholarships" }).first()).toBeVisible();
 });
 
-test("scholarships page shows neutral loading state before counts", async ({ page }) => {
+test("scholarships page renders heading without placeholder zero stats", async ({ page }) => {
   await mockScholarshipApi(page, { delayScholarshipsMs: 1_000 });
 
   await page.goto("/scholarships");
 
-  await expect(page.getByText("Loading verified opportunities...")).toBeVisible();
-  await expect(page.getByText("Published scholarships")).toHaveCount(0);
-  await expect(page.getByText("Due within 14 days")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Find scholarships worth applying to." }),
+  ).toBeVisible();
+
+  const initialMainText = await page.locator("main").innerText();
+  expect(initialMainText).not.toContain("Results\n0\nPublished scholarships");
+  expect(initialMainText).not.toContain("Urgent\n0\nDue within 14 days");
 
   await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
   await expect(page.getByText("Published scholarships")).toBeVisible();
@@ -240,5 +244,8 @@ test("scholarship detail page shows trust metadata", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole("complementary").getByRole("link", { name: "Official Website" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("complementary").getByRole("link", { name: "Source Page" }),
   ).toBeVisible();
 });

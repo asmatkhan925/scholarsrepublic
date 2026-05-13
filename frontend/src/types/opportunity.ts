@@ -98,7 +98,7 @@ export type OpportunityDetail = OpportunityListItem & {
   application_open_date: string | null;
   application_method: string;
   required_documents: string[];
-  search_keywords: string;
+  search_keywords?: string;
   is_saved: boolean;
   saved_opportunity_id: number | null;
   is_tracking: boolean;

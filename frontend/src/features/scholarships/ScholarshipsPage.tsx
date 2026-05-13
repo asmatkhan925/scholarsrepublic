@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, FormEvent } from "react";
 
 import {
   ArrowRight,
@@ -29,7 +29,6 @@ import {
   getSavedOpportunitySlugs,
   getScholarships,
 } from "@/lib/api";
-import { getErrorMessage } from "@/lib/errors";
 import type {
   OpportunityListItem,
   OpportunityListResponse,
@@ -310,12 +309,17 @@ function ScholarshipCardSkeleton() {
   );
 }
 
-export default function ScholarshipsPage() {
-  const [data, setData] = useState<OpportunityListResponse | null>(null);
+type ScholarshipsPageProps = {
+  initialData?: OpportunityListResponse | null;
+};
+
+export default function ScholarshipsPage({ initialData = null }: ScholarshipsPageProps) {
+  const [data, setData] = useState<OpportunityListResponse | null>(initialData);
   const [recommendedData, setRecommendedData] = useState<RecommendedOpportunityResponse | null>(
     null,
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialData);
+  const hasResultsRef = useRef(Boolean(initialData));
   const [error, setError] = useState<string | null>(null);
   const [matchNotice, setMatchNotice] = useState<string | null>(null);
   const [savedSlugs, setSavedSlugs] = useState<Set<string>>(new Set());
@@ -459,6 +463,10 @@ export default function ScholarshipsPage() {
   const isLoggedIn = isAuthenticated && !authLoading;
 
   useEffect(() => {
+    hasResultsRef.current = Boolean(data || recommendedData);
+  }, [data, recommendedData]);
+
+  useEffect(() => {
     let mounted = true;
 
     async function loadSavedSlugs() {
@@ -495,11 +503,9 @@ export default function ScholarshipsPage() {
         return;
       }
 
-      setLoading(true);
+      setLoading(!hasResultsRef.current);
       setError(null);
       setMatchNotice(null);
-      setRecommendedData(null);
-      setData(null);
 
       try {
         if (user?.role === "student") {
@@ -508,6 +514,7 @@ export default function ScholarshipsPage() {
 
             if (mounted) {
               setRecommendedData(response);
+              setData(null);
             }
 
             return;
@@ -521,11 +528,12 @@ export default function ScholarshipsPage() {
         const response = await getScholarships(filters);
 
         if (mounted) {
+          setRecommendedData(null);
           setData(response);
         }
-      } catch (requestError) {
-        if (mounted) {
-          setError(getErrorMessage(requestError));
+      } catch {
+        if (mounted && !hasResultsRef.current) {
+          setError("Scholarship results are temporarily unavailable. Please try again later.");
         }
       } finally {
         if (mounted) {
@@ -817,11 +825,11 @@ export default function ScholarshipsPage() {
                   <p className="mt-1 text-xs text-ink/50">No fixed deadline</p>
                 </div>
               </div>
-            ) : (
+            ) : loading ? (
               <div className="border-t border-pine/10 px-5 py-4 text-sm font-medium text-ink/60">
                 Loading verified opportunities...
               </div>
-            )}
+            ) : null}
           </div>
 
           <Card className="mt-5">

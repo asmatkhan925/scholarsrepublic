@@ -171,7 +171,40 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Opportunity
-        fields = "__all__"
+        fields = OpportunityListSerializer.Meta.fields + (
+            "verification_note",
+            "last_verified_at",
+            "description",
+            "benefits",
+            "eligibility",
+            "how_to_apply",
+            "official_link",
+            "source_url",
+            "source_name",
+            "gender_eligibility",
+            "min_cgpa",
+            "min_percentage",
+            "min_education_level",
+            "funding_amount",
+            "funding_currency",
+            "application_fee_amount",
+            "application_fee_currency",
+            "toefl_required",
+            "duolingo_required",
+            "hsk_required",
+            "min_experience_years",
+            "salary_min",
+            "salary_max",
+            "salary_currency",
+            "application_open_date",
+            "application_method",
+            "required_documents",
+            "is_saved",
+            "saved_opportunity_id",
+            "is_tracking",
+            "application_id",
+            "created_at",
+        )
         read_only_fields = (
             "id",
             "is_expired",
@@ -183,11 +216,6 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-
-    def get_fields(self):
-        fields = super().get_fields()
-        fields.pop("professor_email", None)
-        return fields
 
     def _student_user(self):
         request = self.context.get("request")
