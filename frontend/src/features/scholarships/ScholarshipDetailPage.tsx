@@ -18,6 +18,7 @@ import {
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { StartApplicationButton } from "@/components/applications/StartApplicationButton";
+import { MatchScoreBadge, MatchScoreDialog } from "@/components/opportunities/MatchScoreBadge";
 import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
@@ -98,14 +99,14 @@ function DetailSection({
 
   return (
     <Card>
-      <CardContent className="p-5 md:p-6">
+      <CardContent className="p-5">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
             {icon}
           </span>
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-ink">{title}</h2>
-            <div className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/70">{content}</div>
+            <h2 className="text-lg font-bold text-ink">{title}</h2>
+            <div className="mt-2 whitespace-pre-line text-sm leading-6 text-ink/70">{content}</div>
           </div>
         </div>
       </CardContent>
@@ -120,18 +121,18 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
 
   return (
     <Card>
-      <CardContent className="p-5 md:p-6">
+      <CardContent className="p-5">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
             {icon}
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold text-ink">{title}</h2>
-            <ul className="mt-4 grid gap-2 md:grid-cols-2">
+            <h2 className="text-lg font-bold text-ink">{title}</h2>
+            <ul className="mt-3 grid gap-2 md:grid-cols-2">
               {items.map((item) => (
                 <li
                   key={item}
-                  className="flex gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3 text-sm leading-6 text-ink/70"
+                  className="flex gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-2.5 text-sm leading-6 text-ink/70"
                 >
                   <CheckCircle2 size={16} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
                   <span>{item}</span>
@@ -147,7 +148,7 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
 
 function FactItem({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
-    <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+    <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-3.5 py-2.5">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">{label}</p>
       <p className="mt-1 text-sm font-bold text-ink">{value}</p>
       {helper ? <p className="mt-1 text-xs leading-5 text-ink/50">{helper}</p> : null}
@@ -155,118 +156,41 @@ function FactItem({ label, value, helper }: { label: string; value: string; help
   );
 }
 
-function getReadinessTone(level: string): "mint" | "saffron" | "danger" | "sky" {
-  if (level === "High") {
-    return "mint";
-  }
-
-  if (level === "Medium") {
-    return "saffron";
-  }
-
-  if (level === "Low") {
-    return "danger";
-  }
-
-  return "sky";
-}
-
-function MatchScoreSidebarCard({
+function CompactMatchControl({
   match,
   matchLoading,
   matchError,
+  onMatchSelect,
 }: {
   match: OpportunityMatch | null;
   matchLoading: boolean;
   matchError: string | null;
+  onMatchSelect: (match: OpportunityMatch) => void;
 }) {
   if (matchLoading) {
     return (
-      <Card>
-        <CardContent className="p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-          <p className="mt-3 text-sm leading-6 text-ink/65">Calculating your profile match...</p>
-        </CardContent>
-      </Card>
+      <span className="inline-flex h-9 items-center gap-2 rounded-full border border-pine/10 bg-white/80 px-3 text-xs font-semibold text-ink/55">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-pine/45" aria-hidden="true" />
+        Checking match
+      </span>
+    );
+  }
+
+  if (match) {
+    return (
+      <MatchScoreBadge match={match} onClick={() => onMatchSelect(match)} className="shadow-none" />
     );
   }
 
   if (matchError) {
     return (
-      <Card>
-        <CardContent className="p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-          <h2 className="mt-2 text-lg font-bold text-ink">Complete your profile first</h2>
-          <p className="mt-2 text-sm leading-6 text-ink/65">
-            Add your education, goals, and target countries to calculate your fit for this
-            scholarship.
-          </p>
-          <ButtonLink href="/dashboard/profile" className="mt-4" size="sm" variant="secondary">
-            Complete Profile
-          </ButtonLink>
-        </CardContent>
-      </Card>
+      <ButtonLink href="/dashboard/profile" className="rounded-full shadow-none" size="sm" variant="outline">
+        Complete profile for match
+      </ButtonLink>
     );
   }
 
-  if (!match) {
-    return null;
-  }
-
-  const score = Math.min(Math.max(match.score, 0), 100);
-
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-            <h2 className="mt-2 text-lg font-bold text-ink">Based on your profile</h2>
-          </div>
-          <Badge tone={getReadinessTone(match.readiness_level)}>{match.readiness_level}</Badge>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-pine/10 bg-mint/35 p-4">
-          <div className="flex items-end justify-between gap-3">
-            <p className="text-3xl font-black tracking-tight text-pine">
-              {score}
-              <span className="text-base font-bold text-ink/45">/100</span>
-            </p>
-            <p className="text-sm font-semibold text-ink/60">Profile fit</p>
-          </div>
-
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-            <div className="h-full rounded-full bg-pine" style={{ width: `${score}%` }} />
-          </div>
-        </div>
-
-        {match.matched_reasons.length > 0 ? (
-          <div className="mt-4">
-            <p className="text-sm font-bold text-ink">Why it may fit</p>
-            <ul className="mt-2 grid gap-2">
-              {match.matched_reasons.slice(0, 3).map((reason) => (
-                <li key={reason} className="flex gap-2 text-sm leading-6 text-ink/65">
-                  <ShieldCheck size={15} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
-                  <span>{reason}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {match.missing_requirements.length > 0 ? (
-          <div className="mt-4 rounded-2xl border border-saffron/30 bg-saffron/15 p-3">
-            <p className="text-sm font-bold text-ink">Check before applying</p>
-            <ul className="mt-2 grid gap-1 text-sm leading-6 text-ink/65">
-              {match.missing_requirements.slice(0, 3).map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
+  return null;
 }
 
 function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
@@ -276,11 +200,11 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
 
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Verification</p>
-            <h2 className="mt-2 text-lg font-bold text-ink">Source and trust</h2>
+            <h2 className="mt-1.5 text-base font-bold text-ink">Source and trust</h2>
           </div>
           <Badge tone={scholarship.verified_status ? "mint" : "neutral"}>
             {scholarship.verified_status ? <BadgeCheck size={13} aria-hidden="true" /> : null}
@@ -288,14 +212,14 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
           </Badge>
         </div>
 
-        <div className="mt-4 grid gap-3 text-sm leading-6 text-ink/65">
+        <div className="mt-3 grid gap-2.5 text-sm leading-6 text-ink/65">
           <div className="flex items-start gap-3">
             <Globe2 size={18} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                 Deadline
               </p>
-              <p className="mt-1 font-semibold text-ink">{formatDate(scholarship.deadline)}</p>
+              <p className="mt-0.5 font-semibold text-ink">{formatDate(scholarship.deadline)}</p>
             </div>
           </div>
 
@@ -304,7 +228,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                 Last verified
               </p>
-              <p className="mt-1 font-semibold text-ink">{lastVerified}</p>
+              <p className="mt-0.5 font-semibold text-ink">{lastVerified}</p>
             </div>
           ) : null}
 
@@ -313,31 +237,31 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
               <Globe2 size={18} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Source</p>
-                <p className="mt-1 font-semibold text-ink">{scholarship.source_name}</p>
+                <p className="mt-0.5 font-semibold text-ink">{scholarship.source_name}</p>
               </div>
             </div>
           ) : null}
 
           {scholarship.verification_note ? (
-            <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+            <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-3.5 py-2.5">
               {scholarship.verification_note}
             </p>
           ) : null}
 
-          <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+          <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-3.5 py-2.5">
             Always confirm deadline and requirements on the official scholarship page before
             applying.
           </p>
 
           {!scholarship.verified_status ? (
-            <p className="rounded-2xl border border-saffron/30 bg-saffron/15 px-4 py-3">
+            <p className="rounded-2xl border border-saffron/30 bg-saffron/15 px-3.5 py-2.5">
               Please confirm final deadlines and requirements on the official source.
             </p>
           ) : null}
         </div>
 
         {scholarship.official_link || scholarship.source_url ? (
-          <div className="mt-4 grid gap-2">
+          <div className="mt-3 grid gap-2">
             {scholarship.official_link ? (
               <a
                 href={scholarship.official_link}
@@ -390,6 +314,7 @@ export default function ScholarshipDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(Boolean(initialScholarship?.is_saved));
+  const [selectedMatch, setSelectedMatch] = useState<OpportunityMatch | null>(null);
 
   useEffect(() => {
     hasScholarshipRef.current = Boolean(scholarship);
@@ -552,6 +477,8 @@ export default function ScholarshipDetailPage({
     ];
   }, [scholarship]);
 
+  const isStudent = isAuthenticated && user?.role === "student";
+
   return (
     <>
       <SiteHeader />
@@ -586,7 +513,13 @@ export default function ScholarshipDetailPage({
             <div className="grid gap-3">
               <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
                 <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 md:px-7">
-                  <div className="grid gap-3 xl:grid-cols-[1fr_21rem] xl:items-start">
+                  <div
+                    className={
+                      isStudent
+                        ? "grid gap-3 xl:items-start"
+                        : "grid gap-3 xl:grid-cols-[1fr_21rem] xl:items-start"
+                    }
+                  >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={getDeadlineTone(scholarship)}>
@@ -637,54 +570,85 @@ export default function ScholarshipDetailPage({
                           </span>
                         </div>
                       ) : null}
+
+                      {isStudent ? (
+                        <div className="mt-4 rounded-2xl border border-pine/10 bg-white/85 p-3 shadow-sm">
+                          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+                                Student tools
+                              </span>
+                              <CompactMatchControl
+                                match={match}
+                                matchError={matchError}
+                                matchLoading={matchLoading}
+                                onMatchSelect={setSelectedMatch}
+                              />
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:items-start xl:justify-end">
+                              <div className="min-w-0 xl:w-36">
+                                <SaveOpportunityButton
+                                  opportunityType="scholarship"
+                                  slug={scholarship.slug}
+                                  initiallySaved={isSaved}
+                                  onSavedChange={setIsSaved}
+                                />
+                              </div>
+
+                              <div className="min-w-0 xl:w-44">
+                                <StartApplicationButton
+                                  opportunitySlug={scholarship.slug}
+                                  opportunityType="scholarship"
+                                  savedOpportunityId={
+                                    scholarship.saved_opportunity_id ?? undefined
+                                  }
+                                  initiallyTracked={Boolean(scholarship.is_tracking)}
+                                  onStarted={(application) => {
+                                    setScholarship((current) =>
+                                      current
+                                        ? {
+                                            ...current,
+                                            application_id: application.id,
+                                            is_tracking: true,
+                                          }
+                                        : current,
+                                    );
+                                  }}
+                                />
+                              </div>
+
+                              {scholarship.official_link ? (
+                                <a
+                                  href={scholarship.official_link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40 sm:col-span-2 xl:col-span-1 xl:min-w-40"
+                                >
+                                  Official Website
+                                  <ExternalLink size={15} aria-hidden="true" />
+                                </a>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
 
+                    {!isStudent ? (
                     <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-                        {isAuthenticated && user?.role === "student"
-                          ? "Student actions"
-                          : isAuthenticated
-                            ? "Admin actions"
-                            : "Check eligibility"}
+                        {isAuthenticated ? "Admin actions" : "Check eligibility"}
                       </p>
 
                       <p className="mt-2 text-sm leading-6 text-ink/65">
-                        {isAuthenticated && user?.role === "student"
-                          ? "Save this scholarship or add it to your tracker."
-                          : isAuthenticated
-                            ? "Review this scholarship from your admin account."
-                            : "Create a profile to save, track, and check your match."}
+                        {isAuthenticated
+                          ? "Review this scholarship from your admin account."
+                          : "Create a profile to save, track, and check your match."}
                       </p>
 
                       <div className="mt-3 grid gap-2">
-                        {isAuthenticated && user?.role === "student" ? (
-                          <>
-                            <SaveOpportunityButton
-                              opportunityType="scholarship"
-                              slug={scholarship.slug}
-                              initiallySaved={isSaved}
-                              onSavedChange={setIsSaved}
-                            />
-
-                            <StartApplicationButton
-                              opportunitySlug={scholarship.slug}
-                              opportunityType="scholarship"
-                              savedOpportunityId={scholarship.saved_opportunity_id ?? undefined}
-                              initiallyTracked={Boolean(scholarship.is_tracking)}
-                              onStarted={(application) => {
-                                setScholarship((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        application_id: application.id,
-                                        is_tracking: true,
-                                      }
-                                    : current,
-                                );
-                              }}
-                            />
-                          </>
-                        ) : isAuthenticated ? (
+                        {isAuthenticated ? (
                           <ButtonLink
                             href="/admin"
                             className="w-full"
@@ -732,12 +696,13 @@ export default function ScholarshipDetailPage({
                         before applying.
                       </p>
                     </div>
+                    ) : null}
                   </div>
                 </div>
 
                 <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
                   {facts.slice(0, 4).map((fact) => (
-                    <div key={fact.label} className="px-5 py-4">
+                    <div key={fact.label} className="px-5 py-3.5">
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                         {fact.label}
                       </p>
@@ -783,23 +748,15 @@ export default function ScholarshipDetailPage({
                   />
                 </div>
 
-                <aside className="grid content-start gap-3">
-                  {user?.role === "student" ? (
-                    <MatchScoreSidebarCard
-                      match={match}
-                      matchError={matchError}
-                      matchLoading={matchLoading}
-                    />
-                  ) : null}
-
+                <aside className="grid content-start gap-2.5">
                   <TrustSidebarCard scholarship={scholarship} />
 
                   <Card>
-                    <CardContent className="p-5">
+                    <CardContent className="p-4">
                       <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
                         Key facts
                       </p>
-                      <div className="mt-4 grid gap-3">
+                      <div className="mt-3 grid gap-2.5">
                         {facts.slice(4).map((fact) => (
                           <FactItem
                             key={fact.label}
@@ -816,13 +773,13 @@ export default function ScholarshipDetailPage({
                   scholarship.eligible_countries.length > 0 ||
                   scholarship.target_regions.length > 0 ? (
                     <Card>
-                      <CardContent className="p-5">
+                      <CardContent className="p-4">
                         <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
                           Fit details
                         </p>
 
                         {scholarship.fields_of_study.length > 0 ? (
-                          <div className="mt-4">
+                          <div className="mt-3">
                             <h3 className="text-sm font-bold text-ink">Fields</h3>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {scholarship.fields_of_study.slice(0, 8).map((item) => (
@@ -835,7 +792,7 @@ export default function ScholarshipDetailPage({
                         ) : null}
 
                         {scholarship.eligible_countries.length > 0 ? (
-                          <div className="mt-4">
+                          <div className="mt-3">
                             <h3 className="text-sm font-bold text-ink">Eligible countries</h3>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {scholarship.eligible_countries.slice(0, 8).map((item) => (
@@ -848,7 +805,7 @@ export default function ScholarshipDetailPage({
                         ) : null}
 
                         {scholarship.target_regions.length > 0 ? (
-                          <div className="mt-4">
+                          <div className="mt-3">
                             <h3 className="text-sm font-bold text-ink">Target regions</h3>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {scholarship.target_regions.slice(0, 8).map((item) => (
@@ -870,6 +827,12 @@ export default function ScholarshipDetailPage({
           ) : null}
         </section>
       </main>
+
+      <MatchScoreDialog
+        match={selectedMatch}
+        open={Boolean(selectedMatch)}
+        onClose={() => setSelectedMatch(null)}
+      />
     </>
   );
 }
