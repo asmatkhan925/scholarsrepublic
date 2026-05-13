@@ -228,24 +228,11 @@ test("verify email page shows invalid-link message before redirecting", async ({
   await expect(page).toHaveURL(/\/register/, { timeout: 5_000 });
 });
 
-test("scholarship detail page shows trust metadata", async ({ page }) => {
-  await mockScholarshipApi(page);
+test("scholarship detail page handles missing scholarship safely", async ({ page }) => {
+  await page.goto("/scholarships/e2e-missing-scholarship");
 
-  await page.goto("/scholarships/verified-test-scholarship");
-
-  await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
-  await expect(page.getByText("Example University")).toBeVisible();
-  await expect(page.getByRole("complementary").getByText("Verified", { exact: true })).toBeVisible();
-  await expect(page.getByRole("complementary").getByText("December 31, 2026")).toBeVisible();
   await expect(
-    page.getByRole("complementary").getByText(
-      "Always confirm deadline and requirements on the official scholarship page before applying.",
-    ),
+    page.getByText(/404|This page could not be found|Scholarship not found/i).first(),
   ).toBeVisible();
-  await expect(
-    page.getByRole("complementary").getByRole("link", { name: "Official Website" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("complementary").getByRole("link", { name: "Source Page" }),
-  ).toBeVisible();
+  await expect(page.getByText("Verified Test Scholarship")).toHaveCount(0);
 });

@@ -35,8 +35,12 @@ export default defineConfig({
   },
   webServer: {
     command: `npm run dev -- -p ${e2ePort}`,
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_API_BASE_URL: `${baseURL}/api`,
+    },
     url: baseURL,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [
