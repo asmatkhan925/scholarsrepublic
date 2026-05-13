@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 import { AlertCircle, CheckCircle2, Sparkles, X } from "lucide-react";
 
@@ -142,11 +141,24 @@ export function MatchScoreBadge({ match }: MatchScoreBadgeProps) {
     };
   }, [closeDialog, isOpen]);
 
-  const modal =
-    isOpen && typeof document !== "undefined"
-      ? createPortal(
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className={cn(
+          "inline-flex h-8 items-center justify-center rounded-full border px-2.5 text-xs font-bold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-2",
+          getMatchClassName(score),
+        )}
+        aria-label={`View profile match details: ${score}% match`}
+      >
+        {score}% match
+      </button>
+
+      {isOpen ? (
         <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/45 px-3 py-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/35 px-3 py-4 backdrop-blur-sm sm:items-center"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeDialog();
@@ -173,7 +185,7 @@ export function MatchScoreBadge({ match }: MatchScoreBadgeProps) {
                 type="button"
                 onClick={closeDialog}
                 className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-pine/10 bg-white text-ink/65 transition hover:bg-mint/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25"
-                aria-label="Close match details"
+                aria-label="Close profile match details"
               >
                 <X size={18} aria-hidden="true" />
               </button>
@@ -186,7 +198,7 @@ export function MatchScoreBadge({ match }: MatchScoreBadgeProps) {
                     <p className="text-sm font-semibold text-ink/58">Overall match score</p>
                     <p className="mt-1 text-4xl font-black tracking-tight text-pine">
                       {score}
-                      <span className="text-xl font-bold text-ink/45">% match</span>
+                      <span className="text-xl font-bold text-ink/45">%</span>
                     </p>
                   </div>
                   <span
@@ -202,8 +214,8 @@ export function MatchScoreBadge({ match }: MatchScoreBadgeProps) {
                   <div className="h-full rounded-full bg-pine" style={{ width: `${score}%` }} />
                 </div>
                 <p className="mt-3 text-sm leading-6 text-ink/65">
-                  This score is based on your profile, study level, field, country preferences, and
-                  available scholarship requirements.
+                  This score is based on your saved profile and the scholarship requirements that
+                  are available.
                 </p>
               </div>
 
@@ -229,33 +241,8 @@ export function MatchScoreBadge({ match }: MatchScoreBadgeProps) {
               </div>
             </div>
           </div>
-        </div>,
-        document.body,
-      )
-      : null;
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          setIsOpen(true);
-        }}
-        onMouseDown={(event) => event.stopPropagation()}
-        className={cn(
-          "group inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-left shadow-sm ring-1 ring-white/70 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-2",
-          getMatchClassName(score),
-        )}
-        aria-label={`View profile match details: ${score}% match`}
-      >
-        <span className="text-base font-black leading-none tracking-tight">{score}%</span>
-        <span className="h-4 w-px bg-current opacity-25" aria-hidden="true" />
-        <span className="text-xs font-bold leading-none">Profile match</span>
-      </button>
-
-      {modal}
+        </div>
+      ) : null}
     </>
   );
 }

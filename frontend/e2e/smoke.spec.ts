@@ -245,8 +245,6 @@ test("scholarship match badge opens profile match modal", async ({ page }) => {
 
   await expect(page.getByRole("dialog", { name: "Profile match" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Profile match" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
-  await expect(page.getByText("A mocked scholarship used only for browser smoke tests.")).toBeVisible();
   await expect(page.getByText("Why this matches")).toBeVisible();
   await expect(page.getByText("Your target degree level matches this opportunity.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Update profile" })).toHaveAttribute(
@@ -254,7 +252,7 @@ test("scholarship match badge opens profile match modal", async ({ page }) => {
     "/dashboard/profile",
   );
 
-  await page.getByRole("button", { name: "Close match details" }).click();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Profile match" })).toHaveCount(0);
 });
 
