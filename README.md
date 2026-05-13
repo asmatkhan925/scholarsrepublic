@@ -94,6 +94,8 @@ Use the example files as starting points:
 Production environment requirements and secret-safe verification commands are in
 `docs/production-checklist.md`.
 
+Production backup and restore instructions are in `docs/backup-restore.md`.
+
 ## Test Commands
 
 Backend:

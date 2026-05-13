@@ -4,6 +4,8 @@ Use this checklist before deploying Scholars Republic changes.
 
 ## Deploy
 
+Take a backup before migrations or bulk opportunity imports. See `docs/backup-restore.md`.
+
 ```bash
 cd /home/scholarsrepublic/scholarsrepublic
 git pull origin main
