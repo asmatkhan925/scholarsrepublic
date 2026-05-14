@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import serializers
 
 from apps.desktop_automation.models import (
@@ -34,6 +35,9 @@ class DesktopAutomationJobStatusSerializer(serializers.ModelSerializer):
     text = serializers.SerializerMethodField()
     user_message = serializers.SerializerMethodField()
     ok = serializers.SerializerMethodField()
+    jobs_ahead = serializers.SerializerMethodField()
+    queue_position = serializers.SerializerMethodField()
+    processing_label = serializers.SerializerMethodField()
 
     class Meta:
         model = DesktopAutomationJob
@@ -44,6 +48,9 @@ class DesktopAutomationJobStatusSerializer(serializers.ModelSerializer):
             "ok",
             "text",
             "user_message",
+            "jobs_ahead",
+            "queue_position",
+            "processing_label",
             "result_payload",
             "created_at",
             "updated_at",
@@ -87,6 +94,75 @@ class DesktopAutomationJobStatusSerializer(serializers.ModelSerializer):
         if obj.status == DesktopAutomationJob.Status.FAILED:
             return False
         return None
+
+    def _deepseek_jobs_ahead(self, obj) -> int | None:
+        if obj.kind != "deepseek_query":
+            return None
+
+        if obj.status == DesktopAutomationJob.Status.RUNNING:
+            return 0
+
+        if obj.status != DesktopAutomationJob.Status.QUEUED:
+            return 0
+
+        running_count = DesktopAutomationJob.objects.filter(
+            kind="deepseek_query",
+            status=DesktopAutomationJob.Status.RUNNING,
+        ).count()
+
+        queued_ahead_count = (
+            DesktopAutomationJob.objects.filter(
+                kind="deepseek_query",
+                status=DesktopAutomationJob.Status.QUEUED,
+            )
+            .exclude(pk=obj.pk)
+            .filter(
+                Q(priority__gt=obj.priority)
+                | Q(priority=obj.priority, created_at__lt=obj.created_at)
+                | Q(priority=obj.priority, created_at=obj.created_at, pk__lt=obj.pk)
+            )
+            .count()
+        )
+
+        return running_count + queued_ahead_count
+
+    def get_jobs_ahead(self, obj):
+        return self._deepseek_jobs_ahead(obj)
+
+    def get_queue_position(self, obj):
+        jobs_ahead = self._deepseek_jobs_ahead(obj)
+
+        if jobs_ahead is None:
+            return None
+
+        if obj.status == DesktopAutomationJob.Status.QUEUED:
+            return jobs_ahead + 1
+
+        return 0
+
+    def get_processing_label(self, obj):
+        if obj.kind != "deepseek_query":
+            return obj.get_status_display()
+
+        if obj.status == DesktopAutomationJob.Status.QUEUED:
+            jobs_ahead = self._deepseek_jobs_ahead(obj) or 0
+            if jobs_ahead == 0:
+                return "Queued — you are next"
+            return f"Queued — {jobs_ahead} job(s) ahead of you"
+
+        if obj.status == DesktopAutomationJob.Status.RUNNING:
+            return "Processing now"
+
+        if obj.status == DesktopAutomationJob.Status.COMPLETED:
+            return "Completed"
+
+        if obj.status == DesktopAutomationJob.Status.FAILED:
+            return "Failed"
+
+        if obj.status == DesktopAutomationJob.Status.CANCELED:
+            return "Canceled"
+
+        return obj.get_status_display()
 
 
 class DesktopWorkerHeartbeatSerializer(serializers.ModelSerializer):

@@ -128,7 +128,10 @@ Your task:
 Write a polished scholarship Statement of Purpose draft using only the student's provided details.
 
 Strict rules:
-- Return only the final SOP text.
+- Return only the SOP text.
+- Return 4 to 6 focused paragraphs unless the selected output instruction explicitly asks for a shorter paragraph summary.
+- Separate paragraphs with a blank line.
+- Do not repeat this prompt or any instructions.
 - Do not show reasoning.
 - Do not use Markdown.
 - Do not use #, ##, bullet points, numbering, or labels such as "Introduction" or "Conclusion".
@@ -153,5 +156,5 @@ Contribution goal: ${form.contribution_goal || "Not provided"}
 Existing draft: ${form.existing_draft || "Not provided"}
 
 Final reminder:
-Write clean SOP paragraphs only. No markdown. No headings. No fake details.`;
+Write clean SOP paragraphs only. No markdown. No headings. No fake details. Do not repeat this prompt or any instructions.`;
 }

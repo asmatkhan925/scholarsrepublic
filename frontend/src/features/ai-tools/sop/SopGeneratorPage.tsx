@@ -47,6 +47,9 @@ type DeepSeekJobResponse = {
   ok: boolean | null;
   text: string;
   user_message: string;
+  jobs_ahead: number | null;
+  queue_position: number | null;
+  processing_label: string;
   result_payload: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -439,6 +442,9 @@ function SOPGeneratorContent() {
         ok: null,
         text: response.data.message,
         user_message: response.data.message,
+        jobs_ahead: null,
+        queue_position: null,
+        processing_label: "Queued",
         result_payload: {},
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -501,14 +507,13 @@ function SOPGeneratorContent() {
     await generateWithPuter();
   }
 
-  const localResult = job?.result_text || "";
+  const localResult = normalizeAIText(job?.result_text || "");
   const result =
     provider === "puter" ? puterResult : provider === "deepseek" ? deepSeekResult : localResult;
   const isWaiting =
     provider === "local" && (job?.status === "pending" || job?.status === "running");
-  const deepSeekIsWaiting =
-    provider === "deepseek" &&
-    (deepSeekJob?.status === "queued" || deepSeekJob?.status === "running");
+  const deepSeekActiveJob = deepSeekJob?.status === "queued" || deepSeekJob?.status === "running";
+  const deepSeekIsWaiting = provider === "deepseek" && deepSeekActiveJob;
 
   async function handleCopy() {
     if (!result) return;
@@ -530,7 +535,8 @@ function SOPGeneratorContent() {
     !canSubmit ||
     (provider === "local" && localOptionDisabled) ||
     (provider === "puter" && puterOptionDisabled) ||
-    (provider === "deepseek" && (deepSeekOptionDisabled || deepSeekCooldownActive));
+    (provider === "deepseek" &&
+      (deepSeekOptionDisabled || deepSeekCooldownActive || deepSeekActiveJob));
   const selectedProviderName =
     provider === "local"
       ? "Scholars Republic AI Server"
@@ -558,34 +564,29 @@ function SOPGeneratorContent() {
       description="Generate a scholarship Statement of Purpose draft using your profile and the details you provide."
       hideHeader
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft">
-          <div className="border-b border-ink/10 bg-gradient-to-r from-pine/10 via-white to-saffron/10 px-5 py-4 md:px-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="border-b border-ink/10 bg-gradient-to-r from-pine/10 via-white to-saffron/10 px-4 py-3 md:px-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
                   <Sparkles size={14} aria-hidden="true" />
                   Scholars Republic AI Tool
                 </div>
 
-                <h2 className="mt-3 text-xl font-bold text-ink">
-                  Generate a scholarship SOP draft
+                <h2 className="mt-2 text-lg font-bold text-ink md:text-xl">
+                  Scholarship SOP generator
                 </h2>
-
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
-                  Fill in your academic goals, choose an AI provider, and generate a clean first
-                  draft that you can personalize before submission.
-                </p>
               </div>
 
-              <div className="rounded-xl border border-ink/10 bg-white/80 p-4 text-sm text-ink/70 md:max-w-sm">
+              <div className="rounded-xl border border-ink/10 bg-white/80 p-3 text-xs text-ink/70 md:max-w-md">
                 <div className="flex gap-2">
                   <AlertTriangle
-                    size={18}
+                    size={16}
                     className="mt-0.5 shrink-0 text-saffron"
                     aria-hidden="true"
                   />
-                  <p className="leading-6">
+                  <p className="leading-5">
                     Do not enter passport numbers, CNIC numbers, bank details, or highly sensitive
                     private information.
                   </p>
@@ -594,22 +595,22 @@ function SOPGeneratorContent() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid gap-5 p-4 md:p-6">
+          <form onSubmit={handleSubmit} className="grid gap-3 p-3 md:p-4">
             {checkingAI && (
-              <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/70">
+              <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/70">
                 Checking Scholars Republic AI Server status...
               </div>
             )}
 
             {!checkingAI && !aiHealth?.available && (
-              <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/75">
+              <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/75">
                 Our AI server is temporarily offline. External AI is available, so you can still
                 generate your SOP.
               </div>
             )}
 
             {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700">
                 <p>{error}</p>
                 {provider === "deepseek" && deepSeekCooldownActive ? (
                   <p className="mt-2 font-semibold">
@@ -619,21 +620,18 @@ function SOPGeneratorContent() {
               </div>
             )}
 
-            <section className="rounded-2xl border border-ink/10 bg-cream/40 p-3 md:p-4">
+            <section className="rounded-2xl border border-ink/10 bg-cream/40 p-3">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h3 className="text-base font-bold text-ink">Choose AI provider</h3>
-                  <p className="mt-1 text-sm leading-6 text-ink/60">
-                    Use our server when it is online, External AI as a backup, or the private
-                    DeepSeek desktop worker when you prefer the WSL queue.
-                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-ink/55">Pick one generation route.</p>
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={checkAIHealth}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
                   >
                     <RefreshCw size={16} aria-hidden="true" />
                     Recheck server
@@ -642,62 +640,51 @@ function SOPGeneratorContent() {
                   <button
                     type="button"
                     onClick={checkDeepSeekWorkerStatus}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
                   >
                     <RefreshCw size={16} aria-hidden="true" />
-                    Recheck DeepSeek Worker
+                    Recheck DeepSeek
                   </button>
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-3 lg:grid-cols-3">
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
                 <button
                   type="button"
                   disabled={localOptionDisabled}
                   onClick={() => setProvider("local")}
-                  className={`rounded-2xl border p-4 text-left transition ${
+                  className={`rounded-xl border p-3 text-left transition ${
                     provider === "local"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
                   } ${localOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-bold text-ink">Scholars Republic AI Server</h4>
-                      <p className="mt-2 text-sm leading-6 text-ink/65">
-                        Uses your GPU server, queue system, and local Qwen model.
-                      </p>
-                    </div>
-
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-ink">Scholars Republic AI Server</h4>
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         aiHealth?.available ? "bg-pine/10 text-pine" : "bg-red-50 text-red-700"
                       }`}
                     >
                       {aiHealth?.available ? "Online" : "Offline"}
                     </span>
                   </div>
+                  <p className="mt-1 text-xs leading-5 text-ink/55">Local GPU queue.</p>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setProvider("puter")}
-                  className={`rounded-2xl border p-4 text-left transition ${
+                  className={`rounded-xl border p-3 text-left transition ${
                     provider === "puter"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-bold text-ink">External AI via Puter.js</h4>
-                      <p className="mt-2 text-sm leading-6 text-ink/65">
-                        Browser-based external AI option. Useful when our server is busy or offline.
-                      </p>
-                    </div>
-
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-ink">External AI via Puter.js</h4>
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         puterStatus === "ready"
                           ? "bg-pine/10 text-pine"
                           : puterStatus === "failed"
@@ -712,28 +699,22 @@ function SOPGeneratorContent() {
                           : "Loading"}
                     </span>
                   </div>
+                  <p className="mt-1 text-xs leading-5 text-ink/55">Browser fallback.</p>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setProvider("deepseek")}
-                  className={`rounded-2xl border p-4 text-left transition ${
+                  className={`rounded-xl border p-3 text-left transition ${
                     provider === "deepseek"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-bold text-ink">DeepSeek Desktop Worker</h4>
-                      <p className="mt-2 text-sm leading-6 text-ink/65">
-                        Uses the private desktop WSL worker queue. Best when the local AI server is
-                        offline and External AI is not preferred.
-                      </p>
-                    </div>
-
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-ink">DeepSeek Desktop Worker</h4>
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         checkingDeepSeekWorker
                           ? "bg-saffron/15 text-ink/60"
                           : deepSeekWorkerStatus?.online
@@ -745,9 +726,8 @@ function SOPGeneratorContent() {
                     </span>
                   </div>
 
-                  <p className="mt-3 text-xs leading-5 text-ink/55">
-                    If this option is unavailable, the desktop worker may be offline or DeepSeek may
-                    need login repair.
+                  <p className="mt-1 text-xs leading-5 text-ink/55">
+                    Private WSL queue.
                   </p>
                 </button>
               </div>
@@ -768,113 +748,120 @@ function SOPGeneratorContent() {
               )}
 
               {provider === "deepseek" && deepSeekError && !deepSeekCooldownActive && (
-                <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/10 p-4 text-sm leading-6 text-ink/75">
+                <div className="mt-3 rounded-xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/75">
                   {deepSeekError}
                 </div>
               )}
+
+              {provider === "deepseek" && !deepSeekWorkerStatus?.online && !checkingDeepSeekWorker && (
+                <p className="mt-2 text-xs leading-5 text-ink/55">
+                  If this option is unavailable, the desktop worker may be offline or DeepSeek may
+                  need login repair.
+                </p>
+              )}
             </section>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Target scholarship
                 <input
                   value={form.target_scholarship}
                   onChange={(event) => updateField("target_scholarship", event.target.value)}
                   placeholder="Chinese Government Scholarship"
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
 
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Target country
                 <input
                   value={form.target_country}
                   onChange={(event) => updateField("target_country", event.target.value)}
                   placeholder="China"
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Target degree *
                 <input
                   required
                   value={form.target_degree}
                   onChange={(event) => updateField("target_degree", event.target.value)}
                   placeholder="MS Computer Science"
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
 
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Field of study *
                 <input
                   required
                   value={form.field_of_study}
                   onChange={(event) => updateField("field_of_study", event.target.value)}
                   placeholder="Artificial Intelligence"
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
             </div>
 
-            <label className="grid gap-2 text-sm font-semibold text-ink">
+            <label className="grid gap-1 text-sm font-semibold text-ink">
               Why this scholarship?
               <textarea
                 value={form.why_scholarship}
                 onChange={(event) => updateField("why_scholarship", event.target.value)}
-                rows={3}
+                rows={2}
                 placeholder="Explain why this scholarship is important for your academic journey."
-                className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
               />
             </label>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Future goals *
                 <textarea
                   value={form.future_goals}
                   onChange={(event) => updateField("future_goals", event.target.value)}
-                  rows={3}
+                  rows={2}
                   placeholder="What do you want to do after completing this degree?"
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
 
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Contribution goal
                 <textarea
                   value={form.contribution_goal}
                   onChange={(event) => updateField("contribution_goal", event.target.value)}
-                  rows={3}
+                  rows={2}
                   placeholder="How will this degree help your country, community, or field?"
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
             </div>
 
-            <label className="grid gap-2 text-sm font-semibold text-ink">
+            <label className="grid gap-1 text-sm font-semibold text-ink">
               Existing SOP draft, optional
               <textarea
                 value={form.existing_draft}
                 onChange={(event) => updateField("existing_draft", event.target.value)}
-                rows={3}
+                rows={2}
                 placeholder="Paste your rough SOP draft here if you already have one."
-                className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
               />
             </label>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Output type
                 <select
                   value={form.output_type}
                   onChange={(event) =>
                     updateField("output_type", event.target.value as SOPOutputType)
                   }
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 >
                   <option value="paragraph">One paragraph</option>
                   <option value="medium_sop">Medium SOP</option>
@@ -885,12 +872,12 @@ function SOPGeneratorContent() {
                 </span>
               </label>
 
-              <label className="grid gap-2 text-sm font-semibold text-ink">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Tone
                 <select
                   value={form.tone}
                   onChange={(event) => updateField("tone", event.target.value as SOPTone)}
-                  className="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 >
                   <option value="simple">Simple</option>
                   <option value="formal">Formal</option>
@@ -902,8 +889,8 @@ function SOPGeneratorContent() {
               </label>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream/50 p-4 md:flex-row md:items-center md:justify-between">
-              <div className="text-sm leading-6 text-ink/65">
+            <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream/50 p-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs leading-5 text-ink/65">
                 <strong className="text-ink">Required:</strong> target degree, field of study, and
                 either future goals or an existing draft.
               </div>
@@ -911,7 +898,7 @@ function SOPGeneratorContent() {
               <button
                 type="submit"
                 disabled={generateDisabled}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-5 py-3 text-sm font-semibold text-white transition hover:bg-pine/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pine/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <Loader2 size={18} className="animate-spin" aria-hidden="true" />
@@ -954,7 +941,7 @@ function SOPGeneratorContent() {
         )}
 
         {provider === "deepseek" && deepSeekJob && (
-          <section className="rounded-2xl border border-pine/15 bg-pine/5 p-5 shadow-soft md:p-7">
+          <section className="rounded-2xl border border-pine/15 bg-pine/5 p-4 shadow-soft">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-pine">
@@ -962,38 +949,74 @@ function SOPGeneratorContent() {
                   DeepSeek worker queue
                 </div>
 
-                <h2 className="mt-3 text-xl font-bold text-ink">
-                  Request status: {deepSeekJob.status}
+                <h2 className="mt-2 text-lg font-bold capitalize text-ink">
+                  {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
                 </h2>
 
-                <p className="mt-2 text-sm leading-6 text-ink/65">
-                  {deepSeekIsWaiting
-                    ? "Your DeepSeek SOP request is being processed. Please keep this page open."
-                    : deepSeekJob.user_message || deepSeekJob.text}
+                <p className="mt-1 text-sm leading-6 text-ink/65">
+                  {deepSeekJob.processing_label || "Please keep this page open."}
                 </p>
+
+                {deepSeekJob.status === "failed" || deepSeekJob.status === "canceled" ? (
+                  <p className="mt-2 text-sm leading-6 text-red-700">
+                    {deepSeekError ||
+                      deepSeekJob.user_message ||
+                      deepSeekJob.text ||
+                      "Your DeepSeek SOP request could not be completed."}
+                  </p>
+                ) : null}
               </div>
 
-              {deepSeekIsWaiting && (
-                <div className="inline-flex items-center gap-2 rounded-xl border border-pine/20 bg-white px-4 py-3 text-sm font-semibold text-pine">
-                  <Clock size={17} aria-hidden="true" />
-                  Polling every 3 seconds
+              <div className="grid gap-2 sm:grid-cols-3 md:min-w-[22rem]">
+                <div className="rounded-xl border border-pine/10 bg-white px-3 py-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/40">
+                    Status
+                  </p>
+                  <p className="mt-1 text-sm font-semibold capitalize text-ink">
+                    {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
+                  </p>
                 </div>
-              )}
+                <div className="rounded-xl border border-pine/10 bg-white px-3 py-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/40">
+                    Position
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-ink">
+                    {deepSeekJob.queue_position && deepSeekJob.queue_position > 0
+                      ? `#${deepSeekJob.queue_position}`
+                      : "0"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-pine/10 bg-white px-3 py-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/40">
+                    Ahead
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-ink">
+                    {deepSeekJob.jobs_ahead ?? 0}
+                  </p>
+                </div>
+              </div>
             </div>
+
+            {deepSeekIsWaiting ? (
+              <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-pine/20 bg-white px-3 py-2 text-sm font-semibold text-pine">
+                  <Clock size={17} aria-hidden="true" />
+                  Please keep this page open.
+              </div>
+            ) : null}
           </section>
         )}
 
-        <section className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-7">
-          <div className="flex flex-col gap-4 border-b border-ink/10 pb-5 md:flex-row md:items-start md:justify-between">
+        <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-soft md:p-5">
+          <div className="flex flex-col gap-3 border-b border-ink/10 pb-4 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-ink/5 px-3 py-1 text-xs font-semibold text-ink/70">
                 <FileText size={14} aria-hidden="true" />
                 Generated output
               </div>
 
-              <h2 className="mt-3 text-2xl font-bold text-ink">Generated SOP Draft</h2>
+              <h2 className="mt-2 text-xl font-bold text-ink">Generated SOP Draft</h2>
 
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65">
                 Generated using <strong>{selectedProviderName}</strong>
                 . Use this as a starting draft and personalize it before submission.
               </p>
@@ -1015,7 +1038,7 @@ function SOPGeneratorContent() {
               type="button"
               onClick={handleCopy}
               disabled={!result}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-3 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {copied ? (
                 <CheckCircle2 size={17} aria-hidden="true" />
@@ -1026,7 +1049,7 @@ function SOPGeneratorContent() {
             </button>
           </div>
 
-          <div className="mt-5 min-h-[300px] rounded-2xl border border-ink/10 bg-cream/40 p-5 text-sm leading-7 text-ink">
+          <div className="mt-4 min-h-[220px] rounded-2xl border border-ink/10 bg-cream/40 p-4 text-sm leading-7 text-ink">
             {provider === "deepseek" && (loading || deepSeekIsWaiting) ? (
               "Your DeepSeek SOP request is being processed. Please keep this page open."
             ) : loading || isWaiting ? (
@@ -1047,7 +1070,7 @@ function SOPGeneratorContent() {
             )}
           </div>
 
-          <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/10 p-4 text-sm leading-6 text-ink/70">
+          <div className="mt-3 rounded-xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70">
             <strong>Reminder:</strong> Do not submit AI-generated text directly. Review it
             carefully, make it personal, and remove anything that does not accurately represent your
             background.

@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import traceback
 from pathlib import Path
@@ -595,31 +596,78 @@ def wait_for_deepseek_response(page, query: str, before_text: str) -> str:
     raise TimeoutError("Timed out waiting for stable DeepSeek response.")
 
 
+PROMPT_MARKERS = (
+    "you are an expert scholarship sop editor",
+    "your task:",
+    "write a polished scholarship statement of purpose draft",
+    "strict rules:",
+    "student details:",
+    "final reminder:",
+    "output instruction:",
+    "tone instruction:",
+)
+
+
+def remove_trailing_prompt_echo(text: str) -> str:
+    lowered = text.lower()
+    marker_indexes = [
+        lowered.find(marker)
+        for marker in PROMPT_MARKERS
+        if lowered.find(marker) >= 0
+    ]
+
+    if not marker_indexes:
+        return text
+
+    first_marker_index = min(marker_indexes)
+    before_marker = text[:first_marker_index].strip()
+
+    if len(before_marker.split()) >= 25:
+        return before_marker
+
+    return text
+
+
 def clean_final_deepseek_text(text: str) -> str:
-    blocked_lines = {
+    blocked_exact_lines = {
         "ai-generated, for reference only",
         "ai generated, for reference only",
         "ai-generated for reference only",
         "ai generated for reference only",
     }
 
+    text = remove_trailing_prompt_echo(text.replace("\r", ""))
+
     cleaned_lines = []
+    skipping_prompt_block = False
+
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
+            skipping_prompt_block = False
             cleaned_lines.append("")
             continue
 
-        if line.lower() in blocked_lines:
+        lowered = line.lower()
+
+        if lowered.rstrip(".!") in blocked_exact_lines:
             continue
 
-        cleaned_lines.append(raw_line.rstrip())
+        if any(lowered.startswith(marker) for marker in PROMPT_MARKERS):
+            skipping_prompt_block = True
+            continue
+
+        if skipping_prompt_block:
+            continue
+
+        line = re.sub(r"^#{1,6}\s*", "", line)
+        line = re.sub(r"^\s*[-*]\s+", "", line)
+        line = re.sub(r"^\s*\d+[.)]\s+", "", line)
+        cleaned_lines.append(line.rstrip())
 
     cleaned = "\n".join(cleaned_lines).strip()
-
-    # Collapse excessive blank lines but preserve paragraph breaks.
-    while "\n\n\n" in cleaned:
-        cleaned = cleaned.replace("\n\n\n", "\n\n")
+    cleaned = re.sub(r"([^\n])\n(?!\n)([^\n])", r"\1\n\n\2", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
 
     return cleaned
 
