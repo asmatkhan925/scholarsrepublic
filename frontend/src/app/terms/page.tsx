@@ -1,98 +1,139 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import { LegalContactBox, LegalList, LegalPageShell, LegalSection } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Terms of Use | Scholars Republic",
   description:
-    "Review the Scholars Republic terms for scholarship discovery, student tools, account use, AI drafting assistance, and responsibility for applications.",
+    "Review the Scholars Republic terms for scholarship discovery, official source verification, account responsibilities, AI tools, comments, prohibited use, and no guarantees.",
 };
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-cream/35">
-      <SiteHeader />
-
-      <section className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
-        <p className="text-xs font-semibold uppercase tracking-wide text-pine">Terms of Use</p>
-        <h1 className="mt-3 text-3xl font-bold leading-tight text-ink md:text-4xl">
-          Terms of Use
-        </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/70 md:text-base">
-          These terms explain how Scholars Republic should be used. By using the site, you agree to
-          use scholarship information and student tools responsibly.
+    <LegalPageShell
+      label="Legal"
+      title="Terms of Use"
+      updated="Last updated: May 2026"
+      intro={
+        <p>
+          These terms explain how Scholars Republic should be used. By using the site, users agree
+          to use scholarship information, student tools, comments, and AI-assisted features
+          responsibly.
         </p>
-        <p className="mt-3 text-sm text-ink/55">Last updated: May 14, 2026</p>
+      }
+    >
+      <LegalSection title="Acceptance of Terms">
+        <p>
+          By accessing or using Scholars Republic, you agree to use the platform responsibly and in
+          line with these terms. If you do not agree, you should not use the website or account
+          features.
+        </p>
+      </LegalSection>
 
-        <article className="mt-10 space-y-9 text-sm leading-7 text-ink/72 md:text-base">
-          <section>
-            <h2 className="text-xl font-bold text-ink">Our Service</h2>
-            <p className="mt-3">
-              Scholars Republic provides scholarship discovery, student profile tools, saved
-              opportunities, application tracking, and educational resources for scholarship
-              applicants.
-            </p>
-          </section>
+      <LegalSection title="What Scholars Republic Provides">
+        <p>
+          Scholars Republic provides scholarship discovery, saved opportunities, profile tools,
+          application tracking, scholarship guides, and AI or document assistance where available.
+          The platform is designed to support research and preparation, not to replace official
+          scholarship instructions.
+        </p>
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">Scholarship Information</h2>
-            <p className="mt-3">
-              Scholarship details can change without notice. Users must verify deadlines,
-              eligibility, benefits, required documents, and application instructions on the
-              official scholarship or provider website before applying.
-            </p>
-            <p className="mt-3">
-              Scholars Republic does not guarantee scholarship, admission, funding, visa approval,
-              acceptance, or any application result.
-            </p>
-          </section>
+      <LegalSection title="Scholarship Information and Official Sources">
+        <p>
+          Scholarship details may change at any time. Users must verify deadlines, eligibility,
+          benefits, required documents, fees, and application instructions on official provider
+          pages before applying. If there is a conflict, the official scholarship or provider page
+          controls.
+        </p>
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">User Responsibilities</h2>
-            <p className="mt-3">
-              Users are responsible for their applications, documents, submissions, decisions, and
-              communications with scholarship providers. Account users agree to:
-            </p>
-            <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>Provide accurate information.</li>
-              <li>Keep passwords and account access secure.</li>
-              <li>Use the site lawfully and avoid misuse, scraping, spam, or harmful activity.</li>
-            </ul>
-          </section>
+      <LegalSection title="No Guarantees">
+        <p>
+          Scholars Republic does not guarantee scholarship awards, admission, funding, stipend
+          payments, visa approval, interview calls, acceptance, or any other application outcome.
+          Users remain responsible for their own decisions, submissions, and follow-up with
+          scholarship providers.
+        </p>
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">AI Tools</h2>
-            <p className="mt-3">
-              AI-generated content on Scholars Republic is drafting assistance only. Users must
-              review, edit, personalize, and verify all AI-assisted content before using it in an
-              application. Users must ensure that final documents are accurate and do not include
-              invented achievements, grades, awards, research, work experience, or personal stories.
-            </p>
-          </section>
+      <LegalSection title="Account Responsibilities">
+        <p>Account users agree to:</p>
+        <LegalList
+          items={[
+            "Provide accurate account, profile, and application information.",
+            "Keep passwords and account access secure.",
+            "Avoid misuse, spam, abuse, or attempts to disrupt the platform.",
+            "Never use fake documents, false achievements, or misleading personal information.",
+          ]}
+        />
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">Limitation of Liability</h2>
-            <p className="mt-3">
-              Scholars Republic is provided for information and student support. To the maximum
-              extent permitted by law, Scholars Republic is not responsible for losses, missed
-              deadlines, application decisions, provider changes, technical issues, or reliance on
-              information without checking official sources.
-            </p>
-          </section>
+      <LegalSection title="AI Tools">
+        <p>
+          AI output is drafting assistance only. Users must review, edit, personalize, and verify
+          AI-assisted content before using it. Users must not present fake achievements, grades,
+          publications, awards, work experience, research, or personal stories as true. The user is
+          responsible for all final documents and application materials.
+        </p>
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">Contact</h2>
-            <p className="mt-3">
-              Questions about these terms can be sent through the{" "}
-              <Link href="/contact" className="font-semibold text-pine hover:text-pine/80">
-                contact page
-              </Link>
-              .
-            </p>
-          </section>
-        </article>
-      </section>
-    </main>
+      <LegalSection title="User Submissions and Comments">
+        <p>
+          Users are responsible for comments, replies, and other submissions they post. Do not post
+          spam, abusive, illegal, misleading, promotional, hateful, explicit, private, or unrelated
+          content. Scholars Republic may moderate, hide, or remove content when needed for safety,
+          quality, or policy compliance.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Prohibited Use">
+        <p>Users must not:</p>
+        <LegalList
+          items={[
+            "Scrape, overload, spam, or abuse the platform.",
+            "Attempt hacking, unauthorized access, or security testing without permission.",
+            "Submit false, harmful, illegal, or misleading content.",
+            "Violate laws, provider rules, or the rights of other people.",
+            "Interfere with platform operations, accounts, APIs, or security controls.",
+          ]}
+        />
+      </LegalSection>
+
+      <LegalSection title="External Links">
+        <p>
+          Scholars Republic links to official provider pages and other external websites. Those
+          websites are controlled by their owners and may have their own terms, privacy practices,
+          fees, requirements, and deadlines.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Changes, Suspension, and Removal">
+        <p>
+          Scholars Republic may update features, remove or correct content, restrict accounts,
+          moderate submissions, or modify these terms as the platform changes.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Limitation of Liability">
+        <p>
+          Scholars Republic is provided for scholarship research and student support. To the maximum
+          extent permitted by law, Scholars Republic is not responsible for losses, missed
+          deadlines, provider changes, application decisions, technical issues, or reliance on
+          information without checking official sources.
+        </p>
+      </LegalSection>
+
+      <LegalContactBox>
+        <p>
+          Questions about these terms can be sent through the{" "}
+          <Link href="/contact" className="font-semibold text-pine hover:text-pine/80">
+            contact page
+          </Link>
+          .
+        </p>
+      </LegalContactBox>
+    </LegalPageShell>
   );
 }

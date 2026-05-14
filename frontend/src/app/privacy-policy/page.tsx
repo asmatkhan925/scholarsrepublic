@@ -1,103 +1,162 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import { LegalContactBox, LegalList, LegalPageShell, LegalSection } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Scholars Republic",
   description:
-    "Learn how Scholars Republic collects, uses, and protects student account, profile, saved scholarship, application tracker, and site usage information.",
+    "Learn how Scholars Republic handles account data, student profiles, scholarship activity, cookies, AI tools, service providers, and advertising cookies if ads are enabled.",
 };
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-cream/35">
-      <SiteHeader />
-
-      <section className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
-        <p className="text-xs font-semibold uppercase tracking-wide text-pine">Privacy Policy</p>
-        <h1 className="mt-3 text-3xl font-bold leading-tight text-ink md:text-4xl">
-          Privacy Policy
-        </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/70 md:text-base">
-          Scholars Republic helps students discover scholarship opportunities, save useful
-          resources, track applications, and prepare scholarship documents. This policy explains
-          what information we collect and how it is used.
+    <LegalPageShell
+      label="Legal"
+      title="Privacy Policy"
+      updated="Last updated: May 2026"
+      intro={
+        <p>
+          Scholars Republic helps students discover scholarships, save opportunities, track
+          applications, prepare documents, and use student tools. This policy explains what
+          information we may collect, how it is used, and the choices available to users.
         </p>
-        <p className="mt-3 text-sm text-ink/55">Last updated: May 14, 2026</p>
+      }
+    >
+      <LegalSection title="Introduction">
+        <p>
+          We operate Scholars Republic as a scholarship discovery and student support platform. Our
+          goal is to collect only the information needed to provide accounts, scholarship tools,
+          recommendations, application tracking, support, and site reliability.
+        </p>
+      </LegalSection>
 
-        <article className="mt-10 space-y-9 text-sm leading-7 text-ink/72 md:text-base">
-          <section>
-            <h2 className="text-xl font-bold text-ink">Information We Collect</h2>
-            <p className="mt-3">
-              We collect information needed to operate Scholars Republic and provide student
-              services. This may include:
-            </p>
-            <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>Account information such as name, email address, password, and account status.</li>
-              <li>
-                Profile information such as education level, fields of study, target countries,
-                documents, and scholarship preferences.
-              </li>
-              <li>Saved scholarships and other saved opportunity data.</li>
-              <li>Application tracker data that you choose to add to your account.</li>
-              <li>
-                Comments on scholarship pages and support or contact messages you choose to send,
-                where those features are available.
-              </li>
-              <li>
-                Basic analytics and log data, such as pages visited, browser information, device
-                information, IP address, and error logs.
-              </li>
-            </ul>
-          </section>
+      <LegalSection title="Information We Collect">
+        <p>Depending on how you use Scholars Republic, information we collect may include:</p>
+        <LegalList
+          items={[
+            "Account information, such as name, email address, password hash, account status, and email verification status.",
+            "Student profile information, such as education level, fields of study, target countries, scholarship preferences, documents, or academic details users choose to add.",
+            "Scholarship activity, including saved opportunities, application tracker data, shortlist actions, and tracking actions.",
+            "Comments and user submissions where those features are available.",
+            "AI tool inputs and outputs where students use AI features for drafts or suggestions.",
+            "Support or contact messages sent to Scholars Republic.",
+            "Basic analytics and log data, such as pages visited, browser or device information, IP address, errors, and security logs.",
+          ]}
+        />
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">How We Use Information</h2>
-            <p className="mt-3">We use information to provide and improve the website, including:</p>
-            <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>Creating, securing, and managing account access.</li>
-              <li>Showing scholarship recommendations and relevant opportunities.</li>
-              <li>Saving opportunities and supporting application tracking.</li>
-              <li>Responding to support requests and improving site reliability.</li>
-              <li>Understanding how students use the site so we can improve features and content.</li>
-            </ul>
-          </section>
+      <LegalSection title="How We Use Information">
+        <p>We use information to provide, secure, and improve the platform, including to:</p>
+        <LegalList
+          items={[
+            "Create accounts and protect account access.",
+            "Send email verification, password reset, and important account messages.",
+            "Power recommendations, profile matching, saved opportunities, and application tracking.",
+            "Provide AI and document tools where available.",
+            "Respond to support requests and correct reported issues.",
+            "Improve site reliability, security, content quality, and user experience.",
+            "Prevent misuse, spam, abuse, and suspicious activity.",
+          ]}
+        />
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">Cookies and Local Storage</h2>
-            <p className="mt-3">
-              Scholars Republic may use cookies and browser local storage for essential login,
-              session, security, and site functionality. You can control cookies through your
-              browser settings, but disabling essential storage may prevent some features from
-              working correctly.
-            </p>
-          </section>
+      <LegalSection title="Cookies, Local Storage, and Similar Technologies">
+        <p>
+          Scholars Republic may use cookies, local storage, and similar browser technologies for
+          essential login and session functionality, remembering preferences, security, and site
+          features. You can control cookies and site storage through your browser settings.
+          Disabling essential storage may prevent login, saved opportunities, or other account
+          features from working correctly.
+        </p>
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">Advertising</h2>
-            <p className="mt-3">
-              If advertising is enabled on Scholars Republic, third-party vendors including Google
-              may use cookies to serve ads based on a user&apos;s prior visits to this website
-              and/or other websites. Users may control ad personalization through their browser,
-              device, and advertising settings, including Google&apos;s ad personalization controls.
-            </p>
-          </section>
+      <LegalSection title="Advertising and Third-Party Cookies">
+        <p>
+          If advertising is enabled on Scholars Republic, third-party vendors, including Google, may
+          use cookies or similar technologies to serve ads, measure performance, and personalize ads
+          based on visits to this and/or other websites.
+        </p>
+        <p>
+          Users can manage cookies in browser or device settings. Where available, users can also
+          use Google ad personalization controls and industry opt-out tools to manage personalized
+          advertising choices.
+        </p>
+      </LegalSection>
 
-          <section className="border-t border-ink/10 pt-8">
-            <h2 className="text-xl font-bold text-ink">Your Choices</h2>
-            <p className="mt-3">
-              You can use browser controls to manage cookies and site storage. You can also update
-              information in your account profile where supported. For privacy questions, contact us
-              through the{" "}
-              <Link href="/contact" className="font-semibold text-pine hover:text-pine/80">
-                contact page
-              </Link>
-              .
-            </p>
-          </section>
-        </article>
-      </section>
-    </main>
+      <LegalSection title="AI Tools and Generated Content">
+        <p>
+          AI tools may process user-provided prompts, profile details, and draft content to generate
+          suggestions or application document drafts. Users should not include sensitive information
+          they do not want processed. AI output can be inaccurate or incomplete, and users must
+          review, edit, and verify all AI-assisted content before using it.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Emails and Service Providers">
+        <p>
+          Verification, password reset, and important account emails may be sent through email
+          service providers. Third-party service providers may process data only as needed to provide
+          services such as email delivery, hosting, security, analytics, or platform operations.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Comments and User Submissions">
+        <p>
+          Comments and user submissions may be moderated, reviewed, hidden, or removed for safety,
+          spam, abuse, misleading content, or policy compliance. Do not post private, sensitive, or
+          confidential details in public comments.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Data Retention">
+        <p>
+          Account and profile data is generally kept while an account is active or as needed to
+          provide services. Some logs, security records, and operational records may be retained for
+          site reliability, troubleshooting, and abuse prevention. Users can contact us with privacy
+          or deletion questions.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Security">
+        <p>
+          We use reasonable safeguards to protect account and platform data. No website, server, or
+          online transmission can be guaranteed to be 100% secure, so users should also protect their
+          passwords and avoid sharing sensitive information unnecessarily.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Children's Privacy">
+        <p>
+          Scholars Republic is intended for students and applicants who can use online services
+          responsibly. Users under the required age in their location should use the platform with
+          parent or guardian guidance where applicable.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Your Choices and Requests">
+        <p>
+          Users can update profile information where account tools are available, manage cookies
+          through browser controls, and contact us for privacy or deletion questions.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Changes to This Policy">
+        <p>
+          We may update this policy as Scholars Republic changes. When we make updates, the
+          &quot;Last updated&quot; date on this page will change.
+        </p>
+      </LegalSection>
+
+      <LegalContactBox>
+        <p>
+          For privacy questions or data requests, contact us through the{" "}
+          <Link href="/contact" className="font-semibold text-pine hover:text-pine/80">
+            contact page
+          </Link>
+          .
+        </p>
+      </LegalContactBox>
+    </LegalPageShell>
   );
 }

@@ -215,17 +215,18 @@ test("home page loads", async ({ page }) => {
 });
 
 const trustPages = [
-  { path: "/privacy-policy", heading: "Privacy Policy" },
-  { path: "/terms", heading: "Terms of Use" },
-  { path: "/contact", heading: "Contact Scholars Republic" },
-  { path: "/disclaimer", heading: "Disclaimer" },
+  { path: "/privacy-policy", heading: "Privacy Policy", text: "Last updated: May 2026" },
+  { path: "/terms", heading: "Terms of Use", text: "No Guarantees" },
+  { path: "/contact", heading: "Contact Scholars Republic", text: "support@scholarsrepublic.org" },
+  { path: "/disclaimer", heading: "Disclaimer", text: "Official Source Rule" },
 ];
 
-for (const { path, heading } of trustPages) {
+for (const { path, heading, text } of trustPages) {
   test(`${path} loads`, async ({ page }) => {
     await page.goto(path);
 
     await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+    await expect(page.getByText(text).first()).toBeVisible();
   });
 }
 

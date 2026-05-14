@@ -1,58 +1,71 @@
 import type { Metadata } from "next";
 
-import { SiteHeader } from "@/components/site-header";
+import { LegalList, LegalPageShell, LegalSection } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Contact | Scholars Republic",
   description:
-    "Contact Scholars Republic for scholarship source corrections, outdated opportunity reports, account support, partnerships, and general support.",
+    "Contact Scholars Republic for scholarship corrections, official source updates, account support, privacy requests, partnerships, and general support.",
 };
 
 const contactReasons = [
   "Report outdated scholarship information",
   "Correct official source details",
-  "Get account support",
-  "Discuss partnerships",
+  "Account or login support",
+  "Privacy or data requests",
+  "Partnerships and source corrections",
 ];
 
 export default function ContactPage() {
   return (
-    <main className="min-h-screen bg-cream/35">
-      <SiteHeader />
-
-      <section className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
-        <p className="text-xs font-semibold uppercase tracking-wide text-pine">Contact</p>
-        <h1 className="mt-3 text-3xl font-bold leading-tight text-ink md:text-4xl">
-          Contact Scholars Republic
-        </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/70 md:text-base">
-          We welcome practical corrections, account support requests, and partnership inquiries.
-          Please include enough detail for us to understand the request.
+    <LegalPageShell
+      label="Contact"
+      title="Contact Scholars Republic"
+      intro={
+        <p>
+          Send practical corrections, account support questions, privacy requests, or partnership
+          inquiries to the Scholars Republic team. We do not provide a public contact form on this
+          page.
         </p>
-
-        <section className="mt-10 border-t border-ink/10 pt-8">
-          <h2 className="text-xl font-bold text-ink">Email</h2>
-          <p className="mt-3 text-sm leading-7 text-ink/70 md:text-base">
-            Send your message to{" "}
-            <a
-              href="mailto:support@scholarsrepublic.org"
-              className="font-semibold text-pine hover:text-pine/80"
-            >
-              support@scholarsrepublic.org
-            </a>
-            .
-          </p>
-        </section>
-
-        <section className="mt-8 border-t border-ink/10 pt-8">
-          <h2 className="text-xl font-bold text-ink">Reasons to Contact Us</h2>
-          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-7 text-ink/72 md:text-base">
-            {contactReasons.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-        </section>
+      }
+    >
+      <section className="rounded-2xl border border-pine/20 bg-mint/35 p-5 shadow-soft md:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">Email Support</p>
+        <h2 className="mt-2 text-2xl font-bold text-ink">support@scholarsrepublic.org</h2>
+        <p className="mt-3 text-sm leading-7 text-ink/70 md:text-base">
+          Email us at{" "}
+          <a
+            href="mailto:support@scholarsrepublic.org"
+            className="font-semibold text-pine hover:text-pine/80"
+          >
+            support@scholarsrepublic.org
+          </a>
+          .
+        </p>
       </section>
-    </main>
+
+      <LegalSection title="What to Contact Us About">
+        <LegalList items={contactReasons} />
+      </LegalSection>
+
+      <LegalSection title="Helpful Details to Include">
+        <LegalList
+          items={[
+            "For outdated scholarship information, include the scholarship title and page link.",
+            "For official source corrections, include the official provider link and the detail that needs correction.",
+            "For account support, include the email address connected to your account.",
+            "For privacy or data requests, describe the request clearly so we can review it.",
+            "For partnerships, include your organization name, website, and the purpose of the request.",
+          ]}
+        />
+      </LegalSection>
+
+      <LegalSection title="Safety Reminder">
+        <p>
+          Do not send passwords, private documents, financial records, or sensitive personal
+          information through email unless we specifically request it through a secure process.
+        </p>
+      </LegalSection>
+    </LegalPageShell>
   );
 }
