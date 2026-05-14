@@ -1,5 +1,6 @@
 "use client";
 
+import { isAxiosError } from "axios";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -18,6 +19,12 @@ type CreateDeepSeekJobResponse = {
   status: DesktopJobStatus;
   message: string;
   poll_url: string;
+};
+
+type ApiLimitErrorResponse = {
+  detail?: string;
+  status?: string;
+  retry_after_seconds?: number;
 };
 
 type DesktopJobStatus =
@@ -44,6 +51,14 @@ type DesktopJobResponse = {
 
 const terminalStatuses: DesktopJobStatus[] = ["completed", "failed", "canceled"];
 
+function getLimitPayload(error: unknown): ApiLimitErrorResponse | null {
+  if (!isAxiosError<ApiLimitErrorResponse>(error)) {
+    return null;
+  }
+
+  return error.response?.data ?? null;
+}
+
 export default function DeepSeekWorkerTestPage() {
   const [workerStatus, setWorkerStatus] = useState<WorkerStatusResponse | null>(
     null,
@@ -55,6 +70,7 @@ export default function DeepSeekWorkerTestPage() {
   const [job, setJob] = useState<DesktopJobResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldownRemainingSeconds, setCooldownRemainingSeconds] = useState(0);
 
   const loadWorkerStatus = useCallback(async () => {
     setWorkerLoading(true);
@@ -101,6 +117,20 @@ export default function DeepSeekWorkerTestPage() {
     };
   }, [job, loadJobStatus]);
 
+  useEffect(() => {
+    if (cooldownRemainingSeconds <= 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setCooldownRemainingSeconds((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [cooldownRemainingSeconds]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -140,10 +170,19 @@ export default function DeepSeekWorkerTestPage() {
       setJob(queuedJob);
       await loadJobStatus(response.data.job_id);
     } catch (submitError) {
+      const limitPayload = getLimitPayload(submitError);
+      const retryAfter = limitPayload?.retry_after_seconds ?? 0;
+
+      if (retryAfter > 0) {
+        setCooldownRemainingSeconds(retryAfter);
+      }
+
       setError(
-        getErrorMessage(submitError) ??
+        limitPayload?.detail ??
+          getErrorMessage(submitError) ??
           "Could not submit the DeepSeek worker job.",
       );
+
       await loadWorkerStatus();
     } finally {
       setSubmitting(false);
@@ -153,6 +192,7 @@ export default function DeepSeekWorkerTestPage() {
   const workerOnline = workerStatus?.online ?? false;
   const jobIsProcessing =
     job?.status === "queued" || job?.status === "running";
+  const cooldownActive = cooldownRemainingSeconds > 0;
 
   return (
     <ProtectedRoute>
@@ -229,6 +269,9 @@ export default function DeepSeekWorkerTestPage() {
             <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
               <span>{prompt.length}/4000 characters</span>
               {jobIsProcessing && <span>Polling every 3 seconds...</span>}
+              {cooldownActive && (
+                <span>Try again in {cooldownRemainingSeconds}s</span>
+              )}
             </div>
 
             {error && (
@@ -239,10 +282,22 @@ export default function DeepSeekWorkerTestPage() {
 
             <button
               type="submit"
-              disabled={submitting || !prompt.trim() || !workerOnline}
+              disabled={
+                submitting ||
+                jobIsProcessing ||
+                cooldownActive ||
+                !prompt.trim() ||
+                !workerOnline
+              }
               className="mt-5 rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? "Submitting..." : "Send test prompt"}
+              {submitting
+                ? "Submitting..."
+                : jobIsProcessing
+                  ? "Waiting for current job..."
+                  : cooldownActive
+                    ? `Wait ${cooldownRemainingSeconds}s`
+                    : "Send test prompt"}
             </button>
 
             {!workerOnline && !workerLoading && (
