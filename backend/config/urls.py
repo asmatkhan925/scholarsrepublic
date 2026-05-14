@@ -15,6 +15,7 @@ urlpatterns = [
     path("api/", include("apps.applications.urls")),
     path("api/", include("apps.opportunities.urls")),
     path("api/ai/", include("apps.ai_tools.urls")),
+    path("api/internal/desktop-worker/", include("apps.desktop_automation.urls")),
 ]
 
 if settings.DEBUG:

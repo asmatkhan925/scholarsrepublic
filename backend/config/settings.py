@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "apps.services",
     "apps.blog",
     "apps.ai_tools.apps.AiToolsConfig",
+    "apps.desktop_automation.apps.DesktopAutomationConfig",
 ]
 
 MIDDLEWARE = [
@@ -255,3 +256,6 @@ DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
     "Scholars Republic <noreply@scholarsrepublic.org>",
 )
+
+
+DESKTOP_WORKER_TOKEN = os.getenv("DESKTOP_WORKER_TOKEN", "")
