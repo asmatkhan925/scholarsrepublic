@@ -6,7 +6,7 @@ export type AIHealthStatus = {
   model?: string;
 };
 
-export type GenerationProvider = "local" | "puter";
+export type GenerationProvider = "local" | "puter" | "deepseek";
 
 export type PuterAIOptions = {
   model?: string;

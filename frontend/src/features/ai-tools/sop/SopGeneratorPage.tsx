@@ -1,5 +1,6 @@
 "use client";
 
+import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -24,16 +25,80 @@ import { formatWait, normalizeAIText } from "./format";
 import { buildPuterPrompt, extractPuterText, extractPuterUsage } from "./puter";
 import type { AIHealthStatus, GenerationProvider, PuterWindow } from "./types";
 
+type DeepSeekWorkerStatusResponse = {
+  online: boolean;
+  status: "online" | "offline" | string;
+  message: string;
+};
+
+type DeepSeekJobStatus = "queued" | "running" | "completed" | "failed" | "canceled";
+
+type CreateDeepSeekJobResponse = {
+  job_id: number;
+  status: DeepSeekJobStatus;
+  message: string;
+  poll_url: string;
+};
+
+type DeepSeekJobResponse = {
+  id: number;
+  kind: string;
+  status: DeepSeekJobStatus;
+  ok: boolean | null;
+  text: string;
+  user_message: string;
+  result_payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  claimed_at: string | null;
+  completed_at: string | null;
+  failed_at: string | null;
+};
+
+type DeepSeekLimitErrorResponse = {
+  detail?: string;
+  status?: string;
+  retry_after_seconds?: number;
+};
+
+const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
+
+function getDeepSeekLimitPayload(error: unknown): DeepSeekLimitErrorResponse | null {
+  if (!isAxiosError<DeepSeekLimitErrorResponse>(error)) {
+    return null;
+  }
+
+  return error.response?.data ?? null;
+}
+
+function formatCooldown(seconds: number) {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${minutes}m ${remainingSeconds.toString().padStart(2, "0")}s`;
+}
+
 function SOPGeneratorContent() {
   const [aiHealth, setAiHealth] = useState<AIHealthStatus | null>(null);
   const [checkingAI, setCheckingAI] = useState(true);
   const [provider, setProvider] = useState<GenerationProvider>("local");
   const [puterStatus, setPuterStatus] = useState<"loading" | "ready" | "failed">("loading");
+  const [deepSeekWorkerStatus, setDeepSeekWorkerStatus] =
+    useState<DeepSeekWorkerStatusResponse | null>(null);
+  const [checkingDeepSeekWorker, setCheckingDeepSeekWorker] = useState(true);
   const [form, setForm] = useState<GenerateSOPPayload>(initialForm);
   const [job, setJob] = useState<AIJobStatus | null>(null);
   const [jobMessage, setJobMessage] = useState("");
   const [puterResult, setPuterResult] = useState("");
   const [puterUsage, setPuterUsage] = useState("");
+  const [deepSeekJob, setDeepSeekJob] = useState<DeepSeekJobResponse | null>(null);
+  const [deepSeekResult, setDeepSeekResult] = useState("");
+  const [deepSeekError, setDeepSeekError] = useState<string | null>(null);
+  const [deepSeekCooldownSeconds, setDeepSeekCooldownSeconds] = useState(0);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +137,30 @@ function SOPGeneratorContent() {
     }
   }
 
+  async function checkDeepSeekWorkerStatus() {
+    setCheckingDeepSeekWorker(true);
+
+    try {
+      const response = await api.get<DeepSeekWorkerStatusResponse>(
+        "/desktop-automation/workers/status/",
+      );
+      setDeepSeekWorkerStatus(response.data);
+      setDeepSeekError(response.data.online ? null : response.data.message);
+    } catch (requestError) {
+      const message =
+        getErrorMessage(requestError) ?? "DeepSeek worker status could not be loaded.";
+
+      setDeepSeekWorkerStatus({
+        online: false,
+        status: "offline",
+        message,
+      });
+      setDeepSeekError(message);
+    } finally {
+      setCheckingDeepSeekWorker(false);
+    }
+  }
+
   function loadPuterScript() {
     setPuterStatus("loading");
 
@@ -106,6 +195,7 @@ function SOPGeneratorContent() {
 
   useEffect(() => {
     checkAIHealth();
+    checkDeepSeekWorkerStatus();
     loadPuterScript();
 
     return () => {
@@ -114,6 +204,20 @@ function SOPGeneratorContent() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (deepSeekCooldownSeconds <= 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setDeepSeekCooldownSeconds((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [deepSeekCooldownSeconds]);
 
   function updateField<K extends keyof GenerateSOPPayload>(field: K, value: GenerateSOPPayload[K]) {
     setForm((current) => ({
@@ -146,6 +250,55 @@ function SOPGeneratorContent() {
     }
   }
 
+  async function pollDeepSeekJob(jobId: number): Promise<DeepSeekJobResponse | null> {
+    try {
+      const response = await api.get<DeepSeekJobResponse>(
+        `/desktop-automation/jobs/${jobId}/`,
+      );
+      const latest = response.data;
+
+      setDeepSeekJob(latest);
+
+      if (deepSeekTerminalStatuses.includes(latest.status)) {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+
+        setLoading(false);
+
+        if (latest.status === "completed") {
+          setDeepSeekResult(normalizeAIText(latest.user_message || latest.text || ""));
+          setDeepSeekError(null);
+          setError(null);
+        } else {
+          const message =
+            latest.user_message ||
+            latest.text ||
+            "Your DeepSeek SOP request could not be completed.";
+
+          setDeepSeekError(message);
+          setError(message);
+        }
+      }
+
+      return latest;
+    } catch (requestError) {
+      const message = getErrorMessage(requestError);
+
+      setLoading(false);
+      setDeepSeekError(message);
+      setError(message);
+
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+
+      return null;
+    }
+  }
+
   async function generateWithLocalServer() {
     if (!aiHealth?.available) {
       setProvider("puter");
@@ -160,6 +313,9 @@ function SOPGeneratorContent() {
     setJobMessage("");
     setPuterResult("");
     setPuterUsage("");
+    setDeepSeekJob(null);
+    setDeepSeekResult("");
+    setDeepSeekError(null);
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -212,6 +368,9 @@ function SOPGeneratorContent() {
     setJobMessage("");
     setPuterResult("");
     setPuterUsage("");
+    setDeepSeekJob(null);
+    setDeepSeekResult("");
+    setDeepSeekError(null);
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -236,6 +395,89 @@ function SOPGeneratorContent() {
     }
   }
 
+  async function generateWithDeepSeek() {
+    if (checkingDeepSeekWorker || !deepSeekWorkerStatus?.online) {
+      const message =
+        deepSeekWorkerStatus?.message ||
+        "DeepSeek Desktop Worker is unavailable. Recheck the worker before trying again.";
+
+      setDeepSeekError(message);
+      setError(message);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setCopied(false);
+    setJob(null);
+    setJobMessage("");
+    setPuterResult("");
+    setPuterUsage("");
+    setDeepSeekJob(null);
+    setDeepSeekResult("");
+    setDeepSeekError(null);
+
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    try {
+      const response = await api.post<CreateDeepSeekJobResponse>(
+        "/desktop-automation/deepseek-jobs/",
+        {
+          query: buildPuterPrompt(form),
+        },
+      );
+
+      setDeepSeekCooldownSeconds(0);
+
+      const queuedJob: DeepSeekJobResponse = {
+        id: response.data.job_id,
+        kind: "deepseek_query",
+        status: response.data.status,
+        ok: null,
+        text: response.data.message,
+        user_message: response.data.message,
+        result_payload: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        claimed_at: null,
+        completed_at: null,
+        failed_at: null,
+      };
+
+      setDeepSeekJob(queuedJob);
+
+      const latest = await pollDeepSeekJob(response.data.job_id);
+
+      if (latest && !deepSeekTerminalStatuses.includes(latest.status)) {
+        pollingRef.current = setInterval(() => {
+          void pollDeepSeekJob(response.data.job_id);
+        }, 3000);
+      }
+    } catch (requestError) {
+      const limitPayload = getDeepSeekLimitPayload(requestError);
+      const retryAfter = limitPayload?.retry_after_seconds ?? 0;
+      const message =
+        limitPayload?.detail ??
+        getErrorMessage(requestError) ??
+        "Could not submit the DeepSeek SOP request.";
+
+      if (retryAfter > 0) {
+        setDeepSeekCooldownSeconds(retryAfter);
+      }
+
+      setLoading(false);
+      setDeepSeekError(message);
+      setError(message);
+
+      if (isAxiosError(requestError) && requestError.response?.status === 503) {
+        await checkDeepSeekWorkerStatus();
+      }
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -251,13 +493,22 @@ function SOPGeneratorContent() {
       return;
     }
 
+    if (provider === "deepseek") {
+      await generateWithDeepSeek();
+      return;
+    }
+
     await generateWithPuter();
   }
 
   const localResult = job?.result_text || "";
-  const result = provider === "puter" ? puterResult : localResult;
+  const result =
+    provider === "puter" ? puterResult : provider === "deepseek" ? deepSeekResult : localResult;
   const isWaiting =
     provider === "local" && (job?.status === "pending" || job?.status === "running");
+  const deepSeekIsWaiting =
+    provider === "deepseek" &&
+    (deepSeekJob?.status === "queued" || deepSeekJob?.status === "running");
 
   async function handleCopy() {
     if (!result) return;
@@ -272,11 +523,34 @@ function SOPGeneratorContent() {
 
   const localOptionDisabled = !aiHealth?.available;
   const puterOptionDisabled = puterStatus !== "ready";
+  const deepSeekOptionDisabled = checkingDeepSeekWorker || !deepSeekWorkerStatus?.online;
+  const deepSeekCooldownActive = deepSeekCooldownSeconds > 0;
   const generateDisabled =
     loading ||
     !canSubmit ||
     (provider === "local" && localOptionDisabled) ||
-    (provider === "puter" && puterOptionDisabled);
+    (provider === "puter" && puterOptionDisabled) ||
+    (provider === "deepseek" && (deepSeekOptionDisabled || deepSeekCooldownActive));
+  const selectedProviderName =
+    provider === "local"
+      ? "Scholars Republic AI Server"
+      : provider === "puter"
+        ? "External AI via Puter.js"
+        : "DeepSeek Desktop Worker";
+  const deepSeekWorkerLabel = checkingDeepSeekWorker
+    ? "Checking"
+    : deepSeekWorkerStatus?.online
+      ? "Online"
+      : "Unavailable";
+  const generateButtonText = loading
+    ? "Processing..."
+    : provider === "local"
+      ? "Generate with Our Server"
+      : provider === "puter"
+        ? "Generate with External AI"
+        : deepSeekCooldownActive
+          ? `Wait ${formatCooldown(deepSeekCooldownSeconds)}`
+          : "Generate with DeepSeek Worker";
 
   return (
     <DashboardShell
@@ -336,7 +610,12 @@ function SOPGeneratorContent() {
 
             {error && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
-                {error}
+                <p>{error}</p>
+                {provider === "deepseek" && deepSeekCooldownActive ? (
+                  <p className="mt-2 font-semibold">
+                    Try again in {formatCooldown(deepSeekCooldownSeconds)}.
+                  </p>
+                ) : null}
               </div>
             )}
 
@@ -345,21 +624,33 @@ function SOPGeneratorContent() {
                 <div>
                   <h3 className="text-base font-bold text-ink">Choose AI provider</h3>
                   <p className="mt-1 text-sm leading-6 text-ink/60">
-                    Use our server when it is online, or use External AI as a backup.
+                    Use our server when it is online, External AI as a backup, or the private
+                    DeepSeek desktop worker when you prefer the WSL queue.
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={checkAIHealth}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5"
-                >
-                  <RefreshCw size={16} aria-hidden="true" />
-                  Recheck server
-                </button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={checkAIHealth}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5"
+                  >
+                    <RefreshCw size={16} aria-hidden="true" />
+                    Recheck server
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={checkDeepSeekWorkerStatus}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5"
+                  >
+                    <RefreshCw size={16} aria-hidden="true" />
+                    Recheck DeepSeek Worker
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="mt-3 grid gap-3 lg:grid-cols-3">
                 <button
                   type="button"
                   disabled={localOptionDisabled}
@@ -422,6 +713,43 @@ function SOPGeneratorContent() {
                     </span>
                   </div>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProvider("deepseek")}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    provider === "deepseek"
+                      ? "border-pine bg-pine/5"
+                      : "border-ink/10 bg-white hover:border-pine/30"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-ink">DeepSeek Desktop Worker</h4>
+                      <p className="mt-2 text-sm leading-6 text-ink/65">
+                        Uses the private desktop WSL worker queue. Best when the local AI server is
+                        offline and External AI is not preferred.
+                      </p>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        checkingDeepSeekWorker
+                          ? "bg-saffron/15 text-ink/60"
+                          : deepSeekWorkerStatus?.online
+                            ? "bg-pine/10 text-pine"
+                            : "bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {deepSeekWorkerLabel}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-xs leading-5 text-ink/55">
+                    If this option is unavailable, the desktop worker may be offline or DeepSeek may
+                    need login repair.
+                  </p>
+                </button>
               </div>
 
               {puterStatus === "failed" && (
@@ -436,6 +764,12 @@ function SOPGeneratorContent() {
                     <RefreshCw size={16} aria-hidden="true" />
                     Reload External AI
                   </button>
+                </div>
+              )}
+
+              {provider === "deepseek" && deepSeekError && !deepSeekCooldownActive && (
+                <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/10 p-4 text-sm leading-6 text-ink/75">
+                  {deepSeekError}
                 </div>
               )}
             </section>
@@ -584,11 +918,7 @@ function SOPGeneratorContent() {
                 ) : (
                   <Sparkles size={18} aria-hidden="true" />
                 )}
-                {loading
-                  ? "Processing..."
-                  : provider === "local"
-                    ? "Generate with Our Server"
-                    : "Generate with External AI"}
+                {generateButtonText}
               </button>
             </div>
           </form>
@@ -623,6 +953,36 @@ function SOPGeneratorContent() {
           </section>
         )}
 
+        {provider === "deepseek" && deepSeekJob && (
+          <section className="rounded-2xl border border-pine/15 bg-pine/5 p-5 shadow-soft md:p-7">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-pine">
+                  <Users size={14} aria-hidden="true" />
+                  DeepSeek worker queue
+                </div>
+
+                <h2 className="mt-3 text-xl font-bold text-ink">
+                  Request status: {deepSeekJob.status}
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-ink/65">
+                  {deepSeekIsWaiting
+                    ? "Your DeepSeek SOP request is being processed. Please keep this page open."
+                    : deepSeekJob.user_message || deepSeekJob.text}
+                </p>
+              </div>
+
+              {deepSeekIsWaiting && (
+                <div className="inline-flex items-center gap-2 rounded-xl border border-pine/20 bg-white px-4 py-3 text-sm font-semibold text-pine">
+                  <Clock size={17} aria-hidden="true" />
+                  Polling every 3 seconds
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         <section className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft md:p-7">
           <div className="flex flex-col gap-4 border-b border-ink/10 pb-5 md:flex-row md:items-start md:justify-between">
             <div>
@@ -634,12 +994,7 @@ function SOPGeneratorContent() {
               <h2 className="mt-3 text-2xl font-bold text-ink">Generated SOP Draft</h2>
 
               <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
-                Generated using{" "}
-                <strong>
-                  {provider === "local"
-                    ? "Scholars Republic AI Server"
-                    : "External AI via Puter.js"}
-                </strong>
+                Generated using <strong>{selectedProviderName}</strong>
                 . Use this as a starting draft and personalize it before submission.
               </p>
 
@@ -672,8 +1027,16 @@ function SOPGeneratorContent() {
           </div>
 
           <div className="mt-5 min-h-[300px] rounded-2xl border border-ink/10 bg-cream/40 p-5 text-sm leading-7 text-ink">
-            {loading || isWaiting ? (
+            {provider === "deepseek" && (loading || deepSeekIsWaiting) ? (
+              "Your DeepSeek SOP request is being processed. Please keep this page open."
+            ) : loading || isWaiting ? (
               "Your SOP request is being processed. Please keep this page open. The result will appear here when ready."
+            ) : provider === "deepseek" &&
+              (deepSeekJob?.status === "failed" || deepSeekJob?.status === "canceled") ? (
+              deepSeekError ||
+              deepSeekJob?.user_message ||
+              deepSeekJob?.text ||
+              "Your DeepSeek SOP request could not be completed."
             ) : provider === "local" && job?.status === "failed" ? (
               job.error_message ||
               "The AI server is currently offline. Please switch to External AI."
