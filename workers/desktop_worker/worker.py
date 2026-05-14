@@ -41,8 +41,9 @@ BROWSER_TIMEOUT_MS = int(os.getenv("BROWSER_TIMEOUT_MS", "120000"))
 DEEPSEEK_URL = os.getenv("DEEPSEEK_URL", "https://chat.deepseek.com")
 DEEPSEEK_NEW_CHAT_URL = os.getenv("DEEPSEEK_NEW_CHAT_URL", DEEPSEEK_URL)
 DEEPSEEK_LOGIN_WAIT_SECONDS = int(os.getenv("DEEPSEEK_LOGIN_WAIT_SECONDS", "600"))
-DEEPSEEK_RESPONSE_TIMEOUT_MS = int(os.getenv("DEEPSEEK_RESPONSE_TIMEOUT_MS", "180000"))
-DEEPSEEK_STABLE_SECONDS = int(os.getenv("DEEPSEEK_STABLE_SECONDS", "6"))
+DEEPSEEK_RESPONSE_TIMEOUT_MS = int(os.getenv("DEEPSEEK_RESPONSE_TIMEOUT_MS", "300000"))
+DEEPSEEK_MIN_RESPONSE_SECONDS = int(os.getenv("DEEPSEEK_MIN_RESPONSE_SECONDS", "20"))
+DEEPSEEK_STABLE_SECONDS = int(os.getenv("DEEPSEEK_STABLE_SECONDS", "12"))
 DEEPSEEK_NEW_CHAT_EVERY_JOBS = int(os.getenv("DEEPSEEK_NEW_CHAT_EVERY_JOBS", "5"))
 DEEPSEEK_LOCAL_STATE_FILE = os.getenv(
     "DEEPSEEK_LOCAL_STATE_FILE",
@@ -529,22 +530,58 @@ def extract_deepseek_response(page, query: str, before_text: str) -> str:
     return cleaned_candidates[0]
 
 
+def is_deepseek_generating(page) -> bool:
+    selectors = [
+        'button:has-text("Stop")',
+        'button:has-text("停止")',
+        'button[aria-label*="Stop"]',
+        'button[aria-label*="stop"]',
+        'button[aria-label*="停止"]',
+        '[data-testid*="stop"]',
+        '[class*="stop"]',
+    ]
+
+    for selector in selectors:
+        try:
+            locator = page.locator(selector).last
+            if locator.is_visible(timeout=500):
+                return True
+        except Exception:
+            continue
+
+    return False
+
+
 def wait_for_deepseek_response(page, query: str, before_text: str) -> str:
-    timeout_seconds = max(30, DEEPSEEK_RESPONSE_TIMEOUT_MS // 1000)
-    deadline = time.time() + timeout_seconds
+    timeout_seconds = max(60, DEEPSEEK_RESPONSE_TIMEOUT_MS // 1000)
+    started_at = time.time()
+    deadline = started_at + timeout_seconds
 
     last_text = ""
     stable_since = None
+    best_text = ""
 
     while time.time() < deadline:
         candidate = extract_deepseek_response(page, query, before_text)
+        elapsed = time.time() - started_at
+        generating = is_deepseek_generating(page)
 
         if candidate and len(candidate) >= 20:
+            best_text = candidate
+
             if candidate == last_text:
                 if stable_since is None:
                     stable_since = time.time()
 
-                if time.time() - stable_since >= DEEPSEEK_STABLE_SECONDS:
+                stable_for = time.time() - stable_since
+
+                # Do not return too early. DeepSeek sometimes pauses after the
+                # first sentence while it is still preparing a longer answer.
+                if (
+                    elapsed >= DEEPSEEK_MIN_RESPONSE_SECONDS
+                    and stable_for >= DEEPSEEK_STABLE_SECONDS
+                    and not generating
+                ):
                     return candidate
             else:
                 last_text = candidate
@@ -552,7 +589,39 @@ def wait_for_deepseek_response(page, query: str, before_text: str) -> str:
 
         time.sleep(2)
 
+    if best_text:
+        return best_text
+
     raise TimeoutError("Timed out waiting for stable DeepSeek response.")
+
+
+def clean_final_deepseek_text(text: str) -> str:
+    blocked_lines = {
+        "ai-generated, for reference only",
+        "ai generated, for reference only",
+        "ai-generated for reference only",
+        "ai generated for reference only",
+    }
+
+    cleaned_lines = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            cleaned_lines.append("")
+            continue
+
+        if line.lower() in blocked_lines:
+            continue
+
+        cleaned_lines.append(raw_line.rstrip())
+
+    cleaned = "\n".join(cleaned_lines).strip()
+
+    # Collapse excessive blank lines but preserve paragraph breaks.
+    while "\n\n\n" in cleaned:
+        cleaned = cleaned.replace("\n\n\n", "\n\n")
+
+    return cleaned
 
 
 def run_deepseek_query_job(job: dict[str, Any]) -> dict[str, Any]:
@@ -584,7 +653,9 @@ def run_deepseek_query_job(job: dict[str, Any]) -> dict[str, Any]:
     fill_deepseek_input(page, input_box, query)
     submit_deepseek_query(page)
 
-    response_text = wait_for_deepseek_response(page, query, before_text)
+    response_text = clean_final_deepseek_text(
+        wait_for_deepseek_response(page, query, before_text)
+    )
     local_chat_job_count = increment_deepseek_local_job_count()
 
     return {
