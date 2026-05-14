@@ -6,7 +6,7 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
+from playwright.sync_api import sync_playwright
 
 
 load_dotenv(override=True)
@@ -15,6 +15,7 @@ API_BASE_URL = os.getenv("SCHOLARS_API_BASE_URL", "https://scholarsrepublic.org/
 WORKER_TOKEN = os.getenv("DESKTOP_WORKER_TOKEN", "")
 WORKER_ID = os.getenv("DESKTOP_WORKER_ID", "desktop-wsl-1")
 POLL_SECONDS = int(os.getenv("DESKTOP_WORKER_POLL_SECONDS", "5"))
+
 PLAYWRIGHT_PROFILE_DIR = os.getenv(
     "PLAYWRIGHT_PROFILE_DIR",
     os.path.expanduser("~/.scholarsrepublic-playwright-profile"),
@@ -30,6 +31,7 @@ BROWSER_WAIT_AFTER_SUBMIT_SECONDS = int(
 BROWSER_TIMEOUT_MS = int(os.getenv("BROWSER_TIMEOUT_MS", "120000"))
 
 DEEPSEEK_URL = os.getenv("DEEPSEEK_URL", "https://chat.deepseek.com")
+DEEPSEEK_NEW_CHAT_URL = os.getenv("DEEPSEEK_NEW_CHAT_URL", DEEPSEEK_URL)
 DEEPSEEK_LOGIN_WAIT_SECONDS = int(os.getenv("DEEPSEEK_LOGIN_WAIT_SECONDS", "600"))
 DEEPSEEK_RESPONSE_TIMEOUT_MS = int(os.getenv("DEEPSEEK_RESPONSE_TIMEOUT_MS", "180000"))
 DEEPSEEK_STABLE_SECONDS = int(os.getenv("DEEPSEEK_STABLE_SECONDS", "6"))
@@ -38,6 +40,10 @@ DEEPSEEK_LOCAL_STATE_FILE = os.getenv(
     "DEEPSEEK_LOCAL_STATE_FILE",
     os.path.expanduser("~/.scholarsrepublic-deepseek-state.txt"),
 )
+
+PLAYWRIGHT_RUNTIME = None
+BROWSER_CONTEXT = None
+DEEPSEEK_PAGE = None
 
 
 def headers() -> dict[str, str]:
@@ -68,7 +74,7 @@ def complete_job(job_id: int, result_payload: dict[str, Any]) -> None:
     response.raise_for_status()
 
 
-def fail_job(job_id: int, error_message: str, retry: bool = True) -> None:
+def fail_job(job_id: int, error_message: str, retry: bool = False) -> None:
     response = requests.post(
         f"{API_BASE_URL}/internal/desktop-worker/fail/",
         headers=headers(),
@@ -76,6 +82,63 @@ def fail_job(job_id: int, error_message: str, retry: bool = True) -> None:
         timeout=30,
     )
     response.raise_for_status()
+
+
+def get_browser_context():
+    global PLAYWRIGHT_RUNTIME
+    global BROWSER_CONTEXT
+
+    if BROWSER_CONTEXT is not None:
+        return BROWSER_CONTEXT
+
+    PLAYWRIGHT_RUNTIME = sync_playwright().start()
+    BROWSER_CONTEXT = PLAYWRIGHT_RUNTIME.chromium.launch_persistent_context(
+        PLAYWRIGHT_PROFILE_DIR,
+        headless=False,
+    )
+    return BROWSER_CONTEXT
+
+
+def close_browser_context() -> None:
+    global PLAYWRIGHT_RUNTIME
+    global BROWSER_CONTEXT
+    global DEEPSEEK_PAGE
+
+    DEEPSEEK_PAGE = None
+
+    if BROWSER_CONTEXT is not None:
+        try:
+            BROWSER_CONTEXT.close()
+        except Exception:
+            pass
+        BROWSER_CONTEXT = None
+
+    if PLAYWRIGHT_RUNTIME is not None:
+        try:
+            PLAYWRIGHT_RUNTIME.stop()
+        except Exception:
+            pass
+        PLAYWRIGHT_RUNTIME = None
+
+
+def get_deepseek_page():
+    global DEEPSEEK_PAGE
+
+    context = get_browser_context()
+
+    if DEEPSEEK_PAGE is not None and not DEEPSEEK_PAGE.is_closed():
+        return DEEPSEEK_PAGE
+
+    for page in context.pages:
+        try:
+            if "chat.deepseek.com" in page.url:
+                DEEPSEEK_PAGE = page
+                return DEEPSEEK_PAGE
+        except Exception:
+            continue
+
+    DEEPSEEK_PAGE = context.new_page()
+    return DEEPSEEK_PAGE
 
 
 def run_echo_job(job: dict[str, Any]) -> dict[str, Any]:
@@ -110,14 +173,11 @@ def run_browser_query_job(job: dict[str, Any]) -> dict[str, Any]:
             + ", ".join(missing_config)
         )
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch_persistent_context(
-            PLAYWRIGHT_PROFILE_DIR,
-            headless=False,
-        )
-        page = browser.new_page()
-        page.set_default_timeout(BROWSER_TIMEOUT_MS)
+    context = get_browser_context()
+    page = context.new_page()
+    page.set_default_timeout(BROWSER_TIMEOUT_MS)
 
+    try:
         page.goto(BROWSER_TARGET_URL, wait_until="domcontentloaded")
         page.wait_for_selector(BROWSER_INPUT_SELECTOR, state="visible")
         page.fill(BROWSER_INPUT_SELECTOR, query)
@@ -130,53 +190,17 @@ def run_browser_query_job(job: dict[str, Any]) -> dict[str, Any]:
             timeout=BROWSER_TIMEOUT_MS
         )
 
-        browser.close()
-
         return {
             "text": response_text.strip(),
             "query": query,
             "target_url": BROWSER_TARGET_URL,
             "source": "desktop-worker-playwright",
         }
-
-
-
-def is_deepseek_login_page(page) -> bool:
-    current_url = page.url.lower()
-    if "sign_in" in current_url or "login" in current_url:
-        return True
-
-    try:
-        if page.locator('input[type="password"]').count() > 0:
-            return True
-    except Exception:
-        return False
-
-    return False
-
-
-def wait_for_deepseek_login_if_needed(page) -> None:
-    if not is_deepseek_login_page(page):
-        return
-
-    print("DeepSeek login is required.")
-    print("Please log in manually in the opened browser window.")
-    print(f"Waiting up to {DEEPSEEK_LOGIN_WAIT_SECONDS} seconds...")
-
-    deadline_ms = DEEPSEEK_LOGIN_WAIT_SECONDS * 1000
-
-    page.wait_for_function(
-        """() => {
-            const href = window.location.href.toLowerCase();
-            const hasPassword = Boolean(document.querySelector('input[type="password"]'));
-            return !href.includes('sign_in') && !href.includes('login') && !hasPassword;
-        }""",
-        timeout=deadline_ms,
-    )
-
-    page.wait_for_timeout(3000)
-    print("DeepSeek login detected. Continuing...")
-
+    finally:
+        try:
+            page.close()
+        except Exception:
+            pass
 
 
 def read_deepseek_local_job_count() -> int:
@@ -213,77 +237,39 @@ def reset_deepseek_local_job_count() -> None:
     write_deepseek_local_job_count(0)
 
 
-def click_deepseek_new_chat_if_available(page) -> bool:
-    candidates = [
-        'button:has-text("New chat")',
-        'button:has-text("New Chat")',
-        'button:has-text("New conversation")',
-        'button:has-text("New Conversation")',
-        'button:has-text("新对话")',
-        'button:has-text("开启新对话")',
-        '[aria-label*="New chat"]',
-        '[aria-label*="new chat"]',
-        '[aria-label*="New Chat"]',
-        '[aria-label*="New"]',
-        '[aria-label*="new"]',
-        '[title*="New"]',
-        '[title*="new"]',
-        'a[href="/"]',
-    ]
+def is_deepseek_login_page(page) -> bool:
+    current_url = page.url.lower()
+    if "sign_in" in current_url or "login" in current_url:
+        return True
 
-    for selector in candidates:
-        try:
-            locator = page.locator(selector).first
-            locator.click(timeout=2500)
-            page.wait_for_timeout(2000)
-            print(f"Started new DeepSeek chat using selector: {selector}")
-            reset_deepseek_local_job_count()
-            return True
-        except Exception:
-            continue
-
-    # Fallback: scan all visible clickable elements for text/labels.
     try:
-        clicked = page.evaluate(
-            """() => {
-                const keywords = [
-                    'new chat',
-                    'new conversation',
-                    '新对话',
-                    '开启新对话'
-                ];
-
-                const elements = Array.from(
-                    document.querySelectorAll('button, a, [role="button"]')
-                );
-
-                for (const element of elements) {
-                    const text = [
-                        element.innerText,
-                        element.getAttribute('aria-label'),
-                        element.getAttribute('title')
-                    ].filter(Boolean).join(' ').toLowerCase();
-
-                    if (keywords.some(keyword => text.includes(keyword))) {
-                        element.click();
-                        return true;
-                    }
-                }
-
-                return false;
-            }"""
-        )
-
-        if clicked:
-            page.wait_for_timeout(2000)
-            print("Started new DeepSeek chat using JS fallback.")
-            reset_deepseek_local_job_count()
+        if page.locator('input[type="password"]').count() > 0:
             return True
     except Exception:
-        pass
+        return False
 
-    print("New chat button was not found. Continuing with current chat page.")
     return False
+
+
+def wait_for_deepseek_login_if_needed(page) -> None:
+    if not is_deepseek_login_page(page):
+        return
+
+    print("DeepSeek login is required.")
+    print("Please log in manually in the opened browser window.")
+    print(f"Waiting up to {DEEPSEEK_LOGIN_WAIT_SECONDS} seconds...")
+
+    page.wait_for_function(
+        """() => {
+            const href = window.location.href.toLowerCase();
+            const hasPassword = Boolean(document.querySelector('input[type="password"]'));
+            return !href.includes('sign_in') && !href.includes('login') && !hasPassword;
+        }""",
+        timeout=DEEPSEEK_LOGIN_WAIT_SECONDS * 1000,
+    )
+
+    page.wait_for_timeout(3000)
+    print("DeepSeek login detected. Continuing...")
 
 
 def get_deepseek_input(page):
@@ -302,12 +288,34 @@ def get_deepseek_input(page):
     for selector in candidates:
         try:
             locator = page.locator(selector).last
-            locator.wait_for(state="visible", timeout=5000)
+            locator.wait_for(state="visible", timeout=8000)
             return locator
         except Exception as exc:
             last_error = exc
 
     raise RuntimeError(f"Could not find DeepSeek chat input. Last error: {last_error}")
+
+
+def start_deepseek_new_chat_by_navigation(page) -> bool:
+    try:
+        print(f"Starting fresh DeepSeek chat by navigating to {DEEPSEEK_NEW_CHAT_URL}")
+        page.goto(DEEPSEEK_NEW_CHAT_URL, wait_until="domcontentloaded")
+        wait_for_deepseek_login_if_needed(page)
+        get_deepseek_input(page)
+        reset_deepseek_local_job_count()
+        print("Fresh DeepSeek chat page is ready.")
+        return True
+    except Exception as exc:
+        print(f"Could not start fresh DeepSeek chat by navigation: {exc}")
+        return False
+
+
+def ensure_deepseek_ready(page) -> None:
+    if "chat.deepseek.com" not in page.url:
+        page.goto(DEEPSEEK_URL, wait_until="domcontentloaded")
+
+    wait_for_deepseek_login_if_needed(page)
+    get_deepseek_input(page)
 
 
 def fill_deepseek_input(page, input_box, query: str) -> None:
@@ -454,54 +462,45 @@ def run_deepseek_query_job(job: dict[str, Any]) -> dict[str, Any]:
     if not query:
         raise ValueError("Missing input_payload.query")
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch_persistent_context(
-            PLAYWRIGHT_PROFILE_DIR,
-            headless=False,
-        )
+    page = get_deepseek_page()
+    page.set_default_timeout(DEEPSEEK_RESPONSE_TIMEOUT_MS)
 
-        page = browser.new_page()
-        page.set_default_timeout(DEEPSEEK_RESPONSE_TIMEOUT_MS)
+    forced_new_chat = False
+    new_chat_started = False
 
-        try:
-            page.goto(DEEPSEEK_URL, wait_until="domcontentloaded")
-            wait_for_deepseek_login_if_needed(page)
+    if should_force_deepseek_new_chat():
+        forced_new_chat = True
+        new_chat_started = start_deepseek_new_chat_by_navigation(page)
+    else:
+        ensure_deepseek_ready(page)
 
-            forced_new_chat = False
-            new_chat_started = False
+    before_text = ""
+    try:
+        before_text = page.locator("body").inner_text(timeout=10000)
+    except Exception:
+        pass
 
-            if should_force_deepseek_new_chat():
-                forced_new_chat = True
-                new_chat_started = click_deepseek_new_chat_if_available(page)
+    input_box = get_deepseek_input(page)
+    fill_deepseek_input(page, input_box, query)
+    submit_deepseek_query(page)
 
-            before_text = ""
-            try:
-                before_text = page.locator("body").inner_text(timeout=10000)
-            except Exception:
-                pass
+    response_text = wait_for_deepseek_response(page, query, before_text)
+    local_chat_job_count = increment_deepseek_local_job_count()
 
-            input_box = get_deepseek_input(page)
-            fill_deepseek_input(page, input_box, query)
-            submit_deepseek_query(page)
-
-            response_text = wait_for_deepseek_response(page, query, before_text)
-
-            return {
-                "text": response_text,
-                "query": query,
-                "target_url": DEEPSEEK_URL,
-                "source": "desktop-worker-deepseek",
-                "forced_new_chat": forced_new_chat,
-                "new_chat_started": new_chat_started,
-                "local_chat_job_count": increment_deepseek_local_job_count(),
-                "warning": (
-                    "Could not start a new DeepSeek chat; continued in current chat."
-                    if forced_new_chat and not new_chat_started
-                    else ""
-                ),
-            }
-        finally:
-            browser.close()
+    return {
+        "text": response_text,
+        "query": query,
+        "target_url": DEEPSEEK_URL,
+        "source": "desktop-worker-deepseek",
+        "forced_new_chat": forced_new_chat,
+        "new_chat_started": new_chat_started,
+        "local_chat_job_count": local_chat_job_count,
+        "warning": (
+            "Could not start a fresh DeepSeek chat by navigation; continued in current chat."
+            if forced_new_chat and not new_chat_started
+            else ""
+        ),
+    }
 
 
 def run_job(job: dict[str, Any]) -> dict[str, Any]:
@@ -526,38 +525,45 @@ def main() -> None:
     print(f"Desktop worker started as {WORKER_ID}")
     print(f"API: {API_BASE_URL}")
     print(f"Playwright profile: {PLAYWRIGHT_PROFILE_DIR}")
+    print("Browser context will stay open while this worker is running.")
 
     job = None
 
-    while True:
-        try:
-            job = claim_job()
-            if job is None:
-                time.sleep(POLL_SECONDS)
-                continue
-
-            job_id = job["id"]
-            print(f"Claimed job #{job_id}: {job.get('kind')}")
-
-            result = run_job(job)
-            complete_job(job_id, result)
-            print(f"Completed job #{job_id}")
-
-        except KeyboardInterrupt:
-            print("Worker stopped.")
-            break
-        except Exception:
-            error_message = traceback.format_exc()
-            print(error_message)
-
+    try:
+        while True:
             try:
-                if job:
-                    fail_job(job["id"], error_message, retry=False)
-            except Exception:
-                print("Could not report job failure:")
-                print(traceback.format_exc())
+                job = claim_job()
+                if job is None:
+                    time.sleep(POLL_SECONDS)
+                    continue
 
-            time.sleep(POLL_SECONDS)
+                job_id = job["id"]
+                print(f"Claimed job #{job_id}: {job.get('kind')}")
+
+                result = run_job(job)
+                complete_job(job_id, result)
+                print(f"Completed job #{job_id}")
+
+                job = None
+
+            except KeyboardInterrupt:
+                print("Worker stopped.")
+                break
+            except Exception:
+                error_message = traceback.format_exc()
+                print(error_message)
+
+                try:
+                    if job:
+                        fail_job(job["id"], error_message, retry=False)
+                except Exception:
+                    print("Could not report job failure:")
+                    print(traceback.format_exc())
+
+                job = None
+                time.sleep(POLL_SECONDS)
+    finally:
+        close_browser_context()
 
 
 if __name__ == "__main__":
