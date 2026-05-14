@@ -80,11 +80,47 @@ def complete_job(job_id: int, result_payload: dict[str, Any]) -> None:
     response.raise_for_status()
 
 
-def fail_job(job_id: int, error_message: str, retry: bool = False) -> None:
+def public_message_for_error(error_message: str) -> str:
+    lowered = error_message.lower()
+
+    if "login" in lowered or "sign_in" in lowered or "password" in lowered:
+        return (
+            "Our AI system needs to be reconnected. Please try again later."
+        )
+
+    if "captcha" in lowered or "verification" in lowered:
+        return (
+            "Our AI system is temporarily paused for verification. Please try again later."
+        )
+
+    if "timeout" in lowered or "timed out" in lowered:
+        return (
+            "Our AI system is taking too long to respond. Please try again later."
+        )
+
+    if "could not find deepseek chat input" in lowered:
+        return (
+            "Our AI system interface changed or is temporarily unavailable. Please try again later."
+        )
+
+    return "Our AI system is temporarily unavailable. Please try again later."
+
+
+def fail_job(
+    job_id: int,
+    error_message: str,
+    retry: bool = False,
+    public_message: str | None = None,
+) -> None:
     response = requests.post(
         f"{API_BASE_URL}/internal/desktop-worker/fail/",
         headers=headers(),
-        json={"job_id": job_id, "error_message": error_message, "retry": retry},
+        json={
+            "job_id": job_id,
+            "error_message": error_message,
+            "public_message": public_message or public_message_for_error(error_message),
+            "retry": retry,
+        },
         timeout=30,
     )
     response.raise_for_status()
