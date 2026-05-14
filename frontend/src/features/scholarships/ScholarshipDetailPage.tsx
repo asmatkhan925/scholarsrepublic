@@ -100,7 +100,7 @@ function DetailSection({
     <Card>
       <CardContent className="p-5 md:p-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
             {icon}
           </span>
           <div className="min-w-0">
@@ -122,7 +122,7 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
     <Card>
       <CardContent className="p-5 md:p-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
             {icon}
           </span>
           <div className="min-w-0 flex-1">
@@ -131,7 +131,7 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
               {items.map((item) => (
                 <li
                   key={item}
-                  className="flex gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3 text-sm leading-6 text-ink/70"
+                  className="flex gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 text-sm leading-6 text-ink/70"
                 >
                   <CheckCircle2 size={16} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
                   <span>{item}</span>
@@ -147,7 +147,7 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
 
 function FactItem({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
-    <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+    <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">{label}</p>
       <p className="mt-1 text-sm font-bold text-ink">{value}</p>
       {helper ? <p className="mt-1 text-xs leading-5 text-ink/50">{helper}</p> : null}
@@ -201,7 +201,7 @@ function MatchScoreSidebarCard({
             Add your education, goals, and target countries to calculate your fit for this
             scholarship.
           </p>
-          <ButtonLink href="/dashboard/profile" className="mt-4" size="sm" variant="secondary">
+          <ButtonLink href="/dashboard/profile" className="mt-3" size="sm" variant="secondary">
             Complete Profile
           </ButtonLink>
         </CardContent>
@@ -226,7 +226,7 @@ function MatchScoreSidebarCard({
           <Badge tone={getReadinessTone(match.readiness_level)}>{match.readiness_level}</Badge>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-pine/10 bg-mint/35 p-4">
+        <div className="mt-5 rounded-xl border border-pine/10 bg-mint/35 p-3">
           <div className="flex items-end justify-between gap-3">
             <p className="text-3xl font-black tracking-tight text-pine">
               {score}
@@ -241,8 +241,8 @@ function MatchScoreSidebarCard({
         </div>
 
         {match.matched_reasons.length > 0 ? (
-          <div className="mt-4">
-            <p className="text-sm font-bold text-ink">Why it may fit</p>
+          <div className="mt-3">
+            <p className="text-xs font-bold text-ink">Why it may fit</p>
             <ul className="mt-2 grid gap-2">
               {match.matched_reasons.slice(0, 3).map((reason) => (
                 <li key={reason} className="flex gap-2 text-sm leading-6 text-ink/65">
@@ -255,8 +255,8 @@ function MatchScoreSidebarCard({
         ) : null}
 
         {match.missing_requirements.length > 0 ? (
-          <div className="mt-4 rounded-2xl border border-saffron/30 bg-saffron/15 p-3">
-            <p className="text-sm font-bold text-ink">Check before applying</p>
+          <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/15 p-2.5">
+            <p className="text-xs font-bold text-ink">Check before applying</p>
             <ul className="mt-2 grid gap-1 text-sm leading-6 text-ink/65">
               {match.missing_requirements.slice(0, 3).map((item) => (
                 <li key={item}>{item}</li>
@@ -319,18 +319,18 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
           ) : null}
 
           {scholarship.verification_note ? (
-            <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+            <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2">
               {scholarship.verification_note}
             </p>
           ) : null}
 
-          <p className="rounded-2xl border border-pine/10 bg-[#f7faf8] px-4 py-3">
+          <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2">
             Always confirm deadline and requirements on the official scholarship page before
             applying.
           </p>
 
           {!scholarship.verified_status ? (
-            <p className="rounded-2xl border border-saffron/30 bg-saffron/15 px-4 py-3">
+            <p className="rounded-xl border border-saffron/30 bg-saffron/15 px-3 py-2">
               Please confirm final deadlines and requirements on the official source.
             </p>
           ) : null}
@@ -343,7 +343,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
                 href={scholarship.official_link}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40"
               >
                 Official Website
                 <ExternalLink size={15} aria-hidden="true" />
@@ -355,7 +355,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
                 href={scholarship.source_url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40"
               >
                 Source Page
                 <ExternalLink size={15} aria-hidden="true" />
@@ -719,7 +719,7 @@ export default function ScholarshipDetailPage({
                             href={scholarship.official_link}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40"
                           >
                             Official Website
                             <ExternalLink size={15} aria-hidden="true" />
@@ -750,7 +750,7 @@ export default function ScholarshipDetailPage({
                 </div>
               </section>
 
-              <section className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <section className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_17.5rem]">
                 <div className="grid gap-3">
                   <DetailSection
                     title="Overview"
@@ -783,7 +783,7 @@ export default function ScholarshipDetailPage({
                   />
                 </div>
 
-                <aside className="grid content-start gap-3">
+                <aside className="grid content-start gap-2">
                   {user?.role === "student" ? (
                     <MatchScoreSidebarCard
                       match={match}
@@ -822,9 +822,9 @@ export default function ScholarshipDetailPage({
                         </p>
 
                         {scholarship.fields_of_study.length > 0 ? (
-                          <div className="mt-4">
-                            <h3 className="text-sm font-bold text-ink">Fields</h3>
-                            <div className="mt-2 flex flex-wrap gap-2">
+                          <div className="mt-3">
+                            <h3 className="text-xs font-bold text-ink">Fields</h3>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.fields_of_study.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="sky">
                                   {item}
@@ -835,9 +835,9 @@ export default function ScholarshipDetailPage({
                         ) : null}
 
                         {scholarship.eligible_countries.length > 0 ? (
-                          <div className="mt-4">
-                            <h3 className="text-sm font-bold text-ink">Eligible countries</h3>
-                            <div className="mt-2 flex flex-wrap gap-2">
+                          <div className="mt-3">
+                            <h3 className="text-xs font-bold text-ink">Eligible countries</h3>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.eligible_countries.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="neutral">
                                   {item}
@@ -848,9 +848,9 @@ export default function ScholarshipDetailPage({
                         ) : null}
 
                         {scholarship.target_regions.length > 0 ? (
-                          <div className="mt-4">
-                            <h3 className="text-sm font-bold text-ink">Target regions</h3>
-                            <div className="mt-2 flex flex-wrap gap-2">
+                          <div className="mt-3">
+                            <h3 className="text-xs font-bold text-ink">Target regions</h3>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.target_regions.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="neutral">
                                   {item}
