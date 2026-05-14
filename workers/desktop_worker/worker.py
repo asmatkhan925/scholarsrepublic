@@ -1,6 +1,7 @@
 import os
 import time
 import traceback
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -32,6 +33,11 @@ DEEPSEEK_URL = os.getenv("DEEPSEEK_URL", "https://chat.deepseek.com")
 DEEPSEEK_LOGIN_WAIT_SECONDS = int(os.getenv("DEEPSEEK_LOGIN_WAIT_SECONDS", "600"))
 DEEPSEEK_RESPONSE_TIMEOUT_MS = int(os.getenv("DEEPSEEK_RESPONSE_TIMEOUT_MS", "180000"))
 DEEPSEEK_STABLE_SECONDS = int(os.getenv("DEEPSEEK_STABLE_SECONDS", "6"))
+DEEPSEEK_NEW_CHAT_EVERY_JOBS = int(os.getenv("DEEPSEEK_NEW_CHAT_EVERY_JOBS", "5"))
+DEEPSEEK_LOCAL_STATE_FILE = os.getenv(
+    "DEEPSEEK_LOCAL_STATE_FILE",
+    os.path.expanduser("~/.scholarsrepublic-deepseek-state.txt"),
+)
 
 
 def headers() -> dict[str, str]:
@@ -172,30 +178,112 @@ def wait_for_deepseek_login_if_needed(page) -> None:
     print("DeepSeek login detected. Continuing...")
 
 
-def click_deepseek_new_chat_if_available(page) -> None:
+
+def read_deepseek_local_job_count() -> int:
+    state_path = Path(DEEPSEEK_LOCAL_STATE_FILE)
+    if not state_path.exists():
+        return 0
+
+    try:
+        return int(state_path.read_text().strip() or "0")
+    except ValueError:
+        return 0
+
+
+def write_deepseek_local_job_count(count: int) -> None:
+    state_path = Path(DEEPSEEK_LOCAL_STATE_FILE)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(str(count))
+
+
+def should_force_deepseek_new_chat() -> bool:
+    if DEEPSEEK_NEW_CHAT_EVERY_JOBS <= 0:
+        return True
+
+    return read_deepseek_local_job_count() >= DEEPSEEK_NEW_CHAT_EVERY_JOBS
+
+
+def increment_deepseek_local_job_count() -> int:
+    count = read_deepseek_local_job_count() + 1
+    write_deepseek_local_job_count(count)
+    return count
+
+
+def reset_deepseek_local_job_count() -> None:
+    write_deepseek_local_job_count(0)
+
+
+def click_deepseek_new_chat_if_available(page) -> bool:
     candidates = [
-        'a[href="/"]',
         'button:has-text("New chat")',
         'button:has-text("New Chat")',
         'button:has-text("New conversation")',
+        'button:has-text("New Conversation")',
         'button:has-text("新对话")',
         'button:has-text("开启新对话")',
+        '[aria-label*="New chat"]',
+        '[aria-label*="new chat"]',
+        '[aria-label*="New Chat"]',
         '[aria-label*="New"]',
         '[aria-label*="new"]',
+        '[title*="New"]',
+        '[title*="new"]',
+        'a[href="/"]',
     ]
 
     for selector in candidates:
         try:
             locator = page.locator(selector).first
             locator.click(timeout=2500)
-            page.wait_for_timeout(1500)
-            return
+            page.wait_for_timeout(2000)
+            print(f"Started new DeepSeek chat using selector: {selector}")
+            reset_deepseek_local_job_count()
+            return True
         except Exception:
             continue
 
-    # DeepSeek usually opens a usable chat on the main URL, so failing to find
-    # a new-chat button is not fatal.
+    # Fallback: scan all visible clickable elements for text/labels.
+    try:
+        clicked = page.evaluate(
+            """() => {
+                const keywords = [
+                    'new chat',
+                    'new conversation',
+                    '新对话',
+                    '开启新对话'
+                ];
+
+                const elements = Array.from(
+                    document.querySelectorAll('button, a, [role="button"]')
+                );
+
+                for (const element of elements) {
+                    const text = [
+                        element.innerText,
+                        element.getAttribute('aria-label'),
+                        element.getAttribute('title')
+                    ].filter(Boolean).join(' ').toLowerCase();
+
+                    if (keywords.some(keyword => text.includes(keyword))) {
+                        element.click();
+                        return true;
+                    }
+                }
+
+                return false;
+            }"""
+        )
+
+        if clicked:
+            page.wait_for_timeout(2000)
+            print("Started new DeepSeek chat using JS fallback.")
+            reset_deepseek_local_job_count()
+            return True
+    except Exception:
+        pass
+
     print("New chat button was not found. Continuing with current chat page.")
+    return False
 
 
 def get_deepseek_input(page):
@@ -378,7 +466,13 @@ def run_deepseek_query_job(job: dict[str, Any]) -> dict[str, Any]:
         try:
             page.goto(DEEPSEEK_URL, wait_until="domcontentloaded")
             wait_for_deepseek_login_if_needed(page)
-            click_deepseek_new_chat_if_available(page)
+
+            forced_new_chat = False
+            new_chat_started = False
+
+            if should_force_deepseek_new_chat():
+                forced_new_chat = True
+                new_chat_started = click_deepseek_new_chat_if_available(page)
 
             before_text = ""
             try:
@@ -397,6 +491,14 @@ def run_deepseek_query_job(job: dict[str, Any]) -> dict[str, Any]:
                 "query": query,
                 "target_url": DEEPSEEK_URL,
                 "source": "desktop-worker-deepseek",
+                "forced_new_chat": forced_new_chat,
+                "new_chat_started": new_chat_started,
+                "local_chat_job_count": increment_deepseek_local_job_count(),
+                "warning": (
+                    "Could not start a new DeepSeek chat; continued in current chat."
+                    if forced_new_chat and not new_chat_started
+                    else ""
+                ),
             }
         finally:
             browser.close()
