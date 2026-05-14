@@ -15,6 +15,8 @@ API_BASE_URL = os.getenv("SCHOLARS_API_BASE_URL", "https://scholarsrepublic.org/
 WORKER_TOKEN = os.getenv("DESKTOP_WORKER_TOKEN", "")
 WORKER_ID = os.getenv("DESKTOP_WORKER_ID", "desktop-wsl-1")
 POLL_SECONDS = int(os.getenv("DESKTOP_WORKER_POLL_SECONDS", "5"))
+HEARTBEAT_SECONDS = int(os.getenv("DESKTOP_WORKER_HEARTBEAT_SECONDS", "30"))
+LAST_HEARTBEAT_AT = 0.0
 BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "False").strip().lower() in {
     "1",
     "true",
@@ -124,6 +126,44 @@ def fail_job(
         timeout=30,
     )
     response.raise_for_status()
+
+def send_heartbeat(
+    status: str = "idle",
+    current_job_id: int | None = None,
+    error_message: str = "",
+    force: bool = False,
+) -> None:
+    global LAST_HEARTBEAT_AT
+
+    now = time.time()
+    if not force and now - LAST_HEARTBEAT_AT < HEARTBEAT_SECONDS:
+        return
+
+    response = requests.post(
+        f"{API_BASE_URL}/internal/desktop-worker/heartbeat/",
+        headers=headers(),
+        json={
+            "worker_id": WORKER_ID,
+            "status": status,
+            "current_job_id": current_job_id,
+            "error_message": error_message[:2000],
+            "metadata": {
+                "headless": BROWSER_HEADLESS,
+                "poll_seconds": POLL_SECONDS,
+                "heartbeat_seconds": HEARTBEAT_SECONDS,
+                "deepseek_new_chat_every_jobs": DEEPSEEK_NEW_CHAT_EVERY_JOBS,
+            },
+        },
+        timeout=30,
+    )
+    try:
+        response.raise_for_status()
+    except Exception as exc:
+        print(f"Heartbeat failed but worker will continue: {exc}")
+        LAST_HEARTBEAT_AT = now
+        return
+
+    LAST_HEARTBEAT_AT = now
 
 
 def get_browser_context():
@@ -586,12 +626,15 @@ def main() -> None:
     print(f"API: {API_BASE_URL}")
     print(f"Playwright profile: {PLAYWRIGHT_PROFILE_DIR}")
     print("Browser context will stay open while this worker is running.")
+    send_heartbeat("starting", force=True)
 
     job = None
 
     try:
         while True:
             try:
+                send_heartbeat("idle")
+
                 job = claim_job()
                 if job is None:
                     time.sleep(POLL_SECONDS)
@@ -599,10 +642,12 @@ def main() -> None:
 
                 job_id = job["id"]
                 print(f"Claimed job #{job_id}: {job.get('kind')}")
+                send_heartbeat("running", current_job_id=job_id, force=True)
 
                 result = run_job(job)
                 complete_job(job_id, result)
                 print(f"Completed job #{job_id}")
+                send_heartbeat("idle", force=True)
 
                 job = None
 
@@ -616,6 +661,14 @@ def main() -> None:
                 try:
                     if job:
                         fail_job(job["id"], error_message, retry=False)
+                        send_heartbeat(
+                            "error",
+                            current_job_id=job["id"],
+                            error_message=error_message,
+                            force=True,
+                        )
+                    else:
+                        send_heartbeat("error", error_message=error_message, force=True)
                 except Exception:
                     print("Could not report job failure:")
                     print(traceback.format_exc())
