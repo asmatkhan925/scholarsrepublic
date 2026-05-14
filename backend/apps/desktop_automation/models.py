@@ -52,3 +52,20 @@ class DesktopAutomationJob(models.Model):
 
     def __str__(self) -> str:
         return f"{self.kind} #{self.pk} ({self.status})"
+
+
+class DesktopWorkerHeartbeat(models.Model):
+    worker_id = models.CharField(max_length=120, unique=True)
+    status = models.CharField(max_length=40, default="unknown", db_index=True)
+    current_job_id = models.PositiveIntegerField(null=True, blank=True)
+    last_seen_at = models.DateTimeField(db_index=True)
+    error_message = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["worker_id"]
+
+    def __str__(self) -> str:
+        return f"{self.worker_id} ({self.status})"
