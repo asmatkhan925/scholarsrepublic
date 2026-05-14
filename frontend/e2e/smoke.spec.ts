@@ -214,6 +214,40 @@ test("home page loads", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Browse Scholarships" }).first()).toBeVisible();
 });
 
+const trustPages = [
+  { path: "/privacy-policy", heading: "Privacy Policy" },
+  { path: "/terms", heading: "Terms of Use" },
+  { path: "/contact", heading: "Contact Scholars Republic" },
+  { path: "/disclaimer", heading: "Disclaimer" },
+];
+
+for (const { path, heading } of trustPages) {
+  test(`${path} loads`, async ({ page }) => {
+    await page.goto(path);
+
+    await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+  });
+}
+
+test("public footer includes main and trust links", async ({ page }) => {
+  await page.goto("/");
+
+  const footer = page.locator("footer");
+  const footerLinks = [
+    { name: "Scholarships", href: "/scholarships" },
+    { name: "Guides", href: "/blog" },
+    { name: "About", href: "/about" },
+    { name: "Contact", href: "/contact" },
+    { name: "Privacy Policy", href: "/privacy-policy" },
+    { name: "Terms", href: "/terms" },
+    { name: "Disclaimer", href: "/disclaimer" },
+  ];
+
+  for (const { name, href } of footerLinks) {
+    await expect(footer.getByRole("link", { name })).toHaveAttribute("href", href);
+  }
+});
+
 test("scholarships page renders heading without placeholder zero stats", async ({ page }) => {
   await mockScholarshipApi(page, { delayScholarshipsMs: 1_000 });
 

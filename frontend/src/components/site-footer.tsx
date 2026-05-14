@@ -5,9 +5,11 @@ import { GraduationCap } from "lucide-react";
 const footerLinks = [
   { label: "Scholarships", href: "/scholarships" },
   { label: "Guides", href: "/blog" },
-  { label: "Services", href: "/services" },
   { label: "About", href: "/about" },
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "Contact", href: "/contact" },
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Disclaimer", href: "/disclaimer" },
 ];
 
 type SiteFooterProps = {
