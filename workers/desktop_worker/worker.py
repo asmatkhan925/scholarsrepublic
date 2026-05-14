@@ -68,10 +68,25 @@ def run_echo_job(job: dict[str, Any]) -> dict[str, Any]:
 
 def run_browser_query_job(job: dict[str, Any]) -> dict[str, Any]:
     payload = job.get("input_payload", {})
-    query = payload.get("query", "")
 
+    target_url = payload.get("target_url", "")
+    query = payload.get("query", "")
+    input_selector = payload.get("input_selector", "")
+    submit_selector = payload.get("submit_selector", "")
+    response_selector = payload.get("response_selector", "")
+    wait_after_submit_seconds = int(payload.get("wait_after_submit_seconds", 5))
+    timeout_ms = int(payload.get("timeout_ms", 120000))
+
+    if not target_url:
+        raise ValueError("Missing input_payload.target_url")
     if not query:
         raise ValueError("Missing input_payload.query")
+    if not input_selector:
+        raise ValueError("Missing input_payload.input_selector")
+    if not submit_selector:
+        raise ValueError("Missing input_payload.submit_selector")
+    if not response_selector:
+        raise ValueError("Missing input_payload.response_selector")
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch_persistent_context(
@@ -79,16 +94,26 @@ def run_browser_query_job(job: dict[str, Any]) -> dict[str, Any]:
             headless=False,
         )
         page = browser.new_page()
-        page.goto("about:blank")
+        page.set_default_timeout(timeout_ms)
 
-        result = {
-            "text": "Browser worker is connected. Automation target is not configured yet.",
-            "query": query,
-            "source": "desktop-worker-playwright-placeholder",
-        }
+        page.goto(target_url, wait_until="domcontentloaded")
+        page.wait_for_selector(input_selector, state="visible")
+        page.fill(input_selector, query)
+        page.click(submit_selector)
+
+        page.wait_for_timeout(wait_after_submit_seconds * 1000)
+        page.wait_for_selector(response_selector, state="visible")
+
+        response_text = page.locator(response_selector).last.inner_text(timeout=timeout_ms)
 
         browser.close()
-        return result
+
+        return {
+            "text": response_text.strip(),
+            "query": query,
+            "target_url": target_url,
+            "source": "desktop-worker-playwright",
+        }
 
 
 def run_job(job: dict[str, Any]) -> dict[str, Any]:
