@@ -1,6 +1,12 @@
 from django.contrib import admin, messages
+from django.utils import timezone
 
-from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
+from apps.opportunities.models import (
+    Opportunity,
+    OpportunityComment,
+    OpportunityDraft,
+    OpportunityPathway,
+)
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
@@ -411,3 +417,63 @@ class OpportunityAdmin(admin.ModelAdmin):
 
     def is_blank(self, value):
         return not (value or "").strip()
+
+
+@admin.register(OpportunityComment)
+class OpportunityCommentAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "opportunity",
+        "user",
+        "display_moderation_status",
+        "display_comment_excerpt",
+        "parent",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("is_deleted", "created_at", "updated_at", "opportunity__status")
+    search_fields = (
+        "body",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "opportunity__title",
+        "opportunity__slug",
+    )
+    raw_id_fields = ("opportunity", "user", "parent")
+    readonly_fields = ("created_at", "updated_at", "display_moderation_status")
+    actions = ("approve_selected_comments", "hide_selected_comments", "remove_selected_comments")
+    ordering = ("-created_at",)
+
+    @admin.display(description="Moderation")
+    def display_moderation_status(self, obj):
+        return "Pending or hidden" if obj.is_deleted else "Approved"
+
+    @admin.display(description="Comment")
+    def display_comment_excerpt(self, obj):
+        text = (obj.body or "").strip()
+        return text[:120] + "..." if len(text) > 120 else text
+
+    @admin.action(description="Approve selected comments")
+    def approve_selected_comments(self, request, queryset):
+        updated = queryset.update(is_deleted=False, updated_at=timezone.now())
+        self.message_user(request, f"Approved {updated} comment(s).", messages.SUCCESS)
+
+    @admin.action(description="Hide selected comments")
+    def hide_selected_comments(self, request, queryset):
+        updated = queryset.update(is_deleted=True, updated_at=timezone.now())
+        self.message_user(request, f"Hid {updated} comment(s).", messages.WARNING)
+
+    @admin.action(description="Remove selected comments and clear text")
+    def remove_selected_comments(self, request, queryset):
+        removed_count = 0
+
+        for comment in queryset:
+            comment.soft_delete()
+            removed_count += 1
+
+        self.message_user(
+            request,
+            f"Removed {removed_count} comment(s) and cleared their text.",
+            messages.WARNING,
+        )

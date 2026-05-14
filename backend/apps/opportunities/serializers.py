@@ -520,7 +520,7 @@ class OpportunityCommentReplySerializer(serializers.ModelSerializer):
         )
 
     def get_user_name(self, obj):
-        if obj.is_deleted:
+        if obj.is_deleted and not obj.body:
             return "Deleted user"
 
         full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
@@ -572,7 +572,7 @@ class OpportunityCommentSerializer(serializers.ModelSerializer):
         )
 
     def get_user_name(self, obj):
-        if obj.is_deleted:
+        if obj.is_deleted and not obj.body:
             return "Deleted user"
 
         full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()

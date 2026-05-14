@@ -201,6 +201,7 @@ export function ScholarshipComments({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function loadComments() {
     setError(null);
@@ -228,10 +229,12 @@ export function ScholarshipComments({ slug }: { slug: string }) {
 
     setPosting(true);
     setError(null);
+    setNotice(null);
 
     try {
       await createScholarshipComment(slug, { body });
       setBody("");
+      setNotice("Thanks. Your comment is being reviewed before publication.");
       await loadComments();
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -251,7 +254,7 @@ export function ScholarshipComments({ slug }: { slug: string }) {
             <h2 className="mt-2 text-xl font-bold text-ink">Comments and questions</h2>
             <p className="mt-2 text-sm leading-6 text-ink/65">
               Ask practical questions, share application updates, or help other students understand
-              this scholarship.
+              this scholarship. Comments are being reviewed before publication.
             </p>
           </div>
 
@@ -272,7 +275,8 @@ export function ScholarshipComments({ slug }: { slug: string }) {
             />
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-ink/45">
-                Be helpful. Avoid sharing private documents or personal contact details.
+                Be helpful. Avoid sharing private documents or personal contact details. New
+                comments wait for review.
               </p>
               <Button
                 type="button"
@@ -295,7 +299,7 @@ export function ScholarshipComments({ slug }: { slug: string }) {
                 <div>
                   <p className="font-bold text-ink">Want to ask or reply?</p>
                   <p className="mt-1 text-sm leading-6 text-ink/65">
-                    Login or create a free profile. Everyone can still read public comments.
+                    Login or create a free profile. Everyone can still read approved comments.
                   </p>
                 </div>
               </div>
@@ -313,6 +317,12 @@ export function ScholarshipComments({ slug }: { slug: string }) {
 
         {loading ? <p className="mt-5 text-sm text-ink/65">Loading comments...</p> : null}
 
+        {notice ? (
+          <div className="mt-5 rounded-2xl border border-pine/20 bg-mint/40 p-4 text-sm font-medium text-pine">
+            {notice}
+          </div>
+        ) : null}
+
         {error ? (
           <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
             {error}
@@ -321,8 +331,8 @@ export function ScholarshipComments({ slug }: { slug: string }) {
 
         {!loading && !error && comments.length === 0 ? (
           <div className="mt-5 rounded-3xl border border-dashed border-pine/20 bg-white p-5 text-sm leading-6 text-ink/65">
-            No comments yet. Ask a useful question once you login, or check back later for student
-            updates.
+            Comments are being reviewed before publication. Check back later for approved student
+            questions and updates.
           </div>
         ) : null}
 

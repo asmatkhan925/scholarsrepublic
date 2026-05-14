@@ -1,4 +1,4 @@
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Prefetch, Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -459,10 +459,17 @@ class ScholarshipCommentListCreateView(APIView):
         except Opportunity.DoesNotExist:
             return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        approved_replies = OpportunityComment.objects.filter(is_deleted=False).select_related(
+            "user"
+        )
         comments = (
-            OpportunityComment.objects.filter(opportunity=opportunity, parent__isnull=True)
+            OpportunityComment.objects.filter(
+                opportunity=opportunity,
+                parent__isnull=True,
+                is_deleted=False,
+            )
             .select_related("user")
-            .prefetch_related("replies__user")
+            .prefetch_related(Prefetch("replies", queryset=approved_replies))
             .order_by("-created_at")
         )
 
@@ -491,6 +498,7 @@ class ScholarshipCommentListCreateView(APIView):
             opportunity=opportunity,
             user=request.user,
             body=serializer.validated_data["body"],
+            is_deleted=True,
         )
 
         return Response(
@@ -518,6 +526,7 @@ class ScholarshipCommentReplyCreateView(APIView):
                 pk=pk,
                 opportunity=opportunity,
                 parent__isnull=True,
+                is_deleted=False,
             )
         except OpportunityComment.DoesNotExist:
             return Response({"detail": "Comment not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -530,6 +539,7 @@ class ScholarshipCommentReplyCreateView(APIView):
             user=request.user,
             parent=parent,
             body=serializer.validated_data["body"],
+            is_deleted=True,
         )
 
         return Response(

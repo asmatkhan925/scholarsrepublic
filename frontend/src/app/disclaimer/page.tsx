@@ -65,6 +65,15 @@ export default function DisclaimerPage() {
               financial advice. Students should review and verify all final application materials.
             </p>
           </section>
+
+          <section className="border-t border-ink/10 pt-8">
+            <h2 className="text-xl font-bold text-ink">Student Comments</h2>
+            <p className="mt-3">
+              Comments and student discussions may be reviewed before publication. Scholars Republic
+              may hide or remove comments that are spam, unsafe, misleading, off-topic, abusive, or
+              otherwise unsuitable for the website.
+            </p>
+          </section>
         </article>
       </section>
     </main>

@@ -83,7 +83,12 @@ def create_reference_data(testcase):
 
 
 from apps.opportunities.admin import OpportunityAdmin, OpportunityDraftAdmin
-from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
+from apps.opportunities.models import (
+    Opportunity,
+    OpportunityComment,
+    OpportunityDraft,
+    OpportunityPathway,
+)
 from apps.opportunities.services.opportunity_draft_importer import import_opportunity_draft
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
@@ -1453,6 +1458,80 @@ class ScholarshipCommentThrottleTests(OpportunityAPITests):
         response = self.client.get(f"/api/scholarships/{opportunity.slug}/comments/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 0)
+
+    def test_unapproved_comments_are_not_publicly_listed(self):
+        opportunity = self.opportunity(slug="comments-unapproved-hidden")
+        OpportunityComment.objects.create(
+            opportunity=opportunity,
+            user=self.student,
+            body="This pending comment should not be public.",
+            is_deleted=True,
+        )
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/comments/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+
+    def test_approved_comments_are_publicly_listed(self):
+        opportunity = self.opportunity(slug="comments-approved-visible")
+        approved_comment = OpportunityComment.objects.create(
+            opportunity=opportunity,
+            user=self.student,
+            body="This approved comment should be public.",
+            is_deleted=False,
+        )
+        OpportunityComment.objects.create(
+            opportunity=opportunity,
+            user=self.admin,
+            parent=approved_comment,
+            body="Approved staff reply.",
+            is_deleted=False,
+        )
+        OpportunityComment.objects.create(
+            opportunity=opportunity,
+            user=self.student,
+            parent=approved_comment,
+            body="Pending reply should not be public.",
+            is_deleted=True,
+        )
+
+        response = self.client.get(f"/api/scholarships/{opportunity.slug}/comments/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(
+            response.data["results"][0]["body"],
+            "This approved comment should be public.",
+        )
+        self.assertEqual(len(response.data["results"][0]["replies"]), 1)
+        self.assertEqual(
+            response.data["results"][0]["replies"][0]["body"],
+            "Approved staff reply.",
+        )
+
+    def test_authenticated_user_can_submit_comment_for_review(self):
+        opportunity = self.opportunity(slug="comments-waiting-for-review")
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            f"/api/scholarships/{opportunity.slug}/comments/",
+            {"body": "Please review this comment before publication."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["is_deleted"])
+
+        comment = OpportunityComment.objects.get(pk=response.data["id"])
+        self.assertTrue(comment.is_deleted)
+        self.assertEqual(comment.body, "Please review this comment before publication.")
+
+        self.client.force_authenticate(None)
+        list_response = self.client.get(f"/api/scholarships/{opportunity.slug}/comments/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data["count"], 0)
 
     def test_student_comment_posts_are_throttled(self):
         opportunity = self.opportunity(slug="comments-throttle")
