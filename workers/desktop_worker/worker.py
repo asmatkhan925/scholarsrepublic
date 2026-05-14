@@ -15,6 +15,12 @@ API_BASE_URL = os.getenv("SCHOLARS_API_BASE_URL", "https://scholarsrepublic.org/
 WORKER_TOKEN = os.getenv("DESKTOP_WORKER_TOKEN", "")
 WORKER_ID = os.getenv("DESKTOP_WORKER_ID", "desktop-wsl-1")
 POLL_SECONDS = int(os.getenv("DESKTOP_WORKER_POLL_SECONDS", "5"))
+BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "False").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 PLAYWRIGHT_PROFILE_DIR = os.getenv(
     "PLAYWRIGHT_PROFILE_DIR",
@@ -94,7 +100,7 @@ def get_browser_context():
     PLAYWRIGHT_RUNTIME = sync_playwright().start()
     BROWSER_CONTEXT = PLAYWRIGHT_RUNTIME.chromium.launch_persistent_context(
         PLAYWRIGHT_PROFILE_DIR,
-        headless=False,
+        headless=BROWSER_HEADLESS,
     )
     return BROWSER_CONTEXT
 
@@ -392,6 +398,24 @@ def clean_deepseek_candidate(text: str, query: str) -> str:
 
 
 def extract_deepseek_response(page, query: str, before_text: str) -> str:
+    candidates: list[str] = []
+
+    try:
+        body_text = page.locator("body").inner_text(timeout=10000)
+    except Exception:
+        body_text = ""
+
+    # Most reliable path: extract only text added after this job started.
+    if body_text:
+        if before_text and before_text in body_text:
+            candidates.append(body_text.rsplit(before_text, 1)[-1])
+
+        # Use rsplit, not split, because the same prompt text may appear earlier
+        # in old chat history.
+        if query and query in body_text:
+            candidates.append(body_text.rsplit(query, 1)[-1])
+
+    # Fallback: inspect likely response blocks, but prefer the latest visible ones.
     response_selectors = [
         '[class*="ds-markdown"]',
         '[class*="markdown"]',
@@ -399,34 +423,34 @@ def extract_deepseek_response(page, query: str, before_text: str) -> str:
         '[class*="message"]',
     ]
 
-    candidates = []
-
     for selector in response_selectors:
         try:
             texts = page.locator(selector).all_inner_texts()
-            for text in texts:
-                cleaned = clean_deepseek_candidate(text, query)
-                if cleaned and len(cleaned) >= 20:
-                    candidates.append(cleaned)
+            for text in reversed(texts[-8:]):
+                candidates.append(text)
         except Exception:
             continue
 
-    if candidates:
-        return max(candidates, key=len)
+    cleaned_candidates = []
+    for candidate in candidates:
+        cleaned = clean_deepseek_candidate(candidate, query)
+        if not cleaned:
+            continue
 
-    try:
-        body_text = page.locator("body").inner_text(timeout=10000)
-    except Exception:
+        # Reject obvious echo/prompt-only outputs.
+        if cleaned.strip() == query.strip():
+            continue
+
+        if len(cleaned) < 12:
+            continue
+
+        cleaned_candidates.append(cleaned)
+
+    if not cleaned_candidates:
         return ""
 
-    if query in body_text:
-        possible = body_text.split(query, 1)[-1]
-    elif before_text and body_text.startswith(before_text):
-        possible = body_text[len(before_text):]
-    else:
-        possible = body_text
-
-    return clean_deepseek_candidate(possible, query)
+    # Prefer the first good delta candidate. It is usually the newest response.
+    return cleaned_candidates[0]
 
 
 def wait_for_deepseek_response(page, query: str, before_text: str) -> str:
