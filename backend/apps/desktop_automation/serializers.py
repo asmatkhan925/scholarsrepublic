@@ -39,4 +39,5 @@ class CompleteJobSerializer(serializers.Serializer):
 class FailJobSerializer(serializers.Serializer):
     job_id = serializers.IntegerField()
     error_message = serializers.CharField(allow_blank=True, required=False)
+    public_message = serializers.CharField(allow_blank=True, required=False)
     retry = serializers.BooleanField(default=True)

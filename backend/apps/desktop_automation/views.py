@@ -134,7 +134,13 @@ class FailDesktopJobView(APIView):
 
         job_id = serializer.validated_data["job_id"]
         error_message = serializer.validated_data.get("error_message", "")
+        public_message = serializer.validated_data.get("public_message", "").strip()
         retry = serializer.validated_data["retry"]
+
+        if not public_message:
+            public_message = (
+                "Our AI system is temporarily unavailable. Please try again later."
+            )
 
         try:
             job = DesktopAutomationJob.objects.get(pk=job_id)
@@ -157,17 +163,27 @@ class FailDesktopJobView(APIView):
         job.claimed_by = "" if should_retry else job.claimed_by
         job.claimed_at = None if should_retry else job.claimed_at
         job.started_at = None if should_retry else job.started_at
-        job.save(
-            update_fields=[
-                "status",
-                "error_message",
-                "failed_at",
-                "claimed_by",
-                "claimed_at",
-                "started_at",
-                "updated_at",
-            ],
-        )
+
+        update_fields = [
+            "status",
+            "error_message",
+            "failed_at",
+            "claimed_by",
+            "claimed_at",
+            "started_at",
+            "updated_at",
+        ]
+
+        if not should_retry:
+            job.result_payload = {
+                "ok": False,
+                "text": public_message,
+                "user_message": public_message,
+                "source": "desktop-worker-error",
+            }
+            update_fields.append("result_payload")
+
+        job.save(update_fields=update_fields)
 
         return Response({"job": DesktopAutomationJobSerializer(job).data})
 
