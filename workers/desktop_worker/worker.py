@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
 
-load_dotenv()
+load_dotenv(override=True)
 
 API_BASE_URL = os.getenv("SCHOLARS_API_BASE_URL", "https://scholarsrepublic.org/api").rstrip("/")
 WORKER_TOKEN = os.getenv("DESKTOP_WORKER_TOKEN", "")
