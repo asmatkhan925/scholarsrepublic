@@ -285,6 +285,57 @@ class DesktopJobStatusView(APIView):
         return Response(DesktopAutomationJobStatusSerializer(job).data)
 
 
+class DesktopJobCancelView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, job_id: int):
+        try:
+            job = DesktopAutomationJob.objects.get(pk=job_id)
+        except DesktopAutomationJob.DoesNotExist:
+            return Response(
+                {"detail": "Job not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if job.created_by_id:
+            if job.created_by_id != request.user.id and not request.user.is_staff:
+                return Response(
+                    {"detail": "You do not have permission to cancel this job."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        elif not request.user.is_staff:
+            return Response(
+                {"detail": "You do not have permission to cancel this job."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if job.status not in {
+            DesktopAutomationJob.Status.QUEUED,
+            DesktopAutomationJob.Status.RUNNING,
+        }:
+            return Response(DesktopAutomationJobStatusSerializer(job).data)
+
+        message = "This AI request was canceled."
+        job.status = DesktopAutomationJob.Status.CANCELED
+        job.error_message = ""
+        job.result_payload = {
+            "ok": False,
+            "text": message,
+            "user_message": message,
+            "source": "desktop-worker-cancel",
+        }
+        job.save(
+            update_fields=[
+                "status",
+                "error_message",
+                "result_payload",
+                "updated_at",
+            ],
+        )
+
+        return Response(DesktopAutomationJobStatusSerializer(job).data)
+
+
 class DesktopWorkerPublicStatusView(APIView):
     permission_classes = [IsAuthenticated]
 

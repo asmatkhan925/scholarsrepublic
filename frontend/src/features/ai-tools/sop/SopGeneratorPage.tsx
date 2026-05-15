@@ -16,9 +16,17 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { api, getAIJobStatus, submitSOPJob } from "@/lib/api";
+import {
+  api,
+  getAIJobStatus,
+  getCountries,
+  getStudyFields,
+  submitSOPJob,
+} from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
 import type { AIJobStatus, GenerateSOPPayload, SOPOutputType, SOPTone } from "@/types/ai";
+import type { CountryOption, StudyFieldOption } from "@/types/reference";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, outputTypeHelp, PUTER_MODEL, toneHelp } from "./constants";
 import { formatWait, normalizeAIText } from "./format";
@@ -65,6 +73,16 @@ type DeepSeekLimitErrorResponse = {
 };
 
 const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
+const fallbackCountryOptions = ["Pakistan", "China", "Turkey", "Germany", "United States"];
+const fallbackStudyFieldOptions = [
+  "Computer Science",
+  "Artificial Intelligence",
+  "Engineering",
+  "Business Administration",
+  "Public Health",
+];
+const deepSeekLeaveWarning =
+  "Your SOP request is still processing. Leaving may cancel or lose the result.";
 
 function getDeepSeekLimitPayload(error: unknown): DeepSeekLimitErrorResponse | null {
   if (!isAxiosError<DeepSeekLimitErrorResponse>(error)) {
@@ -85,6 +103,60 @@ function formatCooldown(seconds: number) {
   return `${minutes}m ${remainingSeconds.toString().padStart(2, "0")}s`;
 }
 
+function cancelDeepSeekJobWithKeepalive(jobId: number) {
+  const accessToken = getAccessToken();
+  const baseUrl = api.defaults.baseURL ?? "";
+
+  void fetch(`${baseUrl}/desktop-automation/jobs/${jobId}/cancel/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: "{}",
+    keepalive: true,
+  }).catch(() => {
+    // Best effort during page unload.
+  });
+}
+
+function CompactOptionInput({
+  id,
+  label,
+  options,
+  placeholder,
+  required = false,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  options: string[];
+  placeholder: string;
+  required?: boolean;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-1 text-sm font-semibold text-ink">
+      {label}
+      <input
+        required={required}
+        list={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+      />
+      <datalist id={id}>
+        {options.map((option) => (
+          <option key={option} value={option} />
+        ))}
+      </datalist>
+    </label>
+  );
+}
+
 function SOPGeneratorContent() {
   const [aiHealth, setAiHealth] = useState<AIHealthStatus | null>(null);
   const [checkingAI, setCheckingAI] = useState(true);
@@ -93,6 +165,8 @@ function SOPGeneratorContent() {
   const [deepSeekWorkerStatus, setDeepSeekWorkerStatus] =
     useState<DeepSeekWorkerStatusResponse | null>(null);
   const [checkingDeepSeekWorker, setCheckingDeepSeekWorker] = useState(true);
+  const [countryOptions, setCountryOptions] = useState<string[]>(fallbackCountryOptions);
+  const [studyFieldOptions, setStudyFieldOptions] = useState<string[]>(fallbackStudyFieldOptions);
   const [form, setForm] = useState<GenerateSOPPayload>(initialForm);
   const [job, setJob] = useState<AIJobStatus | null>(null);
   const [jobMessage, setJobMessage] = useState("");
@@ -102,10 +176,12 @@ function SOPGeneratorContent() {
   const [deepSeekResult, setDeepSeekResult] = useState("");
   const [deepSeekError, setDeepSeekError] = useState<string | null>(null);
   const [deepSeekCooldownSeconds, setDeepSeekCooldownSeconds] = useState(0);
+  const [resultProvider, setResultProvider] = useState<GenerationProvider | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeDeepSeekJobIdRef = useRef<number | null>(null);
 
   const canSubmit = useMemo(() => {
     return (
@@ -164,6 +240,28 @@ function SOPGeneratorContent() {
     }
   }
 
+  async function loadReferenceOptions() {
+    try {
+      const [countriesResponse, fieldsResponse] = await Promise.all([
+        getCountries(),
+        getStudyFields(),
+      ]);
+
+      const countries = countriesResponse.results
+        .map((country: CountryOption) => country.name)
+        .filter(Boolean);
+      const studyFields = fieldsResponse.results
+        .map((field: StudyFieldOption) => field.name)
+        .filter(Boolean);
+
+      setCountryOptions(countries.length ? countries : fallbackCountryOptions);
+      setStudyFieldOptions(studyFields.length ? studyFields : fallbackStudyFieldOptions);
+    } catch {
+      setCountryOptions(fallbackCountryOptions);
+      setStudyFieldOptions(fallbackStudyFieldOptions);
+    }
+  }
+
   function loadPuterScript() {
     setPuterStatus("loading");
 
@@ -199,6 +297,7 @@ function SOPGeneratorContent() {
   useEffect(() => {
     checkAIHealth();
     checkDeepSeekWorkerStatus();
+    loadReferenceOptions();
     loadPuterScript();
 
     return () => {
@@ -222,6 +321,74 @@ function SOPGeneratorContent() {
     };
   }, [deepSeekCooldownSeconds]);
 
+  useEffect(() => {
+    const isActive = deepSeekJob?.status === "queued" || deepSeekJob?.status === "running";
+    activeDeepSeekJobIdRef.current = isActive && deepSeekJob ? deepSeekJob.id : null;
+  }, [deepSeekJob]);
+
+  useEffect(() => {
+    const isActive = deepSeekJob?.status === "queued" || deepSeekJob?.status === "running";
+
+    if (!isActive) {
+      return;
+    }
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = deepSeekLeaveWarning;
+      return deepSeekLeaveWarning;
+    }
+
+    function handlePageHide() {
+      const jobId = activeDeepSeekJobIdRef.current;
+      if (jobId) {
+        cancelDeepSeekJobWithKeepalive(jobId);
+      }
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor) {
+        return;
+      }
+
+      const href = anchor.getAttribute("href") ?? "";
+      if (!href || href.startsWith("#")) {
+        return;
+      }
+
+      if (!window.confirm(deepSeekLeaveWarning)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const jobId = activeDeepSeekJobIdRef.current;
+      if (jobId) {
+        cancelDeepSeekJobWithKeepalive(jobId);
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("click", handleDocumentClick, true);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [deepSeekJob]);
+
   function updateField<K extends keyof GenerateSOPPayload>(field: K, value: GenerateSOPPayload[K]) {
     setForm((current) => ({
       ...current,
@@ -236,6 +403,7 @@ function SOPGeneratorContent() {
 
       if (latest.status === "success" || latest.status === "failed") {
         setLoading(false);
+        setResultProvider(latest.status === "success" ? "local" : null);
 
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
@@ -272,6 +440,7 @@ function SOPGeneratorContent() {
 
         if (latest.status === "completed") {
           setDeepSeekResult(normalizeAIText(latest.user_message || latest.text || ""));
+          setResultProvider("deepseek");
           setDeepSeekError(null);
           setError(null);
         } else {
@@ -282,6 +451,7 @@ function SOPGeneratorContent() {
 
           setDeepSeekError(message);
           setError(message);
+          setResultProvider(null);
         }
       }
 
@@ -302,10 +472,29 @@ function SOPGeneratorContent() {
     }
   }
 
+  async function cancelDeepSeekJob(jobId: number) {
+    try {
+      const response = await api.post<DeepSeekJobResponse>(
+        `/desktop-automation/jobs/${jobId}/cancel/`,
+        {},
+      );
+
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+
+      setDeepSeekJob(response.data);
+      setDeepSeekError(response.data.user_message || "This AI request was canceled.");
+      setLoading(false);
+    } catch (requestError) {
+      setDeepSeekError(getErrorMessage(requestError));
+    }
+  }
+
   async function generateWithLocalServer() {
     if (!aiHealth?.available) {
       setProvider("puter");
-      setError("Our AI server is temporarily offline. Please use External AI for now.");
       return;
     }
 
@@ -319,6 +508,7 @@ function SOPGeneratorContent() {
     setDeepSeekJob(null);
     setDeepSeekResult("");
     setDeepSeekError(null);
+    setResultProvider(null);
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -374,6 +564,7 @@ function SOPGeneratorContent() {
     setDeepSeekJob(null);
     setDeepSeekResult("");
     setDeepSeekError(null);
+    setResultProvider(null);
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -388,6 +579,7 @@ function SOPGeneratorContent() {
 
       setPuterResult(normalizeAIText(extractPuterText(response)));
       setPuterUsage(extractPuterUsage(response));
+      setResultProvider("puter");
     } catch (requestError) {
       const message =
         requestError instanceof Error ? requestError.message : "External AI request failed.";
@@ -419,6 +611,7 @@ function SOPGeneratorContent() {
     setDeepSeekJob(null);
     setDeepSeekResult("");
     setDeepSeekError(null);
+    setResultProvider(null);
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -509,7 +702,13 @@ function SOPGeneratorContent() {
 
   const localResult = normalizeAIText(job?.result_text || "");
   const result =
-    provider === "puter" ? puterResult : provider === "deepseek" ? deepSeekResult : localResult;
+    resultProvider === "puter"
+      ? puterResult
+      : resultProvider === "deepseek"
+        ? deepSeekResult
+        : resultProvider === "local"
+          ? localResult
+          : "";
   const isWaiting =
     provider === "local" && (job?.status === "pending" || job?.status === "running");
   const deepSeekActiveJob = deepSeekJob?.status === "queued" || deepSeekJob?.status === "running";
@@ -537,12 +736,14 @@ function SOPGeneratorContent() {
     (provider === "puter" && puterOptionDisabled) ||
     (provider === "deepseek" &&
       (deepSeekOptionDisabled || deepSeekCooldownActive || deepSeekActiveJob));
-  const selectedProviderName =
-    provider === "local"
+  const resultProviderName =
+    resultProvider === "local"
       ? "Scholars Republic AI Server"
-      : provider === "puter"
+      : resultProvider === "puter"
         ? "External AI via Puter.js"
-        : "DeepSeek Desktop Worker";
+        : resultProvider === "deepseek"
+          ? "DeepSeek Desktop Worker"
+          : "";
   const deepSeekWorkerLabel = checkingDeepSeekWorker
     ? "Checking"
     : deepSeekWorkerStatus?.online
@@ -599,13 +800,6 @@ function SOPGeneratorContent() {
             {checkingAI && (
               <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/70">
                 Checking Scholars Republic AI Server status...
-              </div>
-            )}
-
-            {!checkingAI && !aiHealth?.available && (
-              <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/75">
-                Our AI server is temporarily offline. External AI is available, so you can still
-                generate your SOP.
               </div>
             )}
 
@@ -666,7 +860,7 @@ function SOPGeneratorContent() {
                         aiHealth?.available ? "bg-pine/10 text-pine" : "bg-red-50 text-red-700"
                       }`}
                     >
-                      {aiHealth?.available ? "Online" : "Offline"}
+                      {aiHealth?.available ? "Online" : "Unavailable"}
                     </span>
                   </div>
                   <p className="mt-1 text-xs leading-5 text-ink/55">Local GPU queue.</p>
@@ -761,7 +955,7 @@ function SOPGeneratorContent() {
               )}
             </section>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-3">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Target scholarship
                 <input
@@ -772,18 +966,15 @@ function SOPGeneratorContent() {
                 />
               </label>
 
-              <label className="grid gap-1 text-sm font-semibold text-ink">
-                Target country
-                <input
-                  value={form.target_country}
-                  onChange={(event) => updateField("target_country", event.target.value)}
-                  placeholder="China"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                />
-              </label>
-            </div>
+              <CompactOptionInput
+                id="sop-target-country-options"
+                label="Target country"
+                options={countryOptions}
+                placeholder="China"
+                value={form.target_country || ""}
+                onChange={(value) => updateField("target_country", value)}
+              />
 
-            <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Target degree *
                 <input
@@ -794,64 +985,65 @@ function SOPGeneratorContent() {
                   className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
-
-              <label className="grid gap-1 text-sm font-semibold text-ink">
-                Field of study *
-                <input
-                  required
-                  value={form.field_of_study}
-                  onChange={(event) => updateField("field_of_study", event.target.value)}
-                  placeholder="Artificial Intelligence"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                />
-              </label>
             </div>
 
-            <label className="grid gap-1 text-sm font-semibold text-ink">
-              Why this scholarship?
-              <textarea
-                value={form.why_scholarship}
-                onChange={(event) => updateField("why_scholarship", event.target.value)}
-                rows={2}
-                placeholder="Explain why this scholarship is important for your academic journey."
-                className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+            <div className="grid gap-3 lg:grid-cols-3">
+              <CompactOptionInput
+                id="sop-field-options"
+                label="Field of study *"
+                options={studyFieldOptions}
+                placeholder="Artificial Intelligence"
+                required
+                value={form.field_of_study || ""}
+                onChange={(value) => updateField("field_of_study", value)}
               />
-            </label>
 
-            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
+                Why this scholarship?
+                <textarea
+                  value={form.why_scholarship}
+                  onChange={(event) => updateField("why_scholarship", event.target.value)}
+                  rows={2}
+                  placeholder="Why this award fits your goals"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                />
+              </label>
+
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Future goals *
                 <textarea
                   value={form.future_goals}
                   onChange={(event) => updateField("future_goals", event.target.value)}
                   rows={2}
-                  placeholder="What do you want to do after completing this degree?"
+                  placeholder="Plans after this degree"
                   className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
+            </div>
 
+            <div className="grid gap-3 lg:grid-cols-2">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Contribution goal
                 <textarea
                   value={form.contribution_goal}
                   onChange={(event) => updateField("contribution_goal", event.target.value)}
                   rows={2}
-                  placeholder="How will this degree help your country, community, or field?"
+                  placeholder="How this degree helps your community or field"
+                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm font-semibold text-ink">
+                Existing draft / notes
+                <textarea
+                  value={form.existing_draft}
+                  onChange={(event) => updateField("existing_draft", event.target.value)}
+                  rows={2}
+                  placeholder="Paste a rough draft or notes"
                   className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
             </div>
-
-            <label className="grid gap-1 text-sm font-semibold text-ink">
-              Existing SOP draft, optional
-              <textarea
-                value={form.existing_draft}
-                onChange={(event) => updateField("existing_draft", event.target.value)}
-                rows={2}
-                placeholder="Paste your rough SOP draft here if you already have one."
-                className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-              />
-            </label>
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-semibold text-ink">
@@ -941,67 +1133,49 @@ function SOPGeneratorContent() {
         )}
 
         {provider === "deepseek" && deepSeekJob && (
-          <section className="rounded-2xl border border-pine/15 bg-pine/5 p-4 shadow-soft">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-pine">
-                  <Users size={14} aria-hidden="true" />
-                  DeepSeek worker queue
-                </div>
-
-                <h2 className="mt-2 text-lg font-bold capitalize text-ink">
-                  {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
-                </h2>
-
-                <p className="mt-1 text-sm leading-6 text-ink/65">
-                  {deepSeekJob.processing_label || "Please keep this page open."}
-                </p>
-
-                {deepSeekJob.status === "failed" || deepSeekJob.status === "canceled" ? (
-                  <p className="mt-2 text-sm leading-6 text-red-700">
-                    {deepSeekError ||
-                      deepSeekJob.user_message ||
-                      deepSeekJob.text ||
-                      "Your DeepSeek SOP request could not be completed."}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-3 md:min-w-[22rem]">
-                <div className="rounded-xl border border-pine/10 bg-white px-3 py-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/40">
-                    Status
-                  </p>
-                  <p className="mt-1 text-sm font-semibold capitalize text-ink">
-                    {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-3 py-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/40">
-                    Position
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-ink">
-                    {deepSeekJob.queue_position && deepSeekJob.queue_position > 0
-                      ? `#${deepSeekJob.queue_position}`
-                      : "0"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-3 py-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/40">
-                    Ahead
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-ink">
-                    {deepSeekJob.jobs_ahead ?? 0}
-                  </p>
-                </div>
-              </div>
+          <section className="flex flex-col gap-2 rounded-2xl border border-pine/15 bg-pine/5 p-3 shadow-soft md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-semibold text-pine">
+                <Users size={14} aria-hidden="true" />
+                DeepSeek
+              </span>
+              <span className="font-bold capitalize text-ink">
+                {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
+              </span>
+              <span className="text-ink/45">&middot;</span>
+              <span className="text-ink/65">
+                {deepSeekJob.status === "queued"
+                  ? `${deepSeekJob.jobs_ahead ?? 0} job(s) ahead`
+                  : deepSeekJob.processing_label || "Please keep this page open"}
+              </span>
+              {deepSeekJob.queue_position && deepSeekJob.queue_position > 0 ? (
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink/60">
+                  Position #{deepSeekJob.queue_position}
+                </span>
+              ) : null}
             </div>
 
             {deepSeekIsWaiting ? (
-              <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-pine/20 bg-white px-3 py-2 text-sm font-semibold text-pine">
-                  <Clock size={17} aria-hidden="true" />
-                  Please keep this page open.
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pine">
+                  <Clock size={14} aria-hidden="true" />
+                  Keep open
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void cancelDeepSeekJob(deepSeekJob.id)}
+                  className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+                >
+                  Cancel
+                </button>
               </div>
+            ) : deepSeekJob.status === "failed" || deepSeekJob.status === "canceled" ? (
+              <span className="text-sm font-semibold text-red-700">
+                {deepSeekError ||
+                  deepSeekJob.user_message ||
+                  deepSeekJob.text ||
+                  "Your DeepSeek SOP request could not be completed."}
+              </span>
             ) : null}
           </section>
         )}
@@ -1016,10 +1190,12 @@ function SOPGeneratorContent() {
 
               <h2 className="mt-2 text-xl font-bold text-ink">Generated SOP Draft</h2>
 
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65">
-                Generated using <strong>{selectedProviderName}</strong>
-                . Use this as a starting draft and personalize it before submission.
-              </p>
+              {result && resultProviderName ? (
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65">
+                  Generated using <strong>{resultProviderName}</strong>. Use this as a starting
+                  draft and personalize it before submission.
+                </p>
+              ) : null}
 
               {provider === "local" &&
                 job?.elapsed_seconds !== undefined &&

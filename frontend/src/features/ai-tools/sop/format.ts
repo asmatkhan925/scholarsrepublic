@@ -14,11 +14,36 @@ const promptMarkerPatterns = [
   "final reminder:",
   "output instruction:",
   "tone instruction:",
+  "existing draft:",
 ];
 
 function startsWithPromptMarker(line: string) {
   const normalized = line.trim().toLowerCase();
   return promptMarkerPatterns.some((marker) => normalized.startsWith(marker));
+}
+
+function looksLikePromptInstruction(line: string) {
+  const normalized = line.trim().toLowerCase();
+  return (
+    startsWithPromptMarker(normalized) ||
+    normalized.startsWith("return only") ||
+    normalized.startsWith("return 4") ||
+    normalized.startsWith("separate paragraphs") ||
+    normalized.startsWith("do not") ||
+    normalized.startsWith("if important details") ||
+    normalized.startsWith("keep the writing") ||
+    normalized.startsWith("avoid ") ||
+    normalized.startsWith("make the sop") ||
+    normalized.startsWith("write clean sop") ||
+    normalized.startsWith("target scholarship:") ||
+    normalized.startsWith("target country:") ||
+    normalized.startsWith("target degree:") ||
+    normalized.startsWith("field of study:") ||
+    normalized.startsWith("why this scholarship matters:") ||
+    normalized.startsWith("future goals:") ||
+    normalized.startsWith("contribution goal:") ||
+    normalized.startsWith("existing draft:")
+  );
 }
 
 function removeTrailingPromptEcho(text: string) {
@@ -79,6 +104,14 @@ export function normalizeAIText(text: string) {
     }
 
     if (skippingPromptBlock) {
+      if (looksLikePromptInstruction(line)) {
+        continue;
+      }
+
+      skippingPromptBlock = false;
+    }
+
+    if (looksLikePromptInstruction(line)) {
       continue;
     }
 

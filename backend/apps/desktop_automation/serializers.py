@@ -147,8 +147,8 @@ class DesktopAutomationJobStatusSerializer(serializers.ModelSerializer):
         if obj.status == DesktopAutomationJob.Status.QUEUED:
             jobs_ahead = self._deepseek_jobs_ahead(obj) or 0
             if jobs_ahead == 0:
-                return "Queued — you are next"
-            return f"Queued — {jobs_ahead} job(s) ahead of you"
+                return "Queued - you are next"
+            return f"Queued - {jobs_ahead} job(s) ahead of you"
 
         if obj.status == DesktopAutomationJob.Status.RUNNING:
             return "Processing now"

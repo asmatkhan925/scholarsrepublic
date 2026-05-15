@@ -81,6 +81,10 @@ def complete_job(job_id: int, result_payload: dict[str, Any]) -> None:
         json={"job_id": job_id, "result_payload": result_payload},
         timeout=30,
     )
+    if response.status_code == 400 and "not running" in response.text.lower():
+        print(f"Job #{job_id} is no longer running; completion skipped.")
+        return
+
     response.raise_for_status()
 
 
@@ -605,6 +609,7 @@ PROMPT_MARKERS = (
     "final reminder:",
     "output instruction:",
     "tone instruction:",
+    "existing draft:",
 )
 
 
@@ -626,6 +631,30 @@ def remove_trailing_prompt_echo(text: str) -> str:
         return before_marker
 
     return text
+
+
+def looks_like_prompt_instruction(line: str) -> bool:
+    lowered = line.strip().lower()
+    return (
+        any(lowered.startswith(marker) for marker in PROMPT_MARKERS)
+        or lowered.startswith("return only")
+        or lowered.startswith("return 4")
+        or lowered.startswith("separate paragraphs")
+        or lowered.startswith("do not")
+        or lowered.startswith("if important details")
+        or lowered.startswith("keep the writing")
+        or lowered.startswith("avoid ")
+        or lowered.startswith("make the sop")
+        or lowered.startswith("write clean sop")
+        or lowered.startswith("target scholarship:")
+        or lowered.startswith("target country:")
+        or lowered.startswith("target degree:")
+        or lowered.startswith("field of study:")
+        or lowered.startswith("why this scholarship matters:")
+        or lowered.startswith("future goals:")
+        or lowered.startswith("contribution goal:")
+        or lowered.startswith("existing draft:")
+    )
 
 
 def clean_final_deepseek_text(text: str) -> str:
@@ -658,6 +687,12 @@ def clean_final_deepseek_text(text: str) -> str:
             continue
 
         if skipping_prompt_block:
+            if looks_like_prompt_instruction(line):
+                continue
+
+            skipping_prompt_block = False
+
+        if looks_like_prompt_instruction(line):
             continue
 
         line = re.sub(r"^#{1,6}\s*", "", line)
