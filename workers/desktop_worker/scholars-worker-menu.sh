@@ -28,6 +28,59 @@ is_running() {
   [[ -n "$(get_pid)" ]]
 }
 
+git_commit_summary() {
+  git -C "$REPO_DIR" log -1 --format='%h %s' 2>/dev/null || echo "unavailable"
+}
+
+git_origin_status() {
+  local counts ahead behind fetch_note
+
+  fetch_note=""
+  if ! timeout 8 git -C "$REPO_DIR" fetch --quiet origin main >/dev/null 2>&1; then
+    fetch_note=" (fetch failed; local ref)"
+  fi
+
+  if ! git -C "$REPO_DIR" rev-parse --verify origin/main >/dev/null 2>&1; then
+    echo "origin/main unavailable"
+    return
+  fi
+
+  counts="$(git -C "$REPO_DIR" rev-list --left-right --count HEAD...origin/main 2>/dev/null)" || {
+    echo "unable to compare with origin/main"
+    return
+  }
+
+  read -r ahead behind <<< "$counts"
+
+  if [[ "${behind:-0}" -gt 0 && "${ahead:-0}" -gt 0 ]]; then
+    echo "behind $behind, ahead $ahead$fetch_note"
+  elif [[ "${behind:-0}" -gt 0 ]]; then
+    echo "behind by $behind commit(s)$fetch_note"
+  elif [[ "${ahead:-0}" -gt 0 ]]; then
+    echo "ahead by $ahead commit(s)$fetch_note"
+  else
+    echo "up to date$fetch_note"
+  fi
+}
+
+repo_dirty_status() {
+  if [[ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]]; then
+    echo "dirty"
+  else
+    echo "clean"
+  fi
+}
+
+show_worker_process() {
+  if is_running; then
+    echo "Status    : RUNNING"
+    echo "PID       : $(get_pid | tr '\n' ' ')"
+    ps -o pid,ppid,etime,cmd -p "$(get_pid | paste -sd, -)" 2>/dev/null || true
+  else
+    echo "Status    : STOPPED"
+  fi
+}
+
 show_header() {
   clear
   line
@@ -36,13 +89,11 @@ show_header() {
   echo " Directory : $WORKER_DIR"
   echo " Log file  : $LOG_FILE"
   echo " Env file  : $ENV_FILE"
+  echo " Commit    : $(git_commit_summary)"
+  echo " Origin    : $(git_origin_status)"
+  echo " Worktree  : $(repo_dirty_status)"
   echo
-  if is_running; then
-    echo " Status    : RUNNING"
-    echo " PID       : $(get_pid | tr '\n' ' ')"
-  else
-    echo " Status    : STOPPED"
-  fi
+  show_worker_process
   line
 }
 
@@ -100,16 +151,22 @@ restart_worker() {
 }
 
 status_worker() {
-  echo "Process:"
-  ps aux | grep "$WORKER_PY" | grep -v grep || echo "No worker process found."
+  echo "Git:"
+  echo "  Commit   : $(git_commit_summary)"
+  echo "  Origin   : $(git_origin_status)"
+  echo "  Worktree : $(repo_dirty_status)"
+
+  echo
+  echo "Worker process:"
+  show_worker_process
 
   echo
   echo "Current .env worker settings:"
   grep -E '^(SCHOLARS_API_BASE_URL|DESKTOP_WORKER_ID|DESKTOP_WORKER_POLL_SECONDS|BROWSER_HEADLESS|DEEPSEEK_URL|DEEPSEEK_NEW_CHAT_EVERY_JOBS|DEEPSEEK_LOCAL_STATE_FILE)=' "$ENV_FILE" 2>/dev/null || true
 
   echo
-  echo "Latest log:"
-  tail -n 80 "$LOG_FILE" 2>/dev/null || echo "No log file yet."
+  echo "Latest 30 log lines:"
+  tail -n 30 "$LOG_FILE" 2>/dev/null || echo "No log file yet."
 }
 
 follow_logs() {
@@ -232,12 +289,50 @@ PY
   esac
 }
 
-update_code() {
-  echo "Stopping worker before git pull..."
-  stop_worker
+pull_rebase_code() {
+  local origin_status
 
   cd "$REPO_DIR" || exit 1
-  git pull origin main
+
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Repo has uncommitted changes. Commit or stash them before pulling."
+    git status --short
+    cd "$WORKER_DIR" || exit 1
+    return 1
+  fi
+
+  echo "Fetching origin/main..."
+  git fetch origin main || {
+    cd "$WORKER_DIR" || exit 1
+    return 1
+  }
+
+  echo "Current commit: $(git_commit_summary)"
+  origin_status="$(git_origin_status)"
+  echo "Origin status : $origin_status"
+
+  if [[ "$origin_status" == up\ to\ date* ]]; then
+    echo "Already up to date."
+    cd "$WORKER_DIR" || exit 1
+    return
+  fi
+
+  echo
+  read -rp "Stop worker and run git pull --rebase origin main? [y/N]: " pull_answer
+  case "$pull_answer" in
+    y|Y|yes|YES) ;;
+    *) echo "Canceled."; cd "$WORKER_DIR" || exit 1; return ;;
+  esac
+
+  echo "Stopping worker before git pull --rebase..."
+  stop_worker
+
+  git pull --rebase origin main || {
+    echo "Pull/rebase failed. Resolve git state before restarting the worker."
+    cd "$WORKER_DIR" || exit 1
+    return 1
+  }
+
   git log --oneline -5
 
   cd "$WORKER_DIR" || exit 1
@@ -295,7 +390,7 @@ Choose an option:
  10) Set DeepSeek jobs per chat
  11) Reset DeepSeek chat counter
 
- 12) Git pull latest code and restart
+ 12) Git pull --rebase origin main safely
  13) Show production-server queue/check commands
 
   0) Exit
@@ -317,7 +412,7 @@ MENU
     9) set_headless_false; pause ;;
     10) set_chat_size; pause ;;
     11) reset_chat_counter; pause ;;
-    12) update_code; pause ;;
+    12) pull_rebase_code; pause ;;
     13) show_quick_commands; pause ;;
     0) exit 0 ;;
     *) echo "Invalid choice."; pause ;;

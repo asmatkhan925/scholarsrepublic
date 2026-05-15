@@ -56,6 +56,10 @@ BROWSER_CONTEXT = None
 DEEPSEEK_PAGE = None
 
 
+def log(message: str) -> None:
+    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}", flush=True)
+
+
 def headers() -> dict[str, str]:
     return {
         "X-Desktop-Worker-Token": WORKER_TOKEN,
@@ -74,7 +78,7 @@ def claim_job() -> dict[str, Any] | None:
     return response.json().get("job")
 
 
-def complete_job(job_id: int, result_payload: dict[str, Any]) -> None:
+def complete_job(job_id: int, result_payload: dict[str, Any]) -> bool:
     response = requests.post(
         f"{API_BASE_URL}/internal/desktop-worker/complete/",
         headers=headers(),
@@ -82,10 +86,11 @@ def complete_job(job_id: int, result_payload: dict[str, Any]) -> None:
         timeout=30,
     )
     if response.status_code == 400 and "not running" in response.text.lower():
-        print(f"Job #{job_id} is no longer running; completion skipped.")
-        return
+        log(f"job_id={job_id} status=completion_skipped reason=not_running")
+        return False
 
     response.raise_for_status()
+    return True
 
 
 def public_message_for_error(error_message: str) -> str:
@@ -133,6 +138,7 @@ def fail_job(
     )
     response.raise_for_status()
 
+
 def send_heartbeat(
     status: str = "idle",
     current_job_id: int | None = None,
@@ -145,27 +151,30 @@ def send_heartbeat(
     if not force and now - LAST_HEARTBEAT_AT < HEARTBEAT_SECONDS:
         return
 
-    response = requests.post(
-        f"{API_BASE_URL}/internal/desktop-worker/heartbeat/",
-        headers=headers(),
-        json={
-            "worker_id": WORKER_ID,
-            "status": status,
-            "current_job_id": current_job_id,
-            "error_message": error_message[:2000],
-            "metadata": {
-                "headless": BROWSER_HEADLESS,
-                "poll_seconds": POLL_SECONDS,
-                "heartbeat_seconds": HEARTBEAT_SECONDS,
-                "deepseek_new_chat_every_jobs": DEEPSEEK_NEW_CHAT_EVERY_JOBS,
-            },
-        },
-        timeout=30,
-    )
     try:
+        response = requests.post(
+            f"{API_BASE_URL}/internal/desktop-worker/heartbeat/",
+            headers=headers(),
+            json={
+                "worker_id": WORKER_ID,
+                "status": status,
+                "current_job_id": current_job_id,
+                "error_message": error_message[:2000],
+                "metadata": {
+                    "headless": BROWSER_HEADLESS,
+                    "poll_seconds": POLL_SECONDS,
+                    "heartbeat_seconds": HEARTBEAT_SECONDS,
+                    "deepseek_new_chat_every_jobs": DEEPSEEK_NEW_CHAT_EVERY_JOBS,
+                },
+            },
+            timeout=30,
+        )
         response.raise_for_status()
     except Exception as exc:
-        print(f"Heartbeat failed but worker will continue: {exc}")
+        log(
+            "WARNING: heartbeat failed; worker will continue "
+            f"status={status} job_id={current_job_id or '-'} error={exc}"
+        )
         LAST_HEARTBEAT_AT = now
         return
 
@@ -776,11 +785,13 @@ def main() -> None:
     if not WORKER_TOKEN:
         raise SystemExit("DESKTOP_WORKER_TOKEN is missing.")
 
-    print(f"Desktop worker started as {WORKER_ID}")
-    print(f"API: {API_BASE_URL}")
-    print(f"Playwright profile: {PLAYWRIGHT_PROFILE_DIR}")
-    print("Browser context will stay open while this worker is running.")
+    log(f"Desktop worker started as {WORKER_ID}")
+    log(f"API: {API_BASE_URL}")
+    log(f"Playwright profile: {PLAYWRIGHT_PROFILE_DIR}")
+    log("Browser context will stay open while this worker is running.")
+    log("status=starting")
     send_heartbeat("starting", force=True)
+    log("status=idle")
 
     job = None
 
@@ -795,26 +806,40 @@ def main() -> None:
                     continue
 
                 job_id = job["id"]
-                print(f"Claimed job #{job_id}: {job.get('kind')}")
+                job_kind = job.get("kind")
+                log(f"job_id={job_id} kind={job_kind} status=claimed")
                 send_heartbeat("running", current_job_id=job_id, force=True)
+                log(f"job_id={job_id} kind={job_kind} status=running")
 
                 result = run_job(job)
-                complete_job(job_id, result)
-                print(f"Completed job #{job_id}")
+                log(f"job_id={job_id} kind={job_kind} status=reporting_complete")
+                if complete_job(job_id, result):
+                    log(f"job_id={job_id} kind={job_kind} status=completed")
+                else:
+                    log(f"job_id={job_id} kind={job_kind} status=completion_skipped")
                 send_heartbeat("idle", force=True)
+                log("status=idle")
 
                 job = None
 
             except KeyboardInterrupt:
-                print("Worker stopped.")
+                log("Worker stopped.")
                 break
             except Exception:
                 error_message = traceback.format_exc()
-                print(error_message)
+                print(error_message, flush=True)
 
                 try:
                     if job:
+                        log(
+                            f"job_id={job['id']} kind={job.get('kind')} "
+                            "status=reporting_failed"
+                        )
                         fail_job(job["id"], error_message, retry=False)
+                        log(
+                            f"job_id={job['id']} kind={job.get('kind')} "
+                            "status=failed"
+                        )
                         send_heartbeat(
                             "error",
                             current_job_id=job["id"],
@@ -822,10 +847,11 @@ def main() -> None:
                             force=True,
                         )
                     else:
+                        log("status=error")
                         send_heartbeat("error", error_message=error_message, force=True)
                 except Exception:
-                    print("Could not report job failure:")
-                    print(traceback.format_exc())
+                    log("Could not report job failure:")
+                    print(traceback.format_exc(), flush=True)
 
                 job = None
                 time.sleep(POLL_SECONDS)
