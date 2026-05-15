@@ -10,12 +10,16 @@ const promptMarkerPatterns = [
   "your task:",
   "write a balanced scholarship statement of purpose draft",
   "write a polished scholarship statement of purpose draft",
+  "improve this existing scholarship statement of purpose draft",
   "strict rules:",
   "student details:",
   "final reminder:",
   "output instruction:",
   "tone instruction:",
   "degree guidance:",
+  "improvement focus:",
+  "optional student instruction:",
+  "current sop draft:",
   "existing draft:",
 ];
 
@@ -30,9 +34,12 @@ function looksLikePromptInstruction(line: string) {
     startsWithPromptMarker(normalized) ||
     normalized.startsWith("return only") ||
     normalized.startsWith("return 4") ||
+    normalized.startsWith("preserve 4") ||
     normalized.startsWith("separate paragraphs") ||
+    normalized.startsWith("keep blank lines") ||
     normalized.startsWith("do not") ||
     normalized.startsWith("if important details") ||
+    normalized.startsWith("if the optional student instruction") ||
     normalized.startsWith("for a phd application") ||
     normalized.startsWith("for a master's application") ||
     normalized.startsWith("for a master") ||
@@ -51,6 +58,9 @@ function looksLikePromptInstruction(line: string) {
     normalized.startsWith("why this scholarship matters:") ||
     normalized.startsWith("future goals:") ||
     normalized.startsWith("contribution goal:") ||
+    normalized.startsWith("improvement focus:") ||
+    normalized.startsWith("optional student instruction:") ||
+    normalized.startsWith("current sop draft:") ||
     normalized.startsWith("existing draft:")
   );
 }

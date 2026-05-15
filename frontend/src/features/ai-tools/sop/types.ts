@@ -8,6 +8,13 @@ export type AIHealthStatus = {
 
 export type GenerationProvider = "local" | "puter" | "deepseek";
 
+export type SOPImprovementFocus =
+  | "opening"
+  | "academic_background"
+  | "scholarship_fit"
+  | "future_goals"
+  | "clarity";
+
 export type PuterAIOptions = {
   model?: string;
   stream?: boolean;

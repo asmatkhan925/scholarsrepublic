@@ -35,8 +35,13 @@ import type { CountryOption, StudyFieldOption } from "@/types/reference";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, PUTER_MODEL } from "./constants";
 import { downloadSOPAsDocx, formatSOPForClipboard, formatWait, normalizeAIText } from "./format";
-import { buildPuterPrompt, extractPuterText } from "./puter";
-import type { AIHealthStatus, GenerationProvider, PuterWindow } from "./types";
+import { buildPuterPrompt, buildSOPImprovementPrompt, extractPuterText } from "./puter";
+import type {
+  AIHealthStatus,
+  GenerationProvider,
+  PuterWindow,
+  SOPImprovementFocus,
+} from "./types";
 
 type DeepSeekWorkerStatusResponse = {
   online: boolean;
@@ -83,6 +88,13 @@ type LocalSOPRequestPayload = Omit<GenerateSOPPayload, "academic_background" | "
 };
 
 const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
+const sopImprovementOptions: Array<{ value: SOPImprovementFocus; label: string }> = [
+  { value: "opening", label: "Improve opening/motivation" },
+  { value: "academic_background", label: "Improve academic background" },
+  { value: "scholarship_fit", label: "Improve scholarship fit" },
+  { value: "future_goals", label: "Improve future goals/contribution" },
+  { value: "clarity", label: "Make the whole SOP clearer" },
+];
 const fallbackCountryOptions = ["Pakistan", "China", "Turkey", "Germany", "United States"];
 const fallbackStudyFieldOptions = [
   "Computer Science",
@@ -111,6 +123,12 @@ function formatCooldown(seconds: number) {
   const remainingSeconds = seconds % 60;
 
   return `${minutes}m ${remainingSeconds.toString().padStart(2, "0")}s`;
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
 }
 
 function getProviderDisplayName(provider: GenerationProvider | null) {
@@ -253,6 +271,11 @@ function SOPGeneratorContent() {
   const [deepSeekCooldownSeconds, setDeepSeekCooldownSeconds] = useState(0);
   const [resultProvider, setResultProvider] = useState<GenerationProvider | null>(null);
   const [resultForm, setResultForm] = useState<GenerateSOPPayload | null>(null);
+  const [improvementFocus, setImprovementFocus] = useState<SOPImprovementFocus>("opening");
+  const [improvementInstruction, setImprovementInstruction] = useState("");
+  const [improvingDraft, setImprovingDraft] = useState(false);
+  const [improvementMessage, setImprovementMessage] = useState<string | null>(null);
+  const [improvementError, setImprovementError] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [savedDraftId, setSavedDraftId] = useState<number | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -475,6 +498,11 @@ function SOPGeneratorContent() {
     setSaveError(null);
   }
 
+  function resetImprovementStatus() {
+    setImprovementMessage(null);
+    setImprovementError(null);
+  }
+
   function updateField<K extends keyof GenerateSOPPayload>(field: K, value: GenerateSOPPayload[K]) {
     setForm((current) => ({
       ...current,
@@ -599,6 +627,7 @@ function SOPGeneratorContent() {
     setDeepSeekError(null);
     setResultProvider(null);
     setResultForm(null);
+    resetImprovementStatus();
     resetSaveState();
     submittedFormRef.current = { ...form };
 
@@ -658,6 +687,7 @@ function SOPGeneratorContent() {
     setDeepSeekError(null);
     setResultProvider(null);
     setResultForm(null);
+    resetImprovementStatus();
     resetSaveState();
     submittedFormRef.current = { ...form };
 
@@ -705,6 +735,7 @@ function SOPGeneratorContent() {
     setDeepSeekError(null);
     setResultProvider(null);
     setResultForm(null);
+    resetImprovementStatus();
     resetSaveState();
     submittedFormRef.current = { ...form };
 
@@ -808,6 +839,167 @@ function SOPGeneratorContent() {
     provider === "local" && (job?.status === "pending" || job?.status === "running");
   const deepSeekActiveJob = deepSeekJob?.status === "queued" || deepSeekJob?.status === "running";
   const deepSeekIsWaiting = Boolean(deepSeekActiveJob);
+
+  function applyImprovedResult(improvedText: string, improvedProvider: GenerationProvider) {
+    const cleanedText = normalizeAIText(improvedText);
+
+    if (!cleanedText) {
+      throw new Error("The improved draft was empty. Please try again.");
+    }
+
+    if (improvedProvider === "puter") {
+      setPuterResult(cleanedText);
+    }
+
+    if (improvedProvider === "deepseek") {
+      setDeepSeekResult(cleanedText);
+    }
+
+    if (improvedProvider === "local") {
+      setJob((current) =>
+        current
+          ? {
+              ...current,
+              result_text: cleanedText,
+            }
+          : current,
+      );
+    }
+
+    setResultProvider(improvedProvider);
+    setResultForm(resultForm ?? form);
+    setCopied(false);
+    setCopiedFormatted(false);
+    resetSaveState();
+  }
+
+  async function improveWithPuter(prompt: string) {
+    const puterWindow = window as PuterWindow;
+
+    if (!puterWindow.puter?.ai?.chat) {
+      throw new Error("This improvement option is still loading. Please refresh options.");
+    }
+
+    const response = await puterWindow.puter.ai.chat(prompt, {
+      model: PUTER_MODEL,
+      stream: false,
+    });
+
+    applyImprovedResult(extractPuterText(response), "puter");
+  }
+
+  async function improveWithDeepSeek(prompt: string) {
+    if (checkingDeepSeekWorker || !deepSeekWorkerStatus?.online) {
+      throw new Error("This improvement option is unavailable. Refresh options before trying again.");
+    }
+
+    const response = await api.post<CreateDeepSeekJobResponse>(
+      "/desktop-automation/deepseek-jobs/",
+      {
+        query: prompt,
+      },
+    );
+
+    setDeepSeekCooldownSeconds(0);
+
+    setDeepSeekJob({
+      id: response.data.job_id,
+      kind: "deepseek_query",
+      status: response.data.status,
+      ok: null,
+      text: response.data.message,
+      user_message: response.data.message,
+      jobs_ahead: null,
+      queue_position: null,
+      processing_label: "Queued",
+      result_payload: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      claimed_at: null,
+      completed_at: null,
+      failed_at: null,
+    });
+
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      const latestResponse = await api.get<DeepSeekJobResponse>(
+        `/desktop-automation/jobs/${response.data.job_id}/`,
+      );
+      const latest = latestResponse.data;
+
+      setDeepSeekJob(latest);
+
+      if (latest.status === "completed") {
+        applyImprovedResult(latest.user_message || latest.text || "", "deepseek");
+        return;
+      }
+
+      if (latest.status === "failed" || latest.status === "canceled") {
+        throw new Error(
+          latest.user_message || latest.text || "The improved draft could not be completed.",
+        );
+      }
+
+      await wait(3000);
+    }
+
+    throw new Error("The improved draft is taking too long. Please try again.");
+  }
+
+  async function handleImproveDraft() {
+    if (!result || improvingDraft) {
+      return;
+    }
+
+    resetImprovementStatus();
+
+    if (provider === "local") {
+      setImprovementError("Improvement is available after selecting Server 2 or Server 3.");
+      return;
+    }
+
+    const prompt = buildSOPImprovementPrompt({
+      form: resultForm ?? form,
+      existingSOP: result,
+      focus: improvementFocus,
+      instruction: improvementInstruction,
+    });
+
+    setImprovingDraft(true);
+    setImprovementMessage("Improving draft. Please keep this page open.");
+    setError(null);
+    setDeepSeekError(null);
+
+    try {
+      if (provider === "deepseek") {
+        await improveWithDeepSeek(prompt);
+      } else {
+        await improveWithPuter(prompt);
+      }
+
+      setImprovementMessage("Draft improved. Review it before saving.");
+    } catch (requestError) {
+      const limitPayload = getDeepSeekLimitPayload(requestError);
+      const retryAfter = limitPayload?.retry_after_seconds ?? 0;
+      const message =
+        limitPayload?.detail ||
+        (requestError instanceof Error
+          ? requestError.message
+          : "The improved draft could not be completed.");
+
+      if (retryAfter > 0) {
+        setDeepSeekCooldownSeconds(retryAfter);
+      }
+
+      if (isAxiosError(requestError) && requestError.response?.status === 503) {
+        await checkDeepSeekWorkerStatus();
+      }
+
+      setImprovementMessage(null);
+      setImprovementError(message);
+    } finally {
+      setImprovingDraft(false);
+    }
+  }
 
   async function handleCopy() {
     if (!result) return;
@@ -917,6 +1109,14 @@ function SOPGeneratorContent() {
     (provider === "puter" && puterOptionDisabled) ||
     (provider === "deepseek" &&
       (deepSeekOptionDisabled || deepSeekCooldownActive || deepSeekActiveJob));
+  const improveDraftDisabled =
+    !result ||
+    improvingDraft ||
+    loading ||
+    isWaiting ||
+    deepSeekActiveJob ||
+    (provider === "puter" && puterOptionDisabled) ||
+    (provider === "deepseek" && (deepSeekOptionDisabled || deepSeekCooldownActive));
   const resultProviderName = getProviderDisplayName(resultProvider);
   const deepSeekWorkerLabel = checkingDeepSeekWorker
     ? "Checking"
@@ -1428,11 +1628,12 @@ function SOPGeneratorContent() {
           )}
 
           <div className="mt-4 min-h-[220px] rounded-2xl border border-ink/10 bg-cream/40 p-4 text-sm leading-7 text-ink">
-            {deepSeekIsWaiting ? (
+            {deepSeekIsWaiting && !result ? (
               "Your Server 3 request is being processed. Please keep this page open."
             ) : loading || isWaiting ? (
               "Your SOP request is being processed. Please keep this page open. The result will appear here when ready."
             ) : provider === "deepseek" &&
+              !result &&
               (deepSeekJob?.status === "failed" || deepSeekJob?.status === "canceled") ? (
               deepSeekError ||
               deepSeekJob?.user_message ||
@@ -1447,6 +1648,66 @@ function SOPGeneratorContent() {
               "Your generated SOP will appear here after you submit the form."
             )}
           </div>
+
+          {result ? (
+            <div className="mt-3 rounded-2xl border border-ink/10 bg-white p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                <label className="grid flex-1 gap-1 text-sm font-semibold text-ink">
+                  Improve draft
+                  <select
+                    value={improvementFocus}
+                    onChange={(event) =>
+                      setImprovementFocus(event.target.value as SOPImprovementFocus)
+                    }
+                    className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  >
+                    {sopImprovementOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid flex-[1.5] gap-1 text-sm font-semibold text-ink">
+                  Optional instruction
+                  <input
+                    value={improvementInstruction}
+                    onChange={(event) => setImprovementInstruction(event.target.value)}
+                    placeholder="Example: make it more specific but do not add fake achievements."
+                    className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => void handleImproveDraft()}
+                  disabled={improveDraftDisabled}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-pine px-4 text-sm font-semibold text-white transition hover:bg-pine/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {improvingDraft ? (
+                    <Loader2 size={17} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles size={17} aria-hidden="true" />
+                  )}
+                  {improvingDraft ? "Improving..." : "Improve draft"}
+                </button>
+              </div>
+
+              {(improvingDraft || improvementMessage || improvementError) && (
+                <p
+                  className={`mt-2 text-xs font-semibold ${
+                    improvementError ? "text-red-700" : "text-ink/60"
+                  }`}
+                >
+                  {improvementError ||
+                    (improvingDraft
+                      ? "Improving draft. Please keep this page open."
+                      : improvementMessage)}
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <div className="mt-3 rounded-xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70">
             <strong>Reminder:</strong> Do not submit AI-generated text directly. Review it
