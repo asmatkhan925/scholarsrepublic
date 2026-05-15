@@ -120,6 +120,36 @@ function cancelDeepSeekJobWithKeepalive(jobId: number) {
   });
 }
 
+function getDeepSeekProcessingLabel(job: DeepSeekJobResponse) {
+  if (job.status === "running") {
+    return job.processing_label || "Processing now";
+  }
+
+  if (job.status !== "queued") {
+    return job.processing_label || "Please keep this page open";
+  }
+
+  const jobsAhead =
+    job.jobs_ahead ??
+    (job.queue_position && job.queue_position > 0
+      ? Math.max(0, job.queue_position - 1)
+      : null);
+
+  if (jobsAhead === 0 && job.queue_position === 1) {
+    return "Queued — you are next";
+  }
+
+  if (job.processing_label) {
+    return job.processing_label;
+  }
+
+  if (typeof jobsAhead === "number") {
+    return jobsAhead > 0 ? `Queued — ${jobsAhead} job(s) ahead` : "Queued — you are next";
+  }
+
+  return "Queued";
+}
+
 function CompactOptionInput({
   id,
   label,
@@ -749,6 +779,9 @@ function SOPGeneratorContent() {
     : deepSeekWorkerStatus?.online
       ? "Online"
       : "Unavailable";
+  const showDeepSeekJobBar = Boolean(
+    deepSeekJob && (provider === "deepseek" || deepSeekActiveJob),
+  );
   const generateButtonText = loading
     ? "Processing..."
     : provider === "local"
@@ -1132,7 +1165,7 @@ function SOPGeneratorContent() {
           </section>
         )}
 
-        {provider === "deepseek" && deepSeekJob && (
+        {showDeepSeekJobBar && deepSeekJob && (
           <section className="flex flex-col gap-2 rounded-2xl border border-pine/15 bg-pine/5 p-3 shadow-soft md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-semibold text-pine">
@@ -1143,11 +1176,7 @@ function SOPGeneratorContent() {
                 {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
               </span>
               <span className="text-ink/45">&middot;</span>
-              <span className="text-ink/65">
-                {deepSeekJob.status === "queued"
-                  ? `${deepSeekJob.jobs_ahead ?? 0} job(s) ahead`
-                  : deepSeekJob.processing_label || "Please keep this page open"}
-              </span>
+              <span className="text-ink/65">{getDeepSeekProcessingLabel(deepSeekJob)}</span>
               {deepSeekJob.queue_position && deepSeekJob.queue_position > 0 ? (
                 <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink/60">
                   Position #{deepSeekJob.queue_position}

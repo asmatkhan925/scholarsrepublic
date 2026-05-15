@@ -112,33 +112,34 @@ class CompleteDesktopJobView(APIView):
         job_id = serializer.validated_data["job_id"]
         result_payload = serializer.validated_data["result_payload"]
 
-        try:
-            job = DesktopAutomationJob.objects.get(pk=job_id)
-        except DesktopAutomationJob.DoesNotExist:
-            return Response(
-                {"detail": "Job not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        with transaction.atomic():
+            try:
+                job = DesktopAutomationJob.objects.select_for_update().get(pk=job_id)
+            except DesktopAutomationJob.DoesNotExist:
+                return Response(
+                    {"detail": "Job not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
-        if job.status != DesktopAutomationJob.Status.RUNNING:
-            return Response(
-                {"detail": f"Job is not running. Current status: {job.status}."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if job.status != DesktopAutomationJob.Status.RUNNING:
+                return Response(
+                    {"detail": f"Job is not running. Current status: {job.status}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        job.status = DesktopAutomationJob.Status.COMPLETED
-        job.result_payload = result_payload
-        job.completed_at = timezone.now()
-        job.error_message = ""
-        job.save(
-            update_fields=[
-                "status",
-                "result_payload",
-                "completed_at",
-                "error_message",
-                "updated_at",
-            ],
-        )
+            job.status = DesktopAutomationJob.Status.COMPLETED
+            job.result_payload = result_payload
+            job.completed_at = timezone.now()
+            job.error_message = ""
+            job.save(
+                update_fields=[
+                    "status",
+                    "result_payload",
+                    "completed_at",
+                    "error_message",
+                    "updated_at",
+                ],
+            )
 
         return Response({"job": DesktopAutomationJobSerializer(job).data})
 
@@ -161,43 +162,56 @@ class FailDesktopJobView(APIView):
                 "Our AI system is temporarily unavailable. Please try again later."
             )
 
-        try:
-            job = DesktopAutomationJob.objects.get(pk=job_id)
-        except DesktopAutomationJob.DoesNotExist:
-            return Response(
-                {"detail": "Job not found."},
-                status=status.HTTP_404_NOT_FOUND,
+        with transaction.atomic():
+            try:
+                job = DesktopAutomationJob.objects.select_for_update().get(pk=job_id)
+            except DesktopAutomationJob.DoesNotExist:
+                return Response(
+                    {"detail": "Job not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if job.status not in {
+                DesktopAutomationJob.Status.RUNNING,
+                DesktopAutomationJob.Status.QUEUED,
+            }:
+                return Response(
+                    {
+                        "detail": f"Job is no longer active. Current status: {job.status}.",
+                        "job": DesktopAutomationJobSerializer(job).data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            now = timezone.now()
+            should_retry = retry and job.attempts < job.max_attempts
+
+            job.status = (
+                DesktopAutomationJob.Status.QUEUED
+                if should_retry
+                else DesktopAutomationJob.Status.FAILED
             )
+            job.error_message = error_message
+            job.failed_at = None if should_retry else now
+            job.claimed_by = "" if should_retry else job.claimed_by
+            job.claimed_at = None if should_retry else job.claimed_at
+            job.started_at = None if should_retry else job.started_at
 
-        now = timezone.now()
-        should_retry = retry and job.attempts < job.max_attempts
+            update_fields = [
+                "status",
+                "error_message",
+                "failed_at",
+                "claimed_by",
+                "claimed_at",
+                "started_at",
+                "updated_at",
+            ]
 
-        job.status = (
-            DesktopAutomationJob.Status.QUEUED
-            if should_retry
-            else DesktopAutomationJob.Status.FAILED
-        )
-        job.error_message = error_message
-        job.failed_at = None if should_retry else now
-        job.claimed_by = "" if should_retry else job.claimed_by
-        job.claimed_at = None if should_retry else job.claimed_at
-        job.started_at = None if should_retry else job.started_at
+            if not should_retry:
+                job.result_payload = safe_unavailable_payload(public_message)
+                update_fields.append("result_payload")
 
-        update_fields = [
-            "status",
-            "error_message",
-            "failed_at",
-            "claimed_by",
-            "claimed_at",
-            "started_at",
-            "updated_at",
-        ]
-
-        if not should_retry:
-            job.result_payload = safe_unavailable_payload(public_message)
-            update_fields.append("result_payload")
-
-        job.save(update_fields=update_fields)
+            job.save(update_fields=update_fields)
 
         return Response({"job": DesktopAutomationJobSerializer(job).data})
 

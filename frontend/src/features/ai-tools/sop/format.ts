@@ -73,7 +73,7 @@ export function normalizeAIText(text: string) {
 
   for (const rawLine of withoutTrailingEcho
     .replace(/\r/g, "")
-    .replace(/```[\s\S]*?```/g, "")
+    .replace(/^\s*```[^\n]*\s*$/gm, "")
     .replace(/^#{1,6}\s*/gm, "")
     .replace(/\*\*/g, "")
     .split("\n")) {
