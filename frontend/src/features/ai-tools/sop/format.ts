@@ -133,3 +133,79 @@ export function normalizeAIText(text: string) {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+export function getSOPParagraphs(text: string) {
+  return normalizeAIText(text)
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+export function formatSOPForClipboard(text: string) {
+  return getSOPParagraphs(text).join("\n\n");
+}
+
+function safeFileName(value: string) {
+  const cleaned = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return cleaned || "sop-draft";
+}
+
+export async function downloadSOPAsDocx({
+  title,
+  text,
+  metadata = [],
+}: {
+  title: string;
+  text: string;
+  metadata?: string[];
+}) {
+  const { Document, HeadingLevel, Packer, Paragraph, TextRun } = await import("docx");
+  const paragraphs = getSOPParagraphs(text);
+  const children = [
+    new Paragraph({
+      text: title,
+      heading: HeadingLevel.TITLE,
+    }),
+    ...metadata
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map(
+        (item) =>
+          new Paragraph({
+            children: [new TextRun({ text: item, italics: true })],
+          }),
+      ),
+    new Paragraph({ text: "" }),
+    ...paragraphs.map(
+      (paragraph) =>
+        new Paragraph({
+          children: [new TextRun(paragraph)],
+          spacing: { after: 240 },
+        }),
+    ),
+  ];
+
+  const documentFile = new Document({
+    sections: [
+      {
+        properties: {},
+        children,
+      },
+    ],
+  });
+  const blob = await Packer.toBlob(documentFile);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = `${safeFileName(title)}.docx`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

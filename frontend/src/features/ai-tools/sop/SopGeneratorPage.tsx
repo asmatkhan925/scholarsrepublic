@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Download,
   FileText,
   History,
   Loader2,
@@ -33,7 +34,7 @@ import type { AIJobStatus, CreateSOPDraftPayload, GenerateSOPPayload } from "@/t
 import type { CountryOption, StudyFieldOption } from "@/types/reference";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, PUTER_MODEL } from "./constants";
-import { formatWait, normalizeAIText } from "./format";
+import { downloadSOPAsDocx, formatSOPForClipboard, formatWait, normalizeAIText } from "./format";
 import { buildPuterPrompt, extractPuterText } from "./puter";
 import type { AIHealthStatus, GenerationProvider, PuterWindow } from "./types";
 
@@ -258,6 +259,8 @@ function SOPGeneratorContent() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedFormatted, setCopiedFormatted] = useState(false);
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeDeepSeekJobIdRef = useRef<number | null>(null);
@@ -587,6 +590,7 @@ function SOPGeneratorContent() {
     setLoading(true);
     setError(null);
     setCopied(false);
+    setCopiedFormatted(false);
     setJob(null);
     setJobMessage("");
     setPuterResult("");
@@ -645,6 +649,7 @@ function SOPGeneratorContent() {
     setLoading(true);
     setError(null);
     setCopied(false);
+    setCopiedFormatted(false);
     setJob(null);
     setJobMessage("");
     setPuterResult("");
@@ -691,6 +696,7 @@ function SOPGeneratorContent() {
     setLoading(true);
     setError(null);
     setCopied(false);
+    setCopiedFormatted(false);
     setJob(null);
     setJobMessage("");
     setPuterResult("");
@@ -814,6 +820,53 @@ function SOPGeneratorContent() {
     }, 1800);
   }
 
+  async function handleCopyFormatted() {
+    if (!result) return;
+
+    await navigator.clipboard.writeText(formatSOPForClipboard(result));
+    setCopiedFormatted(true);
+
+    setTimeout(() => {
+      setCopiedFormatted(false);
+    }, 1800);
+  }
+
+  function getDraftTitle() {
+    const draftForm = resultForm ?? form;
+    const titleAnchor =
+      draftForm.target_scholarship?.trim() ||
+      draftForm.target_degree?.trim() ||
+      "Scholarship SOP";
+
+    return `SOP Draft - ${titleAnchor}`.slice(0, 180);
+  }
+
+  function getDraftMetadata() {
+    const draftForm = resultForm ?? form;
+    return [
+      draftForm.target_country ? `Target country: ${draftForm.target_country}` : "",
+      draftForm.target_degree ? `Target degree: ${draftForm.target_degree}` : "",
+      draftForm.field_of_study ? `Field of study: ${draftForm.field_of_study}` : "",
+      resultProviderName ? `Generated using: ${resultProviderName}` : "",
+    ];
+  }
+
+  async function handleDownloadDocx() {
+    if (!result) return;
+
+    setDownloadingDocx(true);
+
+    try {
+      await downloadSOPAsDocx({
+        title: getDraftTitle(),
+        text: result,
+        metadata: getDraftMetadata(),
+      });
+    } finally {
+      setDownloadingDocx(false);
+    }
+  }
+
   async function handleSaveDraft() {
     if (!result || !resultProvider || savedDraftId) {
       return;
@@ -821,12 +874,8 @@ function SOPGeneratorContent() {
 
     const draftForm = resultForm ?? form;
     const providerLabel = getProviderDisplayName(resultProvider);
-    const titleAnchor =
-      draftForm.target_scholarship?.trim() ||
-      draftForm.target_degree?.trim() ||
-      "Scholarship SOP";
     const payload: CreateSOPDraftPayload = {
-      title: `SOP Draft - ${titleAnchor}`.slice(0, 180),
+      title: getDraftTitle(),
       provider: resultProvider,
       provider_label: providerLabel,
       target_scholarship: draftForm.target_scholarship || "",
@@ -1336,6 +1385,32 @@ function SOPGeneratorContent() {
                   <Copy size={17} aria-hidden="true" />
                 )}
                 {copied ? "Copied" : "Copy draft"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCopyFormatted()}
+                disabled={!result}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {copiedFormatted ? (
+                  <CheckCircle2 size={17} aria-hidden="true" />
+                ) : (
+                  <Copy size={17} aria-hidden="true" />
+                )}
+                {copiedFormatted ? "Copied" : "Copy formatted"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDownloadDocx()}
+                disabled={!result || downloadingDocx}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {downloadingDocx ? (
+                  <Loader2 size={17} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Download size={17} aria-hidden="true" />
+                )}
+                Download .docx
               </button>
             </div>
           </div>

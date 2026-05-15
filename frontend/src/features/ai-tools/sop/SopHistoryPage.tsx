@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Copy, Eye, FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Copy, Download, Eye, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -10,6 +10,7 @@ import { deleteSOPDraft, getSOPDrafts } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { SOPDraft } from "@/types/ai";
 import { FormattedSOPText } from "./FormattedSOPText";
+import { downloadSOPAsDocx, formatSOPForClipboard } from "./format";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", {
@@ -30,7 +31,9 @@ function SOPHistoryContent() {
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedFormattedId, setCopiedFormattedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadDrafts() {
@@ -56,6 +59,33 @@ function SOPHistoryContent() {
     window.setTimeout(() => {
       setCopiedId(null);
     }, 1800);
+  }
+
+  async function handleCopyFormatted(draft: SOPDraft) {
+    await navigator.clipboard.writeText(formatSOPForClipboard(draft.sop_text));
+    setCopiedFormattedId(draft.id);
+    window.setTimeout(() => {
+      setCopiedFormattedId(null);
+    }, 1800);
+  }
+
+  async function handleDownloadDocx(draft: SOPDraft) {
+    setDownloadingId(draft.id);
+
+    try {
+      await downloadSOPAsDocx({
+        title: draft.title,
+        text: draft.sop_text,
+        metadata: [
+          draft.target_country ? `Target country: ${draft.target_country}` : "",
+          draft.target_degree ? `Target degree: ${draft.target_degree}` : "",
+          draft.field_of_study ? `Field of study: ${draft.field_of_study}` : "",
+          draft.provider_label ? `Generated using: ${draft.provider_label}` : "",
+        ],
+      });
+    } finally {
+      setDownloadingId(null);
+    }
   }
 
   async function handleDelete(draft: SOPDraft) {
@@ -160,6 +190,31 @@ function SOPHistoryContent() {
                             <Copy size={14} aria-hidden="true" />
                           )}
                           {copiedId === draft.id ? "Copied" : "Copy"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyFormatted(draft)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
+                        >
+                          {copiedFormattedId === draft.id ? (
+                            <CheckCircle2 size={14} aria-hidden="true" />
+                          ) : (
+                            <Copy size={14} aria-hidden="true" />
+                          )}
+                          {copiedFormattedId === draft.id ? "Copied" : "Copy formatted"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDownloadDocx(draft)}
+                          disabled={downloadingId === draft.id}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {downloadingId === draft.id ? (
+                            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Download size={14} aria-hidden="true" />
+                          )}
+                          Download .docx
                         </button>
                         <button
                           type="button"
