@@ -25,12 +25,12 @@ import {
 } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
-import type { AIJobStatus, GenerateSOPPayload, SOPOutputType, SOPTone } from "@/types/ai";
+import type { AIJobStatus, GenerateSOPPayload } from "@/types/ai";
 import type { CountryOption, StudyFieldOption } from "@/types/reference";
 import { FormattedSOPText } from "./FormattedSOPText";
-import { initialForm, outputTypeHelp, PUTER_MODEL, toneHelp } from "./constants";
+import { initialForm, PUTER_MODEL } from "./constants";
 import { formatWait, normalizeAIText } from "./format";
-import { buildPuterPrompt, extractPuterText, extractPuterUsage } from "./puter";
+import { buildPuterPrompt, extractPuterText } from "./puter";
 import type { AIHealthStatus, GenerationProvider, PuterWindow } from "./types";
 
 type DeepSeekWorkerStatusResponse = {
@@ -72,6 +72,11 @@ type DeepSeekLimitErrorResponse = {
   retry_after_seconds?: number;
 };
 
+type LocalSOPRequestPayload = Omit<GenerateSOPPayload, "academic_background" | "key_strength"> & {
+  output_type: "full_sop";
+  tone: "formal";
+};
+
 const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
 const fallbackCountryOptions = ["Pakistan", "China", "Turkey", "Germany", "United States"];
 const fallbackStudyFieldOptions = [
@@ -103,6 +108,40 @@ function formatCooldown(seconds: number) {
   return `${minutes}m ${remainingSeconds.toString().padStart(2, "0")}s`;
 }
 
+function getProviderDisplayName(provider: GenerationProvider | null) {
+  if (provider === "local") return "Fast Draft";
+  if (provider === "puter") return "Backup Draft";
+  if (provider === "deepseek") return "Detailed Draft";
+  return "";
+}
+
+function getBackendSOPPayload(form: GenerateSOPPayload): LocalSOPRequestPayload {
+  const extraNotes = [
+    form.existing_draft?.trim(),
+    form.academic_background?.trim()
+      ? `Academic background: ${form.academic_background.trim()}`
+      : "",
+    form.key_strength?.trim()
+      ? `Key strength or achievement: ${form.key_strength.trim()}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return {
+    target_scholarship: form.target_scholarship,
+    target_country: form.target_country,
+    target_degree: form.target_degree,
+    field_of_study: form.field_of_study,
+    why_scholarship: form.why_scholarship,
+    future_goals: form.future_goals,
+    contribution_goal: form.contribution_goal,
+    existing_draft: extraNotes,
+    output_type: "full_sop",
+    tone: "formal",
+  };
+}
+
 function cancelDeepSeekJobWithKeepalive(jobId: number) {
   const accessToken = getAccessToken();
   const baseUrl = api.defaults.baseURL ?? "";
@@ -121,12 +160,14 @@ function cancelDeepSeekJobWithKeepalive(jobId: number) {
 }
 
 function getDeepSeekProcessingLabel(job: DeepSeekJobResponse) {
+  const backendLabel = job.processing_label?.replace("Queued - ", "Queued — ");
+
   if (job.status === "running") {
-    return job.processing_label || "Processing now";
+    return backendLabel || "Processing now";
   }
 
   if (job.status !== "queued") {
-    return job.processing_label || "Please keep this page open";
+    return backendLabel || "Please keep this page open";
   }
 
   const jobsAhead =
@@ -139,8 +180,8 @@ function getDeepSeekProcessingLabel(job: DeepSeekJobResponse) {
     return "Queued — you are next";
   }
 
-  if (job.processing_label) {
-    return job.processing_label;
+  if (backendLabel) {
+    return backendLabel;
   }
 
   if (typeof jobsAhead === "number") {
@@ -176,7 +217,7 @@ function CompactOptionInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
       />
       <datalist id={id}>
         {options.map((option) => (
@@ -201,7 +242,6 @@ function SOPGeneratorContent() {
   const [job, setJob] = useState<AIJobStatus | null>(null);
   const [jobMessage, setJobMessage] = useState("");
   const [puterResult, setPuterResult] = useState("");
-  const [puterUsage, setPuterUsage] = useState("");
   const [deepSeekJob, setDeepSeekJob] = useState<DeepSeekJobResponse | null>(null);
   const [deepSeekResult, setDeepSeekResult] = useState("");
   const [deepSeekError, setDeepSeekError] = useState<string | null>(null);
@@ -238,7 +278,7 @@ function SOPGeneratorContent() {
       setAiHealth({
         available: false,
         status: "offline",
-        message: "Our AI server is temporarily offline. External AI is available.",
+        message: "Fast Draft is temporarily unavailable.",
       });
       setProvider("puter");
     } finally {
@@ -257,7 +297,7 @@ function SOPGeneratorContent() {
       setDeepSeekError(response.data.online ? null : response.data.message);
     } catch (requestError) {
       const message =
-        getErrorMessage(requestError) ?? "DeepSeek worker status could not be loaded.";
+        getErrorMessage(requestError) ?? "Detailed Draft status could not be loaded.";
 
       setDeepSeekWorkerStatus({
         online: false,
@@ -477,7 +517,7 @@ function SOPGeneratorContent() {
           const message =
             latest.user_message ||
             latest.text ||
-            "Your DeepSeek SOP request could not be completed.";
+            "Your Detailed Draft request could not be completed.";
 
           setDeepSeekError(message);
           setError(message);
@@ -534,7 +574,6 @@ function SOPGeneratorContent() {
     setJob(null);
     setJobMessage("");
     setPuterResult("");
-    setPuterUsage("");
     setDeepSeekJob(null);
     setDeepSeekResult("");
     setDeepSeekError(null);
@@ -546,7 +585,7 @@ function SOPGeneratorContent() {
     }
 
     try {
-      const response = await submitSOPJob(form);
+      const response = await submitSOPJob(getBackendSOPPayload(form));
 
       setJobMessage(response.message);
       setJob({
@@ -580,7 +619,7 @@ function SOPGeneratorContent() {
     const puterWindow = window as PuterWindow;
 
     if (!puterWindow.puter?.ai?.chat) {
-      setError("External AI is still loading. Please wait a moment or click Reload External AI.");
+      setError("Backup Draft is still loading. Please wait a moment or refresh options.");
       return;
     }
 
@@ -590,7 +629,6 @@ function SOPGeneratorContent() {
     setJob(null);
     setJobMessage("");
     setPuterResult("");
-    setPuterUsage("");
     setDeepSeekJob(null);
     setDeepSeekResult("");
     setDeepSeekError(null);
@@ -608,11 +646,10 @@ function SOPGeneratorContent() {
       });
 
       setPuterResult(normalizeAIText(extractPuterText(response)));
-      setPuterUsage(extractPuterUsage(response));
       setResultProvider("puter");
     } catch (requestError) {
       const message =
-        requestError instanceof Error ? requestError.message : "External AI request failed.";
+        requestError instanceof Error ? requestError.message : "Backup Draft request failed.";
 
       setError(message);
     } finally {
@@ -624,7 +661,7 @@ function SOPGeneratorContent() {
     if (checkingDeepSeekWorker || !deepSeekWorkerStatus?.online) {
       const message =
         deepSeekWorkerStatus?.message ||
-        "DeepSeek Desktop Worker is unavailable. Recheck the worker before trying again.";
+        "Detailed Draft is unavailable. Refresh options before trying again.";
 
       setDeepSeekError(message);
       setError(message);
@@ -637,7 +674,6 @@ function SOPGeneratorContent() {
     setJob(null);
     setJobMessage("");
     setPuterResult("");
-    setPuterUsage("");
     setDeepSeekJob(null);
     setDeepSeekResult("");
     setDeepSeekError(null);
@@ -691,7 +727,7 @@ function SOPGeneratorContent() {
       const message =
         limitPayload?.detail ??
         getErrorMessage(requestError) ??
-        "Could not submit the DeepSeek SOP request.";
+        "Could not submit the Detailed Draft request.";
 
       if (retryAfter > 0) {
         setDeepSeekCooldownSeconds(retryAfter);
@@ -742,7 +778,7 @@ function SOPGeneratorContent() {
   const isWaiting =
     provider === "local" && (job?.status === "pending" || job?.status === "running");
   const deepSeekActiveJob = deepSeekJob?.status === "queued" || deepSeekJob?.status === "running";
-  const deepSeekIsWaiting = provider === "deepseek" && deepSeekActiveJob;
+  const deepSeekIsWaiting = Boolean(deepSeekActiveJob);
 
   async function handleCopy() {
     if (!result) return;
@@ -766,18 +802,11 @@ function SOPGeneratorContent() {
     (provider === "puter" && puterOptionDisabled) ||
     (provider === "deepseek" &&
       (deepSeekOptionDisabled || deepSeekCooldownActive || deepSeekActiveJob));
-  const resultProviderName =
-    resultProvider === "local"
-      ? "Scholars Republic AI Server"
-      : resultProvider === "puter"
-        ? "External AI via Puter.js"
-        : resultProvider === "deepseek"
-          ? "DeepSeek Desktop Worker"
-          : "";
+  const resultProviderName = getProviderDisplayName(resultProvider);
   const deepSeekWorkerLabel = checkingDeepSeekWorker
     ? "Checking"
     : deepSeekWorkerStatus?.online
-      ? "Online"
+      ? "Ready"
       : "Unavailable";
   const showDeepSeekJobBar = Boolean(
     deepSeekJob && (provider === "deepseek" || deepSeekActiveJob),
@@ -785,12 +814,12 @@ function SOPGeneratorContent() {
   const generateButtonText = loading
     ? "Processing..."
     : provider === "local"
-      ? "Generate with Our Server"
+      ? "Generate Fast Draft"
       : provider === "puter"
-        ? "Generate with External AI"
+        ? "Generate Backup Draft"
         : deepSeekCooldownActive
           ? `Wait ${formatCooldown(deepSeekCooldownSeconds)}`
-          : "Generate with DeepSeek Worker";
+          : "Generate Detailed Draft";
 
   return (
     <DashboardShell
@@ -832,7 +861,7 @@ function SOPGeneratorContent() {
           <form onSubmit={handleSubmit} className="grid gap-3 p-3 md:p-4">
             {checkingAI && (
               <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/70">
-                Checking Scholars Republic AI Server status...
+                Checking draft options...
               </div>
             )}
 
@@ -848,31 +877,20 @@ function SOPGeneratorContent() {
             )}
 
             <section className="rounded-2xl border border-ink/10 bg-cream/40 p-3">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-ink">Choose AI provider</h3>
-                  <p className="mt-0.5 text-xs leading-5 text-ink/55">Pick one generation route.</p>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={checkAIHealth}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
-                  >
-                    <RefreshCw size={16} aria-hidden="true" />
-                    Recheck server
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={checkDeepSeekWorkerStatus}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
-                  >
-                    <RefreshCw size={16} aria-hidden="true" />
-                    Recheck DeepSeek
-                  </button>
-                </div>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-ink">Draft option</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void checkAIHealth();
+                    void checkDeepSeekWorkerStatus();
+                    loadPuterScript();
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-ink/5"
+                >
+                  <RefreshCw size={14} aria-hidden="true" />
+                  Refresh
+                </button>
               </div>
 
               <div className="mt-3 grid gap-2 md:grid-cols-3">
@@ -887,29 +905,29 @@ function SOPGeneratorContent() {
                   } ${localOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold text-ink">Scholars Republic AI Server</h4>
+                    <h4 className="text-sm font-bold text-ink">Fast Draft</h4>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         aiHealth?.available ? "bg-pine/10 text-pine" : "bg-red-50 text-red-700"
                       }`}
                     >
-                      {aiHealth?.available ? "Online" : "Unavailable"}
+                      {aiHealth?.available ? "Ready" : "Unavailable"}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-ink/55">Local GPU queue.</p>
                 </button>
 
                 <button
                   type="button"
+                  disabled={puterOptionDisabled}
                   onClick={() => setProvider("puter")}
                   className={`rounded-xl border p-3 text-left transition ${
                     provider === "puter"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
-                  }`}
+                  } ${puterOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold text-ink">External AI via Puter.js</h4>
+                    <h4 className="text-sm font-bold text-ink">Backup Draft</h4>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         puterStatus === "ready"
@@ -922,24 +940,24 @@ function SOPGeneratorContent() {
                       {puterStatus === "ready"
                         ? "Ready"
                         : puterStatus === "failed"
-                          ? "Failed"
+                          ? "Unavailable"
                           : "Loading"}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-ink/55">Browser fallback.</p>
                 </button>
 
                 <button
                   type="button"
+                  disabled={deepSeekOptionDisabled}
                   onClick={() => setProvider("deepseek")}
                   className={`rounded-xl border p-3 text-left transition ${
                     provider === "deepseek"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
-                  }`}
+                  } ${deepSeekOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold text-ink">DeepSeek Desktop Worker</h4>
+                    <h4 className="text-sm font-bold text-ink">Detailed Draft</h4>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         checkingDeepSeekWorker
@@ -952,24 +970,19 @@ function SOPGeneratorContent() {
                       {deepSeekWorkerLabel}
                     </span>
                   </div>
-
-                  <p className="mt-1 text-xs leading-5 text-ink/55">
-                    Private WSL queue.
-                  </p>
                 </button>
               </div>
 
               {puterStatus === "failed" && (
-                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
-                  External AI script could not be loaded. This may be caused by browser blocking or
-                  network restrictions.
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700">
+                  Backup Draft is unavailable. Check your browser or network and refresh options.
                   <button
                     type="button"
                     onClick={loadPuterScript}
-                    className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                    className="mt-2 inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
                   >
-                    <RefreshCw size={16} aria-hidden="true" />
-                    Reload External AI
+                    <RefreshCw size={14} aria-hidden="true" />
+                    Refresh
                   </button>
                 </div>
               )}
@@ -980,22 +993,21 @@ function SOPGeneratorContent() {
                 </div>
               )}
 
-              {provider === "deepseek" && !deepSeekWorkerStatus?.online && !checkingDeepSeekWorker && (
-                <p className="mt-2 text-xs leading-5 text-ink/55">
-                  If this option is unavailable, the desktop worker may be offline or DeepSeek may
-                  need login repair.
-                </p>
-              )}
+              {provider === "deepseek" &&
+              !deepSeekWorkerStatus?.online &&
+              !checkingDeepSeekWorker ? (
+                <p className="mt-2 text-xs leading-5 text-ink/55">Detailed Draft is unavailable.</p>
+              ) : null}
             </section>
 
             <div className="grid gap-3 lg:grid-cols-3">
               <label className="grid gap-1 text-sm font-semibold text-ink">
-                Target scholarship
+                Target scholarship/program
                 <input
                   value={form.target_scholarship}
                   onChange={(event) => updateField("target_scholarship", event.target.value)}
                   placeholder="Chinese Government Scholarship"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
 
@@ -1014,8 +1026,8 @@ function SOPGeneratorContent() {
                   required
                   value={form.target_degree}
                   onChange={(event) => updateField("target_degree", event.target.value)}
-                  placeholder="MS Computer Science"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  placeholder="Master's or PhD"
+                  className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
             </div>
@@ -1032,29 +1044,49 @@ function SOPGeneratorContent() {
               />
 
               <label className="grid gap-1 text-sm font-semibold text-ink">
+                Academic background
+                <input
+                  value={form.academic_background}
+                  onChange={(event) => updateField("academic_background", event.target.value)}
+                  placeholder="BS Computer Science, final year"
+                  className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm font-semibold text-ink">
+                Key strength/achievement
+                <input
+                  value={form.key_strength}
+                  onChange={(event) => updateField("key_strength", event.target.value)}
+                  placeholder="Relevant project, skill, award, or experience"
+                  className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-3">
+              <label className="grid gap-1 text-sm font-semibold text-ink">
                 Why this scholarship?
                 <textarea
                   value={form.why_scholarship}
                   onChange={(event) => updateField("why_scholarship", event.target.value)}
                   rows={2}
                   placeholder="Why this award fits your goals"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="min-h-20 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
 
               <label className="grid gap-1 text-sm font-semibold text-ink">
-                Future goals *
+                Future goal *
                 <textarea
                   value={form.future_goals}
                   onChange={(event) => updateField("future_goals", event.target.value)}
                   rows={2}
                   placeholder="Plans after this degree"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="min-h-20 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
-            </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Contribution goal
                 <textarea
@@ -1062,55 +1094,21 @@ function SOPGeneratorContent() {
                   onChange={(event) => updateField("contribution_goal", event.target.value)}
                   rows={2}
                   placeholder="How this degree helps your community or field"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm font-semibold text-ink">
-                Existing draft / notes
-                <textarea
-                  value={form.existing_draft}
-                  onChange={(event) => updateField("existing_draft", event.target.value)}
-                  rows={2}
-                  placeholder="Paste a rough draft or notes"
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="min-h-20 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3">
               <label className="grid gap-1 text-sm font-semibold text-ink">
-                Output type
-                <select
-                  value={form.output_type}
-                  onChange={(event) =>
-                    updateField("output_type", event.target.value as SOPOutputType)
-                  }
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                >
-                  <option value="paragraph">One paragraph</option>
-                  <option value="medium_sop">Medium SOP</option>
-                  <option value="full_sop">Full SOP</option>
-                </select>
-                <span className="text-xs font-normal leading-5 text-ink/55">
-                  {outputTypeHelp[form.output_type]}
-                </span>
-              </label>
-
-              <label className="grid gap-1 text-sm font-semibold text-ink">
-                Tone
-                <select
-                  value={form.tone}
-                  onChange={(event) => updateField("tone", event.target.value as SOPTone)}
-                  className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                >
-                  <option value="simple">Simple</option>
-                  <option value="formal">Formal</option>
-                  <option value="strong_academic">Strong academic</option>
-                </select>
-                <span className="text-xs font-normal leading-5 text-ink/55">
-                  {toneHelp[form.tone]}
-                </span>
+                Notes or existing draft
+                <textarea
+                  value={form.existing_draft}
+                  onChange={(event) => updateField("existing_draft", event.target.value)}
+                  rows={3}
+                  placeholder="Add details the draft should use, or paste a rough SOP"
+                  className="min-h-24 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                />
               </label>
             </div>
 
@@ -1170,7 +1168,7 @@ function SOPGeneratorContent() {
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-semibold text-pine">
                 <Users size={14} aria-hidden="true" />
-                DeepSeek
+                Detailed Draft
               </span>
               <span className="font-bold capitalize text-ink">
                 {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
@@ -1203,7 +1201,7 @@ function SOPGeneratorContent() {
                 {deepSeekError ||
                   deepSeekJob.user_message ||
                   deepSeekJob.text ||
-                  "Your DeepSeek SOP request could not be completed."}
+                  "Your Detailed Draft request could not be completed."}
               </span>
             ) : null}
           </section>
@@ -1234,9 +1232,6 @@ function SOPGeneratorContent() {
                   </p>
                 )}
 
-              {provider === "puter" && puterUsage && (
-                <p className="mt-2 text-xs text-ink/50">{puterUsage}</p>
-              )}
             </div>
 
             <button
@@ -1255,8 +1250,8 @@ function SOPGeneratorContent() {
           </div>
 
           <div className="mt-4 min-h-[220px] rounded-2xl border border-ink/10 bg-cream/40 p-4 text-sm leading-7 text-ink">
-            {provider === "deepseek" && (loading || deepSeekIsWaiting) ? (
-              "Your DeepSeek SOP request is being processed. Please keep this page open."
+            {deepSeekIsWaiting ? (
+              "Your Detailed Draft request is being processed. Please keep this page open."
             ) : loading || isWaiting ? (
               "Your SOP request is being processed. Please keep this page open. The result will appear here when ready."
             ) : provider === "deepseek" &&
@@ -1264,10 +1259,10 @@ function SOPGeneratorContent() {
               deepSeekError ||
               deepSeekJob?.user_message ||
               deepSeekJob?.text ||
-              "Your DeepSeek SOP request could not be completed."
+              "Your Detailed Draft request could not be completed."
             ) : provider === "local" && job?.status === "failed" ? (
               job.error_message ||
-              "The AI server is currently offline. Please switch to External AI."
+              "This draft option is temporarily unavailable. Try another option."
             ) : result ? (
               <FormattedSOPText text={result} />
             ) : (

@@ -1,18 +1,14 @@
-export type SOPOutputType = "paragraph" | "medium_sop" | "full_sop";
-
-export type SOPTone = "simple" | "formal" | "strong_academic";
-
 export type GenerateSOPPayload = {
   target_scholarship?: string;
   target_country?: string;
   target_degree: string;
   field_of_study: string;
+  academic_background?: string;
+  key_strength?: string;
   why_scholarship?: string;
   future_goals?: string;
   contribution_goal?: string;
   existing_draft?: string;
-  output_type: SOPOutputType;
-  tone: SOPTone;
 };
 
 export type SubmitAIJobResponse = {

@@ -8,12 +8,14 @@ export function formatWait(seconds: number) {
 const promptMarkerPatterns = [
   "you are an expert scholarship sop editor",
   "your task:",
+  "write a balanced scholarship statement of purpose draft",
   "write a polished scholarship statement of purpose draft",
   "strict rules:",
   "student details:",
   "final reminder:",
   "output instruction:",
   "tone instruction:",
+  "degree guidance:",
   "existing draft:",
 ];
 
@@ -31,6 +33,10 @@ function looksLikePromptInstruction(line: string) {
     normalized.startsWith("separate paragraphs") ||
     normalized.startsWith("do not") ||
     normalized.startsWith("if important details") ||
+    normalized.startsWith("for a phd application") ||
+    normalized.startsWith("for a master's application") ||
+    normalized.startsWith("for a master") ||
+    normalized.startsWith("use a professional") ||
     normalized.startsWith("keep the writing") ||
     normalized.startsWith("avoid ") ||
     normalized.startsWith("make the sop") ||
@@ -39,6 +45,9 @@ function looksLikePromptInstruction(line: string) {
     normalized.startsWith("target country:") ||
     normalized.startsWith("target degree:") ||
     normalized.startsWith("field of study:") ||
+    normalized.startsWith("academic background:") ||
+    normalized.startsWith("key strength or achievement:") ||
+    normalized.startsWith("key strength/achievement:") ||
     normalized.startsWith("why this scholarship matters:") ||
     normalized.startsWith("future goals:") ||
     normalized.startsWith("contribution goal:") ||
