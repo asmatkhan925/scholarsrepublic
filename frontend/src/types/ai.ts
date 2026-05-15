@@ -46,3 +46,29 @@ export type AIJobStatus = {
   started_at?: string | null;
   finished_at?: string | null;
 };
+
+export type SOPDraftProvider = "local" | "puter" | "deepseek";
+
+export type SOPDraft = {
+  id: number;
+  title: string;
+  provider: SOPDraftProvider;
+  provider_label: string;
+  target_scholarship: string;
+  target_country: string;
+  target_degree: string;
+  field_of_study: string;
+  academic_background: string;
+  key_strength: string;
+  why_this_scholarship: string;
+  future_goal: string;
+  contribution_goal: string;
+  notes: string;
+  sop_text: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateSOPDraftPayload = Omit<SOPDraft, "id" | "created_at" | "updated_at">;
+
+export type UpdateSOPDraftPayload = Partial<CreateSOPDraftPayload>;

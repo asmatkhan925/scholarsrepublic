@@ -11,8 +11,8 @@ from rest_framework.views import APIView
 
 from apps.profiles.models import StudentProfile
 
-from .models import AIJob
-from .serializers import AIJobSerializer, SOPGenerateSerializer
+from .models import AIJob, SOPDraft
+from .serializers import AIJobSerializer, SOPDraftSerializer, SOPGenerateSerializer
 
 
 def get_ai_setting(name: str, default=None):
@@ -248,3 +248,54 @@ class AIJobDetailView(APIView):
             )
 
         return Response(AIJobSerializer(job).data)
+
+
+class SOPDraftListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self, request):
+        return SOPDraft.objects.filter(user=request.user)
+
+    def get(self, request):
+        drafts = self.get_queryset(request)
+        return Response(SOPDraftSerializer(drafts, many=True).data)
+
+    def post(self, request):
+        serializer = SOPDraftSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        draft = serializer.save(user=request.user)
+        return Response(SOPDraftSerializer(draft).data, status=status.HTTP_201_CREATED)
+
+
+class SOPDraftDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, request, draft_id):
+        try:
+            return SOPDraft.objects.get(id=draft_id, user=request.user)
+        except SOPDraft.DoesNotExist:
+            return None
+
+    def get(self, request, draft_id):
+        draft = self.get_object(request, draft_id)
+        if not draft:
+            return Response({"detail": "SOP draft not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(SOPDraftSerializer(draft).data)
+
+    def patch(self, request, draft_id):
+        draft = self.get_object(request, draft_id)
+        if not draft:
+            return Response({"detail": "SOP draft not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SOPDraftSerializer(draft, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        draft = serializer.save()
+        return Response(SOPDraftSerializer(draft).data)
+
+    def delete(self, request, draft_id):
+        draft = self.get_object(request, draft_id)
+        if not draft:
+            return Response({"detail": "SOP draft not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        draft.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

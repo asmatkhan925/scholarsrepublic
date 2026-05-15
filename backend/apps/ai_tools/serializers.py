@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
-from .models import AIJob
+from django.utils import timezone
+
+from .models import AIJob, SOPDraft
 
 
 class SOPGenerateSerializer(serializers.Serializer):
@@ -88,3 +90,74 @@ class AIJobSerializer(serializers.ModelSerializer):
             average_seconds_per_job = 120
 
         return max(queue_position, 1) * average_seconds_per_job
+
+
+class SOPDraftSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SOPDraft
+        fields = [
+            "id",
+            "title",
+            "provider",
+            "provider_label",
+            "target_scholarship",
+            "target_country",
+            "target_degree",
+            "field_of_study",
+            "academic_background",
+            "key_strength",
+            "why_this_scholarship",
+            "future_goal",
+            "contribution_goal",
+            "notes",
+            "sop_text",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "title": {"required": False, "allow_blank": True, "max_length": 180},
+            "sop_text": {"required": True, "allow_blank": False},
+        }
+
+    def validate_sop_text(self, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise serializers.ValidationError("SOP draft text is required.")
+        return cleaned
+
+    def validate_provider_label(self, value):
+        return value.strip()[:80]
+
+    def _build_title(self, attrs):
+        provided_title = attrs.get("title", "").strip()
+        if provided_title:
+            return provided_title[:180]
+
+        anchor = (
+            attrs.get("target_scholarship", "").strip()
+            or attrs.get("target_degree", "").strip()
+            or timezone.localdate().isoformat()
+        )
+        return f"SOP Draft - {anchor}"[:180]
+
+    def _provider_label(self, provider):
+        labels = {
+            SOPDraft.Provider.LOCAL: "Server 1",
+            SOPDraft.Provider.PUTER: "Server 2",
+            SOPDraft.Provider.DEEPSEEK: "Server 3",
+        }
+        return labels.get(provider, "")
+
+    def create(self, validated_data):
+        validated_data["title"] = self._build_title(validated_data)
+        if not validated_data.get("provider_label"):
+            validated_data["provider_label"] = self._provider_label(validated_data.get("provider"))
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "title" in validated_data:
+            validated_data["title"] = self._build_title(validated_data)
+        if "provider" in validated_data and not validated_data.get("provider_label"):
+            validated_data["provider_label"] = self._provider_label(validated_data.get("provider"))
+        return super().update(instance, validated_data)

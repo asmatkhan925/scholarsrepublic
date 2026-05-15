@@ -1,6 +1,7 @@
 "use client";
 
 import { isAxiosError } from "axios";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -8,8 +9,10 @@ import {
   Clock,
   Copy,
   FileText,
+  History,
   Loader2,
   RefreshCw,
+  Save,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -18,6 +21,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
 import {
   api,
+  createSOPDraft,
   getAIJobStatus,
   getCountries,
   getStudyFields,
@@ -25,7 +29,7 @@ import {
 } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
-import type { AIJobStatus, GenerateSOPPayload } from "@/types/ai";
+import type { AIJobStatus, CreateSOPDraftPayload, GenerateSOPPayload } from "@/types/ai";
 import type { CountryOption, StudyFieldOption } from "@/types/reference";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, PUTER_MODEL } from "./constants";
@@ -109,9 +113,9 @@ function formatCooldown(seconds: number) {
 }
 
 function getProviderDisplayName(provider: GenerationProvider | null) {
-  if (provider === "local") return "Fast Draft";
-  if (provider === "puter") return "Backup Draft";
-  if (provider === "deepseek") return "Detailed Draft";
+  if (provider === "local") return "Server 1";
+  if (provider === "puter") return "Server 2";
+  if (provider === "deepseek") return "Server 3";
   return "";
 }
 
@@ -247,11 +251,17 @@ function SOPGeneratorContent() {
   const [deepSeekError, setDeepSeekError] = useState<string | null>(null);
   const [deepSeekCooldownSeconds, setDeepSeekCooldownSeconds] = useState(0);
   const [resultProvider, setResultProvider] = useState<GenerationProvider | null>(null);
+  const [resultForm, setResultForm] = useState<GenerateSOPPayload | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [savedDraftId, setSavedDraftId] = useState<number | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeDeepSeekJobIdRef = useRef<number | null>(null);
+  const submittedFormRef = useRef<GenerateSOPPayload | null>(null);
 
   const canSubmit = useMemo(() => {
     return (
@@ -278,7 +288,7 @@ function SOPGeneratorContent() {
       setAiHealth({
         available: false,
         status: "offline",
-        message: "Fast Draft is temporarily unavailable.",
+        message: "Server 1 is temporarily unavailable.",
       });
       setProvider("puter");
     } finally {
@@ -294,17 +304,14 @@ function SOPGeneratorContent() {
         "/desktop-automation/workers/status/",
       );
       setDeepSeekWorkerStatus(response.data);
-      setDeepSeekError(response.data.online ? null : response.data.message);
-    } catch (requestError) {
-      const message =
-        getErrorMessage(requestError) ?? "Detailed Draft status could not be loaded.";
-
+      setDeepSeekError(response.data.online ? null : "Server 3 is unavailable.");
+    } catch {
       setDeepSeekWorkerStatus({
         online: false,
         status: "offline",
-        message,
+        message: "Server 3 status could not be loaded.",
       });
-      setDeepSeekError(message);
+      setDeepSeekError("Server 3 status could not be loaded.");
     } finally {
       setCheckingDeepSeekWorker(false);
     }
@@ -459,11 +466,18 @@ function SOPGeneratorContent() {
     };
   }, [deepSeekJob]);
 
+  function resetSaveState() {
+    setSavedDraftId(null);
+    setSaveMessage(null);
+    setSaveError(null);
+  }
+
   function updateField<K extends keyof GenerateSOPPayload>(field: K, value: GenerateSOPPayload[K]) {
     setForm((current) => ({
       ...current,
       [field]: value,
     }));
+    resetSaveState();
   }
 
   async function pollJob(jobId: number) {
@@ -474,6 +488,7 @@ function SOPGeneratorContent() {
       if (latest.status === "success" || latest.status === "failed") {
         setLoading(false);
         setResultProvider(latest.status === "success" ? "local" : null);
+        setResultForm(latest.status === "success" ? submittedFormRef.current : null);
 
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
@@ -511,13 +526,14 @@ function SOPGeneratorContent() {
         if (latest.status === "completed") {
           setDeepSeekResult(normalizeAIText(latest.user_message || latest.text || ""));
           setResultProvider("deepseek");
+          setResultForm(submittedFormRef.current);
           setDeepSeekError(null);
           setError(null);
         } else {
           const message =
             latest.user_message ||
             latest.text ||
-            "Your Detailed Draft request could not be completed.";
+            "Your Server 3 request could not be completed.";
 
           setDeepSeekError(message);
           setError(message);
@@ -578,6 +594,9 @@ function SOPGeneratorContent() {
     setDeepSeekResult("");
     setDeepSeekError(null);
     setResultProvider(null);
+    setResultForm(null);
+    resetSaveState();
+    submittedFormRef.current = { ...form };
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -619,7 +638,7 @@ function SOPGeneratorContent() {
     const puterWindow = window as PuterWindow;
 
     if (!puterWindow.puter?.ai?.chat) {
-      setError("Backup Draft is still loading. Please wait a moment or refresh options.");
+      setError("Server 2 is still loading. Please wait a moment or refresh options.");
       return;
     }
 
@@ -633,6 +652,9 @@ function SOPGeneratorContent() {
     setDeepSeekResult("");
     setDeepSeekError(null);
     setResultProvider(null);
+    setResultForm(null);
+    resetSaveState();
+    submittedFormRef.current = { ...form };
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -647,9 +669,9 @@ function SOPGeneratorContent() {
 
       setPuterResult(normalizeAIText(extractPuterText(response)));
       setResultProvider("puter");
-    } catch (requestError) {
-      const message =
-        requestError instanceof Error ? requestError.message : "Backup Draft request failed.";
+      setResultForm(submittedFormRef.current);
+    } catch {
+      const message = "Server 2 request failed. Please try again.";
 
       setError(message);
     } finally {
@@ -659,9 +681,7 @@ function SOPGeneratorContent() {
 
   async function generateWithDeepSeek() {
     if (checkingDeepSeekWorker || !deepSeekWorkerStatus?.online) {
-      const message =
-        deepSeekWorkerStatus?.message ||
-        "Detailed Draft is unavailable. Refresh options before trying again.";
+      const message = "Server 3 is unavailable. Refresh options before trying again.";
 
       setDeepSeekError(message);
       setError(message);
@@ -678,6 +698,9 @@ function SOPGeneratorContent() {
     setDeepSeekResult("");
     setDeepSeekError(null);
     setResultProvider(null);
+    setResultForm(null);
+    resetSaveState();
+    submittedFormRef.current = { ...form };
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -727,7 +750,7 @@ function SOPGeneratorContent() {
       const message =
         limitPayload?.detail ??
         getErrorMessage(requestError) ??
-        "Could not submit the Detailed Draft request.";
+        "Could not submit the Server 3 request.";
 
       if (retryAfter > 0) {
         setDeepSeekCooldownSeconds(retryAfter);
@@ -791,6 +814,49 @@ function SOPGeneratorContent() {
     }, 1800);
   }
 
+  async function handleSaveDraft() {
+    if (!result || !resultProvider || savedDraftId) {
+      return;
+    }
+
+    const draftForm = resultForm ?? form;
+    const providerLabel = getProviderDisplayName(resultProvider);
+    const titleAnchor =
+      draftForm.target_scholarship?.trim() ||
+      draftForm.target_degree?.trim() ||
+      "Scholarship SOP";
+    const payload: CreateSOPDraftPayload = {
+      title: `SOP Draft - ${titleAnchor}`.slice(0, 180),
+      provider: resultProvider,
+      provider_label: providerLabel,
+      target_scholarship: draftForm.target_scholarship || "",
+      target_country: draftForm.target_country || "",
+      target_degree: draftForm.target_degree || "",
+      field_of_study: draftForm.field_of_study || "",
+      academic_background: draftForm.academic_background || "",
+      key_strength: draftForm.key_strength || "",
+      why_this_scholarship: draftForm.why_scholarship || "",
+      future_goal: draftForm.future_goals || "",
+      contribution_goal: draftForm.contribution_goal || "",
+      notes: draftForm.existing_draft || "",
+      sop_text: result,
+    };
+
+    setSavingDraft(true);
+    setSaveError(null);
+    setSaveMessage(null);
+
+    try {
+      const draft = await createSOPDraft(payload);
+      setSavedDraftId(draft.id);
+      setSaveMessage("Draft saved to your SOP history.");
+    } catch (requestError) {
+      setSaveError(getErrorMessage(requestError));
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
   const localOptionDisabled = !aiHealth?.available;
   const puterOptionDisabled = puterStatus !== "ready";
   const deepSeekOptionDisabled = checkingDeepSeekWorker || !deepSeekWorkerStatus?.online;
@@ -814,12 +880,12 @@ function SOPGeneratorContent() {
   const generateButtonText = loading
     ? "Processing..."
     : provider === "local"
-      ? "Generate Fast Draft"
+      ? "Generate Server 1"
       : provider === "puter"
-        ? "Generate Backup Draft"
+        ? "Generate Server 2"
         : deepSeekCooldownActive
           ? `Wait ${formatCooldown(deepSeekCooldownSeconds)}`
-          : "Generate Detailed Draft";
+          : "Generate Server 3";
 
   return (
     <DashboardShell
@@ -840,6 +906,13 @@ function SOPGeneratorContent() {
                 <h2 className="mt-2 text-lg font-bold text-ink md:text-xl">
                   Scholarship SOP generator
                 </h2>
+                <Link
+                  href="/dashboard/ai/sop/history"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-pine transition hover:text-pine/80"
+                >
+                  <History size={14} aria-hidden="true" />
+                  View SOP history
+                </Link>
               </div>
 
               <div className="rounded-xl border border-ink/10 bg-white/80 p-3 text-xs text-ink/70 md:max-w-md">
@@ -905,7 +978,7 @@ function SOPGeneratorContent() {
                   } ${localOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold text-ink">Fast Draft</h4>
+                    <h4 className="text-sm font-bold text-ink">Server 1</h4>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         aiHealth?.available ? "bg-pine/10 text-pine" : "bg-red-50 text-red-700"
@@ -927,7 +1000,7 @@ function SOPGeneratorContent() {
                   } ${puterOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold text-ink">Backup Draft</h4>
+                    <h4 className="text-sm font-bold text-ink">Server 2</h4>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         puterStatus === "ready"
@@ -957,7 +1030,7 @@ function SOPGeneratorContent() {
                   } ${deepSeekOptionDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold text-ink">Detailed Draft</h4>
+                    <h4 className="text-sm font-bold text-ink">Server 3</h4>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         checkingDeepSeekWorker
@@ -975,7 +1048,7 @@ function SOPGeneratorContent() {
 
               {puterStatus === "failed" && (
                 <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700">
-                  Backup Draft is unavailable. Check your browser or network and refresh options.
+                  Server 2 is unavailable. Check your browser or network and refresh options.
                   <button
                     type="button"
                     onClick={loadPuterScript}
@@ -996,7 +1069,7 @@ function SOPGeneratorContent() {
               {provider === "deepseek" &&
               !deepSeekWorkerStatus?.online &&
               !checkingDeepSeekWorker ? (
-                <p className="mt-2 text-xs leading-5 text-ink/55">Detailed Draft is unavailable.</p>
+                <p className="mt-2 text-xs leading-5 text-ink/55">Server 3 is unavailable.</p>
               ) : null}
             </section>
 
@@ -1168,7 +1241,7 @@ function SOPGeneratorContent() {
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-semibold text-pine">
                 <Users size={14} aria-hidden="true" />
-                Detailed Draft
+                Server 3
               </span>
               <span className="font-bold capitalize text-ink">
                 {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
@@ -1201,7 +1274,7 @@ function SOPGeneratorContent() {
                 {deepSeekError ||
                   deepSeekJob.user_message ||
                   deepSeekJob.text ||
-                  "Your Detailed Draft request could not be completed."}
+                  "Your Server 3 request could not be completed."}
               </span>
             ) : null}
           </section>
@@ -1234,24 +1307,54 @@ function SOPGeneratorContent() {
 
             </div>
 
-            <button
-              type="button"
-              onClick={handleCopy}
-              disabled={!result}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {copied ? (
-                <CheckCircle2 size={17} aria-hidden="true" />
-              ) : (
-                <Copy size={17} aria-hidden="true" />
-              )}
-              {copied ? "Copied" : "Copy draft"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveDraft()}
+                disabled={!result || !resultProvider || savingDraft || Boolean(savedDraftId)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pine/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingDraft ? (
+                  <Loader2 size={17} className="animate-spin" aria-hidden="true" />
+                ) : savedDraftId ? (
+                  <CheckCircle2 size={17} aria-hidden="true" />
+                ) : (
+                  <Save size={17} aria-hidden="true" />
+                )}
+                {savingDraft ? "Saving..." : savedDraftId ? "Saved" : "Save draft"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopy}
+                disabled={!result}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {copied ? (
+                  <CheckCircle2 size={17} aria-hidden="true" />
+                ) : (
+                  <Copy size={17} aria-hidden="true" />
+                )}
+                {copied ? "Copied" : "Copy draft"}
+              </button>
+            </div>
           </div>
+
+          {(saveMessage || saveError) && (
+            <div
+              className={`mt-3 rounded-xl border px-3 py-2 text-sm font-semibold ${
+                saveError
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-pine/20 bg-pine/5 text-pine"
+              }`}
+            >
+              {saveError || saveMessage}
+            </div>
+          )}
 
           <div className="mt-4 min-h-[220px] rounded-2xl border border-ink/10 bg-cream/40 p-4 text-sm leading-7 text-ink">
             {deepSeekIsWaiting ? (
-              "Your Detailed Draft request is being processed. Please keep this page open."
+              "Your Server 3 request is being processed. Please keep this page open."
             ) : loading || isWaiting ? (
               "Your SOP request is being processed. Please keep this page open. The result will appear here when ready."
             ) : provider === "deepseek" &&
@@ -1259,7 +1362,7 @@ function SOPGeneratorContent() {
               deepSeekError ||
               deepSeekJob?.user_message ||
               deepSeekJob?.text ||
-              "Your Detailed Draft request could not be completed."
+              "Your Server 3 request could not be completed."
             ) : provider === "local" && job?.status === "failed" ? (
               job.error_message ||
               "This draft option is temporarily unavailable. Try another option."
