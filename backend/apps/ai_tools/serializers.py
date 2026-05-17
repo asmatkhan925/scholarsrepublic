@@ -1,8 +1,117 @@
+import re
+
 from rest_framework import serializers
 
 from django.utils import timezone
 
 from .models import AIJob, SOPDraft
+
+
+SOP_SAFETY_MESSAGE = (
+    "Please remove instructions that ask the AI to ignore rules, invent achievements, "
+    "or include sensitive personal information. Your SOP should only use honest details you provide."
+)
+
+SOP_SAFETY_FIELD_LABELS = {
+    "target_scholarship": "Scholarship",
+    "target_country": "Target country",
+    "target_degree": "Target degree",
+    "field_of_study": "Field of study",
+    "why_scholarship": "Why this scholarship?",
+    "future_goals": "Future goal",
+    "contribution_goal": "Contribution goal",
+    "existing_draft": "Notes or existing draft",
+}
+
+SOP_PROMPT_INJECTION_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in [
+        r"ignore\s+(all\s+)?(previous|above|system|developer)\s+instructions?",
+        r"ignore\s+(the\s+)?rules",
+        r"do\s+not\s+follow\s+(the\s+)?(rules|instructions)",
+        r"reveal\s+(the\s+)?(system\s+prompt|developer\s+message|hidden\s+instructions?|prompt)",
+        r"show\s+(the\s+)?(system\s+prompt|developer\s+message|hidden\s+instructions?)",
+        r"\b(jailbreak|dan\s+mode|developer\s+mode|unrestricted\s+ai)\b",
+        r"bypass\s+(the\s+)?(rules|safety|instructions|filters?)",
+        r"(act|pretend)\s+as\s+(an?\s+)?(unrestricted|uncensored|jailbroken)",
+    ]
+]
+
+SOP_FAKE_ACHIEVEMENT_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in [
+        r"(invent|make\s+up|fabricate|fake|create|add|write|lie\s+about).{0,60}\b(cgpa|gpa|grade|grades|award|awards|achievement|achievements|publication|publications|research|internship|internships|work\s+experience|job|university|certificate|transcript|recommendation|ielts|toefl)\b",
+        r"\b(fake|forged|fabricated)\b.{0,60}\b(transcript|certificate|degree|recommendation|ielts|toefl|award|publication|experience)\b",
+        r"\b(say|claim|mention)\b.{0,40}\b(i\s+have|i\s+had|i\s+won|i\s+published|i\s+worked)\b.{0,60}\b(even\s+if|although|but)\b.{0,40}\b(not\s+true|did\s+not|never)\b",
+    ]
+]
+
+SOP_SENSITIVE_DATA_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in [
+        r"\b(password|passcode|api\s*key|secret\s*key|private\s*key|jwt|bearer\s+token|access\s+token)\b\s*[:=]\s*\S+",
+        r"\b(cnic|passport|national\s+id|id\s+card)\b.{0,20}\d{4,}",
+        r"\b\d{5}-\d{7}-\d\b",
+        r"\b(card\s+number|credit\s+card|debit\s+card|cvv|cvc)\b.{0,30}\d{4,}",
+        r"-----BEGIN\s+(RSA|OPENSSH|DSA|EC|PRIVATE)\s+PRIVATE\s+KEY-----",
+    ]
+]
+
+SOP_SPAM_OR_SCRIPT_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in [
+        r"<\s*script\b",
+        r"javascript\s*:",
+        r"<\s*iframe\b",
+        r"(.)\1{40,}",
+    ]
+]
+
+
+def _sop_url_count(value):
+    return len(re.findall(r"https?://|www\.", value, flags=re.IGNORECASE))
+
+
+def validate_sop_safety(attrs):
+    errors = {}
+
+    for field, label in SOP_SAFETY_FIELD_LABELS.items():
+        value = str(attrs.get(field, "") or "").strip()
+
+        if not value:
+            continue
+
+        if any(pattern.search(value) for pattern in SOP_PROMPT_INJECTION_PATTERNS):
+            errors[field] = (
+                f"The {label} field appears to include instructions that ask the AI "
+                "to ignore rules. Please remove them."
+            )
+            continue
+
+        if any(pattern.search(value) for pattern in SOP_FAKE_ACHIEVEMENT_PATTERNS):
+            errors[field] = (
+                f"The {label} field appears to ask for invented or fake details. "
+                "Please use only honest information."
+            )
+            continue
+
+        if any(pattern.search(value) for pattern in SOP_SENSITIVE_DATA_PATTERNS):
+            errors[field] = (
+                f"The {label} field appears to include sensitive personal information. "
+                "Please remove passwords, tokens, ID numbers, or card details."
+            )
+            continue
+
+        if any(pattern.search(value) for pattern in SOP_SPAM_OR_SCRIPT_PATTERNS) or _sop_url_count(value) >= 3:
+            errors[field] = (
+                f"The {label} field contains content that does not look suitable for an SOP. "
+                "Please remove scripts, repeated junk text, or excessive links."
+            )
+
+    if errors:
+        errors["detail"] = SOP_SAFETY_MESSAGE
+        raise serializers.ValidationError(errors)
+
 
 
 class SOPGenerateSerializer(serializers.Serializer):
@@ -39,6 +148,8 @@ class SOPGenerateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Please provide either future goals or an existing SOP draft."
             )
+
+        validate_sop_safety(attrs)
 
         return attrs
 

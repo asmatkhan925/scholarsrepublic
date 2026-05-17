@@ -42,6 +42,7 @@ import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, PUTER_MODEL } from "./constants";
 import { downloadSOPAsDocx, formatSOPForClipboard, formatWait, normalizeAIText } from "./format";
 import { buildPuterPrompt, buildSOPImprovementPrompt, extractPuterText } from "./puter";
+import { validateSOPImprovementInstruction, validateSOPInput } from "./safety";
 import type {
   AIHealthStatus,
   GenerationProvider,
@@ -1079,6 +1080,13 @@ function SOPGeneratorContent() {
       return;
     }
 
+    const safety = validateSOPInput(form);
+
+    if (!safety.ok) {
+      setError(safety.message ?? "Please review your SOP details before generating.");
+      return;
+    }
+
     if (provider === "local") {
       await generateWithLocalServer();
       return;
@@ -1225,6 +1233,15 @@ function SOPGeneratorContent() {
 
     if (!resultProvider) {
       setImprovementError("Generate a draft before improving it.");
+      return;
+    }
+
+    const improvementSafety = validateSOPImprovementInstruction(improvementInstruction);
+
+    if (!improvementSafety.ok) {
+      setImprovementError(
+        improvementSafety.message ?? "Please review your improvement instruction.",
+      );
       return;
     }
 
