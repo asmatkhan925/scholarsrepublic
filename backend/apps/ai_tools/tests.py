@@ -3,6 +3,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.ai_tools.models import SOPDraft
+from apps.ai_tools.serializers import SOPGenerateSerializer
+from apps.ai_tools.views import build_profile_summary
 from apps.users.models import User
 
 
@@ -134,3 +136,25 @@ class SOPDraftAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(SOPDraft.objects.filter(id=draft.id).exists())
+
+    def test_sop_generate_requires_target_scholarship(self):
+        serializer = SOPGenerateSerializer(
+            data={
+                "target_degree": "Master's",
+                "field_of_study": "Computer Science",
+                "future_goals": "Build useful education tools.",
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("target_scholarship", serializer.errors)
+        self.assertEqual(
+            str(serializer.errors["target_scholarship"][0]),
+            "Please choose the scholarship you are applying for.",
+        )
+
+    def test_profile_summary_does_not_include_email(self):
+        summary = build_profile_summary(self.user)
+
+        self.assertNotIn(self.user.email, summary)
+        self.assertNotIn("Email:", summary)

@@ -36,7 +36,6 @@ def build_profile_summary(user) -> str:
     if not profile:
         return (
             f"Student name: {getattr(user, 'full_name', '') or 'Not provided'}\n"
-            f"Email: {getattr(user, 'email', '')}\n"
             "Profile: No detailed profile has been created yet."
         )
 
@@ -64,7 +63,6 @@ def build_profile_summary(user) -> str:
 
     lines = [
         f"Student name: {getattr(user, 'full_name', '') or 'Not provided'}",
-        f"Email: {getattr(user, 'email', '')}",
     ]
 
     for field in candidate_fields:

@@ -53,6 +53,11 @@ import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
 
+type PaginationParams = {
+  page?: number;
+  page_size?: number;
+};
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -183,7 +188,7 @@ export async function getOpportunityPathway(slug: string) {
   return response.data;
 }
 
-export async function getScholarships(params?: OpportunityQueryParams) {
+export async function getScholarships(params?: OpportunityQueryParams & PaginationParams) {
   const response = await api.get<OpportunityListResponse>("/scholarships/", {
     params,
   });
@@ -238,15 +243,17 @@ export async function getRecommendedOpportunities(params?: OpportunityQueryParam
   return response.data;
 }
 
-export async function getRecommendedScholarships(params?: OpportunityQueryParams) {
+export async function getRecommendedScholarships(params?: OpportunityQueryParams & PaginationParams) {
   const response = await api.get<RecommendedOpportunityResponse>("/scholarships/recommended/", {
     params,
   });
   return response.data;
 }
 
-export async function getSavedOpportunities() {
-  const response = await api.get<SavedOpportunityResponse>("/saved-opportunities/");
+export async function getSavedOpportunities(params?: PaginationParams) {
+  const response = await api.get<SavedOpportunityResponse>("/saved-opportunities/", {
+    params,
+  });
   return response.data;
 }
 

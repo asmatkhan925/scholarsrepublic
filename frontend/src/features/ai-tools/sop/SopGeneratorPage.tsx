@@ -102,7 +102,14 @@ type ScholarshipPickerItem = {
   rank: 0 | 1 | 2;
 };
 
+type RecommendedScholarshipPage = Awaited<ReturnType<typeof getRecommendedScholarships>> & {
+  next?: string | null;
+};
+type SavedOpportunityPage = Awaited<ReturnType<typeof getSavedOpportunities>>;
+
 const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
+const scholarshipPickerMaxPages = 5;
+const scholarshipPickerMaxResults = 100;
 const sopImprovementOptions: Array<{ value: SOPImprovementFocus; label: string }> = [
   { value: "opening", label: "Improve opening/motivation" },
   { value: "academic_background", label: "Improve academic background" },
@@ -165,6 +172,65 @@ function getScholarshipField(scholarship: OpportunityListItem) {
   return scholarship.fields_of_study?.[0] ?? "";
 }
 
+function getOptionalString(value: unknown, key: string) {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  const fieldValue = (value as Record<string, unknown>)[key];
+  return typeof fieldValue === "string" ? fieldValue : "";
+}
+
+function getOptionalStringArray(value: unknown, key: string) {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const fieldValue = (value as Record<string, unknown>)[key];
+  return Array.isArray(fieldValue)
+    ? fieldValue.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function isScholarshipLikeOpportunity(opportunity: OpportunityListItem) {
+  const typeValues = [
+    opportunity.opportunity_type,
+    getOptionalString(opportunity, "type"),
+    getOptionalString(opportunity, "category"),
+  ]
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  const scholarshipTerms = ["scholarship", "scholarships"];
+  const nonScholarshipTerms = [
+    "job",
+    "internship",
+    "research_position",
+    "competition",
+    "training",
+    "mentorship_program",
+  ];
+
+  if (typeValues.some((value) => scholarshipTerms.includes(value))) {
+    return true;
+  }
+
+  if (typeValues.some((value) => nonScholarshipTerms.includes(value))) {
+    return false;
+  }
+
+  const tags = [
+    ...(opportunity.tags ?? []),
+    ...getOptionalStringArray(opportunity, "tags"),
+  ].map((value) => value.trim().toLowerCase());
+
+  if (tags.some((tag) => scholarshipTerms.includes(tag))) {
+    return true;
+  }
+
+  return typeValues.length === 0;
+}
+
 function formatScholarshipDeadline(deadline: string | null) {
   if (!deadline) {
     return "";
@@ -212,7 +278,7 @@ function getProfileFieldOfStudy(profile: StudentProfile) {
 }
 
 function getProfileTargetDegree(profile: StudentProfile) {
-  return firstProfileValue([profile.target_degree_level, profile.current_education_level]);
+  return firstProfileValue([profile.target_degree_level]);
 }
 
 function getProviderDisplayName(provider: GenerationProvider | null) {
@@ -483,10 +549,55 @@ function SOPGeneratorContent() {
     setScholarshipsError(null);
 
     try {
-      const [savedResponse, recommendedResponse, scholarshipsResponse] = await Promise.all([
-        getSavedOpportunities(),
-        getRecommendedScholarships(),
-        getScholarships(),
+      async function fetchSavedPages() {
+        const results: SavedOpportunityPage["results"] = [];
+
+        for (let page = 1; page <= scholarshipPickerMaxPages; page += 1) {
+          const response = await getSavedOpportunities({ page });
+          results.push(...response.results);
+
+          if (!response.next || results.length >= scholarshipPickerMaxResults) {
+            break;
+          }
+        }
+
+        return results.slice(0, scholarshipPickerMaxResults);
+      }
+
+      async function fetchRecommendedPages() {
+        const results: RecommendedScholarshipPage["results"] = [];
+
+        for (let page = 1; page <= scholarshipPickerMaxPages; page += 1) {
+          const response: RecommendedScholarshipPage = await getRecommendedScholarships({ page });
+          results.push(...response.results);
+
+          if (!response.next || results.length >= scholarshipPickerMaxResults) {
+            break;
+          }
+        }
+
+        return results.slice(0, scholarshipPickerMaxResults);
+      }
+
+      async function fetchScholarshipPages() {
+        const results: OpportunityListItem[] = [];
+
+        for (let page = 1; page <= scholarshipPickerMaxPages; page += 1) {
+          const response = await getScholarships({ page });
+          results.push(...response.results);
+
+          if (!response.next || results.length >= scholarshipPickerMaxResults) {
+            break;
+          }
+        }
+
+        return results.slice(0, scholarshipPickerMaxResults);
+      }
+
+      const [savedResults, recommendedResults, scholarshipResults] = await Promise.all([
+        fetchSavedPages(),
+        fetchRecommendedPages(),
+        fetchScholarshipPages(),
       ]);
 
       const merged = new Map<string, ScholarshipPickerItem>();
@@ -495,6 +606,10 @@ function SOPGeneratorContent() {
         scholarship: OpportunityListItem,
         source: Pick<ScholarshipPickerItem, "isSaved" | "matchScore" | "rank">,
       ) {
+        if (!isScholarshipLikeOpportunity(scholarship)) {
+          return;
+        }
+
         const current = merged.get(scholarship.slug);
 
         merged.set(scholarship.slug, {
@@ -505,7 +620,7 @@ function SOPGeneratorContent() {
         });
       }
 
-      savedResponse.results.forEach((saved) => {
+      savedResults.forEach((saved) => {
         upsertScholarship(saved.opportunity_detail, {
           isSaved: true,
           matchScore: null,
@@ -513,7 +628,7 @@ function SOPGeneratorContent() {
         });
       });
 
-      recommendedResponse.results.forEach((recommended) => {
+      recommendedResults.forEach((recommended) => {
         upsertScholarship(recommended.opportunity, {
           isSaved: false,
           matchScore: recommended.match?.score ?? null,
@@ -521,7 +636,7 @@ function SOPGeneratorContent() {
         });
       });
 
-      scholarshipsResponse.results.forEach((scholarship) => {
+      scholarshipResults.forEach((scholarship) => {
         upsertScholarship(scholarship, {
           isSaved: false,
           matchScore: null,
@@ -1191,8 +1306,13 @@ function SOPGeneratorContent() {
 
     resetImprovementStatus();
 
-    if (provider === "local") {
+    if (resultProvider === "local") {
       setImprovementError("Improvement is available after selecting Server 2 or Server 3.");
+      return;
+    }
+
+    if (!resultProvider) {
+      setImprovementError("Generate a draft before improving it.");
       return;
     }
 
@@ -1209,7 +1329,7 @@ function SOPGeneratorContent() {
     setDeepSeekError(null);
 
     try {
-      if (provider === "deepseek") {
+      if (resultProvider === "deepseek") {
         await improveWithDeepSeek(prompt);
       } else {
         await improveWithPuter(prompt);
@@ -1354,8 +1474,8 @@ function SOPGeneratorContent() {
     loading ||
     isWaiting ||
     deepSeekActiveJob ||
-    (provider === "puter" && puterOptionDisabled) ||
-    (provider === "deepseek" && (deepSeekOptionDisabled || deepSeekCooldownActive));
+    (resultProvider === "puter" && puterOptionDisabled) ||
+    (resultProvider === "deepseek" && (deepSeekOptionDisabled || deepSeekCooldownActive));
   const resultProviderName = getProviderDisplayName(resultProvider);
   const deepSeekWorkerLabel = checkingDeepSeekWorker
     ? "Checking"

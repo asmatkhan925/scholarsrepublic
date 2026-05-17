@@ -6,7 +6,15 @@ from .models import AIJob, SOPDraft
 
 
 class SOPGenerateSerializer(serializers.Serializer):
-    target_scholarship = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    target_scholarship = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        max_length=300,
+        error_messages={
+            "blank": "Please choose the scholarship you are applying for.",
+            "required": "Please choose the scholarship you are applying for.",
+        },
+    )
     target_country = serializers.CharField(required=False, allow_blank=True, max_length=120)
     target_degree = serializers.CharField(required=True, allow_blank=False, max_length=120)
     field_of_study = serializers.CharField(required=True, allow_blank=False, max_length=200)
