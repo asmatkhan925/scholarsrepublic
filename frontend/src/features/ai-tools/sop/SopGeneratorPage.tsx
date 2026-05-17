@@ -27,9 +27,7 @@ import {
   createSOPDraft,
   getAIJobStatus,
   getCountries,
-  getRecommendedScholarships,
-  getSavedOpportunities,
-  getScholarships,
+  getScholarshipPicker,
   getStudentProfile,
   getStudyFields,
   submitSOPJob,
@@ -102,13 +100,7 @@ type ScholarshipPickerItem = {
   rank: 0 | 1 | 2;
 };
 
-type RecommendedScholarshipPage = Awaited<ReturnType<typeof getRecommendedScholarships>> & {
-  next?: string | null;
-};
-type SavedOpportunityPage = Awaited<ReturnType<typeof getSavedOpportunities>>;
-
 const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
-const scholarshipPickerMaxPages = 5;
 const scholarshipPickerMaxResults = 100;
 const sopImprovementOptions: Array<{ value: SOPImprovementFocus; label: string }> = [
   { value: "opening", label: "Improve opening/motivation" },
@@ -544,118 +536,23 @@ function SOPGeneratorContent() {
     }
   }
 
-  async function loadScholarshipOptions() {
+  async function loadScholarshipOptions(searchQuery = scholarshipSearch) {
     setScholarshipsLoading(true);
     setScholarshipsError(null);
 
     try {
-      async function fetchSavedPages() {
-        const results: SavedOpportunityPage["results"] = [];
-
-        for (let page = 1; page <= scholarshipPickerMaxPages; page += 1) {
-          const response = await getSavedOpportunities({ page });
-          results.push(...response.results);
-
-          if (!response.next || results.length >= scholarshipPickerMaxResults) {
-            break;
-          }
-        }
-
-        return results.slice(0, scholarshipPickerMaxResults);
-      }
-
-      async function fetchRecommendedPages() {
-        const results: RecommendedScholarshipPage["results"] = [];
-
-        for (let page = 1; page <= scholarshipPickerMaxPages; page += 1) {
-          const response: RecommendedScholarshipPage = await getRecommendedScholarships({ page });
-          results.push(...response.results);
-
-          if (!response.next || results.length >= scholarshipPickerMaxResults) {
-            break;
-          }
-        }
-
-        return results.slice(0, scholarshipPickerMaxResults);
-      }
-
-      async function fetchScholarshipPages() {
-        const results: OpportunityListItem[] = [];
-
-        for (let page = 1; page <= scholarshipPickerMaxPages; page += 1) {
-          const response = await getScholarships({ page });
-          results.push(...response.results);
-
-          if (!response.next || results.length >= scholarshipPickerMaxResults) {
-            break;
-          }
-        }
-
-        return results.slice(0, scholarshipPickerMaxResults);
-      }
-
-      const [savedResults, recommendedResults, scholarshipResults] = await Promise.all([
-        fetchSavedPages(),
-        fetchRecommendedPages(),
-        fetchScholarshipPages(),
-      ]);
-
-      const merged = new Map<string, ScholarshipPickerItem>();
-
-      function upsertScholarship(
-        scholarship: OpportunityListItem,
-        source: Pick<ScholarshipPickerItem, "isSaved" | "matchScore" | "rank">,
-      ) {
-        if (!isScholarshipLikeOpportunity(scholarship)) {
-          return;
-        }
-
-        const current = merged.get(scholarship.slug);
-
-        merged.set(scholarship.slug, {
-          scholarship,
-          isSaved: Boolean(current?.isSaved || source.isSaved),
-          matchScore: current?.matchScore ?? source.matchScore,
-          rank: Math.min(current?.rank ?? source.rank, source.rank) as ScholarshipPickerItem["rank"],
-        });
-      }
-
-      savedResults.forEach((saved) => {
-        upsertScholarship(saved.opportunity_detail, {
-          isSaved: true,
-          matchScore: null,
-          rank: 0,
-        });
-      });
-
-      recommendedResults.forEach((recommended) => {
-        upsertScholarship(recommended.opportunity, {
-          isSaved: false,
-          matchScore: recommended.match?.score ?? null,
-          rank: 1,
-        });
-      });
-
-      scholarshipResults.forEach((scholarship) => {
-        upsertScholarship(scholarship, {
-          isSaved: false,
-          matchScore: null,
-          rank: 2,
-        });
+      const response = await getScholarshipPicker({
+        q: searchQuery.trim() || undefined,
+        limit: scholarshipPickerMaxResults,
       });
 
       setScholarships(
-        Array.from(merged.values()).sort((first, second) => {
-          if (first.rank !== second.rank) {
-            return first.rank - second.rank;
-          }
-
-          if ((second.matchScore ?? -1) !== (first.matchScore ?? -1)) {
-            return (second.matchScore ?? -1) - (first.matchScore ?? -1);
-          }
-
-          return first.scholarship.title.localeCompare(second.scholarship.title);
-        }),
+        response.results.map((scholarship) => ({
+          scholarship,
+          isSaved: scholarship.is_saved,
+          matchScore: scholarship.match_score,
+          rank: scholarship.is_saved ? 0 : scholarship.match_score !== null ? 1 : 2,
+        })),
       );
     } catch (requestError) {
       setScholarshipsError(getErrorMessage(requestError));
@@ -743,6 +640,21 @@ function SOPGeneratorContent() {
   useEffect(() => {
     selectedScholarshipRef.current = selectedScholarship;
   }, [selectedScholarship]);
+
+  useEffect(() => {
+    if (!scholarshipPickerOpen) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadScholarshipOptions(scholarshipSearch);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [scholarshipPickerOpen, scholarshipSearch]);
+
 
   useEffect(() => {
     if (deepSeekCooldownSeconds <= 0) {

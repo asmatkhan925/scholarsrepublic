@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
+from apps.applications.models import SavedOpportunity
 from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityPathway
 from apps.opportunities.serializers import (
@@ -429,6 +430,130 @@ class RecommendedOpportunitiesView(OpportunityFilterMixin, StudentMatchMixin, AP
 
 class RecommendedScholarshipsView(RecommendedOpportunitiesView):
     opportunity_type = Opportunity.OpportunityType.SCHOLARSHIP
+
+
+
+class ScholarshipPickerView(StudentMatchMixin, APIView):
+    """Compact authenticated picker for SOP scholarship selection."""
+
+    limit = 20
+    max_limit = 50
+    pool_size = 120
+    opportunity_type = Opportunity.OpportunityType.SCHOLARSHIP
+
+    def get_saved_ids(self, request):
+        return set(
+            SavedOpportunity.objects.filter(
+                user=request.user,
+                opportunity__status=Opportunity.Status.PUBLISHED,
+                opportunity__opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+            ).values_list("opportunity_id", flat=True)
+        )
+
+    def apply_search(self, queryset, query):
+        if not query:
+            return queryset
+
+        return queryset.filter(
+            Q(title__icontains=query)
+            | Q(provider_name__icontains=query)
+            | Q(university_name__icontains=query)
+            | Q(country_ref__name__icontains=query)
+            | Q(study_field_refs__name__icontains=query)
+            | Q(short_description__icontains=query)
+            | Q(search_keywords__icontains=query)
+        ).distinct()
+
+    def serialize_picker_item(self, request, opportunity, is_saved, match_score):
+        data = OpportunityListSerializer(opportunity, context={"request": request}).data
+        data["is_saved"] = bool(is_saved)
+        data["match_score"] = match_score
+        return data
+
+    def get(self, request):
+        raw_limit = parse_positive_int(request.query_params.get("limit"))
+        limit = min(raw_limit or self.limit, self.max_limit)
+        query = (request.query_params.get("q") or "").strip()
+
+        saved_ids = self.get_saved_ids(request)
+        profile = self.get_profile(request)
+
+        queryset = (
+            Opportunity.objects.filter(
+                status=Opportunity.Status.PUBLISHED,
+                opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+            )
+            .select_related(
+                "country_ref",
+                "pathway",
+                "pathway__country_ref",
+                "pathway__parent",
+            )
+            .prefetch_related(
+                "eligible_country_refs",
+                "eligible_region_refs",
+                "study_field_refs",
+            )
+        )
+
+        queryset = self.apply_search(queryset, query).order_by(
+            "-featured",
+            F("deadline").asc(nulls_last=True),
+            "-published_at",
+            "title",
+        )
+
+        saved_opportunities = list(queryset.filter(id__in=saved_ids)[: self.max_limit])
+        other_opportunities = list(
+            queryset.exclude(id__in=saved_ids)[: max(self.pool_size, limit * 5)]
+        )
+
+        ranked_items = []
+        seen_ids = set()
+
+        for opportunity in [*saved_opportunities, *other_opportunities]:
+            if opportunity.id in seen_ids:
+                continue
+            seen_ids.add(opportunity.id)
+
+            match_score = None
+            if profile:
+                try:
+                    match_score = calculate_opportunity_match(profile, opportunity).get("score")
+                except Exception:
+                    match_score = None
+
+            is_saved = opportunity.id in saved_ids
+            rank_group = 0 if is_saved else (1 if match_score is not None else 2)
+
+            ranked_items.append(
+                {
+                    "opportunity": opportunity,
+                    "is_saved": is_saved,
+                    "match_score": match_score,
+                    "rank_group": rank_group,
+                }
+            )
+
+        ranked_items.sort(
+            key=lambda item: (
+                item["rank_group"],
+                -(item["match_score"] or -1),
+                item["opportunity"].title.lower(),
+            )
+        )
+
+        results = [
+            self.serialize_picker_item(
+                request,
+                item["opportunity"],
+                item["is_saved"],
+                item["match_score"],
+            )
+            for item in ranked_items[:limit]
+        ]
+
+        return Response({"count": len(results), "results": results})
 
 
 class ScholarshipCommentThrottle(UserRateThrottle):

@@ -34,6 +34,7 @@ import type {
   OpportunityApplication,
   OpportunityApplicationResponse,
   OpportunityDetail,
+  OpportunityListItem,
   OpportunityListResponse,
   OpportunityMatch,
   OpportunityPathwayDetail,
@@ -190,6 +191,28 @@ export async function getOpportunityPathway(slug: string) {
 
 export async function getScholarships(params?: OpportunityQueryParams & PaginationParams) {
   const response = await api.get<OpportunityListResponse>("/scholarships/", {
+    params,
+  });
+  return response.data;
+}
+
+export type ScholarshipPickerQueryParams = {
+  q?: string;
+  limit?: number;
+};
+
+export type ScholarshipPickerItem = OpportunityListItem & {
+  is_saved: boolean;
+  match_score: number | null;
+};
+
+export type ScholarshipPickerResponse = {
+  count: number;
+  results: ScholarshipPickerItem[];
+};
+
+export async function getScholarshipPicker(params?: ScholarshipPickerQueryParams) {
+  const response = await api.get<ScholarshipPickerResponse>("/scholarships/picker/", {
     params,
   });
   return response.data;
