@@ -1389,7 +1389,7 @@ function SOPGeneratorContent() {
       description="Generate a scholarship Statement of Purpose draft using your profile and the details you provide."
       hideHeader
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft">
           <div className="border-b border-ink/10 bg-gradient-to-r from-pine/10 via-white to-saffron/10 px-4 py-3 md:px-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1411,10 +1411,10 @@ function SOPGeneratorContent() {
                 </Link>
               </div>
 
-              <div className="rounded-xl border border-ink/10 bg-white/80 p-3 text-xs text-ink/70 md:max-w-md">
+              <div className="rounded-xl border border-ink/10 bg-white/80 px-3 py-2 text-xs text-ink/70 md:max-w-md">
                 <div className="flex gap-2">
                   <AlertTriangle
-                    size={16}
+                    size={15}
                     className="mt-0.5 shrink-0 text-saffron"
                     aria-hidden="true"
                   />
@@ -1427,7 +1427,7 @@ function SOPGeneratorContent() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid gap-3 p-3 md:p-4">
+          <form onSubmit={handleSubmit} className="grid gap-2.5 p-3 md:p-3.5">
             {checkingAI && (
               <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/70">
                 Checking draft options...
@@ -1445,7 +1445,7 @@ function SOPGeneratorContent() {
               </div>
             )}
 
-            <section className="rounded-2xl border border-ink/10 bg-cream/40 p-3">
+            <section className="rounded-xl border border-ink/10 bg-cream/40 p-2.5">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-bold text-ink">Draft option</h3>
                 <button
@@ -1462,12 +1462,12 @@ function SOPGeneratorContent() {
                 </button>
               </div>
 
-              <div className="mt-3 grid gap-2 md:grid-cols-3">
+              <div className="mt-2 grid gap-2 md:grid-cols-3">
                 <button
                   type="button"
                   disabled={localOptionDisabled}
                   onClick={() => setProvider("local")}
-                  className={`rounded-xl border p-3 text-left transition ${
+                  className={`rounded-xl border p-2.5 text-left transition ${
                     provider === "local"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
@@ -1489,7 +1489,7 @@ function SOPGeneratorContent() {
                   type="button"
                   disabled={puterOptionDisabled}
                   onClick={() => setProvider("puter")}
-                  className={`rounded-xl border p-3 text-left transition ${
+                  className={`rounded-xl border p-2.5 text-left transition ${
                     provider === "puter"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
@@ -1519,7 +1519,7 @@ function SOPGeneratorContent() {
                   type="button"
                   disabled={deepSeekOptionDisabled}
                   onClick={() => setProvider("deepseek")}
-                  className={`rounded-xl border p-3 text-left transition ${
+                  className={`rounded-xl border p-2.5 text-left transition ${
                     provider === "deepseek"
                       ? "border-pine bg-pine/5"
                       : "border-ink/10 bg-white hover:border-pine/30"
@@ -1569,56 +1569,11 @@ function SOPGeneratorContent() {
               ) : null}
             </section>
 
-            <section className="rounded-xl border border-ink/10 bg-white px-3 py-2">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase text-ink/50">Scholarship</p>
-                  {selectedScholarship ? (
-                    <div className="mt-1 flex min-w-0 flex-col gap-1 md:flex-row md:items-center">
-                      <p className="truncate text-sm font-bold text-ink">
-                        {selectedScholarship.title}
-                      </p>
-                      {selectedScholarshipChips.length ? (
-                        <div className="flex flex-wrap gap-1">
-                          {selectedScholarshipChips.map((chip, index) => (
-                            <span
-                              key={`${chip}-${index}`}
-                              className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-semibold text-ink/65"
-                            >
-                              {chip}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="mt-1 text-sm font-semibold text-ink/60">
-                      No scholarship selected
-                    </p>
-                  )}
-                  {!selectedScholarship ? (
-                    <p className="mt-1 text-xs font-semibold text-red-700">
-                      Please choose the scholarship you are applying for.
-                    </p>
-                  ) : null}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setScholarshipPickerOpen(true)}
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-pine/25 bg-pine/5 px-3 text-xs font-semibold text-pine transition hover:bg-pine/10"
-                >
-                  <Search size={14} aria-hidden="true" />
-                  {selectedScholarship ? "Change" : "Choose scholarship"}
-                </button>
-              </div>
-            </section>
-
             <p className="text-xs leading-5 text-ink/55">
               Some fields may be filled from your profile. You can edit them before generating.
             </p>
 
-            <div className="grid gap-3 lg:grid-cols-3">
+            <div className="grid gap-2.5 lg:grid-cols-3">
               <CompactOptionInput
                 id="sop-target-country-options"
                 label="Target country"
@@ -1650,7 +1605,63 @@ function SOPGeneratorContent() {
               />
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-2.5 lg:grid-cols-2">
+              <div className="grid gap-1 text-sm font-semibold text-ink">
+                Scholarship *
+                <div className="flex min-h-20 flex-col justify-between rounded-xl border border-ink/15 bg-white px-3 py-2">
+                  <div className="min-w-0">
+                    {selectedScholarship ? (
+                      <>
+                        <p className="truncate text-sm font-bold text-ink">
+                          {selectedScholarship.title}
+                        </p>
+                        {selectedScholarshipChips.length ? (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {selectedScholarshipChips.map((chip, index) => (
+                              <span
+                                key={`${chip}-${index}`}
+                                className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-semibold text-ink/65"
+                              >
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <p className="text-sm font-semibold text-ink/60">No scholarship selected</p>
+                    )}
+                    {!selectedScholarship ? (
+                      <p className="mt-1 text-xs font-semibold text-red-700">
+                        Please choose the scholarship you are applying for.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setScholarshipPickerOpen(true)}
+                    className="mt-2 inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-pine/25 bg-pine/5 px-3 text-xs font-semibold text-pine transition hover:bg-pine/10"
+                  >
+                    <Search size={14} aria-hidden="true" />
+                    {selectedScholarship ? "Change" : "Choose scholarship"}
+                  </button>
+                </div>
+              </div>
+
+              <label className="grid gap-1 text-sm font-semibold text-ink">
+                Why this scholarship?
+                <textarea
+                  value={form.why_scholarship}
+                  onChange={(event) => updateField("why_scholarship", event.target.value)}
+                  rows={2}
+                  placeholder="Why this award fits your goals"
+                  className="min-h-20 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-2.5 lg:grid-cols-2">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Academic background
                 <input
@@ -1672,18 +1683,7 @@ function SOPGeneratorContent() {
               </label>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-3">
-              <label className="grid gap-1 text-sm font-semibold text-ink">
-                Why this scholarship?
-                <textarea
-                  value={form.why_scholarship}
-                  onChange={(event) => updateField("why_scholarship", event.target.value)}
-                  rows={2}
-                  placeholder="Why this award fits your goals"
-                  className="min-h-20 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                />
-              </label>
-
+            <div className="grid gap-2.5 lg:grid-cols-2">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Future goal *
                 <textarea
@@ -1707,20 +1707,20 @@ function SOPGeneratorContent() {
               </label>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-2.5">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Notes or existing draft
                 <textarea
                   value={form.existing_draft}
                   onChange={(event) => updateField("existing_draft", event.target.value)}
-                  rows={3}
+                  rows={2}
                   placeholder="Add details the draft should use, or paste a rough SOP"
-                  className="min-h-24 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="min-h-20 rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-normal leading-6 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream/50 p-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-cream/50 p-2.5 md:flex-row md:items-center md:justify-between">
               <div className="text-xs leading-5 text-ink/65">
                 <strong className="text-ink">Required:</strong> scholarship, target degree, field of
                 study, and either future goals or an existing draft.
