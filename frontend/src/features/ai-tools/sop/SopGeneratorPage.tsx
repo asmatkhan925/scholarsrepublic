@@ -40,7 +40,13 @@ import type { StudentProfile } from "@/types/profile";
 import type { CountryOption, StudyFieldOption } from "@/types/reference";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, PUTER_MODEL } from "./constants";
-import { downloadSOPAsDocx, formatSOPForClipboard, formatWait, normalizeAIText } from "./format";
+import {
+  downloadSOPAsDocx,
+  evaluateSOPQuality,
+  formatSOPForClipboard,
+  formatWait,
+  normalizeAIText,
+} from "./format";
 import { buildPuterPrompt, buildSOPImprovementPrompt, extractPuterText } from "./puter";
 import { validateSOPImprovementInstruction, validateSOPInput } from "./safety";
 import type {
@@ -1406,6 +1412,7 @@ function SOPGeneratorContent() {
     (resultProvider === "puter" && puterOptionDisabled) ||
     (resultProvider === "deepseek" && (deepSeekOptionDisabled || deepSeekCooldownActive));
   const resultProviderName = getProviderDisplayName(resultProvider);
+  const resultQuality = useMemo(() => (result ? evaluateSOPQuality(result) : null), [result]);
   const deepSeekWorkerLabel = checkingDeepSeekWorker
     ? "Checking"
     : deepSeekWorkerStatus?.online
@@ -2088,6 +2095,29 @@ function SOPGeneratorContent() {
               {saveError || saveMessage}
             </div>
           )}
+
+          {result && resultQuality?.warnings.length ? (
+            <div className="mt-3 rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-sm leading-6 text-ink/75">
+              <div className="flex gap-2">
+                <AlertTriangle
+                  size={16}
+                  className="mt-1 shrink-0 text-saffron"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="font-semibold text-ink">Review this draft before saving.</p>
+                  <p className="mt-1 text-xs text-ink/60">
+                    {resultQuality.paragraphCount} paragraph(s), about {resultQuality.wordCount} words.
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-ink/70">
+                    {resultQuality.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-4 min-h-[220px] rounded-2xl border border-ink/10 bg-cream/40 p-4 text-sm leading-7 text-ink">
             {deepSeekIsWaiting && !result ? (

@@ -155,6 +155,69 @@ export function formatSOPForClipboard(text: string) {
   return getSOPParagraphs(text).join("\n\n");
 }
 
+export type SOPQualityReport = {
+  paragraphCount: number;
+  wordCount: number;
+  warnings: string[];
+};
+
+export function evaluateSOPQuality(text: string): SOPQualityReport {
+  const normalized = normalizeAIText(text);
+  const paragraphs = getSOPParagraphs(normalized);
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+  const lowered = normalized.toLowerCase();
+  const warnings: string[] = [];
+
+  if (paragraphs.length < 4) {
+    warnings.push("The draft has fewer than 4 paragraphs. Review structure before submission.");
+  }
+
+  if (paragraphs.length > 6) {
+    warnings.push("The draft has many paragraphs. Consider keeping it focused and easy to read.");
+  }
+
+  if (wordCount > 0 && wordCount < 350) {
+    warnings.push("The draft looks short for a scholarship SOP. Consider adding honest academic, fit, and goal details.");
+  }
+
+  if (wordCount > 900) {
+    warnings.push("The draft is long. Consider shortening it before submission.");
+  }
+
+  if (lowered.includes("not provided")) {
+    warnings.push("The draft includes “Not provided”. Remove it or replace it with accurate information.");
+  }
+
+  if (
+    lowered.includes("student details:") ||
+    lowered.includes("strict rules:") ||
+    lowered.includes("final reminder:") ||
+    lowered.includes("target scholarship:") ||
+    lowered.includes("current sop draft:")
+  ) {
+    warnings.push("The draft may include prompt text or field labels. Remove those before submission.");
+  }
+
+  if (
+    lowered.includes("ai-generated") ||
+    lowered.includes("as an ai") ||
+    lowered.includes("here is") ||
+    lowered.includes("here's")
+  ) {
+    warnings.push("The draft may include AI/system wording. Remove it before submission.");
+  }
+
+  if (/^#{1,6}\s/m.test(text) || /\*\*/.test(text)) {
+    warnings.push("The draft may include markdown formatting. Use clean paragraphs only.");
+  }
+
+  return {
+    paragraphCount: paragraphs.length,
+    wordCount,
+    warnings,
+  };
+}
+
 function safeFileName(value: string) {
   const cleaned = value
     .toLowerCase()
