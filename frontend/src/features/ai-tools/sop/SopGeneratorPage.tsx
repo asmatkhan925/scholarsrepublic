@@ -25,6 +25,9 @@ import {
   createSOPDraft,
   getAIJobStatus,
   getCountries,
+  getRecommendedScholarships,
+  getSavedOpportunities,
+  getScholarships,
   getStudyFields,
   submitSOPJob,
 } from "@/lib/api";
@@ -32,6 +35,7 @@ import { getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
 import type { AIJobStatus, CreateSOPDraftPayload, GenerateSOPPayload } from "@/types/ai";
 import type { CountryOption, StudyFieldOption } from "@/types/reference";
+import type { OpportunityListItem, RecommendedOpportunity, SavedOpportunity } from "@/types/opportunity";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, PUTER_MODEL } from "./constants";
 import { downloadSOPAsDocx, formatSOPForClipboard, formatWait, normalizeAIText } from "./format";
@@ -87,6 +91,20 @@ type LocalSOPRequestPayload = Omit<GenerateSOPPayload, "academic_background" | "
   tone: "formal";
 };
 
+
+type ScholarshipPickerItem = {
+  id: number;
+  slug: string;
+  title: string;
+  country: string;
+  degree: string;
+  field: string;
+  deadline: string | null;
+  isSaved: boolean;
+  matchScore: number | null;
+  rankGroup: number;
+};
+
 const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
 const sopImprovementOptions: Array<{ value: SOPImprovementFocus; label: string }> = [
   { value: "opening", label: "Improve opening/motivation" },
@@ -129,6 +147,15 @@ function wait(milliseconds: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+
+
+function formatDeadline(value: string | null) {
+  if (!value) return "Rolling or not listed";
+  return new Intl.DateTimeFormat("en", { year: "numeric", month: "short", day: "numeric" }).format(
+    new Date(value),
+  );
 }
 
 function getProviderDisplayName(provider: GenerationProvider | null) {
@@ -285,17 +312,87 @@ function SOPGeneratorContent() {
   const [copiedFormatted, setCopiedFormatted] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showScholarshipModal, setShowScholarshipModal] = useState(false);
+  const [scholarshipSearch, setScholarshipSearch] = useState("");
+  const [loadingScholarships, setLoadingScholarships] = useState(false);
+  const [scholarshipItems, setScholarshipItems] = useState<ScholarshipPickerItem[]>([]);
+  const [selectedScholarship, setSelectedScholarship] = useState<ScholarshipPickerItem | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeDeepSeekJobIdRef = useRef<number | null>(null);
   const submittedFormRef = useRef<GenerateSOPPayload | null>(null);
 
   const canSubmit = useMemo(() => {
     return (
+      Boolean(selectedScholarship) &&
       form.target_degree.trim().length > 0 &&
       form.field_of_study.trim().length > 0 &&
       ((form.future_goals || "").trim().length > 0 || (form.existing_draft || "").trim().length > 0)
     );
-  }, [form]);
+  }, [form, selectedScholarship]);
+
+
+
+  async function loadScholarshipPickerItems() {
+    setLoadingScholarships(true);
+    try {
+      const [savedResponse, recommendedResponse, scholarshipsResponse] = await Promise.all([
+        getSavedOpportunities(),
+        getRecommendedScholarships(),
+        getScholarships(),
+      ]);
+
+      const itemMap = new Map<string, ScholarshipPickerItem>();
+
+      const upsertItem = (
+        scholarship: OpportunityListItem,
+        options: { isSaved: boolean; matchScore: number | null; rankGroup: number },
+      ) => {
+        if (!scholarship?.slug) return;
+        const existing = itemMap.get(scholarship.slug);
+        const degree = scholarship.degree_levels?.[0] ?? "";
+        const field = scholarship.fields_of_study?.[0] ?? "";
+        const next: ScholarshipPickerItem = {
+          id: scholarship.id,
+          slug: scholarship.slug,
+          title: scholarship.title,
+          country: scholarship.country ?? "",
+          degree,
+          field,
+          deadline: scholarship.deadline ?? null,
+          isSaved: options.isSaved || existing?.isSaved || false,
+          matchScore:
+            typeof options.matchScore === "number" ? options.matchScore : existing?.matchScore ?? null,
+          rankGroup: Math.min(existing?.rankGroup ?? options.rankGroup, options.rankGroup),
+        };
+        itemMap.set(scholarship.slug, next);
+      };
+
+      (savedResponse.results ?? []).forEach((saved: SavedOpportunity) => {
+        upsertItem(saved.opportunity_detail, { isSaved: true, matchScore: null, rankGroup: 0 });
+      });
+      (recommendedResponse.results ?? []).forEach((recommended: RecommendedOpportunity) => {
+        upsertItem(recommended.opportunity, {
+          isSaved: false,
+          matchScore: recommended.match?.score ?? null,
+          rankGroup: 1,
+        });
+      });
+      (scholarshipsResponse.results ?? []).forEach((scholarship) => {
+        upsertItem(scholarship, { isSaved: false, matchScore: null, rankGroup: 2 });
+      });
+
+      const items = Array.from(itemMap.values()).sort((a, b) => {
+        if (a.rankGroup !== b.rankGroup) return a.rankGroup - b.rankGroup;
+        if ((b.matchScore ?? -1) !== (a.matchScore ?? -1)) return (b.matchScore ?? -1) - (a.matchScore ?? -1);
+        return a.title.localeCompare(b.title);
+      });
+      setScholarshipItems(items);
+    } catch {
+      setScholarshipItems([]);
+    } finally {
+      setLoadingScholarships(false);
+    }
+  }
 
   async function checkAIHealth() {
     setCheckingAI(true);
@@ -401,6 +498,7 @@ function SOPGeneratorContent() {
     checkAIHealth();
     checkDeepSeekWorkerStatus();
     loadReferenceOptions();
+    void loadScholarshipPickerItems();
     loadPuterScript();
 
     return () => {
@@ -806,9 +904,14 @@ function SOPGeneratorContent() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!selectedScholarship) {
+      setError("Please choose the scholarship you are applying for.");
+      return;
+    }
+
     if (!canSubmit) {
       setError(
-        "Please provide target degree, field of study, and either future goals or an existing SOP draft.",
+        "Please provide scholarship selection, target degree, field of study, and either future goals or an existing SOP draft.",
       );
       return;
     }
@@ -1135,6 +1238,21 @@ function SOPGeneratorContent() {
         : deepSeekCooldownActive
           ? `Wait ${formatCooldown(deepSeekCooldownSeconds)}`
           : "Generate Server 3";
+  const normalizedScholarshipSearch = scholarshipSearch.trim().toLowerCase();
+  const filteredScholarshipItems = scholarshipItems.filter((item) => {
+    if (!normalizedScholarshipSearch) return true;
+    const haystack = [item.title, item.country, item.degree, item.field].join(" ").toLowerCase();
+    return haystack.includes(normalizedScholarshipSearch);
+  });
+
+  function handleSelectScholarship(item: ScholarshipPickerItem) {
+    setSelectedScholarship(item);
+    updateField("target_scholarship", item.title);
+    if (item.country) updateField("target_country", item.country);
+    if (item.degree) updateField("target_degree", item.degree);
+    if (item.field) updateField("field_of_study", item.field);
+    setShowScholarshipModal(false);
+  }
 
   return (
     <DashboardShell
@@ -1325,12 +1443,21 @@ function SOPGeneratorContent() {
             <div className="grid gap-3 lg:grid-cols-3">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Target scholarship/program
-                <input
-                  value={form.target_scholarship}
-                  onChange={(event) => updateField("target_scholarship", event.target.value)}
-                  placeholder="Chinese Government Scholarship"
-                  className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                />
+                <button
+                  type="button"
+                  onClick={() => setShowScholarshipModal(true)}
+                  className="inline-flex h-10 items-center justify-between rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal text-ink transition hover:border-pine/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                >
+                  <span className={selectedScholarship ? "text-ink" : "text-ink/55"}>
+                    {selectedScholarship?.title || "Choose scholarship"}
+                  </span>
+                  <span className="text-xs font-semibold text-pine">Choose scholarship</span>
+                </button>
+                {!selectedScholarship ? (
+                  <p className="text-xs font-semibold text-red-700">
+                    Please choose the scholarship you are applying for.
+                  </p>
+                ) : null}
               </label>
 
               <CompactOptionInput
@@ -1436,7 +1563,8 @@ function SOPGeneratorContent() {
 
             <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream/50 p-3 md:flex-row md:items-center md:justify-between">
               <div className="text-xs leading-5 text-ink/65">
-                <strong className="text-ink">Required:</strong> target degree, field of study, and
+                <strong className="text-ink">Required:</strong> scholarship selection, target degree,
+                field of study, and
                 either future goals or an existing draft.
               </div>
 
@@ -1454,6 +1582,79 @@ function SOPGeneratorContent() {
               </button>
             </div>
           </form>
+
+          {showScholarshipModal ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4">
+              <div className="w-full max-w-3xl rounded-2xl border border-ink/10 bg-white shadow-soft">
+                <div className="flex items-center justify-between border-b border-ink/10 px-4 py-3">
+                  <h3 className="text-sm font-bold text-ink">Choose scholarship</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowScholarshipModal(false)}
+                    className="rounded-lg px-2 py-1 text-xs font-semibold text-ink/65 hover:bg-ink/5"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="p-4">
+                  <input
+                    value={scholarshipSearch}
+                    onChange={(event) => setScholarshipSearch(event.target.value)}
+                    placeholder="Search by title, country, degree, or field"
+                    className="h-10 w-full rounded-xl border border-ink/15 bg-white px-3 text-sm outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  />
+
+                  <div className="mt-3 max-h-[55vh] overflow-y-auto rounded-xl border border-ink/10">
+                    {loadingScholarships ? (
+                      <p className="px-3 py-3 text-sm text-ink/60">Loading scholarships...</p>
+                    ) : filteredScholarshipItems.length === 0 ? (
+                      <p className="px-3 py-3 text-sm text-ink/60">
+                        No scholarships found. Try a different keyword.
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-ink/10">
+                        {filteredScholarshipItems.map((item) => (
+                          <li key={item.slug}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectScholarship(item)}
+                              className="w-full px-3 py-2 text-left hover:bg-cream/50"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-semibold text-ink">{item.title}</p>
+                                  <p className="mt-1 text-xs text-ink/60">
+                                    {item.country || "Country not listed"} · {item.degree || "Degree not listed"} ·{" "}
+                                    {item.field || "Field not listed"}
+                                  </p>
+                                  <p className="mt-1 text-xs text-ink/50">
+                                    Deadline: {formatDeadline(item.deadline)}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  {item.isSaved ? (
+                                    <span className="rounded-full bg-sky/10 px-2 py-0.5 text-[11px] font-semibold text-sky">
+                                      Saved
+                                    </span>
+                                  ) : null}
+                                  {typeof item.matchScore === "number" ? (
+                                    <span className="rounded-full bg-pine/10 px-2 py-0.5 text-[11px] font-semibold text-pine">
+                                      Match {Math.round(item.matchScore)}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
         </section>
 
         {provider === "local" && job && (
