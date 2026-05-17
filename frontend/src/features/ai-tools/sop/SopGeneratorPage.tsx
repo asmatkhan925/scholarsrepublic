@@ -30,6 +30,7 @@ import {
   getRecommendedScholarships,
   getSavedOpportunities,
   getScholarships,
+  getStudentProfile,
   getStudyFields,
   submitSOPJob,
 } from "@/lib/api";
@@ -37,6 +38,7 @@ import { getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
 import type { AIJobStatus, CreateSOPDraftPayload, GenerateSOPPayload } from "@/types/ai";
 import type { OpportunityListItem } from "@/types/opportunity";
+import type { StudentProfile } from "@/types/profile";
 import type { CountryOption, StudyFieldOption } from "@/types/reference";
 import { FormattedSOPText } from "./FormattedSOPText";
 import { initialForm, PUTER_MODEL } from "./constants";
@@ -151,6 +153,10 @@ function formatScholarshipMeta(values: Array<string | null | undefined>) {
     .join(" | ");
 }
 
+function firstProfileValue(values: Array<string | null | undefined>) {
+  return values.find((value) => value?.trim())?.trim() ?? "";
+}
+
 function getScholarshipDegree(scholarship: OpportunityListItem) {
   return scholarship.degree_levels?.[0] ?? "";
 }
@@ -175,6 +181,38 @@ function formatScholarshipDeadline(deadline: string | null) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function buildAcademicBackgroundFromProfile(profile: StudentProfile) {
+  return formatScholarshipMeta([
+    profile.current_education_level,
+    profile.current_field_of_study,
+    profile.current_institution,
+    profile.cgpa ? `CGPA ${profile.cgpa}` : "",
+    profile.percentage ? `${profile.percentage}%` : "",
+    profile.graduation_year ? `Graduation ${profile.graduation_year}` : "",
+  ]);
+}
+
+function buildKeyStrengthFromProfile(profile: StudentProfile) {
+  const strengths = [
+    ...(profile.skills ?? []).slice(0, 4),
+    profile.has_research_experience ? "research experience" : "",
+    profile.publications_count ? `${profile.publications_count} publication(s)` : "",
+    profile.work_experience_years ? `${profile.work_experience_years} year(s) work experience` : "",
+    profile.has_internship_experience ? "internship experience" : "",
+    ...(profile.research_interests ?? []).slice(0, 2).map((interest) => `${interest} interest`),
+  ];
+
+  return formatScholarshipMeta(strengths);
+}
+
+function getProfileFieldOfStudy(profile: StudentProfile) {
+  return firstProfileValue([profile.target_fields?.[0], profile.current_field_of_study]);
+}
+
+function getProfileTargetDegree(profile: StudentProfile) {
+  return firstProfileValue([profile.target_degree_level, profile.current_education_level]);
 }
 
 function getProviderDisplayName(provider: GenerationProvider | null) {
@@ -340,6 +378,7 @@ function SOPGeneratorContent() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeDeepSeekJobIdRef = useRef<number | null>(null);
   const submittedFormRef = useRef<GenerateSOPPayload | null>(null);
+  const selectedScholarshipRef = useRef<OpportunityListItem | null>(null);
 
   const canSubmit = useMemo(() => {
     return (
@@ -510,6 +549,35 @@ function SOPGeneratorContent() {
     }
   }
 
+  async function loadProfileDefaults() {
+    try {
+      const profile = await getStudentProfile();
+      const profileCountry = profile.target_countries?.[0] ?? "";
+      const profileDegree = getProfileTargetDegree(profile);
+      const profileField = getProfileFieldOfStudy(profile);
+      const academicBackground = buildAcademicBackgroundFromProfile(profile);
+      const keyStrength = buildKeyStrengthFromProfile(profile);
+
+      setForm((current) => {
+        const scholarship = selectedScholarshipRef.current;
+        const scholarshipCountry = scholarship?.country ?? "";
+        const scholarshipDegree = scholarship ? getScholarshipDegree(scholarship) : "";
+        const scholarshipField = scholarship ? getScholarshipField(scholarship) : "";
+
+        return {
+          ...current,
+          target_country: current.target_country || scholarshipCountry || profileCountry,
+          target_degree: current.target_degree || scholarshipDegree || profileDegree,
+          field_of_study: current.field_of_study || scholarshipField || profileField,
+          academic_background: current.academic_background || academicBackground,
+          key_strength: current.key_strength || keyStrength,
+        };
+      });
+    } catch {
+      // Profile completion is optional for this tool.
+    }
+  }
+
   function loadPuterScript() {
     setPuterStatus("loading");
 
@@ -547,6 +615,7 @@ function SOPGeneratorContent() {
     checkDeepSeekWorkerStatus();
     loadReferenceOptions();
     void loadScholarshipOptions();
+    void loadProfileDefaults();
     loadPuterScript();
 
     return () => {
@@ -555,6 +624,10 @@ function SOPGeneratorContent() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    selectedScholarshipRef.current = selectedScholarship;
+  }, [selectedScholarship]);
 
   useEffect(() => {
     if (deepSeekCooldownSeconds <= 0) {
@@ -658,6 +731,7 @@ function SOPGeneratorContent() {
   }
 
   function selectScholarship(scholarship: OpportunityListItem) {
+    selectedScholarshipRef.current = scholarship;
     setSelectedScholarship(scholarship);
     setForm((current) => ({
       ...current,
@@ -1300,14 +1374,14 @@ function SOPGeneratorContent() {
         : deepSeekCooldownActive
           ? `Wait ${formatCooldown(deepSeekCooldownSeconds)}`
           : "Generate Server 3";
-  const selectedScholarshipMeta = selectedScholarship
-    ? formatScholarshipMeta([
+  const selectedScholarshipChips = selectedScholarship
+    ? [
         selectedScholarship.country,
         getScholarshipDegree(selectedScholarship),
         getScholarshipField(selectedScholarship),
         formatScholarshipDeadline(selectedScholarship.deadline),
-      ])
-    : "";
+      ].filter((value): value is string => Boolean(value?.trim()))
+    : [];
 
   return (
     <DashboardShell
@@ -1495,43 +1569,56 @@ function SOPGeneratorContent() {
               ) : null}
             </section>
 
-            <div className="grid gap-3 lg:grid-cols-3">
-              <div className="grid gap-1 text-sm font-semibold text-ink">
-                Scholarship *
-                <div className="rounded-xl border border-ink/15 bg-white p-2">
+            <section className="rounded-xl border border-ink/10 bg-white px-3 py-2">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase text-ink/50">Scholarship</p>
                   {selectedScholarship ? (
-                    <div className="min-w-0">
+                    <div className="mt-1 flex min-w-0 flex-col gap-1 md:flex-row md:items-center">
                       <p className="truncate text-sm font-bold text-ink">
                         {selectedScholarship.title}
                       </p>
-                      {selectedScholarshipMeta ? (
-                        <p className="mt-0.5 truncate text-xs font-normal text-ink/55">
-                          {selectedScholarshipMeta}
-                        </p>
+                      {selectedScholarshipChips.length ? (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedScholarshipChips.map((chip, index) => (
+                            <span
+                              key={`${chip}-${index}`}
+                              className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-semibold text-ink/65"
+                            >
+                              {chip}
+                            </span>
+                          ))}
+                        </div>
                       ) : null}
                     </div>
                   ) : (
-                    <p className="text-sm font-normal text-ink/55">
-                      Please choose the scholarship you are applying for.
+                    <p className="mt-1 text-sm font-semibold text-ink/60">
+                      No scholarship selected
                     </p>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={() => setScholarshipPickerOpen(true)}
-                    className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-pine/25 bg-pine/5 px-3 text-xs font-semibold text-pine transition hover:bg-pine/10"
-                  >
-                    <Search size={14} aria-hidden="true" />
-                    Choose scholarship
-                  </button>
+                  {!selectedScholarship ? (
+                    <p className="mt-1 text-xs font-semibold text-red-700">
+                      Please choose the scholarship you are applying for.
+                    </p>
+                  ) : null}
                 </div>
-                {!selectedScholarship ? (
-                  <p className="text-xs font-semibold text-red-700">
-                    Please choose the scholarship you are applying for.
-                  </p>
-                ) : null}
-              </div>
 
+                <button
+                  type="button"
+                  onClick={() => setScholarshipPickerOpen(true)}
+                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-pine/25 bg-pine/5 px-3 text-xs font-semibold text-pine transition hover:bg-pine/10"
+                >
+                  <Search size={14} aria-hidden="true" />
+                  {selectedScholarship ? "Change" : "Choose scholarship"}
+                </button>
+              </div>
+            </section>
+
+            <p className="text-xs leading-5 text-ink/55">
+              Some fields may be filled from your profile. You can edit them before generating.
+            </p>
+
+            <div className="grid gap-3 lg:grid-cols-3">
               <CompactOptionInput
                 id="sop-target-country-options"
                 label="Target country"
@@ -1551,9 +1638,7 @@ function SOPGeneratorContent() {
                   className="h-10 rounded-xl border border-ink/15 bg-white px-3 text-sm font-normal outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </label>
-            </div>
 
-            <div className="grid gap-3 lg:grid-cols-3">
               <CompactOptionInput
                 id="sop-field-options"
                 label="Field of study *"
@@ -1563,7 +1648,9 @@ function SOPGeneratorContent() {
                 value={form.field_of_study || ""}
                 onChange={(value) => updateField("field_of_study", value)}
               />
+            </div>
 
+            <div className="grid gap-3 lg:grid-cols-2">
               <label className="grid gap-1 text-sm font-semibold text-ink">
                 Academic background
                 <input
