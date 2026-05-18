@@ -416,10 +416,6 @@ function ApplicationCard({
             </div>
 
             <div className="flex shrink-0 flex-wrap gap-2">
-              <ButtonLink href={detailHref} size="sm" variant="outline">
-                View Details
-                <ArrowRight size={15} aria-hidden="true" />
-              </ButtonLink>
               <Button
                 type="button"
                 onClick={() => setExpanded((current) => !current)}
@@ -680,6 +676,11 @@ function ApplicationCard({
                   </div>
 
                   <div className="mt-3 grid gap-2">
+                    <ButtonLink href={detailHref} className="w-full" size="sm" variant="outline">
+                      Scholarship details
+                      <ArrowRight size={15} aria-hidden="true" />
+                    </ButtonLink>
+
                     <Button className="w-full" disabled={saving} onClick={handleSave} size="sm">
                       <ClipboardCheck size={15} aria-hidden="true" />
                       {saving ? "Saving..." : "Save Changes"}
