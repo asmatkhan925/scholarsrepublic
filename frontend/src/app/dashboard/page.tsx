@@ -19,9 +19,18 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
-import { getApplications, getApplicationSummary, getProfileCompletion } from "@/lib/api";
+import {
+  getApplications,
+  getApplicationSummary,
+  getProfileCompletion,
+  getSavedOpportunities,
+} from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { OpportunityApplication, ApplicationSummary } from "@/types/opportunity";
+import type {
+  OpportunityApplication,
+  ApplicationSummary,
+  SavedOpportunity,
+} from "@/types/opportunity";
 import type { ProfileCompletion } from "@/types/profile";
 
 type ActionCard = {
@@ -201,11 +210,233 @@ function ApplicationActionCenter({
   );
 }
 
+function formatShortDate(value: string | null) {
+  if (!value) {
+    return "No deadline";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function getDeadlineLabel(value: string | null) {
+  const days = getDaysUntil(value);
+
+  if (days === null) {
+    return "No deadline";
+  }
+
+  if (days < 0) {
+    return `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`;
+  }
+
+  if (days === 0) {
+    return "Due today";
+  }
+
+  if (days === 1) {
+    return "Due tomorrow";
+  }
+
+  return `Due in ${days} days`;
+}
+
+function getProviderName(application: OpportunityApplication) {
+  return (
+    application.opportunity_detail.provider_name ||
+    application.opportunity_detail.university_name ||
+    application.opportunity_detail.company_name ||
+    "Provider not listed"
+  );
+}
+
+function ContinueWorkingSection({
+  applications,
+  savedOpportunities,
+  loading,
+}: {
+  applications: OpportunityApplication[];
+  savedOpportunities: SavedOpportunity[];
+  loading: boolean;
+}) {
+  const recentApplications = applications.slice(0, 3);
+  const recentSaved = savedOpportunities.slice(0, 3);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-4 text-sm text-ink/60">Loading recent work...</CardContent>
+      </Card>
+    );
+  }
+
+  if (recentApplications.length === 0 && recentSaved.length === 0) {
+    return (
+      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+              Continue working
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-ink">Nothing active yet</h2>
+            <p className="mt-1 text-sm leading-6 text-ink/60">
+              Save scholarships or start tracking applications to resume them from here.
+            </p>
+          </div>
+          <ButtonLink href="/scholarships" size="sm">
+            Find Scholarships
+            <ArrowRight size={15} aria-hidden="true" />
+          </ButtonLink>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+            Continue working
+          </p>
+          <h2 className="mt-1 text-lg font-bold text-ink">Pick up where you left off</h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/dashboard/applications" size="sm" variant="outline">
+            Tracker
+          </ButtonLink>
+          <ButtonLink href="/dashboard/saved" size="sm" variant="outline">
+            Saved
+          </ButtonLink>
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-pine/10 bg-mint/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-ink">Recently updated applications</p>
+            <Badge tone="mint">{recentApplications.length}</Badge>
+          </div>
+
+          {recentApplications.length > 0 ? (
+            <div className="grid gap-2">
+              {recentApplications.map((application) => {
+                const deadline = getApplicationDeadline(application);
+                const readinessScore = getApplicationReadinessScore(application);
+
+                return (
+                  <div
+                    key={application.id}
+                    className="rounded-xl border border-pine/10 bg-white px-3 py-2"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-ink">
+                          {application.opportunity_detail.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-ink/55">
+                          {getProviderName(application)} · {application.opportunity_detail.country || "Country not listed"}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <Badge tone={readinessScore >= 75 ? "mint" : readinessScore >= 45 ? "saffron" : "danger"}>
+                            {readinessScore}% ready
+                          </Badge>
+                          <Badge tone={application.latest_sop_draft ? "mint" : "saffron"}>
+                            {application.latest_sop_draft ? "SOP ready" : "No SOP"}
+                          </Badge>
+                          <Badge tone="neutral">{getDeadlineLabel(deadline)}</Badge>
+                        </div>
+                      </div>
+
+                      <ButtonLink
+                        href="/dashboard/applications"
+                        className="shrink-0"
+                        size="sm"
+                        variant="ghost"
+                      >
+                        Open
+                        <ArrowRight size={14} aria-hidden="true" />
+                      </ButtonLink>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-xl bg-white px-3 py-2 text-sm text-ink/60">
+              No tracked applications yet.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-pine/10 bg-skyglass p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-ink">Recent saved opportunities</p>
+            <Badge tone="saffron">{recentSaved.length}</Badge>
+          </div>
+
+          {recentSaved.length > 0 ? (
+            <div className="grid gap-2">
+              {recentSaved.map((saved) => {
+                const opportunity = saved.opportunity_detail;
+                const degree = opportunity.degree_levels[0];
+
+                return (
+                  <div
+                    key={saved.id}
+                    className="rounded-xl border border-pine/10 bg-white px-3 py-2"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-ink">{opportunity.title}</p>
+                        <p className="mt-0.5 truncate text-xs text-ink/55">
+                          {opportunity.provider_name ||
+                            opportunity.university_name ||
+                            opportunity.company_name ||
+                            "Provider not listed"}{" "}
+                          · {opportunity.country || "Country not listed"}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <Badge tone="neutral">{opportunity.funding_type || "Funding not listed"}</Badge>
+                          {degree ? <Badge tone="neutral">{degree}</Badge> : null}
+                          <Badge tone="neutral">{formatShortDate(opportunity.deadline)}</Badge>
+                        </div>
+                      </div>
+
+                      <ButtonLink
+                        href={`/scholarships/${opportunity.slug}`}
+                        className="shrink-0"
+                        size="sm"
+                        variant="ghost"
+                      >
+                        View
+                        <ArrowRight size={14} aria-hidden="true" />
+                      </ButtonLink>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-xl bg-white px-3 py-2 text-sm text-ink/60">
+              No saved opportunities yet.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function StudentDashboardContent() {
   const { user } = useAuth();
   const [completion, setCompletion] = useState<ProfileCompletion | null>(null);
   const [applications, setApplications] = useState<OpportunityApplication[]>([]);
   const [applicationSummary, setApplicationSummary] = useState<ApplicationSummary | null>(null);
+  const [recentSavedOpportunities, setRecentSavedOpportunities] = useState<SavedOpportunity[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingCompletion, setLoadingCompletion] = useState(true);
   const [loadingApplications, setLoadingApplications] = useState(true);
@@ -244,14 +475,16 @@ function StudentDashboardContent() {
 
     async function loadApplicationAlerts() {
       try {
-        const [applicationData, summaryData] = await Promise.all([
+        const [applicationData, summaryData, savedData] = await Promise.all([
           getApplications(),
           getApplicationSummary(),
+          getSavedOpportunities({ page_size: 3 }),
         ]);
 
         if (mounted) {
-          setApplications(applicationData.results);
+          setApplications(summaryData.recently_updated.length ? summaryData.recently_updated : applicationData.results);
           setApplicationSummary(summaryData);
+          setRecentSavedOpportunities(savedData.results);
         }
       } catch (requestError) {
         if (mounted) {
@@ -546,6 +779,12 @@ function StudentDashboardContent() {
           </div>
         </div>
       </section>
+
+      <ContinueWorkingSection
+        applications={applicationSummary?.recently_updated ?? applications}
+        loading={loadingApplications}
+        savedOpportunities={recentSavedOpportunities}
+      />
 
       <section>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
