@@ -54,6 +54,9 @@ export type SOPDraft = {
   title: string;
   provider: SOPDraftProvider;
   provider_label: string;
+  opportunity: number | null;
+  opportunity_slug: string;
+  opportunity_title: string;
   target_scholarship: string;
   target_country: string;
   target_degree: string;
@@ -69,6 +72,9 @@ export type SOPDraft = {
   updated_at: string;
 };
 
-export type CreateSOPDraftPayload = Omit<SOPDraft, "id" | "created_at" | "updated_at">;
+export type CreateSOPDraftPayload = Omit<
+  SOPDraft,
+  "id" | "created_at" | "updated_at" | "opportunity_slug" | "opportunity_title"
+>;
 
 export type UpdateSOPDraftPayload = Partial<CreateSOPDraftPayload>;

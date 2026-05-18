@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 from django.utils import timezone
 
+from apps.opportunities.models import Opportunity
+
 from .models import AIJob, SOPDraft
 
 
@@ -212,6 +214,17 @@ class AIJobSerializer(serializers.ModelSerializer):
 
 
 class SOPDraftSerializer(serializers.ModelSerializer):
+    opportunity = serializers.PrimaryKeyRelatedField(
+        queryset=Opportunity.objects.filter(
+            status=Opportunity.Status.PUBLISHED,
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        ),
+        required=False,
+        allow_null=True,
+    )
+    opportunity_slug = serializers.CharField(source="opportunity.slug", read_only=True)
+    opportunity_title = serializers.CharField(source="opportunity.title", read_only=True)
+
     class Meta:
         model = SOPDraft
         fields = [
@@ -219,6 +232,9 @@ class SOPDraftSerializer(serializers.ModelSerializer):
             "title",
             "provider",
             "provider_label",
+            "opportunity",
+            "opportunity_slug",
+            "opportunity_title",
             "target_scholarship",
             "target_country",
             "target_degree",

@@ -2,7 +2,7 @@
 
 import { isAxiosError } from "axios";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -169,65 +169,6 @@ function getScholarshipDegree(scholarship: OpportunityListItem) {
 
 function getScholarshipField(scholarship: OpportunityListItem) {
   return scholarship.fields_of_study?.[0] ?? "";
-}
-
-function getOptionalString(value: unknown, key: string) {
-  if (!value || typeof value !== "object") {
-    return "";
-  }
-
-  const fieldValue = (value as Record<string, unknown>)[key];
-  return typeof fieldValue === "string" ? fieldValue : "";
-}
-
-function getOptionalStringArray(value: unknown, key: string) {
-  if (!value || typeof value !== "object") {
-    return [];
-  }
-
-  const fieldValue = (value as Record<string, unknown>)[key];
-  return Array.isArray(fieldValue)
-    ? fieldValue.filter((item): item is string => typeof item === "string")
-    : [];
-}
-
-function isScholarshipLikeOpportunity(opportunity: OpportunityListItem) {
-  const typeValues = [
-    opportunity.opportunity_type,
-    getOptionalString(opportunity, "type"),
-    getOptionalString(opportunity, "category"),
-  ]
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
-  const scholarshipTerms = ["scholarship", "scholarships"];
-  const nonScholarshipTerms = [
-    "job",
-    "internship",
-    "research_position",
-    "competition",
-    "training",
-    "mentorship_program",
-  ];
-
-  if (typeValues.some((value) => scholarshipTerms.includes(value))) {
-    return true;
-  }
-
-  if (typeValues.some((value) => nonScholarshipTerms.includes(value))) {
-    return false;
-  }
-
-  const tags = [
-    ...(opportunity.tags ?? []),
-    ...getOptionalStringArray(opportunity, "tags"),
-  ].map((value) => value.trim().toLowerCase());
-
-  if (tags.some((tag) => scholarshipTerms.includes(tag))) {
-    return true;
-  }
-
-  return typeValues.length === 0;
 }
 
 function formatScholarshipDeadline(deadline: string | null) {
@@ -426,6 +367,7 @@ function SOPGeneratorContent() {
   const [deepSeekCooldownSeconds, setDeepSeekCooldownSeconds] = useState(0);
   const [resultProvider, setResultProvider] = useState<GenerationProvider | null>(null);
   const [resultForm, setResultForm] = useState<GenerateSOPPayload | null>(null);
+  const [resultScholarship, setResultScholarship] = useState<OpportunityListItem | null>(null);
   const [improvementFocus, setImprovementFocus] = useState<SOPImprovementFocus>("opening");
   const [improvementInstruction, setImprovementInstruction] = useState("");
   const [improvingDraft, setImprovingDraft] = useState(false);
@@ -443,6 +385,7 @@ function SOPGeneratorContent() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeDeepSeekJobIdRef = useRef<number | null>(null);
   const submittedFormRef = useRef<GenerateSOPPayload | null>(null);
+  const submittedScholarshipRef = useRef<OpportunityListItem | null>(null);
   const selectedScholarshipRef = useRef<OpportunityListItem | null>(null);
 
   const canSubmit = useMemo(() => {
@@ -543,7 +486,7 @@ function SOPGeneratorContent() {
     }
   }
 
-  async function loadScholarshipOptions(searchQuery = scholarshipSearch) {
+  const loadScholarshipOptions = useCallback(async (searchQuery = "") => {
     setScholarshipsLoading(true);
     setScholarshipsError(null);
 
@@ -566,7 +509,7 @@ function SOPGeneratorContent() {
     } finally {
       setScholarshipsLoading(false);
     }
-  }
+  }, []);
 
   async function loadProfileDefaults() {
     try {
@@ -642,7 +585,7 @@ function SOPGeneratorContent() {
         clearInterval(pollingRef.current);
       }
     };
-  }, []);
+  }, [loadScholarshipOptions]);
 
   useEffect(() => {
     selectedScholarshipRef.current = selectedScholarship;
@@ -660,7 +603,7 @@ function SOPGeneratorContent() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [scholarshipPickerOpen, scholarshipSearch]);
+  }, [loadScholarshipOptions, scholarshipPickerOpen, scholarshipSearch]);
 
 
   useEffect(() => {
@@ -788,6 +731,7 @@ function SOPGeneratorContent() {
         setLoading(false);
         setResultProvider(latest.status === "success" ? "local" : null);
         setResultForm(latest.status === "success" ? submittedFormRef.current : null);
+        setResultScholarship(latest.status === "success" ? submittedScholarshipRef.current : null);
 
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
@@ -826,6 +770,7 @@ function SOPGeneratorContent() {
           setDeepSeekResult(normalizeAIText(latest.user_message || latest.text || ""));
           setResultProvider("deepseek");
           setResultForm(submittedFormRef.current);
+          setResultScholarship(submittedScholarshipRef.current);
           setDeepSeekError(null);
           setError(null);
         } else {
@@ -837,6 +782,7 @@ function SOPGeneratorContent() {
           setDeepSeekError(message);
           setError(message);
           setResultProvider(null);
+          setResultScholarship(null);
         }
       }
 
@@ -895,9 +841,11 @@ function SOPGeneratorContent() {
     setDeepSeekError(null);
     setResultProvider(null);
     setResultForm(null);
+    setResultScholarship(null);
     resetImprovementStatus();
     resetSaveState();
     submittedFormRef.current = { ...form };
+    submittedScholarshipRef.current = selectedScholarship;
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -955,9 +903,11 @@ function SOPGeneratorContent() {
     setDeepSeekError(null);
     setResultProvider(null);
     setResultForm(null);
+    setResultScholarship(null);
     resetImprovementStatus();
     resetSaveState();
     submittedFormRef.current = { ...form };
+    submittedScholarshipRef.current = selectedScholarship;
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -973,6 +923,7 @@ function SOPGeneratorContent() {
       setPuterResult(normalizeAIText(extractPuterText(response)));
       setResultProvider("puter");
       setResultForm(submittedFormRef.current);
+      setResultScholarship(submittedScholarshipRef.current);
     } catch {
       const message = "Server 2 request failed. Please try again.";
 
@@ -1003,9 +954,11 @@ function SOPGeneratorContent() {
     setDeepSeekError(null);
     setResultProvider(null);
     setResultForm(null);
+    setResultScholarship(null);
     resetImprovementStatus();
     resetSaveState();
     submittedFormRef.current = { ...form };
+    submittedScholarshipRef.current = selectedScholarship;
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -1148,6 +1101,7 @@ function SOPGeneratorContent() {
 
     setResultProvider(improvedProvider);
     setResultForm(resultForm ?? form);
+    setResultScholarship((current) => current ?? submittedScholarshipRef.current);
     setCopied(false);
     setCopiedFormatted(false);
     resetSaveState();
@@ -1364,6 +1318,7 @@ function SOPGeneratorContent() {
       title: getDraftTitle(),
       provider: resultProvider,
       provider_label: providerLabel,
+      opportunity: resultScholarship?.id ?? null,
       target_scholarship: draftForm.target_scholarship || "",
       target_country: draftForm.target_country || "",
       target_degree: draftForm.target_degree || "",

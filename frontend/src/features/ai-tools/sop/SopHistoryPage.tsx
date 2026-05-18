@@ -171,6 +171,14 @@ function SOPHistoryContent() {
                       </div>
 
                       <div className="flex flex-wrap gap-2">
+                        {draft.opportunity_slug ? (
+                          <Link
+                            href={`/scholarships/${draft.opportunity_slug}`}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-pine/20 bg-pine/5 px-3 py-2 text-xs font-semibold text-pine transition hover:bg-pine/10"
+                          >
+                            View scholarship
+                          </Link>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setSelectedDraftId(selected ? null : draft.id)}

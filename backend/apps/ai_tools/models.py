@@ -62,6 +62,13 @@ class SOPDraft(models.Model):
         on_delete=models.CASCADE,
         related_name="sop_drafts",
     )
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sop_drafts",
+    )
     title = models.CharField(max_length=180)
     provider = models.CharField(max_length=30, choices=Provider.choices)
     provider_label = models.CharField(max_length=80, blank=True)
@@ -83,6 +90,7 @@ class SOPDraft(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["user", "opportunity", "-created_at"]),
         ]
 
     def __str__(self):
