@@ -338,6 +338,46 @@ function ApplicationCard({
                 </span>
               </label>
 
+              <div className="mt-3 rounded-2xl border border-pine/10 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+                      <ClipboardCheck size={15} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-ink">Application checklist</p>
+                      <p className="text-xs text-ink/50">
+                        {completedChecklistCount}/{checklist.length} completed
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-cream px-2 py-1 text-[11px] font-semibold text-ink/55">
+                    Save changes to keep progress
+                  </span>
+                </div>
+
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {checklist.map((item, index) => (
+                    <label
+                      key={`${item.label}-${index}`}
+                      className="flex min-w-0 cursor-pointer items-start gap-2 rounded-xl border border-ink/10 bg-cream/30 px-2.5 py-2 text-xs text-ink transition hover:bg-cream/60"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.done}
+                        onChange={() => toggleChecklistItem(index)}
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-ink/20 text-pine focus:ring-pine/20"
+                      />
+                      <span className={item.done ? "min-w-0 text-ink/50 line-through" : "min-w-0 text-ink"}>
+                        {item.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+
+
             </div>
           </div>
 
@@ -369,46 +409,6 @@ function ApplicationCard({
               </label>
 
               
-
-              <div className="mt-4 rounded-2xl border border-pine/10 bg-white p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
-                      <ClipboardCheck size={16} aria-hidden="true" />
-                    </span>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
-                        Application checklist
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-ink">
-                        {completedChecklistCount}/{checklist.length} completed
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs leading-5 text-ink/50 sm:max-w-xs">
-                    Tick items as you prepare. Click Save Changes to keep progress.
-                  </p>
-                </div>
-
-                <div className="mt-3 grid gap-2">
-                  {checklist.map((item, index) => (
-                    <label
-                      key={`${item.label}-${index}`}
-                      className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink/10 bg-cream/35 px-3 py-2 text-sm text-ink transition hover:bg-cream/60"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.done}
-                        onChange={() => toggleChecklistItem(index)}
-                        className="mt-1 h-4 w-4 rounded border-ink/20 text-pine focus:ring-pine/20"
-                      />
-                      <span className={item.done ? "text-ink/55 line-through" : "text-ink"}>
-                        {item.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
 
               <div className="mt-4 rounded-2xl border border-pine/10 bg-cream/50 p-3">
                 <div className="flex items-start gap-3">
