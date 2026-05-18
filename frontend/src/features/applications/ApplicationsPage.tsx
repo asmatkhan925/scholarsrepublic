@@ -51,6 +51,17 @@ const PRIORITY_OPTIONS: { value: ApplicationPriority; label: string }[] = [
   { value: "high", label: "High" },
 ];
 
+type QuickFilter = "all" | "due_soon" | "overdue" | "high_priority" | "missing_sop" | "sop_ready";
+
+const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "due_soon", label: "Due soon" },
+  { value: "overdue", label: "Overdue" },
+  { value: "high_priority", label: "High priority" },
+  { value: "missing_sop", label: "Missing SOP" },
+  { value: "sop_ready", label: "SOP ready" },
+];
+
 const DEFAULT_APPLICATION_CHECKLIST: ChecklistItem[] = [
   { label: "Review eligibility requirements", done: false },
   { label: "Prepare SOP", done: false },
@@ -228,6 +239,41 @@ function getStatusGuidance(status: ApplicationStatus, hasSopDraft: boolean) {
   }
 
   return "";
+}
+
+function applicationMatchesQuickFilter(
+  application: OpportunityApplication,
+  quickFilter: QuickFilter,
+) {
+  const activeDeadline =
+    application.personal_deadline || application.opportunity_detail.deadline;
+  const daysUntilDeadline = getDaysUntil(activeDeadline);
+
+  if (quickFilter === "all") {
+    return true;
+  }
+
+  if (quickFilter === "due_soon") {
+    return daysUntilDeadline !== null && daysUntilDeadline >= 0 && daysUntilDeadline <= 7;
+  }
+
+  if (quickFilter === "overdue") {
+    return daysUntilDeadline !== null && daysUntilDeadline < 0;
+  }
+
+  if (quickFilter === "high_priority") {
+    return application.priority === "high";
+  }
+
+  if (quickFilter === "missing_sop") {
+    return !application.latest_sop_draft;
+  }
+
+  if (quickFilter === "sop_ready") {
+    return Boolean(application.latest_sop_draft);
+  }
+
+  return true;
 }
 
 function ApplicationCard({
@@ -736,6 +782,7 @@ function ApplicationTrackerContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -820,6 +867,18 @@ function ApplicationTrackerContent() {
   }
 
   const applicationItems = applications?.results ?? [];
+  const visibleApplicationItems = applicationItems.filter((application) =>
+    applicationMatchesQuickFilter(application, quickFilter),
+  );
+  const quickFilterCounts = QUICK_FILTER_OPTIONS.reduce(
+    (totals, option) => ({
+      ...totals,
+      [option.value]: applicationItems.filter((application) =>
+        applicationMatchesQuickFilter(application, option.value),
+      ).length,
+    }),
+    {} as Record<QuickFilter, number>,
+  );
   const counts = summary?.counts_by_status;
 
   return (
@@ -842,6 +901,40 @@ function ApplicationTrackerContent() {
           total={summary?.total ?? 0}
           waiting={counts?.result_waiting ?? 0}
         />
+
+        <section className="rounded-2xl border border-pine/10 bg-white p-3 shadow-soft">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
+              Quick view
+            </span>
+            {QUICK_FILTER_OPTIONS.map((option) => {
+              const active = quickFilter === option.value;
+              const count = quickFilterCounts[option.value] ?? 0;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setQuickFilter(option.value)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    active
+                      ? "border-pine bg-pine text-white"
+                      : "border-ink/10 bg-cream/40 text-ink/65 hover:border-pine/30 hover:bg-pine/5 hover:text-pine"
+                  }`}
+                >
+                  {option.label}
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                      active ? "bg-white/20 text-white" : "bg-white text-ink/45"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         {loading ? (
           <Card>
@@ -869,9 +962,15 @@ function ApplicationTrackerContent() {
           />
         ) : null}
 
-        {!loading && !error && applicationItems.length > 0 ? (
+        {!loading && !error && applicationItems.length > 0 && visibleApplicationItems.length === 0 ? (
+          <div className="rounded-2xl border border-ink/10 bg-white p-6 text-center text-sm font-semibold text-ink/55 shadow-soft">
+            No applications match this quick filter.
+          </div>
+        ) : null}
+
+        {!loading && !error && visibleApplicationItems.length > 0 ? (
           <div className="grid gap-4">
-            {applicationItems.map((application) => (
+            {visibleApplicationItems.map((application) => (
               <ApplicationCard
                 key={application.id}
                 application={application}
