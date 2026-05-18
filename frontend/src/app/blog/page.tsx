@@ -1,4 +1,6 @@
 import Link from "next/link";
+
+import { SiteHeader } from "@/components/site-header";
 import {
   ArrowRight,
   BookOpen,
@@ -144,38 +146,10 @@ const categories = [
 
 export default function BlogPage() {
   return (
-    <main className="min-h-screen bg-cream/40 transition-colors dark:bg-[#0e1012]">
-      <section className="border-b border-ink/10 bg-white transition-colors dark:border-white/10 dark:bg-[#101214]">
-        <div className="mx-auto max-w-6xl px-5 py-5 md:px-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <Link href="/" className="flex items-center gap-3 text-ink dark:text-white">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pine text-white">
-                <GraduationCap size={22} aria-hidden="true" />
-              </span>
-              <span>
-                <span className="block text-base font-bold">Scholars Republic</span>
-                <span className="text-xs text-ink/55 dark:text-white/50">Scholarship guides and student support</span>
-              </span>
-            </Link>
+    <>
+      <SiteHeader />
 
-            <div className="flex flex-wrap gap-2 text-sm font-semibold">
-              <Link
-                href="/scholarships"
-                className="rounded-xl border border-ink/10 bg-white px-4 py-2 text-ink/70 transition hover:bg-ink/5 hover:text-ink dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
-              >
-                Search Scholarships
-              </Link>
-              <Link
-                href="/dashboard"
-                className="rounded-xl bg-pine px-4 py-2 text-white transition hover:bg-pine/90"
-              >
-                Dashboard
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      <main className="min-h-screen bg-cream/40 transition-colors dark:bg-[#0e1012]">
       <section className="border-b border-ink/10 bg-white transition-colors dark:border-white/10 dark:bg-[#101214]">
         <div className="mx-auto max-w-6xl px-5 py-10 md:px-8 md:py-12">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center">
@@ -358,6 +332,7 @@ export default function BlogPage() {
           </div>
         </aside>
       </section>
-    </main>
+      </main>
+    </>
   );
 }
