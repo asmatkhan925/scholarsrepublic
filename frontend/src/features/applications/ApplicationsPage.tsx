@@ -285,6 +285,7 @@ function ApplicationCard({
   onUpdated: (application: OpportunityApplication) => void;
   onDeleted: (id: number) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [statusValue, setStatusValue] = useState(application.status);
   const [priority, setPriority] = useState(application.priority);
   const [nextStep, setNextStep] = useState(application.next_step);
@@ -313,8 +314,8 @@ function ApplicationCard({
     opportunity.opportunity_type === "scholarship"
       ? `/scholarships/${opportunity.slug}`
       : "/scholarships";
-  const deadlineTone = getDeadlineTone(application.personal_deadline || opportunity.deadline);
   const activeDeadline = application.personal_deadline || opportunity.deadline;
+  const deadlineTone = getDeadlineTone(activeDeadline);
   const degreeTags = opportunity.degree_levels.slice(0, 2);
   const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
   const latestSopDraft = application.latest_sop_draft;
@@ -359,6 +360,10 @@ function ApplicationCard({
   }
 
   async function handleDelete() {
+    if (!window.confirm(`Stop tracking "${opportunity.title}"?`)) {
+      return;
+    }
+
     setDeleting(true);
     setError(null);
     setMessage(null);
@@ -375,278 +380,329 @@ function ApplicationCard({
   return (
     <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
       <CardContent className="p-0">
-        <div className="grid gap-0 xl:grid-cols-[1fr_19rem]">
-          <div className="p-4 md:p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={getStatusTone(statusValue)}>{humanize(statusValue)}</Badge>
-              <Badge tone={getPriorityTone(priority)}>{humanize(priority)} priority</Badge>
-              <Badge tone={deadlineTone}>{formatDate(activeDeadline)}</Badge>
-            </div>
-
-            <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
-              {opportunity.title}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-ink/65">
-              {provider} · {opportunity.country || "Country not listed"}
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge tone="neutral">{humanize(opportunity.opportunity_type)}</Badge>
-              <Badge tone="neutral">{humanize(opportunity.funding_type)}</Badge>
-              {degreeTags.map((degree) => (
-                <Badge key={degree} tone="neutral">
-                  {degree}
+        <div className="p-4 md:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={getStatusTone(statusValue)}>{humanize(statusValue)}</Badge>
+                <Badge tone={getPriorityTone(priority)}>{humanize(priority)} priority</Badge>
+                <Badge tone={deadlineTone}>{deadlineStatusText}</Badge>
+                <Badge tone={latestSopDraft ? "mint" : "saffron"}>
+                  {latestSopDraft ? "SOP ready" : "SOP missing"}
                 </Badge>
-              ))}
-              {extraDegreeCount > 0 ? <Badge tone="neutral">+{extraDegreeCount} more</Badge> : null}
+                <Badge tone="neutral">
+                  {completedChecklistCount}/{checklist.length} checklist
+                </Badge>
+              </div>
+
+              <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
+                {opportunity.title}
+              </h2>
+
+              <p className="mt-1 text-sm leading-6 text-ink/65">
+                {provider} · {opportunity.country || "Country not listed"}
+              </p>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge tone="neutral">{humanize(opportunity.opportunity_type)}</Badge>
+                <Badge tone="neutral">{humanize(opportunity.funding_type)}</Badge>
+                {degreeTags.map((degree) => (
+                  <Badge key={degree} tone="neutral">
+                    {degree}
+                  </Badge>
+                ))}
+                {extraDegreeCount > 0 ? <Badge tone="neutral">+{extraDegreeCount} more</Badge> : null}
+              </div>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold text-ink">
-                Status
-                <select
-                  value={statusValue}
-                  onChange={(event) => setStatusValue(event.target.value as ApplicationStatus)}
-                  className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                >
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <ButtonLink href={detailHref} size="sm" variant="outline">
+                View Details
+                <ArrowRight size={15} aria-hidden="true" />
+              </ButtonLink>
+              <Button
+                type="button"
+                onClick={() => setExpanded((current) => !current)}
+                size="sm"
+                variant={expanded ? "ghost" : "outline"}
+              >
+                {expanded ? "Hide details" : "Edit details"}
+              </Button>
+            </div>
+          </div>
 
-              <label className="grid gap-2 text-sm font-semibold text-ink">
-                Priority
-                <select
-                  value={priority}
-                  onChange={(event) => setPriority(event.target.value as ApplicationPriority)}
-                  className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                >
-                  {PRIORITY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          <div className="mt-3 grid gap-2 md:grid-cols-4">
+            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
+                Deadline
+              </p>
+              <p className="mt-1 text-sm font-bold text-ink">{formatDate(activeDeadline)}</p>
+            </div>
 
-              <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
+            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
                 Next step
-                <input
-                  value={nextStep}
-                  onChange={(event) => setNextStep(event.target.value)}
-                  className="rounded-2xl border border-pine/15 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
-                  placeholder="Example: prepare SOP, upload documents, email professor..."
-                />
-              </label>
+              </p>
+              <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink/70">
+                {nextStep || "No next step added"}
+              </p>
+            </div>
 
-              {statusGuidance ? (
-                <div className="rounded-2xl border border-saffron/25 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/70 md:col-span-2">
-                  <strong className="text-ink">Suggested next action:</strong> {statusGuidance}
+            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
+                SOP
+              </p>
+              <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink/70">
+                {latestSopDraft ? latestSopDraft.title : "No SOP draft yet"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
+                Checklist
+              </p>
+              <p className="mt-1 text-sm font-bold text-ink">
+                {completedChecklistCount}/{checklist.length} completed
+              </p>
+            </div>
+          </div>
+
+          {expanded ? (
+            <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_18rem]">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-2 text-sm font-semibold text-ink">
+                  Status
+                  <select
+                    value={statusValue}
+                    onChange={(event) => setStatusValue(event.target.value as ApplicationStatus)}
+                    className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-ink">
+                  Priority
+                  <select
+                    value={priority}
+                    onChange={(event) => setPriority(event.target.value as ApplicationPriority)}
+                    className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  >
+                    {PRIORITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
+                  Next step
+                  <input
+                    value={nextStep}
+                    onChange={(event) => setNextStep(event.target.value)}
+                    className="rounded-2xl border border-pine/15 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    placeholder="Example: prepare SOP, upload documents, email professor..."
+                  />
+                </label>
+
+                {statusGuidance ? (
+                  <div className="rounded-2xl border border-saffron/25 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/70 md:col-span-2">
+                    <strong className="text-ink">Suggested next action:</strong> {statusGuidance}
+                  </div>
+                ) : null}
+
+                <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
+                  Application notes
+                  <textarea
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    rows={3}
+                    className="min-h-24 rounded-2xl border border-pine/15 bg-cream/35 px-4 py-3 text-sm leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:bg-white focus:ring-2 focus:ring-pine/10"
+                    placeholder="Keep useful notes here: document gaps, portal links, professor replies, essay reminders, or submission details..."
+                  />
+                  <span className="text-xs font-normal leading-5 text-ink/45">
+                    Keep this short and practical so you know the next action when you return.
+                  </span>
+                </label>
+
+                <div className="rounded-2xl border border-pine/10 bg-white p-3 md:col-span-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+                        <ClipboardCheck size={15} aria-hidden="true" />
+                      </span>
+                      <div>
+                        <p className="text-sm font-bold text-ink">Application checklist</p>
+                        <p className="text-xs text-ink/50">
+                          {completedChecklistCount}/{checklist.length} completed
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-cream px-2 py-1 text-[11px] font-semibold text-ink/55">
+                      Save changes to keep progress
+                    </span>
+                  </div>
+
+                  <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                    {checklist.map((item, index) => (
+                      <label
+                        key={`${item.label}-${index}`}
+                        className="flex min-w-0 cursor-pointer items-start gap-2 rounded-xl border border-ink/10 bg-cream/30 px-2.5 py-2 text-xs text-ink transition hover:bg-cream/60"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={item.done}
+                          onChange={() => toggleChecklistItem(index)}
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-ink/20 text-pine focus:ring-pine/20"
+                        />
+                        <span
+                          className={
+                            item.done ? "min-w-0 text-ink/50 line-through" : "min-w-0 text-ink"
+                          }
+                        >
+                          {item.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              ) : null}
+              </div>
 
-              <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
-                Application notes
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={3}
-                  className="min-h-24 rounded-2xl border border-pine/15 bg-cream/35 px-4 py-3 text-sm leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:bg-white focus:ring-2 focus:ring-pine/10"
-                  placeholder="Keep useful notes here: document gaps, portal links, professor replies, essay reminders, or submission details..."
-                />
-                <span className="text-xs font-normal leading-5 text-ink/45">
-                  Keep this short and practical so you know the next action when you return.
-                </span>
-              </label>
-
-              <div className="mt-3 rounded-2xl border border-pine/10 bg-white p-3 md:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+              <div className="rounded-2xl border border-pine/10 bg-mint/35 p-3">
+                <div className="rounded-2xl border border-pine/10 bg-white p-2.5">
+                  <div className="flex items-start gap-3">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
-                      <ClipboardCheck size={15} aria-hidden="true" />
+                      <CalendarDays size={16} aria-hidden="true" />
                     </span>
                     <div>
-                      <p className="text-sm font-bold text-ink">Application checklist</p>
-                      <p className="text-xs text-ink/50">
-                        {completedChecklistCount}/{checklist.length} completed
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+                        Deadline
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-ink">{formatDate(activeDeadline)}</p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-ink/60">
+                        {deadlineStatusText}
                       </p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-cream px-2 py-1 text-[11px] font-semibold text-ink/55">
-                    Save changes to keep progress
-                  </span>
-                </div>
 
-                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-                  {checklist.map((item, index) => (
-                    <label
-                      key={`${item.label}-${index}`}
-                      className="flex min-w-0 cursor-pointer items-start gap-2 rounded-xl border border-ink/10 bg-cream/30 px-2.5 py-2 text-xs text-ink transition hover:bg-cream/60"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.done}
-                        onChange={() => toggleChecklistItem(index)}
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-ink/20 text-pine focus:ring-pine/20"
-                      />
-                      <span className={item.done ? "min-w-0 text-ink/50 line-through" : "min-w-0 text-ink"}>
-                        {item.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-
-
-            </div>
-          </div>
-
-          <div className="border-t border-pine/10 bg-mint/35 p-3 xl:border-l xl:border-t-0">
-            <div className="rounded-2xl border border-pine/10 bg-white p-2.5">
-              <div className="flex items-start gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
-                  <CalendarDays size={16} aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                    Deadline
-                  </p>
-                  <p className="mt-1 text-xs font-bold text-ink">{formatDate(activeDeadline)}</p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-ink/60">
-                    {deadlineStatusText}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-ink/50">
-                    Personal deadline overrides the official deadline.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-2xl border border-pine/10 bg-cream/35 p-2.5">
-                <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-ink/35">
-                  Timeline
-                </p>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="grid gap-1 text-xs font-semibold text-ink">
-                    Personal
-                    <input
-                      type="date"
-                      value={personalDeadline}
-                      onChange={(event) => setPersonalDeadline(event.target.value)}
-                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-xs font-semibold text-ink">
-                    Reminder
-                    <input
-                      type="date"
-                      value={reminderDate}
-                      onChange={(event) => setReminderDate(event.target.value)}
-                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-xs font-semibold text-ink">
-                    Submitted
-                    <input
-                      type="date"
-                      value={submittedDate}
-                      onChange={(event) => setSubmittedDate(event.target.value)}
-                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-xs font-semibold text-ink">
-                    Decision
-                    <input
-                      type="date"
-                      value={decisionDate}
-                      onChange={(event) => setDecisionDate(event.target.value)}
-                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              
-
-              <div className="mt-4 rounded-2xl border border-pine/10 bg-cream/50 p-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-pine">
-                    <FileText size={16} aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
-                      SOP draft
+                  <div className="mt-3 rounded-2xl border border-pine/10 bg-cream/35 p-2.5">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-ink/35">
+                      Timeline
                     </p>
-                    {latestSopDraft ? (
-                      <>
-                        <p className="mt-1 truncate text-sm font-bold text-ink">
-                          {latestSopDraft.title}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-ink/55">
-                          Latest draft saved. Review it before submission.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="mt-1 text-sm font-bold text-ink">No SOP draft yet</p>
-                        <p className="mt-1 text-xs leading-5 text-ink/55">
-                          Create a draft for this scholarship from the SOP tool.
-                        </p>
-                      </>
-                    )}
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {latestSopDraft ? (
-                        <ButtonLink
-                          href="/dashboard/ai/sop/history"
-                          size="sm"
-                          variant="outline"
-                        >
-                          Open SOP history
-                        </ButtonLink>
-                      ) : null}
-                      <ButtonLink href="/dashboard/ai/sop" size="sm" variant="outline">
-                        Create SOP
-                      </ButtonLink>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="grid gap-1 text-xs font-semibold text-ink">
+                        Personal
+                        <input
+                          type="date"
+                          value={personalDeadline}
+                          onChange={(event) => setPersonalDeadline(event.target.value)}
+                          className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-xs font-semibold text-ink">
+                        Reminder
+                        <input
+                          type="date"
+                          value={reminderDate}
+                          onChange={(event) => setReminderDate(event.target.value)}
+                          className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-xs font-semibold text-ink">
+                        Submitted
+                        <input
+                          type="date"
+                          value={submittedDate}
+                          onChange={(event) => setSubmittedDate(event.target.value)}
+                          className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-xs font-semibold text-ink">
+                        Decision
+                        <input
+                          type="date"
+                          value={decisionDate}
+                          onChange={(event) => setDecisionDate(event.target.value)}
+                          className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        />
+                      </label>
                     </div>
+                  </div>
+
+                  <div className="mt-3 rounded-2xl border border-pine/10 bg-cream/50 p-3">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-pine">
+                        <FileText size={16} aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
+                          SOP draft
+                        </p>
+                        {latestSopDraft ? (
+                          <>
+                            <p className="mt-1 truncate text-sm font-bold text-ink">
+                              {latestSopDraft.title}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-ink/55">
+                              Latest draft saved. Review it before submission.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="mt-1 text-sm font-bold text-ink">No SOP draft yet</p>
+                            <p className="mt-1 text-xs leading-5 text-ink/55">
+                              Create a draft for this scholarship from the SOP tool.
+                            </p>
+                          </>
+                        )}
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {latestSopDraft ? (
+                            <ButtonLink href="/dashboard/ai/sop/history" size="sm" variant="outline">
+                              Open SOP history
+                            </ButtonLink>
+                          ) : null}
+                          <ButtonLink href="/dashboard/ai/sop" size="sm" variant="outline">
+                            Create SOP
+                          </ButtonLink>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-2">
+                    <Button className="w-full" disabled={saving} onClick={handleSave} size="sm">
+                      <ClipboardCheck size={15} aria-hidden="true" />
+                      {saving ? "Saving..." : "Save Changes"}
+                    </Button>
+
+                    <Button
+                      className="w-full"
+                      disabled={deleting}
+                      onClick={handleDelete}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                      {deleting ? "Stopping..." : "Stop Tracking"}
+                    </Button>
                   </div>
                 </div>
               </div>
-
-              <div className="mt-4 grid gap-2">
-                <Button className="w-full" disabled={saving} onClick={handleSave} size="sm">
-                  <ClipboardCheck size={15} aria-hidden="true" />
-                  {saving ? "Saving..." : "Save Changes"}
-                </Button>
-
-                <ButtonLink href={detailHref} className="w-full" size="sm" variant="outline">
-                  View Details
-                  <ArrowRight size={15} aria-hidden="true" />
-                </ButtonLink>
-
-                <Button
-                  className="w-full"
-                  disabled={deleting}
-                  onClick={handleDelete}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <Trash2 size={15} aria-hidden="true" />
-                  {deleting ? "Stopping..." : "Stop Tracking"}
-                </Button>
-              </div>
             </div>
+          ) : null}
 
-            {message ? <p className="mt-3 text-sm font-semibold text-pine">{message}</p> : null}
-            {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
-          </div>
+          {message ? <p className="mt-3 text-sm font-semibold text-pine">{message}</p> : null}
+          {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
         </div>
       </CardContent>
     </Card>
