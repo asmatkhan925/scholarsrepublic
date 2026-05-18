@@ -1,4 +1,6 @@
 import Link from "next/link";
+
+import { SiteHeader } from "@/components/site-header";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -106,39 +108,11 @@ function Section({ id, title, children }: { id?: string; title: string; children
 
 export default function ScholarshipsWithoutIELTSGuidePage() {
   return (
-    <main className="min-h-screen bg-cream/40">
-      <section className="border-b border-ink/10 bg-white">
-        <div className="mx-auto max-w-6xl px-5 py-5 md:px-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <Link href="/" className="flex items-center gap-3 text-ink">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pine text-white">
-                <GraduationCap size={22} aria-hidden="true" />
-              </span>
-              <span>
-                <span className="block text-base font-bold">Scholars Republic</span>
-                <span className="text-xs text-ink/55">Scholarship guides and student support</span>
-              </span>
-            </Link>
+    <>
+      <SiteHeader />
 
-            <div className="flex flex-wrap gap-2 text-sm font-semibold">
-              <Link
-                href="/blog"
-                className="rounded-xl border border-ink/10 bg-white px-4 py-2 text-ink/70 transition hover:bg-ink/5 hover:text-ink"
-              >
-                Blog
-              </Link>
-              <Link
-                href="/scholarships"
-                className="rounded-xl bg-pine px-4 py-2 text-white transition hover:bg-pine/90"
-              >
-                Search Scholarships
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-ink/10 bg-white">
+      <main className="min-h-screen bg-cream/40">
+        <section className="border-b border-ink/10 bg-white">
         <div className="mx-auto max-w-6xl px-5 py-9 md:px-8 md:py-11">
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
             <div className="max-w-3xl">
@@ -401,6 +375,7 @@ export default function ScholarshipsWithoutIELTSGuidePage() {
           </div>
         </aside>
       </section>
-    </main>
+      </main>
+    </>
   );
 }
