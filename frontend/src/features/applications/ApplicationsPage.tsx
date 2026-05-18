@@ -65,13 +65,13 @@ type QuickFilter =
 
 const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "due_soon", label: "Due soon" },
+  { value: "due_soon", label: "Due" },
   { value: "overdue", label: "Overdue" },
-  { value: "high_priority", label: "High priority" },
-  { value: "missing_sop", label: "Missing SOP" },
-  { value: "sop_ready", label: "SOP ready" },
-  { value: "reminder_today", label: "Reminders" },
-  { value: "no_next_step", label: "No next step" },
+  { value: "high_priority", label: "High" },
+  { value: "missing_sop", label: "No SOP" },
+  { value: "sop_ready", label: "SOP" },
+  { value: "reminder_today", label: "Remind" },
+  { value: "no_next_step", label: "No step" },
 ];
 
 const DEFAULT_APPLICATION_CHECKLIST: ChecklistItem[] = [
@@ -850,49 +850,49 @@ function ApplicationsSummaryHeader({
         </div>
       </div>
 
-      <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
+      <div className="grid grid-cols-2 divide-y divide-pine/10 sm:grid-cols-5 sm:divide-x sm:divide-y-0">
         {[
           ["Total", total],
-          ["Preparing", preparing],
+          ["Prep", preparing],
           ["Applied", applied],
           ["Waiting", waiting],
           ["Selected", selected],
         ].map(([label, value]) => (
-          <div key={label} className="px-3 py-2.5 md:px-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/35">
+          <div key={label} className="flex items-center justify-between gap-2 px-2.5 py-1.5 md:px-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink/35">
               {label}
             </p>
-            <p className="mt-0.5 text-xl font-bold text-ink">{value}</p>
+            <p className="text-base font-bold leading-none text-ink">{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 md:grid-cols-3">
-        <label className="grid gap-1 text-xs font-semibold text-ink">
+      <div className="grid gap-1.5 border-t border-pine/10 bg-[#f7faf8] p-2 md:grid-cols-[1.45fr_0.75fr_0.75fr]">
+        <label className="grid gap-0.5 text-[11px] font-semibold text-ink/70">
           Search
           <div className="relative">
             <Search
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35"
+              size={13}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink/35"
               aria-hidden="true"
             />
             <input
               value={search}
               onChange={(event) => onSearch(event.target.value)}
-              className="h-9 w-full rounded-xl border border-pine/15 bg-white pl-9 pr-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
-              placeholder="Search title, country, notes..."
+              className="h-8 w-full rounded-lg border border-pine/15 bg-white pl-7 pr-2 text-xs text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+              placeholder="Search..."
             />
           </div>
         </label>
 
-        <label className="grid gap-2 text-sm font-semibold text-ink">
+        <label className="grid gap-0.5 text-[11px] font-semibold text-ink/70">
           Status
           <select
             value={statusFilter}
             onChange={(event) => onStatusFilter(event.target.value)}
-            className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+            className="h-8 rounded-lg border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
           >
-            <option value="">All statuses</option>
+            <option value="">All</option>
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -901,14 +901,14 @@ function ApplicationsSummaryHeader({
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm font-semibold text-ink">
+        <label className="grid gap-0.5 text-[11px] font-semibold text-ink/70">
           Priority
           <select
             value={priorityFilter}
             onChange={(event) => onPriorityFilter(event.target.value)}
-            className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+            className="h-8 rounded-lg border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
           >
-            <option value="">All priorities</option>
+            <option value="">All</option>
             {PRIORITY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -1128,7 +1128,7 @@ function ApplicationTrackerContent() {
       hideHeader
       title="Application Tracker"
     >
-      <div className="space-y-5">
+      <div className="space-y-3">
         <ApplicationsSummaryHeader
           applied={counts?.applied ?? 0}
           onPriorityFilter={setPriorityFilter}
@@ -1153,10 +1153,10 @@ function ApplicationTrackerContent() {
           />
         ) : null}
 
-        <section className="rounded-2xl border border-pine/10 bg-white px-3 py-2 shadow-soft">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
-              Quick view
+        <section className="rounded-2xl border border-pine/10 bg-white px-2.5 py-1.5 shadow-soft">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+              View
             </span>
             {QUICK_FILTER_OPTIONS.map((option) => {
               const active = quickFilter === option.value;
@@ -1167,16 +1167,16 @@ function ApplicationTrackerContent() {
                   key={option.value}
                   type="button"
                   onClick={() => setQuickFilter(option.value)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-semibold transition ${
                     active
                       ? "border-pine bg-pine text-white"
-                      : "border-ink/10 bg-cream/40 text-ink/65 hover:border-pine/30 hover:bg-pine/5 hover:text-pine"
+                      : "border-ink/10 bg-cream/40 text-ink/60 hover:border-pine/30 hover:bg-pine/5 hover:text-pine"
                   }`}
                 >
                   {option.label}
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                      active ? "bg-white/20 text-white" : "bg-white text-ink/45"
+                    className={`rounded-full px-1 text-[9px] leading-4 ${
+                      active ? "bg-white/20 text-white" : "bg-white text-ink/40"
                     }`}
                   >
                     {count}
