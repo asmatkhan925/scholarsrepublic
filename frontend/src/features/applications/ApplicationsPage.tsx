@@ -382,6 +382,30 @@ function sortApplications(
   });
 }
 
+function getReadinessTone(score: number): "mint" | "saffron" | "danger" {
+  if (score >= 75) {
+    return "mint";
+  }
+
+  if (score >= 45) {
+    return "saffron";
+  }
+
+  return "danger";
+}
+
+function getReadinessLabel(score: number) {
+  if (score >= 75) {
+    return "Strong";
+  }
+
+  if (score >= 45) {
+    return "In progress";
+  }
+
+  return "Needs work";
+}
+
 function applicationMatchesQuickFilter(
   application: OpportunityApplication,
   quickFilter: QuickFilter,
@@ -471,6 +495,20 @@ function ApplicationCard({
   const latestSopDraft = application.latest_sop_draft;
   const completedChecklistCount = checklist.filter((item) => item.done).length;
   const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
+  const checklistReadiness = checklist.length
+    ? Math.round((completedChecklistCount / checklist.length) * 40)
+    : 0;
+  const readinessScore = Math.min(
+    100,
+    checklistReadiness +
+      (latestSopDraft ? 20 : 0) +
+      (linkedChecklistCount > 0 ? 10 : 0) +
+      (activeDeadline ? 10 : 0) +
+      (nextStep.trim() ? 10 : 0) +
+      (statusValue !== "preparing" ? 10 : 0),
+  );
+  const readinessTone = getReadinessTone(readinessScore);
+  const readinessLabel = getReadinessLabel(readinessScore);
   const missingRequiredDocuments = (application.required_documents ?? []).filter((document) => {
     const normalizedDocument = normalizeChecklistLabel(document);
 
@@ -613,6 +651,7 @@ function ApplicationCard({
                 <Badge tone={linkedChecklistCount > 0 ? "mint" : "neutral"}>
                   {linkedChecklistCount} link{linkedChecklistCount === 1 ? "" : "s"}
                 </Badge>
+                <Badge tone={readinessTone}>{readinessScore}% ready</Badge>
               </div>
 
               <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
@@ -685,6 +724,26 @@ function ApplicationCard({
                   {linkedChecklistCount} Drive/document link{linkedChecklistCount === 1 ? "" : "s"}
                 </p>
               </div>
+            </div>
+          ) : null}
+
+          {!expanded ? (
+            <div className="mt-2 rounded-2xl border border-pine/10 bg-white px-3 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-bold text-ink">
+                  Readiness: {readinessLabel}
+                </p>
+                <p className="text-xs font-semibold text-ink/55">{readinessScore}%</p>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-cream">
+                <div
+                  className="h-full rounded-full bg-pine transition-all"
+                  style={{ width: `${readinessScore}%` }}
+                />
+              </div>
+              <p className="mt-1 text-[11px] leading-5 text-ink/45">
+                Based on checklist progress, SOP, Drive/document links, deadline, status, and next step.
+              </p>
             </div>
           ) : null}
 
@@ -872,6 +931,26 @@ function ApplicationCard({
               </div>
 
               <div className="rounded-2xl border border-pine/10 bg-mint/35 p-3">
+                <div className="mb-3 rounded-2xl border border-pine/10 bg-white p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink/35">
+                        Readiness
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-ink">
+                        {readinessScore}% · {readinessLabel}
+                      </p>
+                    </div>
+                    <Badge tone={readinessTone}>{readinessScore}%</Badge>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-cream">
+                    <div
+                      className="h-full rounded-full bg-pine transition-all"
+                      style={{ width: `${readinessScore}%` }}
+                    />
+                  </div>
+                </div>
+
                 <div className="rounded-2xl border border-pine/10 bg-white p-2.5">
                   <div className="flex items-start gap-3">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
