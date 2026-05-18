@@ -17,16 +17,16 @@
 }
 
 :root.dark {
-  --color-ink: 237 247 243;
-  --color-pine: 86 210 169;
-  --color-mint: 20 72 58;
-  --color-saffron: 245 181 68;
-  --color-skyglass: 16 35 42;
-  --color-cream: 12 24 20;
-  --color-surface: 16 28 24;
+  --color-ink: 218 226 222;
+  --color-pine: 91 188 151;
+  --color-mint: 30 45 40;
+  --color-saffron: 230 166 62;
+  --color-skyglass: 28 38 43;
+  --color-cream: 14 16 18;
+  --color-surface: 24 27 29;
 
   color: rgb(var(--color-ink));
-  background: #08110f;
+  background: #0e1012;
   color-scheme: dark;
 }
 
@@ -45,9 +45,9 @@ body {
 
 .dark body {
   background:
-    radial-gradient(circle at top left, rgba(86, 210, 169, 0.18), transparent 360px),
-    linear-gradient(180deg, rgba(12, 26, 22, 0.94), rgba(8, 17, 15, 1) 420px),
-    #08110f;
+    radial-gradient(circle at top left, rgba(91, 188, 151, 0.08), transparent 360px),
+    linear-gradient(180deg, rgba(18, 22, 23, 0.96), rgba(14, 16, 18, 1) 420px),
+    #0e1012;
   color: rgb(var(--color-ink));
 }
 
@@ -85,16 +85,16 @@ a {
 .dark select,
 .dark textarea {
   color: rgb(var(--color-ink));
-  background-color: rgb(255 255 255 / 0.05);
-  border-color: rgb(255 255 255 / 0.12);
+  background-color: rgb(255 255 255 / 0.035);
+  border-color: rgb(255 255 255 / 0.10);
 }
 
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: rgb(237 247 243 / 0.38);
+  color: rgb(218 226 222 / 0.34);
 }
 
 .dark option {
-  color: #edf7f3;
-  background-color: #101c18;
+  color: #dae2de;
+  background-color: #181b1d;
 }
