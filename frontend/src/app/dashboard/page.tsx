@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -328,13 +330,14 @@ function ContinueWorkingSection({
                 const readinessScore = getApplicationReadinessScore(application);
 
                 return (
-                  <div
+                  <Link
                     key={application.id}
-                    className="min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2"
+                    href="/dashboard/applications"
+                    className="group block min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm"
                   >
-                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 overflow-hidden">
-                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink">
+                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">
                           {application.opportunity_detail.title}
                         </p>
                         <p className="mt-0.5 truncate text-xs text-ink/55">
@@ -354,17 +357,13 @@ function ContinueWorkingSection({
                         </div>
                       </div>
 
-                      <ButtonLink
-                        href="/dashboard/applications"
-                        className="shrink-0 self-start"
-                        size="sm"
-                        variant="ghost"
-                      >
-                        Open
-                        <ArrowRight size={14} aria-hidden="true" />
-                      </ButtonLink>
+                      <ArrowRight
+                        size={15}
+                        aria-hidden="true"
+                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
+                      />
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -388,13 +387,14 @@ function ContinueWorkingSection({
                 const degree = opportunity.degree_levels[0];
 
                 return (
-                  <div
+                  <Link
                     key={saved.id}
-                    className="rounded-xl border border-pine/10 bg-white px-3 py-2"
+                    href={`/scholarships/${opportunity.slug}`}
+                    className="group block min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm"
                   >
-                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 overflow-hidden">
-                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink">{opportunity.title}</p>
+                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">{opportunity.title}</p>
                         <p className="mt-0.5 truncate text-xs text-ink/55">
                           {opportunity.provider_name ||
                             opportunity.university_name ||
@@ -409,17 +409,13 @@ function ContinueWorkingSection({
                         </div>
                       </div>
 
-                      <ButtonLink
-                        href={`/scholarships/${opportunity.slug}`}
-                        className="shrink-0 self-start"
-                        size="sm"
-                        variant="ghost"
-                      >
-                        View
-                        <ArrowRight size={14} aria-hidden="true" />
-                      </ButtonLink>
+                      <ArrowRight
+                        size={15}
+                        aria-hidden="true"
+                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
+                      />
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
