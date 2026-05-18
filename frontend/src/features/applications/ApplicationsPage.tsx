@@ -26,6 +26,7 @@ import type {
   ApplicationPriority,
   ApplicationStatus,
   ApplicationSummary,
+  ChecklistItem,
   OpportunityApplication,
   OpportunityApplicationResponse,
   UpdateApplicationPayload,
@@ -49,6 +50,29 @@ const PRIORITY_OPTIONS: { value: ApplicationPriority; label: string }[] = [
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
 ];
+
+const DEFAULT_APPLICATION_CHECKLIST: ChecklistItem[] = [
+  { label: "Review eligibility requirements", done: false },
+  { label: "Prepare SOP", done: false },
+  { label: "Prepare CV", done: false },
+  { label: "Collect transcripts", done: false },
+  { label: "Request recommendation letters", done: false },
+  { label: "Prepare passport/CNIC or ID documents", done: false },
+  { label: "Submit application before deadline", done: false },
+];
+
+function getInitialChecklist(application: OpportunityApplication): ChecklistItem[] {
+  const existing = application.checklist_snapshot ?? [];
+
+  if (existing.length > 0) {
+    return existing.map((item) => ({
+      label: item.label,
+      done: Boolean(item.done),
+    }));
+  }
+
+  return DEFAULT_APPLICATION_CHECKLIST.map((item) => ({ ...item }));
+}
 
 function humanize(value: string) {
   if (!value) {
@@ -158,6 +182,9 @@ function ApplicationCard({
   const [personalDeadline, setPersonalDeadline] = useState(
     toDateInputValue(application.personal_deadline),
   );
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(() =>
+    getInitialChecklist(application),
+  );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -178,6 +205,15 @@ function ApplicationCard({
   const degreeTags = opportunity.degree_levels.slice(0, 2);
   const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
   const latestSopDraft = application.latest_sop_draft;
+  const completedChecklistCount = checklist.filter((item) => item.done).length;
+
+  function toggleChecklistItem(index: number) {
+    setChecklist((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, done: !item.done } : item,
+      ),
+    );
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -190,6 +226,7 @@ function ApplicationCard({
       next_step: nextStep,
       notes,
       personal_deadline: personalDeadline || null,
+      checklist_snapshot: checklist,
     };
 
     try {
@@ -332,6 +369,46 @@ function ApplicationCard({
               </label>
 
               
+
+              <div className="mt-4 rounded-2xl border border-pine/10 bg-white p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+                      <ClipboardCheck size={16} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
+                        Application checklist
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-ink">
+                        {completedChecklistCount}/{checklist.length} completed
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs leading-5 text-ink/50 sm:max-w-xs">
+                    Tick items as you prepare. Click Save Changes to keep progress.
+                  </p>
+                </div>
+
+                <div className="mt-3 grid gap-2">
+                  {checklist.map((item, index) => (
+                    <label
+                      key={`${item.label}-${index}`}
+                      className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink/10 bg-cream/35 px-3 py-2 text-sm text-ink transition hover:bg-cream/60"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.done}
+                        onChange={() => toggleChecklistItem(index)}
+                        className="mt-1 h-4 w-4 rounded border-ink/20 text-pine focus:ring-pine/20"
+                      />
+                      <span className={item.done ? "text-ink/55 line-through" : "text-ink"}>
+                        {item.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               <div className="mt-4 rounded-2xl border border-pine/10 bg-cream/50 p-3">
                 <div className="flex items-start gap-3">
