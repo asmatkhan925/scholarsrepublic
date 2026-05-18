@@ -344,15 +344,20 @@ function ContinueWorkingSection({
                 return (
                   <div
                     key={saved.id}
-                    className="group relative min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => {
+                      window.location.href = `/scholarships/${opportunity.slug}`;
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        window.location.href = `/scholarships/${opportunity.slug}`;
+                      }
+                    }}
+                    className="group min-w-0 cursor-pointer overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-pine/15"
                   >
-                    <Link
-                      href={`/scholarships/${opportunity.slug}`}
-                      aria-label={`Open ${opportunity.title}`}
-                      className="absolute inset-0 z-0"
-                    />
-
-                    <div className="relative z-10 flex min-w-0 items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 overflow-hidden">
                         <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">
                           {opportunity.title}
@@ -384,8 +389,11 @@ function ContinueWorkingSection({
                         <button
                           type="button"
                           disabled={trackingSavedId === saved.id}
-                          onClick={() => void handleTrackSaved(saved)}
-                          className="relative z-20 rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-bold text-pine transition hover:bg-pine hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleTrackSaved(saved);
+                          }}
+                          className="rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-bold text-pine transition hover:bg-pine hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {trackingSavedId === saved.id
                             ? "Tracking..."
