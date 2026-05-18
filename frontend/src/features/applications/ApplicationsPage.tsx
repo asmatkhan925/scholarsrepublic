@@ -665,8 +665,12 @@ function ApplicationCard({
 
                         <div className="mt-3 flex flex-wrap gap-2">
                           {latestSopDraft ? (
-                            <ButtonLink href="/dashboard/ai/sop/history" size="sm" variant="outline">
-                              Open SOP history
+                            <ButtonLink
+                              href={`/dashboard/ai/sop/history?draft=${latestSopDraft.id}`}
+                              size="sm"
+                              variant="outline"
+                            >
+                              Open SOP draft
                             </ButtonLink>
                           ) : null}
                           <ButtonLink href="/dashboard/ai/sop" size="sm" variant="outline">

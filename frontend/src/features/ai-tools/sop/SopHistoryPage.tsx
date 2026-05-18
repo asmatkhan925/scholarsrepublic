@@ -29,6 +29,7 @@ function draftMeta(draft: SOPDraft) {
 function SOPHistoryContent() {
   const [drafts, setDrafts] = useState<SOPDraft[]>([]);
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
+  const [highlightedDraftId, setHighlightedDraftId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
@@ -54,6 +55,43 @@ function SOPHistoryContent() {
   useEffect(() => {
     void loadDrafts();
   }, []);
+
+  useEffect(() => {
+    if (loading || drafts.length === 0) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const draftId = Number(params.get("draft"));
+
+    if (!Number.isFinite(draftId) || draftId <= 0) {
+      return;
+    }
+
+    const matchingDraft = drafts.find((draft) => draft.id === draftId);
+
+    if (!matchingDraft) {
+      return;
+    }
+
+    setSelectedDraftId(draftId);
+    setHighlightedDraftId(draftId);
+
+    window.setTimeout(() => {
+      document.getElementById(`sop-draft-${draftId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 150);
+
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedDraftId(null);
+    }, 3500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [drafts, loading]);
 
   async function handleCopy(draft: SOPDraft) {
     await navigator.clipboard.writeText(draft.sop_text);
@@ -191,7 +229,15 @@ function SOPHistoryContent() {
                 const meta = draftMeta(draft);
 
                 return (
-                  <article key={draft.id} className="rounded-xl border border-ink/10 bg-cream/30 p-3">
+                  <article
+                    key={draft.id}
+                    id={`sop-draft-${draft.id}`}
+                    className={`rounded-xl border p-3 transition ${
+                      highlightedDraftId === draft.id
+                        ? "border-pine/40 bg-pine/5 ring-2 ring-pine/15"
+                        : "border-ink/10 bg-cream/30"
+                    }`}
+                  >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0">
                         <h2 className="truncate text-base font-bold text-ink">{draft.title}</h2>
