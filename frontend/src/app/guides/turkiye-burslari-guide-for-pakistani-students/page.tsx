@@ -489,14 +489,14 @@ export default function TurkiyeBurslariGuidePage() {
             <div className="mt-4 grid gap-2">
               <Link
                 href="/guides/how-to-write-sop-for-scholarship"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-semibold text-ink transition hover:bg-ink/5"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
               >
                 <BookOpen size={16} aria-hidden="true" />
                 Read SOP Guide
               </Link>
               <Link
                 href="/dashboard/ai/sop"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-ink/90"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-ink/90 dark:bg-pine dark:text-[#0e1012] dark:hover:bg-pine/90"
               >
                 <Sparkles size={16} aria-hidden="true" />
                 Open SOP Generator
