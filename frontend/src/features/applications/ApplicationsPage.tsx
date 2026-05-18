@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ArrowRight,
@@ -576,14 +576,19 @@ function applicationMatchesQuickFilter(
 
 function ApplicationCard({
   application,
+  defaultExpanded = false,
+  highlighted = false,
   onUpdated,
   onDeleted,
 }: {
   application: OpportunityApplication;
+  defaultExpanded?: boolean;
+  highlighted?: boolean;
   onUpdated: (application: OpportunityApplication) => void;
   onDeleted: (id: number) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [statusValue, setStatusValue] = useState(application.status);
   const [priority, setPriority] = useState(application.priority);
   const [nextStep, setNextStep] = useState(application.next_step);
@@ -602,6 +607,21 @@ function ApplicationCard({
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!defaultExpanded) {
+      return;
+    }
+
+    setExpanded(true);
+
+    window.setTimeout(() => {
+      cardRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 150);
+  }, [defaultExpanded]);
 
   const opportunity = application.opportunity_detail;
   const provider =
@@ -764,8 +784,13 @@ function ApplicationCard({
   }
 
   return (
-    <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
-      <CardContent className="p-0">
+    <div ref={cardRef}>
+      <Card
+        className={`overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg ${
+          highlighted ? "ring-2 ring-pine/25" : ""
+        }`}
+      >
+        <CardContent className="p-0">
         <div className="p-4 md:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
@@ -1237,8 +1262,9 @@ function ApplicationCard({
           {message ? <p className="mt-3 text-sm font-semibold text-pine">{message}</p> : null}
           {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1459,6 +1485,17 @@ function readQuickFilterFromUrl(): QuickFilter {
   return "all";
 }
 
+function readApplicationIdFromUrl() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = new URLSearchParams(window.location.search).get("application");
+  const applicationId = Number(value);
+
+  return Number.isFinite(applicationId) && applicationId > 0 ? applicationId : null;
+}
+
 function ApplicationTrackerContent() {
   const [applications, setApplications] = useState<OpportunityApplicationResponse | null>(null);
   const [summary, setSummary] = useState<ApplicationSummary | null>(null);
@@ -1466,6 +1503,9 @@ function ApplicationTrackerContent() {
   const [priorityFilter, setPriorityFilter] = useState("");
   const [search, setSearch] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(() => readQuickFilterFromUrl());
+  const [targetApplicationId, setTargetApplicationId] = useState<number | null>(() =>
+    readApplicationIdFromUrl(),
+  );
   const [sortMode, setSortMode] = useState<TrackerSort>("smart");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1482,6 +1522,7 @@ function ApplicationTrackerContent() {
   useEffect(() => {
     function syncQuickFilterFromUrl() {
       setQuickFilter(readQuickFilterFromUrl());
+      setTargetApplicationId(readApplicationIdFromUrl());
     }
 
     syncQuickFilterFromUrl();
@@ -1581,10 +1622,16 @@ function ApplicationTrackerContent() {
       .length,
     missingNextStep: applicationItems.filter((application) => !application.next_step.trim()).length,
   };
+  const filteredApplicationItems = applicationItems.filter((application) =>
+    applicationMatchesQuickFilter(application, quickFilter),
+  );
+  const targetApplication = targetApplicationId
+    ? applicationItems.find((application) => application.id === targetApplicationId)
+    : undefined;
   const visibleApplicationItems = sortApplications(
-    applicationItems.filter((application) =>
-      applicationMatchesQuickFilter(application, quickFilter),
-    ),
+    targetApplication && !filteredApplicationItems.some((item) => item.id === targetApplication.id)
+      ? [targetApplication, ...filteredApplicationItems]
+      : filteredApplicationItems,
     sortMode,
   );
   const quickFilterCounts = QUICK_FILTER_OPTIONS.reduce(
@@ -1718,6 +1765,8 @@ function ApplicationTrackerContent() {
               <ApplicationCard
                 key={application.id}
                 application={application}
+                defaultExpanded={targetApplicationId === application.id}
+                highlighted={targetApplicationId === application.id}
                 onDeleted={handleDeleted}
                 onUpdated={handleUpdated}
               />

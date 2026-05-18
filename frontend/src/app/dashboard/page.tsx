@@ -44,17 +44,6 @@ type ActionCard = {
   badge?: string;
 };
 
-function getReadinessTone(level: string): "mint" | "saffron" | "danger" {
-  if (level === "High") {
-    return "mint";
-  }
-
-  if (level === "Medium") {
-    return "saffron";
-  }
-
-  return "danger";
-}
 
 function getFirstName(fullName?: string) {
   if (!fullName) {
@@ -332,7 +321,7 @@ function ContinueWorkingSection({
                 return (
                   <Link
                     key={application.id}
-                    href="/dashboard/applications"
+                    href={`/dashboard/applications?application=${application.id}`}
                     className="group block min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm"
                   >
                     <div className="flex min-w-0 items-start justify-between gap-3">
