@@ -63,6 +63,15 @@ type QuickFilter =
   | "reminder_today"
   | "no_next_step";
 
+type TrackerSort = "smart" | "deadline" | "priority" | "updated";
+
+const TRACKER_SORT_OPTIONS: { value: TrackerSort; label: string }[] = [
+  { value: "smart", label: "Smart" },
+  { value: "deadline", label: "Deadline" },
+  { value: "priority", label: "Priority" },
+  { value: "updated", label: "Updated" },
+];
+
 const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "due_soon", label: "Due" },
@@ -251,6 +260,80 @@ function getStatusGuidance(status: ApplicationStatus, hasSopDraft: boolean) {
   }
 
   return "";
+}
+
+function getApplicationDeadline(application: OpportunityApplication) {
+  return application.personal_deadline || application.opportunity_detail.deadline;
+}
+
+function getDateTime(value: string | null) {
+  if (!value) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
+}
+
+function getPriorityWeight(priority: ApplicationPriority) {
+  if (priority === "high") {
+    return 0;
+  }
+
+  if (priority === "medium") {
+    return 1;
+  }
+
+  return 2;
+}
+
+function sortApplications(
+  applications: OpportunityApplication[],
+  sortMode: TrackerSort,
+) {
+  return [...applications].sort((first, second) => {
+    if (sortMode === "deadline") {
+      return getDateTime(getApplicationDeadline(first)) - getDateTime(getApplicationDeadline(second));
+    }
+
+    if (sortMode === "priority") {
+      return (
+        getPriorityWeight(first.priority) - getPriorityWeight(second.priority) ||
+        getDateTime(getApplicationDeadline(first)) - getDateTime(getApplicationDeadline(second))
+      );
+    }
+
+    if (sortMode === "updated") {
+      return new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime();
+    }
+
+    const firstDeadlineDays = getDaysUntil(getApplicationDeadline(first));
+    const secondDeadlineDays = getDaysUntil(getApplicationDeadline(second));
+
+    const firstUrgency =
+      firstDeadlineDays === null
+        ? 50
+        : firstDeadlineDays < 0
+          ? -100 + firstDeadlineDays
+          : firstDeadlineDays <= 7
+            ? firstDeadlineDays
+            : 20 + firstDeadlineDays;
+
+    const secondUrgency =
+      secondDeadlineDays === null
+        ? 50
+        : secondDeadlineDays < 0
+          ? -100 + secondDeadlineDays
+          : secondDeadlineDays <= 7
+            ? secondDeadlineDays
+            : 20 + secondDeadlineDays;
+
+    return (
+      firstUrgency - secondUrgency ||
+      getPriorityWeight(first.priority) - getPriorityWeight(second.priority) ||
+      new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime()
+    );
+  });
 }
 
 function applicationMatchesQuickFilter(
@@ -1007,6 +1090,7 @@ function ApplicationTrackerContent() {
   const [priorityFilter, setPriorityFilter] = useState("");
   const [search, setSearch] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [sortMode, setSortMode] = useState<TrackerSort>("smart");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1108,8 +1192,11 @@ function ApplicationTrackerContent() {
       .length,
     missingNextStep: applicationItems.filter((application) => !application.next_step.trim()).length,
   };
-  const visibleApplicationItems = applicationItems.filter((application) =>
-    applicationMatchesQuickFilter(application, quickFilter),
+  const visibleApplicationItems = sortApplications(
+    applicationItems.filter((application) =>
+      applicationMatchesQuickFilter(application, quickFilter),
+    ),
+    sortMode,
   );
   const quickFilterCounts = QUICK_FILTER_OPTIONS.reduce(
     (totals, option) => ({
@@ -1184,6 +1271,23 @@ function ApplicationTrackerContent() {
                 </button>
               );
             })}
+
+            <span className="mx-0.5 hidden h-4 w-px bg-ink/10 sm:inline-block" />
+
+            <label className="ml-0.5 inline-flex h-6 items-center gap-1 rounded-full border border-ink/10 bg-cream/40 px-2 text-[11px] font-semibold text-ink/60">
+              Sort
+              <select
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value as TrackerSort)}
+                className="bg-transparent text-[11px] font-semibold text-ink outline-none"
+              >
+                {TRACKER_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </section>
 
