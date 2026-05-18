@@ -286,11 +286,26 @@ function ApplicationCard({
                   placeholder="Example: prepare SOP, upload documents, email professor..."
                 />
               </label>
+
+              <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
+                Application notes
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  rows={3}
+                  className="min-h-24 rounded-2xl border border-pine/15 bg-cream/35 px-4 py-3 text-sm leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:bg-white focus:ring-2 focus:ring-pine/10"
+                  placeholder="Keep useful notes here: document gaps, portal links, professor replies, essay reminders, or submission details..."
+                />
+                <span className="text-xs font-normal leading-5 text-ink/45">
+                  Keep this short and practical so you know the next action when you return.
+                </span>
+              </label>
+
             </div>
           </div>
 
-          <div className="border-t border-pine/10 bg-mint/35 p-4 xl:border-l xl:border-t-0">
-            <div className="rounded-2xl border border-pine/10 bg-white p-4">
+          <div className="border-t border-pine/10 bg-mint/35 p-3 xl:border-l xl:border-t-0">
+            <div className="rounded-2xl border border-pine/10 bg-white p-3">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
                   <CalendarDays size={18} aria-hidden="true" />

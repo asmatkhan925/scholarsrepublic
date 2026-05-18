@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.ai_tools.models import SOPDraft
 from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.models import Opportunity
 from apps.opportunities.serializers import OpportunityListSerializer
@@ -123,6 +124,7 @@ def get_published_opportunity(attrs):
 
 class OpportunityApplicationSerializer(serializers.ModelSerializer):
     opportunity_detail = OpportunityListSerializer(source="opportunity", read_only=True)
+    latest_sop_draft = serializers.SerializerMethodField()
 
     class Meta:
         model = OpportunityApplication
@@ -141,6 +143,7 @@ class OpportunityApplicationSerializer(serializers.ModelSerializer):
             "decision_at",
             "personal_deadline",
             "checklist_snapshot",
+            "latest_sop_draft",
             "created_at",
             "updated_at",
         )
@@ -149,9 +152,40 @@ class OpportunityApplicationSerializer(serializers.ModelSerializer):
             "user",
             "opportunity_detail",
             "saved_opportunity",
+            "latest_sop_draft",
             "created_at",
             "updated_at",
         )
+    def get_latest_sop_draft(self, obj):
+        base_queryset = SOPDraft.objects.filter(user_id=obj.user_id)
+
+        draft = (
+            base_queryset.filter(opportunity_id=obj.opportunity_id)
+            .only("id", "title", "updated_at")
+            .order_by("-updated_at")
+            .first()
+        )
+
+        if not draft:
+            draft = (
+                base_queryset.filter(
+                    opportunity__isnull=True,
+                    target_scholarship__iexact=obj.opportunity.title,
+                )
+                .only("id", "title", "updated_at")
+                .order_by("-updated_at")
+                .first()
+            )
+
+        if not draft:
+            return None
+
+        return {
+            "id": draft.id,
+            "title": draft.title,
+            "updated_at": draft.updated_at.isoformat() if draft.updated_at else "",
+        }
+
 
 
 class OpportunityApplicationCreateSerializer(serializers.ModelSerializer):
@@ -180,6 +214,7 @@ class OpportunityApplicationCreateSerializer(serializers.ModelSerializer):
             "decision_at",
             "personal_deadline",
             "checklist_snapshot",
+            "latest_sop_draft",
             "created_at",
             "updated_at",
         )
