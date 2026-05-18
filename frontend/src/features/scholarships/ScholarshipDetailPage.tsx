@@ -97,15 +97,15 @@ function DetailSection({
   }
 
   return (
-    <Card>
+    <Card className="dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-5 md:p-6">
         <div className="flex items-start gap-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
             {icon}
           </span>
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-ink">{title}</h2>
-            <div className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/70">{content}</div>
+            <h2 className="text-xl font-bold text-ink dark:text-white">{title}</h2>
+            <div className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/70 dark:text-white/62">{content}</div>
           </div>
         </div>
       </CardContent>
@@ -119,19 +119,19 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
   }
 
   return (
-    <Card>
+    <Card className="dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-5 md:p-6">
         <div className="flex items-start gap-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
             {icon}
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold text-ink">{title}</h2>
+            <h2 className="text-xl font-bold text-ink dark:text-white">{title}</h2>
             <ul className="mt-4 grid gap-2 md:grid-cols-2">
               {items.map((item) => (
                 <li
                   key={item}
-                  className="flex gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 text-sm leading-6 text-ink/70"
+                  className="flex gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 text-sm leading-6 text-ink/70 dark:border-white/10 dark:bg-white/5 dark:text-white/62"
                 >
                   <CheckCircle2 size={16} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
                   <span>{item}</span>
@@ -147,10 +147,10 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
 
 function FactItem({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
-    <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2">
+    <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">{label}</p>
-      <p className="mt-1 text-sm font-bold text-ink">{value}</p>
-      {helper ? <p className="mt-1 text-xs leading-5 text-ink/50">{helper}</p> : null}
+      <p className="mt-1 text-sm font-bold text-ink dark:text-white">{value}</p>
+      {helper ? <p className="mt-1 text-xs leading-5 text-ink/50 dark:text-white/50">{helper}</p> : null}
     </div>
   );
 }
@@ -182,10 +182,10 @@ function MatchScoreSidebarCard({
 }) {
   if (matchLoading) {
     return (
-      <Card>
+      <Card className="dark:border-white/10 dark:bg-[#181b1d]">
         <CardContent className="p-5">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-          <p className="mt-3 text-sm leading-6 text-ink/65">Calculating your profile match...</p>
+          <p className="mt-3 text-sm leading-6 text-ink/65 dark:text-white/60">Calculating your profile match...</p>
         </CardContent>
       </Card>
     );
@@ -196,8 +196,8 @@ function MatchScoreSidebarCard({
       <Card>
         <CardContent className="p-5">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-          <h2 className="mt-2 text-lg font-bold text-ink">Complete your profile first</h2>
-          <p className="mt-2 text-sm leading-6 text-ink/65">
+          <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">Complete your profile first</h2>
+          <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
             Add your education, goals, and target countries to calculate your fit for this
             scholarship.
           </p>
@@ -221,12 +221,12 @@ function MatchScoreSidebarCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-            <h2 className="mt-2 text-lg font-bold text-ink">Based on your profile</h2>
+            <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">Based on your profile</h2>
           </div>
           <Badge tone={getReadinessTone(match.readiness_level)}>{match.readiness_level}</Badge>
         </div>
 
-        <div className="mt-5 rounded-xl border border-pine/10 bg-mint/35 p-3">
+        <div className="mt-5 rounded-xl border border-pine/10 bg-mint/35 p-3 dark:border-white/10 dark:bg-pine/10">
           <div className="flex items-end justify-between gap-3">
             <p className="text-3xl font-black tracking-tight text-pine">
               {score}
@@ -235,17 +235,17 @@ function MatchScoreSidebarCard({
             <p className="text-sm font-semibold text-ink/60">Profile fit</p>
           </div>
 
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-white/10">
             <div className="h-full rounded-full bg-pine" style={{ width: `${score}%` }} />
           </div>
         </div>
 
         {match.matched_reasons.length > 0 ? (
           <div className="mt-3">
-            <p className="text-xs font-bold text-ink">Why it may fit</p>
+            <p className="text-xs font-bold text-ink dark:text-white">Why it may fit</p>
             <ul className="mt-2 grid gap-2">
               {match.matched_reasons.slice(0, 3).map((reason) => (
-                <li key={reason} className="flex gap-2 text-sm leading-6 text-ink/65">
+                <li key={reason} className="flex gap-2 text-sm leading-6 text-ink/65 dark:text-white/60">
                   <ShieldCheck size={15} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
                   <span>{reason}</span>
                 </li>
@@ -255,9 +255,9 @@ function MatchScoreSidebarCard({
         ) : null}
 
         {match.missing_requirements.length > 0 ? (
-          <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/15 p-2.5">
-            <p className="text-xs font-bold text-ink">Check before applying</p>
-            <ul className="mt-2 grid gap-1 text-sm leading-6 text-ink/65">
+          <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/15 p-2.5 dark:border-saffron/25 dark:bg-saffron/10">
+            <p className="text-xs font-bold text-ink dark:text-white">Check before applying</p>
+            <ul className="mt-2 grid gap-1 text-sm leading-6 text-ink/65 dark:text-white/60">
               {match.missing_requirements.slice(0, 3).map((item) => (
                 <li key={item}>{item}</li>
               ))}
@@ -280,7 +280,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Verification</p>
-            <h2 className="mt-2 text-lg font-bold text-ink">Source and trust</h2>
+            <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">Source and trust</h2>
           </div>
           <Badge tone={scholarship.verified_status ? "mint" : "neutral"}>
             {scholarship.verified_status ? <BadgeCheck size={13} aria-hidden="true" /> : null}
@@ -288,14 +288,14 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
           </Badge>
         </div>
 
-        <div className="mt-4 grid gap-3 text-sm leading-6 text-ink/65">
+        <div className="mt-4 grid gap-3 text-sm leading-6 text-ink/65 dark:text-white/60">
           <div className="flex items-start gap-3">
             <Globe2 size={18} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                 Deadline
               </p>
-              <p className="mt-1 font-semibold text-ink">{formatDate(scholarship.deadline)}</p>
+              <p className="mt-1 font-semibold text-ink dark:text-white">{formatDate(scholarship.deadline)}</p>
             </div>
           </div>
 
@@ -304,7 +304,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                 Last verified
               </p>
-              <p className="mt-1 font-semibold text-ink">{lastVerified}</p>
+              <p className="mt-1 font-semibold text-ink dark:text-white">{lastVerified}</p>
             </div>
           ) : null}
 
@@ -313,13 +313,13 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
               <Globe2 size={18} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Source</p>
-                <p className="mt-1 font-semibold text-ink">{scholarship.source_name}</p>
+                <p className="mt-1 font-semibold text-ink dark:text-white">{scholarship.source_name}</p>
               </div>
             </div>
           ) : null}
 
           {scholarship.verification_note ? (
-            <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2">
+            <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
               {scholarship.verification_note}
             </p>
           ) : null}
@@ -343,7 +343,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
                 href={scholarship.official_link}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
               >
                 Official Website
                 <ExternalLink size={15} aria-hidden="true" />
@@ -556,7 +556,7 @@ export default function ScholarshipDetailPage({
     <>
       <SiteHeader />
 
-      <main className="bg-[#f7faf8]">
+      <main className="bg-[#f7faf8] transition-colors dark:bg-[#0e1012]">
         <section className="mx-auto max-w-7xl px-4 py-1 sm:px-5 md:px-8 md:py-2">
           <ButtonLink
             href="/scholarships"
@@ -584,8 +584,8 @@ export default function ScholarshipDetailPage({
 
           {!loading && !error && scholarship ? (
             <div className="grid gap-3">
-              <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-                <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 md:px-7">
+              <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+                <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-7">
                   <div className="grid gap-3 xl:grid-cols-[1fr_21rem] xl:items-start">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -610,22 +610,22 @@ export default function ScholarshipDetailPage({
                         ))}
                       </div>
 
-                      <h1 className="mt-4 max-w-5xl text-2xl font-bold tracking-tight text-ink md:text-4xl">
+                      <h1 className="mt-4 max-w-5xl text-2xl font-bold tracking-tight text-ink dark:text-white md:text-4xl">
                         {scholarship.title}
                       </h1>
 
-                      <p className="mt-3 text-sm leading-7 text-ink/70 md:text-base">
+                      <p className="mt-3 text-sm leading-7 text-ink/70 dark:text-white/62 md:text-base">
                         {provider} · {scholarship.country || "Country not listed"}
                       </p>
 
                       {scholarship.short_description ? (
-                        <p className="mt-3 max-w-4xl text-sm leading-7 text-ink/70 md:text-base">
+                        <p className="mt-3 max-w-4xl text-sm leading-7 text-ink/70 dark:text-white/62 md:text-base">
                           {scholarship.short_description}
                         </p>
                       ) : null}
 
                       {scholarship.stipend_summary ? (
-                        <div className="mt-3 inline-flex max-w-full items-start gap-2 rounded-2xl border border-saffron/35 bg-saffron/20 px-3 py-2 text-sm font-semibold text-ink">
+                        <div className="mt-3 inline-flex max-w-full items-start gap-2 rounded-2xl border border-saffron/35 bg-saffron/20 px-3 py-2 text-sm font-semibold text-ink dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/80">
                           <Sparkles
                             size={16}
                             className="mt-0.5 shrink-0 text-pine"
@@ -639,7 +639,7 @@ export default function ScholarshipDetailPage({
                       ) : null}
                     </div>
 
-                    <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
+                    <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
                         {isAuthenticated && user?.role === "student"
                           ? "Student actions"
@@ -648,7 +648,7 @@ export default function ScholarshipDetailPage({
                             : "Check eligibility"}
                       </p>
 
-                      <p className="mt-2 text-sm leading-6 text-ink/65">
+                      <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
                         {isAuthenticated && user?.role === "student"
                           ? "Save this scholarship or add it to your tracker."
                           : isAuthenticated
@@ -719,7 +719,7 @@ export default function ScholarshipDetailPage({
                             href={scholarship.official_link}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                           >
                             Official Website
                             <ExternalLink size={15} aria-hidden="true" />
@@ -727,7 +727,7 @@ export default function ScholarshipDetailPage({
                         ) : null}
                       </div>
 
-                      <p className="mt-3 text-xs leading-5 text-ink/50">
+                      <p className="mt-3 text-xs leading-5 text-ink/50 dark:text-white/45">
                         Always confirm deadline and requirements on the official scholarship page
                         before applying.
                       </p>
@@ -735,15 +735,15 @@ export default function ScholarshipDetailPage({
                   </div>
                 </div>
 
-                <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+                <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
                   {facts.slice(0, 4).map((fact) => (
                     <div key={fact.label} className="px-5 py-4">
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                         {fact.label}
                       </p>
-                      <p className="mt-1 text-sm font-bold text-ink">{fact.value}</p>
+                      <p className="mt-1 text-sm font-bold text-ink dark:text-white">{fact.value}</p>
                       {fact.helper ? (
-                        <p className="mt-1 text-xs text-ink/50">{fact.helper}</p>
+                        <p className="mt-1 text-xs text-ink/50 dark:text-white/45">{fact.helper}</p>
                       ) : null}
                     </div>
                   ))}
@@ -794,7 +794,7 @@ export default function ScholarshipDetailPage({
 
                   <TrustSidebarCard scholarship={scholarship} />
 
-                  <Card>
+                  <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                     <CardContent className="p-5">
                       <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
                         Key facts
@@ -823,7 +823,7 @@ export default function ScholarshipDetailPage({
 
                         {scholarship.fields_of_study.length > 0 ? (
                           <div className="mt-3">
-                            <h3 className="text-xs font-bold text-ink">Fields</h3>
+                            <h3 className="text-xs font-bold text-ink dark:text-white">Fields</h3>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.fields_of_study.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="sky">
@@ -836,7 +836,7 @@ export default function ScholarshipDetailPage({
 
                         {scholarship.eligible_countries.length > 0 ? (
                           <div className="mt-3">
-                            <h3 className="text-xs font-bold text-ink">Eligible countries</h3>
+                            <h3 className="text-xs font-bold text-ink dark:text-white">Eligible countries</h3>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.eligible_countries.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="neutral">
@@ -849,7 +849,7 @@ export default function ScholarshipDetailPage({
 
                         {scholarship.target_regions.length > 0 ? (
                           <div className="mt-3">
-                            <h3 className="text-xs font-bold text-ink">Target regions</h3>
+                            <h3 className="text-xs font-bold text-ink dark:text-white">Target regions</h3>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.target_regions.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="neutral">
