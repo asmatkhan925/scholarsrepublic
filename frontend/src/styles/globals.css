@@ -457,3 +457,33 @@ a {
 .dark .bg-ink\/25 {
   background-color: rgb(0 0 0 / 0.55);
 }
+
+/* SOP generator dark-mode helpers */
+.dark .border-ink\/15 {
+  border-color: rgb(255 255 255 / 0.10);
+}
+
+.dark .hover\:border-pine\/30:hover {
+  border-color: rgb(var(--color-pine) / 0.35);
+}
+
+.dark .bg-red-600 {
+  background-color: rgb(185 28 28);
+}
+
+.dark .hover\:bg-red-700:hover {
+  background-color: rgb(153 27 27);
+}
+
+.dark .text-red-800 {
+  color: rgb(252 165 165);
+}
+
+.dark datalist {
+  color: rgb(var(--color-ink));
+  background-color: #181b1d;
+}
+
+.dark .disabled\:opacity-50:disabled {
+  opacity: 0.42;
+}

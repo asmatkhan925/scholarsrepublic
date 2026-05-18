@@ -1401,8 +1401,8 @@ function SOPGeneratorContent() {
       hideHeader
     >
       <div className="space-y-3">
-        <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft">
-          <div className="border-b border-ink/10 bg-gradient-to-r from-pine/10 via-white to-saffron/10 px-4 py-3 md:px-5">
+        <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="border-b border-ink/10 bg-gradient-to-r from-pine/10 via-white to-saffron/10 px-4 py-3 transition-colors dark:border-white/10 dark:from-pine/10 dark:via-[#181b1d] dark:to-saffron/10 md:px-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
@@ -1410,7 +1410,7 @@ function SOPGeneratorContent() {
                   Scholars Republic AI Tool
                 </div>
 
-                <h2 className="mt-2 text-lg font-bold text-ink md:text-xl">
+                <h2 className="mt-2 text-lg font-bold text-ink dark:text-white md:text-xl">
                   Scholarship SOP generator
                 </h2>
                 <Link
@@ -1422,7 +1422,7 @@ function SOPGeneratorContent() {
                 </Link>
               </div>
 
-              <div className="rounded-xl border border-ink/10 bg-white/80 px-3 py-2 text-xs text-ink/70 md:max-w-md">
+              <div className="rounded-xl border border-ink/10 bg-white/80 px-3 py-2 text-xs text-ink/70 dark:border-white/10 dark:bg-white/5 dark:text-white/60 md:max-w-md">
                 <div className="flex gap-2">
                   <AlertTriangle
                     size={15}
@@ -1440,7 +1440,7 @@ function SOPGeneratorContent() {
 
           <form onSubmit={handleSubmit} className="grid gap-2.5 p-3 md:p-3.5">
             {checkingAI && (
-              <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/70">
+              <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs leading-5 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
                 Checking draft options...
               </div>
             )}
@@ -1456,9 +1456,9 @@ function SOPGeneratorContent() {
               </div>
             )}
 
-            <section className="rounded-xl border border-ink/10 bg-cream/40 p-2.5">
+            <section className="rounded-xl border border-ink/10 bg-cream/40 p-2.5 dark:border-white/10 dark:bg-white/5">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-bold text-ink">Draft option</h3>
+                <h3 className="text-sm font-bold text-ink dark:text-white">Draft option</h3>
                 <button
                   type="button"
                   onClick={() => {
@@ -1466,7 +1466,7 @@ function SOPGeneratorContent() {
                     void checkDeepSeekWorkerStatus();
                     loadPuterScript();
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-ink/5"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                 >
                   <RefreshCw size={14} aria-hidden="true" />
                   Refresh
@@ -1580,7 +1580,7 @@ function SOPGeneratorContent() {
               ) : null}
             </section>
 
-            <p className="text-xs leading-5 text-ink/55">
+            <p className="text-xs leading-5 text-ink/55 dark:text-white/50">
               Some fields may be filled from your profile. You can edit them before generating.
             </p>
 
@@ -1594,7 +1594,7 @@ function SOPGeneratorContent() {
                 onChange={(value) => updateField("target_country", value)}
               />
 
-              <label className="grid gap-1 text-sm font-semibold text-ink">
+              <label className="grid gap-1 text-sm font-semibold text-ink dark:text-white">
                 Target degree *
                 <input
                   required
@@ -1617,13 +1617,13 @@ function SOPGeneratorContent() {
             </div>
 
             <div className="grid gap-2.5">
-              <div className="grid gap-1 text-sm font-semibold text-ink">
+              <div className="grid gap-1 text-sm font-semibold text-ink dark:text-white">
                 Scholarship *
-                <div className="flex min-h-20 flex-col justify-between rounded-xl border border-ink/15 bg-white px-3 py-2">
+                <div className="flex min-h-20 flex-col justify-between rounded-xl border border-ink/15 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
                   <div className="min-w-0">
                     {selectedScholarship ? (
                       <>
-                        <p className="truncate text-sm font-bold text-ink">
+                        <p className="truncate text-sm font-bold text-ink dark:text-white">
                           {selectedScholarship.title}
                         </p>
                         {selectedScholarshipChips.length ? (
@@ -1631,7 +1631,7 @@ function SOPGeneratorContent() {
                             {selectedScholarshipChips.map((chip, index) => (
                               <span
                                 key={`${chip}-${index}`}
-                                className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-semibold text-ink/65"
+                                className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-semibold text-ink/65 dark:bg-white/5 dark:text-white/55"
                               >
                                 {chip}
                               </span>
@@ -1640,10 +1640,10 @@ function SOPGeneratorContent() {
                         ) : null}
                       </>
                     ) : (
-                      <p className="text-sm font-semibold text-ink/60">No scholarship selected</p>
+                      <p className="text-sm font-semibold text-ink/60 dark:text-white/55">No scholarship selected</p>
                     )}
                     {!selectedScholarship ? (
-                      <p className="mt-1 text-xs font-semibold text-red-700">
+                      <p className="mt-1 text-xs font-semibold text-red-700 dark:text-red-300">
                         Please choose the scholarship you are applying for.
                       </p>
                     ) : null}
@@ -1731,9 +1731,9 @@ function SOPGeneratorContent() {
               </label>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-cream/50 p-2.5 md:flex-row md:items-center md:justify-between">
-              <div className="text-xs leading-5 text-ink/65">
-                <strong className="text-ink">Required:</strong> scholarship, target degree, field of
+            <div className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-cream/50 p-2.5 dark:border-white/10 dark:bg-white/5 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs leading-5 text-ink/65 dark:text-white/58">
+                <strong className="text-ink dark:text-white">Required:</strong> scholarship, target degree, field of
                 study, and either future goals or an existing draft.
               </div>
 
@@ -1753,18 +1753,18 @@ function SOPGeneratorContent() {
 
             {scholarshipPickerOpen ? (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 px-3 py-6"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 px-3 py-6 dark:bg-black/60"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="scholarship-picker-title"
               >
-                <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft">
-                  <div className="flex items-start justify-between gap-3 border-b border-ink/10 p-4">
+                <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
+                  <div className="flex items-start justify-between gap-3 border-b border-ink/10 p-4 dark:border-white/10">
                     <div>
-                      <h3 id="scholarship-picker-title" className="text-base font-bold text-ink">
+                      <h3 id="scholarship-picker-title" className="text-base font-bold text-ink dark:text-white">
                         Choose scholarship
                       </h3>
-                      <p className="mt-1 text-xs leading-5 text-ink/60">
+                      <p className="mt-1 text-xs leading-5 text-ink/60 dark:text-white/55">
                         Saved scholarships appear first, followed by profile matches and other
                         scholarships.
                       </p>
@@ -1772,14 +1772,14 @@ function SOPGeneratorContent() {
                     <button
                       type="button"
                       onClick={() => setScholarshipPickerOpen(false)}
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink/10 text-ink/60 transition hover:bg-ink/5"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink/10 text-ink/60 transition hover:bg-ink/5 dark:border-white/10 dark:text-white/60 dark:hover:bg-white/10"
                       aria-label="Close scholarship picker"
                     >
                       <X size={18} aria-hidden="true" />
                     </button>
                   </div>
 
-                  <div className="border-b border-ink/10 p-3">
+                  <div className="border-b border-ink/10 p-3 dark:border-white/10">
                     <label className="relative block">
                       <Search
                         size={16}
@@ -1803,7 +1803,7 @@ function SOPGeneratorContent() {
 
                   <div className="overflow-y-auto p-3">
                     {scholarshipsLoading ? (
-                      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink/10 bg-cream/40 p-3 text-sm text-ink/65">
+                      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink/10 bg-cream/40 p-3 text-sm text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/58">
                         <Loader2 size={16} className="animate-spin" aria-hidden="true" />
                         Loading scholarships...
                       </div>
@@ -1837,15 +1837,15 @@ function SOPGeneratorContent() {
                               key={scholarship.slug}
                               type="button"
                               onClick={() => selectScholarship(scholarship)}
-                              className="rounded-xl border border-ink/10 bg-white p-3 text-left transition hover:border-pine/30 hover:bg-pine/5"
+                              className="rounded-xl border border-ink/10 bg-white p-3 text-left transition hover:border-pine/30 hover:bg-pine/5 dark:border-white/10 dark:bg-white/5 dark:hover:border-pine/35 dark:hover:bg-pine/10"
                             >
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-bold leading-5 text-ink">
+                                  <p className="text-sm font-bold leading-5 text-ink dark:text-white">
                                     {scholarship.title}
                                   </p>
                                   {metadata ? (
-                                    <p className="mt-1 text-xs leading-5 text-ink/60">
+                                    <p className="mt-1 text-xs leading-5 text-ink/60 dark:text-white/55">
                                       {metadata}
                                     </p>
                                   ) : null}
@@ -1869,7 +1869,7 @@ function SOPGeneratorContent() {
                         })}
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-ink/10 bg-cream/40 p-3 text-sm leading-6 text-ink/65">
+                      <div className="rounded-xl border border-ink/10 bg-cream/40 p-3 text-sm leading-6 text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/58">
                         No scholarships match your search.
                       </div>
                     )}
@@ -1881,17 +1881,17 @@ function SOPGeneratorContent() {
         </section>
 
         {provider === "local" && job && (
-          <section className="rounded-2xl border border-pine/15 bg-pine/5 p-5 shadow-soft md:p-7">
+          <section className="rounded-2xl border border-pine/15 bg-pine/5 p-5 shadow-soft dark:border-pine/20 dark:bg-pine/10 md:p-7">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-pine">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-pine dark:bg-white/5">
                   <Users size={14} aria-hidden="true" />
                   AI queue
                 </div>
 
-                <h2 className="mt-3 text-xl font-bold text-ink">Request status: {job.status}</h2>
+                <h2 className="mt-3 text-xl font-bold text-ink dark:text-white">Request status: {job.status}</h2>
 
-                <p className="mt-2 text-sm leading-6 text-ink/65">
+                <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">
                   {jobMessage ||
                     `Queue position: ${job.queue_position}. Estimated wait: ${formatWait(
                       job.estimated_wait_seconds,
@@ -1900,7 +1900,7 @@ function SOPGeneratorContent() {
               </div>
 
               {isWaiting && (
-                <div className="inline-flex items-center gap-2 rounded-xl border border-pine/20 bg-white px-4 py-3 text-sm font-semibold text-pine">
+                <div className="inline-flex items-center gap-2 rounded-xl border border-pine/20 bg-white px-4 py-3 text-sm font-semibold text-pine dark:border-white/10 dark:bg-white/5">
                   <Clock size={17} aria-hidden="true" />
                   Estimated wait: {formatWait(job.estimated_wait_seconds)}
                 </div>
@@ -1910,19 +1910,19 @@ function SOPGeneratorContent() {
         )}
 
         {showDeepSeekJobBar && deepSeekJob && (
-          <section className="flex flex-col gap-2 rounded-2xl border border-pine/15 bg-pine/5 p-3 shadow-soft md:flex-row md:items-center md:justify-between">
+          <section className="flex flex-col gap-2 rounded-2xl border border-pine/15 bg-pine/5 p-3 shadow-soft dark:border-pine/20 dark:bg-pine/10 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-semibold text-pine">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-semibold text-pine dark:bg-white/5">
                 <Users size={14} aria-hidden="true" />
                 Server 3
               </span>
-              <span className="font-bold capitalize text-ink">
+              <span className="font-bold capitalize text-ink dark:text-white">
                 {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
               </span>
               <span className="text-ink/45">&middot;</span>
-              <span className="text-ink/65">{getDeepSeekProcessingLabel(deepSeekJob)}</span>
+              <span className="text-ink/65 dark:text-white/58">{getDeepSeekProcessingLabel(deepSeekJob)}</span>
               {deepSeekJob.queue_position && deepSeekJob.queue_position > 0 ? (
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink/60">
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink/60 dark:bg-white/5 dark:text-white/55">
                   Position #{deepSeekJob.queue_position}
                 </span>
               ) : null}
@@ -1937,13 +1937,13 @@ function SOPGeneratorContent() {
                 <button
                   type="button"
                   onClick={() => void cancelDeepSeekJob(deepSeekJob.id)}
-                  className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+                  className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-400/25 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/10"
                 >
                   Cancel
                 </button>
               </div>
             ) : deepSeekJob.status === "failed" || deepSeekJob.status === "canceled" ? (
-              <span className="text-sm font-semibold text-red-700">
+              <span className="text-sm font-semibold text-red-700 dark:text-red-300">
                 {deepSeekError ||
                   deepSeekJob.user_message ||
                   deepSeekJob.text ||
@@ -1953,18 +1953,18 @@ function SOPGeneratorContent() {
           </section>
         )}
 
-        <section className="min-w-0 rounded-2xl border border-ink/10 bg-white p-4 shadow-soft md:p-5">
-          <div className="flex flex-col gap-3 border-b border-ink/10 pb-4 md:flex-row md:items-start md:justify-between">
+        <section className="min-w-0 rounded-2xl border border-ink/10 bg-white p-4 shadow-soft dark:border-white/10 dark:bg-[#181b1d] md:p-5">
+          <div className="flex flex-col gap-3 border-b border-ink/10 pb-4 dark:border-white/10 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-ink/5 px-3 py-1 text-xs font-semibold text-ink/70">
+              <div className="inline-flex items-center gap-2 rounded-full bg-ink/5 px-3 py-1 text-xs font-semibold text-ink/70 dark:bg-white/5 dark:text-white/60">
                 <FileText size={14} aria-hidden="true" />
                 Generated output
               </div>
 
-              <h2 className="mt-2 text-xl font-bold text-ink">Generated SOP Draft</h2>
+              <h2 className="mt-2 text-xl font-bold text-ink dark:text-white">Generated SOP Draft</h2>
 
               {result && resultProviderName ? (
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65">
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/58">
                   Generated using <strong>{resultProviderName}</strong>. Use this as a starting
                   draft and personalize it before submission.
                 </p>
@@ -1973,7 +1973,7 @@ function SOPGeneratorContent() {
               {provider === "local" &&
                 job?.elapsed_seconds !== undefined &&
                 job?.elapsed_seconds !== null && (
-                  <p className="mt-2 text-xs text-ink/50">
+                  <p className="mt-2 text-xs text-ink/50 dark:text-white/45">
                     Generated in {job.elapsed_seconds} seconds.
                   </p>
                 )}
@@ -2001,7 +2001,7 @@ function SOPGeneratorContent() {
                 type="button"
                 onClick={handleCopy}
                 disabled={!result}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-white/75 dark:hover:bg-white/10"
               >
                 {copied ? (
                   <CheckCircle2 size={17} aria-hidden="true" />
@@ -2074,7 +2074,7 @@ function SOPGeneratorContent() {
             </div>
           ) : null}
 
-          <div className="mt-4 min-h-[220px] rounded-2xl border border-ink/10 bg-cream/40 p-4 text-sm leading-7 text-ink">
+          <div className="mt-4 min-h-[220px] rounded-2xl border border-ink/10 bg-cream/40 p-4 text-sm leading-7 text-ink dark:border-white/10 dark:bg-white/5 dark:text-white/75">
             {deepSeekIsWaiting && !result ? (
               "Your Server 3 request is being processed. Please keep this page open."
             ) : loading || isWaiting ? (
@@ -2097,9 +2097,9 @@ function SOPGeneratorContent() {
           </div>
 
           {result ? (
-            <div className="mt-3 rounded-2xl border border-ink/10 bg-white p-3">
+            <div className="mt-3 rounded-2xl border border-ink/10 bg-white p-3 dark:border-white/10 dark:bg-white/5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-                <label className="grid flex-1 gap-1 text-sm font-semibold text-ink">
+                <label className="grid flex-1 gap-1 text-sm font-semibold text-ink dark:text-white">
                   Improve draft
                   <select
                     value={improvementFocus}
@@ -2116,7 +2116,7 @@ function SOPGeneratorContent() {
                   </select>
                 </label>
 
-                <label className="grid flex-[1.5] gap-1 text-sm font-semibold text-ink">
+                <label className="grid flex-[1.5] gap-1 text-sm font-semibold text-ink dark:text-white">
                   Optional instruction
                   <input
                     value={improvementInstruction}
@@ -2144,7 +2144,7 @@ function SOPGeneratorContent() {
               {(improvingDraft || improvementMessage || improvementError) && (
                 <p
                   className={`mt-2 text-xs font-semibold ${
-                    improvementError ? "text-red-700" : "text-ink/60"
+                    improvementError ? "text-red-700 dark:text-red-300" : "text-ink/60 dark:text-white/55"
                   }`}
                 >
                   {improvementError ||
@@ -2156,7 +2156,7 @@ function SOPGeneratorContent() {
             </div>
           ) : null}
 
-          <div className="mt-3 rounded-xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70">
+          <div className="mt-3 rounded-xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
             <strong>Reminder:</strong> Do not submit AI-generated text directly. Review it
             carefully, make it personal, and remove anything that does not accurately represent your
             background.
