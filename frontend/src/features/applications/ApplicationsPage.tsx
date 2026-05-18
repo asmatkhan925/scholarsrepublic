@@ -426,6 +426,7 @@ function ApplicationCard({
   const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
   const latestSopDraft = application.latest_sop_draft;
   const completedChecklistCount = checklist.filter((item) => item.done).length;
+  const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
   const deadlineStatusText = getDeadlineStatusText(activeDeadline);
   const statusGuidance = getStatusGuidance(statusValue, Boolean(latestSopDraft));
 
@@ -531,6 +532,9 @@ function ApplicationCard({
                 <Badge tone="neutral">
                   {completedChecklistCount}/{checklist.length} checklist
                 </Badge>
+                <Badge tone={linkedChecklistCount > 0 ? "mint" : "neutral"}>
+                  {linkedChecklistCount} link{linkedChecklistCount === 1 ? "" : "s"}
+                </Badge>
               </div>
 
               <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
@@ -594,10 +598,13 @@ function ApplicationCard({
 
               <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
-                  Checklist
+                  Documents
                 </p>
                 <p className="mt-1 text-sm font-bold text-ink">
-                  {completedChecklistCount}/{checklist.length} completed
+                  {completedChecklistCount}/{checklist.length} done
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-ink/45">
+                  {linkedChecklistCount} Drive/document link{linkedChecklistCount === 1 ? "" : "s"}
                 </p>
               </div>
             </div>
@@ -675,7 +682,7 @@ function ApplicationCard({
                       <div>
                         <p className="text-sm font-bold text-ink">Application checklist</p>
                         <p className="text-xs text-ink/50">
-                          {completedChecklistCount}/{checklist.length} completed
+                          {completedChecklistCount}/{checklist.length} completed · {linkedChecklistCount} link{linkedChecklistCount === 1 ? "" : "s"}
                         </p>
                       </div>
                     </div>
