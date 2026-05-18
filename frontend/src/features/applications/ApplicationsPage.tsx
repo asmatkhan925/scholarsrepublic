@@ -44,12 +44,29 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [delayMs, value]);
+
+  return debouncedValue;
+}
+
 function ApplicationTrackerContent() {
   const [applications, setApplications] = useState<OpportunityApplicationResponse | null>(null);
   const [summary, setSummary] = useState<ApplicationSummary | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim(), 350);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(() => readQuickFilterFromUrl());
   const [targetApplicationId, setTargetApplicationId] = useState<number | null>(() =>
     readApplicationIdFromUrl(),
@@ -62,9 +79,9 @@ function ApplicationTrackerContent() {
     () => ({
       ...(statusFilter ? { status: statusFilter as ApplicationStatus } : {}),
       ...(priorityFilter ? { priority: priorityFilter as ApplicationPriority } : {}),
-      ...(search ? { search } : {}),
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
     }),
-    [priorityFilter, search, statusFilter],
+    [debouncedSearch, priorityFilter, statusFilter],
   );
 
   useEffect(() => {
