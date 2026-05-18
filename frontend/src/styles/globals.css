@@ -305,3 +305,116 @@ a {
 .dark .bg-cream\/80 {
   background-color: rgb(255 255 255 / 0.045);
 }
+
+/* Auth pages dark-mode helpers */
+.dark .bg-slate-50 {
+  background-color: rgb(var(--color-cream));
+}
+
+.dark .bg-slate-100 {
+  background-color: rgb(255 255 255 / 0.06);
+}
+
+.dark .bg-slate-200 {
+  background-color: rgb(255 255 255 / 0.10);
+}
+
+.dark .bg-emerald-950 {
+  background:
+    radial-gradient(circle at top left, rgb(91 188 151 / 0.12), transparent 280px),
+    #111618;
+}
+
+.dark .bg-emerald-100 {
+  background-color: rgb(91 188 151 / 0.14);
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgb(91 188 151 / 0.10);
+}
+
+.dark .bg-amber-50 {
+  background-color: rgb(146 64 14 / 0.16);
+}
+
+.dark .border-slate-200,
+.dark .border-slate-100 {
+  border-color: rgb(255 255 255 / 0.10);
+}
+
+.dark .border-emerald-200 {
+  border-color: rgb(91 188 151 / 0.24);
+}
+
+.dark .border-amber-200 {
+  border-color: rgb(245 158 11 / 0.26);
+}
+
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: rgb(var(--color-ink));
+}
+
+.dark .text-slate-700 {
+  color: rgb(var(--color-ink) / 0.76);
+}
+
+.dark .text-slate-600 {
+  color: rgb(var(--color-ink) / 0.60);
+}
+
+.dark .text-slate-500 {
+  color: rgb(var(--color-ink) / 0.48);
+}
+
+.dark .text-slate-400 {
+  color: rgb(var(--color-ink) / 0.38);
+}
+
+.dark .text-emerald-900,
+.dark .text-emerald-800,
+.dark .text-emerald-700 {
+  color: rgb(var(--color-pine));
+}
+
+.dark .text-emerald-50,
+.dark .text-emerald-100 {
+  color: rgb(var(--color-ink) / 0.86);
+}
+
+.dark .text-amber-900 {
+  color: rgb(253 230 138);
+}
+
+.dark .focus\:ring-emerald-100:focus {
+  --tw-ring-color: rgb(91 188 151 / 0.18);
+}
+
+.dark .focus\:border-emerald-600:focus {
+  border-color: rgb(var(--color-pine));
+}
+
+.dark .hover\:bg-slate-100:hover {
+  background-color: rgb(255 255 255 / 0.08);
+}
+
+.dark .hover\:bg-emerald-50:hover {
+  background-color: rgb(91 188 151 / 0.12);
+}
+
+.dark .hover\:text-emerald-800:hover {
+  color: rgb(var(--color-pine));
+}
+
+.dark .bg-emerald-700 {
+  background-color: rgb(15 118 88);
+}
+
+.dark .hover\:bg-emerald-800:hover {
+  background-color: rgb(12 95 72);
+}
+
+.dark .placeholder\:text-slate-400::placeholder {
+  color: rgb(var(--color-ink) / 0.35);
+}

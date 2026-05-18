@@ -11,11 +11,11 @@ type AuthPageShellProps = {
 
 export function AuthPageShell({ children, mainClassName }: AuthPageShellProps) {
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-50">
+    <div className="flex min-h-dvh flex-col bg-slate-50 transition-colors dark:bg-[#0e1012]">
       <SiteHeader variant="auth" />
       <main
         className={cn(
-          "flex flex-1 items-center px-4 py-10 sm:px-5 md:px-8 md:py-12",
+          "flex flex-1 items-center px-4 py-10 transition-colors sm:px-5 md:px-8 md:py-12",
           mainClassName,
         )}
       >
