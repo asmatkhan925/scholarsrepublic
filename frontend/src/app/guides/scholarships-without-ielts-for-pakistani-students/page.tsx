@@ -1,13 +1,13 @@
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import {
+  SiteHeader } from "@/components/site-header";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  GraduationCap,
   Search,
   ShieldCheck,
   Sparkles,

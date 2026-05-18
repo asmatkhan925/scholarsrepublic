@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import {
+  SiteHeader } from "@/components/site-header";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -9,7 +10,6 @@ import {
   CalendarCheck,
   CheckCircle2,
   FileText,
-  GraduationCap,
   Search,
   Sparkles,
   UserRoundCheck,
