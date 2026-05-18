@@ -20,8 +20,9 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, ButtonLink, Card, CardContent, EmptyState, StatCard } from "@/components/ui";
-import { getProfileCompletion } from "@/lib/api";
+import { getApplications, getApplicationSummary, getProfileCompletion } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
+import type { OpportunityApplication, ApplicationSummary } from "@/types/opportunity";
 import type { ProfileCompletion } from "@/types/profile";
 
 type ActionCard = {
@@ -53,11 +54,163 @@ function getFirstName(fullName?: string) {
   return fullName.trim().split(/\s+/)[0] || "Student";
 }
 
+function getDaysUntil(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const today = new Date();
+  const deadline = new Date(value);
+  const diff = deadline.getTime() - today.getTime();
+
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function getApplicationDeadline(application: OpportunityApplication) {
+  return application.personal_deadline || application.opportunity_detail.deadline;
+}
+
+function getApplicationReadinessScore(application: OpportunityApplication) {
+  const checklist = application.checklist_snapshot ?? [];
+  const completedChecklistCount = checklist.filter((item) => item.done).length;
+  const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
+  const checklistReadiness = checklist.length
+    ? Math.round((completedChecklistCount / checklist.length) * 40)
+    : 0;
+
+  return Math.min(
+    100,
+    checklistReadiness +
+      (application.latest_sop_draft ? 20 : 0) +
+      (linkedChecklistCount > 0 ? 10 : 0) +
+      (getApplicationDeadline(application) ? 10 : 0) +
+      (application.next_step.trim() ? 10 : 0) +
+      (application.status !== "preparing" ? 10 : 0),
+  );
+}
+
+function ApplicationActionCenter({
+  applications,
+  summary,
+  loading,
+}: {
+  applications: OpportunityApplication[];
+  summary: ApplicationSummary | null;
+  loading: boolean;
+}) {
+  const totalTracked = summary?.total ?? applications.length;
+  const overdue = applications.filter((application) => {
+    const daysUntilDeadline = getDaysUntil(getApplicationDeadline(application));
+    return daysUntilDeadline !== null && daysUntilDeadline < 0;
+  }).length;
+  const dueSoon = applications.filter((application) => {
+    const daysUntilDeadline = getDaysUntil(getApplicationDeadline(application));
+    return daysUntilDeadline !== null && daysUntilDeadline >= 0 && daysUntilDeadline <= 7;
+  }).length;
+  const missingSop = applications.filter((application) => !application.latest_sop_draft).length;
+  const weakReadiness = applications.filter(
+    (application) => getApplicationReadinessScore(application) < 45,
+  ).length;
+  const needsAttention = overdue + dueSoon + missingSop + weakReadiness;
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-4 text-sm text-ink/60">
+          Loading application alerts...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (totalTracked === 0) {
+    return (
+      <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+              <ClipboardCheck size={19} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
+                Application Action Center
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-ink">No tracked applications yet</h2>
+              <p className="mt-1 text-sm leading-6 text-ink/60">
+                Start tracking scholarships so deadlines, SOP drafts, documents, and next steps stay organized.
+              </p>
+            </div>
+          </div>
+          <ButtonLink href="/scholarships" className="w-full sm:w-auto" variant="outline">
+            Browse Scholarships
+            <ArrowRight size={16} aria-hidden="true" />
+          </ButtonLink>
+        </div>
+      </section>
+    );
+  }
+
+  const alertItems = [
+    { label: "Tracked", value: totalTracked, href: "/dashboard/applications" },
+    { label: "Overdue", value: overdue, href: "/dashboard/applications" },
+    { label: "Due soon", value: dueSoon, href: "/dashboard/applications" },
+    { label: "Missing SOP", value: missingSop, href: "/dashboard/applications" },
+    { label: "Weak readiness", value: weakReadiness, href: "/dashboard/applications" },
+  ];
+
+  return (
+    <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+            <ClipboardCheck size={19} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
+              Application Action Center
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-ink">
+              {needsAttention > 0 ? "Some applications need attention" : "Applications look organized"}
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-ink/60">
+              Review urgent deadlines, SOP gaps, and weak readiness before working on new scholarships.
+            </p>
+          </div>
+        </div>
+
+        <ButtonLink href="/dashboard/applications" className="w-full sm:w-auto" variant="secondary">
+          Open Tracker
+          <ArrowRight size={16} aria-hidden="true" />
+        </ButtonLink>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {alertItems.map((item) => (
+          <ButtonLink
+            key={item.label}
+            href={item.href}
+            className="justify-between rounded-2xl border-pine/10 bg-cream/40 px-3 py-2 text-left text-ink hover:bg-pine/5"
+            variant="outline"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink/40">
+              {item.label}
+            </span>
+            <span className="text-base font-bold text-ink">{item.value}</span>
+          </ButtonLink>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function StudentDashboardContent() {
   const { user } = useAuth();
   const [completion, setCompletion] = useState<ProfileCompletion | null>(null);
+  const [applications, setApplications] = useState<OpportunityApplication[]>([]);
+  const [applicationSummary, setApplicationSummary] = useState<ApplicationSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingCompletion, setLoadingCompletion] = useState(true);
+  const [loadingApplications, setLoadingApplications] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -82,6 +235,38 @@ function StudentDashboardContent() {
     }
 
     void loadCompletion();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadApplicationAlerts() {
+      try {
+        const [applicationData, summaryData] = await Promise.all([
+          getApplications(),
+          getApplicationSummary(),
+        ]);
+
+        if (mounted) {
+          setApplications(applicationData.results);
+          setApplicationSummary(summaryData);
+        }
+      } catch (requestError) {
+        if (mounted) {
+          setError(getErrorMessage(requestError));
+        }
+      } finally {
+        if (mounted) {
+          setLoadingApplications(false);
+        }
+      }
+    }
+
+    void loadApplicationAlerts();
 
     return () => {
       mounted = false;
@@ -157,7 +342,7 @@ function StudentDashboardContent() {
     },
     {
       title: "Application tracker",
-      description: "Track status, priority, notes, and next actions for each application.",
+      description: "Manage deadlines, SOP drafts, checklists, Drive links, readiness, and next actions.",
       href: "/dashboard/applications",
       action: "Open Tracker",
       icon: ClipboardCheck,
@@ -231,6 +416,12 @@ function StudentDashboardContent() {
           </div>
         </div>
       </section>
+
+      <ApplicationActionCenter
+        applications={applications}
+        loading={loadingApplications}
+        summary={applicationSummary}
+      />
 
       {error ? (
         <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
