@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   FileText,
+  Plus,
   Search,
   Trash2,
 } from "lucide-react";
@@ -299,6 +300,7 @@ function ApplicationCard({
   const [checklist, setChecklist] = useState<ChecklistItem[]>(() =>
     getInitialChecklist(application),
   );
+  const [newChecklistItem, setNewChecklistItem] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -329,6 +331,32 @@ function ApplicationCard({
         itemIndex === index ? { ...item, done: !item.done } : item,
       ),
     );
+  }
+
+  function addChecklistItem() {
+    const label = newChecklistItem.trim();
+
+    if (!label) {
+      return;
+    }
+
+    setChecklist((current) => {
+      const alreadyExists = current.some(
+        (item) => item.label.trim().toLowerCase() === label.toLowerCase(),
+      );
+
+      if (alreadyExists) {
+        return current;
+      }
+
+      return [...current, { label, done: false }];
+    });
+
+    setNewChecklistItem("");
+  }
+
+  function removeChecklistItem(index: number) {
+    setChecklist((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function handleSave() {
@@ -546,26 +574,60 @@ function ApplicationCard({
                     </span>
                   </div>
 
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      value={newChecklistItem}
+                      onChange={(event) => setNewChecklistItem(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addChecklistItem();
+                        }
+                      }}
+                      placeholder="Add item, e.g. Upload study plan"
+                      className="h-9 min-w-0 flex-1 rounded-xl border border-pine/15 bg-cream/30 px-3 text-xs text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:bg-white focus:ring-2 focus:ring-pine/10"
+                    />
+                    <button
+                      type="button"
+                      onClick={addChecklistItem}
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-pine px-3 text-xs font-semibold text-white transition hover:bg-pine/90"
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                      Add item
+                    </button>
+                  </div>
+
                   <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                     {checklist.map((item, index) => (
-                      <label
+                      <div
                         key={`${item.label}-${index}`}
-                        className="flex min-w-0 cursor-pointer items-start gap-2 rounded-xl border border-ink/10 bg-cream/30 px-2.5 py-2 text-xs text-ink transition hover:bg-cream/60"
+                        className="flex min-w-0 items-start gap-2 rounded-xl border border-ink/10 bg-cream/30 px-2.5 py-2 text-xs text-ink transition hover:bg-cream/60"
                       >
-                        <input
-                          type="checkbox"
-                          checked={item.done}
-                          onChange={() => toggleChecklistItem(index)}
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-ink/20 text-pine focus:ring-pine/20"
-                        />
-                        <span
-                          className={
-                            item.done ? "min-w-0 text-ink/50 line-through" : "min-w-0 text-ink"
-                          }
+                        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
+                          <input
+                            type="checkbox"
+                            checked={item.done}
+                            onChange={() => toggleChecklistItem(index)}
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-ink/20 text-pine focus:ring-pine/20"
+                          />
+                          <span
+                            className={
+                              item.done ? "min-w-0 text-ink/50 line-through" : "min-w-0 text-ink"
+                            }
+                          >
+                            {item.label}
+                          </span>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => removeChecklistItem(index)}
+                          aria-label={`Remove checklist item ${item.label}`}
+                          className="shrink-0 rounded-lg px-1.5 py-1 text-ink/35 transition hover:bg-red-50 hover:text-red-700"
                         >
-                          {item.label}
-                        </span>
-                      </label>
+                          <Trash2 size={13} aria-hidden="true" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
