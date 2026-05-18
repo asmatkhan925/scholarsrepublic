@@ -32,6 +32,20 @@ import {
   getReadinessLabel,
   getReadinessTone,
 } from "@/features/applications/application-utils";
+import {
+  PRIORITY_OPTIONS,
+  QUICK_FILTER_OPTIONS,
+  STATUS_OPTIONS,
+  TRACKER_QUICK_FILTER_VALUES,
+  TRACKER_SORT_OPTIONS,
+  type QuickFilter,
+  type TrackerSort,
+} from "@/features/applications/application-options";
+import {
+  areChecklistLabelsSimilar,
+  getInitialChecklist,
+  normalizeChecklistLabel,
+} from "@/features/applications/application-checklist";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   ApplicationPriority,
@@ -42,141 +56,6 @@ import type {
   OpportunityApplicationResponse,
   UpdateApplicationPayload,
 } from "@/types/opportunity";
-
-const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
-  { value: "preparing", label: "Preparing" },
-  { value: "documents_pending", label: "Documents Pending" },
-  { value: "documents_ready", label: "Documents Ready" },
-  { value: "applied", label: "Applied" },
-  { value: "interview", label: "Interview" },
-  { value: "result_waiting", label: "Result Waiting" },
-  { value: "selected", label: "Selected" },
-  { value: "rejected", label: "Rejected" },
-  { value: "withdrawn", label: "Withdrawn" },
-  { value: "deferred", label: "Deferred" },
-];
-
-const PRIORITY_OPTIONS: { value: ApplicationPriority; label: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-];
-
-type QuickFilter =
-  | "all"
-  | "due_soon"
-  | "overdue"
-  | "high_priority"
-  | "missing_sop"
-  | "sop_ready"
-  | "reminder_today"
-  | "no_next_step"
-  | "needs_work"
-  | "ready";
-
-type TrackerSort = "smart" | "deadline" | "priority" | "updated" | "readiness";
-
-const TRACKER_SORT_OPTIONS: { value: TrackerSort; label: string }[] = [
-  { value: "smart", label: "Smart" },
-  { value: "deadline", label: "Deadline" },
-  { value: "priority", label: "Priority" },
-  { value: "updated", label: "Updated" },
-  { value: "readiness", label: "Ready" },
-];
-
-const TRACKER_QUICK_FILTER_VALUES: QuickFilter[] = [
-  "all",
-  "due_soon",
-  "overdue",
-  "high_priority",
-  "missing_sop",
-  "sop_ready",
-  "reminder_today",
-  "no_next_step",
-  "needs_work",
-  "ready",
-];
-
-const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "due_soon", label: "Due" },
-  { value: "overdue", label: "Overdue" },
-  { value: "high_priority", label: "High" },
-  { value: "missing_sop", label: "No SOP" },
-  { value: "sop_ready", label: "SOP" },
-  { value: "reminder_today", label: "Remind" },
-  { value: "no_next_step", label: "No step" },
-  { value: "needs_work", label: "Weak" },
-  { value: "ready", label: "Ready" },
-];
-
-const DEFAULT_APPLICATION_CHECKLIST: ChecklistItem[] = [
-  { label: "Review eligibility requirements", done: false },
-  { label: "Prepare SOP", done: false },
-  { label: "Prepare CV", done: false },
-  { label: "Collect transcripts", done: false },
-  { label: "Request recommendation letters", done: false },
-  { label: "Prepare passport/CNIC or ID documents", done: false },
-  { label: "Submit application before deadline", done: false },
-];
-
-function normalizeChecklistLabel(label: string) {
-  const normalized = label
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!normalized) {
-    return "";
-  }
-
-  const aliases: Array<[RegExp, string]> = [
-    [/\b(statement of purpose|sop|personal statement|motivation letter|letter of motivation)\b/g, "sop"],
-    [/\b(curriculum vitae|resume|cv)\b/g, "cv"],
-    [/\b(academic transcript|transcripts|transcript)\b/g, "transcript"],
-    [/\b(letter of recommendation|letters of recommendation|recommendation letter|recommendation letters|reference letter|reference letters|lor)\b/g, "recommendation letter"],
-    [/\b(passport copy|copy of passport|passport)\b/g, "passport"],
-    [/\b(cnic|national id|identity card|id card)\b/g, "identity document"],
-    [/\b(study plan|research plan|research proposal)\b/g, "study plan"],
-    [/\b(english proficiency certificate|english language certificate|english proficiency)\b/g, "english proficiency"],
-  ];
-
-  return aliases.reduce(
-    (current, [pattern, replacement]) => current.replace(pattern, replacement),
-    normalized,
-  );
-}
-
-function areChecklistLabelsSimilar(first: string, second: string) {
-  const firstLabel = normalizeChecklistLabel(first);
-  const secondLabel = normalizeChecklistLabel(second);
-
-  if (!firstLabel || !secondLabel) {
-    return false;
-  }
-
-  return (
-    firstLabel === secondLabel ||
-    firstLabel.includes(secondLabel) ||
-    secondLabel.includes(firstLabel)
-  );
-}
-
-function getInitialChecklist(application: OpportunityApplication): ChecklistItem[] {
-  const existing = application.checklist_snapshot ?? [];
-
-  if (existing.length > 0) {
-    return existing.map((item) => ({
-      label: item.label,
-      done: Boolean(item.done),
-      url: item.url || "",
-    }));
-  }
-
-  return DEFAULT_APPLICATION_CHECKLIST.map((item) => ({ ...item, url: item.url || "" }));
-}
 
 function humanize(value: string) {
   if (!value) {
