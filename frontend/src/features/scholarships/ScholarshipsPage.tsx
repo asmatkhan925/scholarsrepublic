@@ -239,7 +239,7 @@ function ScholarshipCard({
           ) : null}
         </div>
 
-        <div className="border-t border-pine/10 bg-white p-2.5 md:p-3">
+        <div className="border-t border-pine/10 bg-white p-2.5 dark:border-white/10 dark:bg-white/5 md:p-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <ButtonLink href={`/scholarships/${scholarship.slug}`} size="sm" variant="outline">
               View Details
@@ -659,23 +659,23 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     <>
       <SiteHeader />
 
-      <main className="bg-[#f7faf8]">
+      <main className="bg-[#f7faf8] transition-colors dark:bg-[#0e1012]">
         <section className="mx-auto max-w-7xl px-4 py-2.5 sm:px-5 md:px-8 md:py-3">
-          <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-2.5 md:px-6">
+          <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-2.5 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-6">
               <div className="flex min-w-0 flex-col gap-1 md:flex-row md:items-baseline md:gap-2">
-                <h1 className="shrink-0 text-xl font-bold tracking-tight text-ink md:text-2xl">
+                <h1 className="shrink-0 text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
                   Find scholarships worth applying to.
                 </h1>
                 <span className="hidden text-lg font-bold text-pine/45 md:inline">·</span>
-                <p className="max-w-4xl text-sm leading-5 text-ink/70 md:truncate">
+                <p className="max-w-4xl text-sm leading-5 text-ink/70 dark:text-white/60 md:truncate">
                   Search verified opportunities by country, funding, deadline, and pathway.
                 </p>
               </div>
             </div>
           </div>
 
-          <Card className="mt-2">
+          <Card className="mt-2 dark:border-white/10 dark:bg-[#181b1d]">
             <CardContent className="p-2 md:p-2.5">
               <form onSubmit={handleFilterSubmit} className="grid gap-2">
                 <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -727,7 +727,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 </div>
 
                 {activeFilterSummary.length > 0 ? (
-                  <div className="flex flex-col gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-xs text-ink/65 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-xs text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/60 sm:flex-row sm:items-center sm:justify-between">
                     <p className="min-w-0">
                       <span className="font-bold text-ink/70">Filtered by:</span>{" "}
                       <span className="break-words">{activeFilterSummary.join(" · ")}</span>
@@ -746,7 +746,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 ) : null}
 
                 {advancedFiltersOpen ? (
-                  <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3">
+                  <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
                     <div className="grid gap-2 md:grid-cols-3">
                       <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
                         Country
@@ -847,7 +847,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 ) : null}
 
                 {pathwaysOpen ? (
-                  <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5">
+                  <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5">
                     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                       <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-1.5">
                         <h3 className="shrink-0 text-xs font-bold text-ink">Browse by pathway</h3>
