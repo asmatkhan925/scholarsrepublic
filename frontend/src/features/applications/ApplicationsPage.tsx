@@ -460,16 +460,16 @@ function ApplicationCard({
           </div>
 
           <div className="border-t border-pine/10 bg-mint/35 p-3 xl:border-l xl:border-t-0">
-            <div className="rounded-2xl border border-pine/10 bg-white p-3">
+            <div className="rounded-2xl border border-pine/10 bg-white p-2.5">
               <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
-                  <CalendarDays size={18} aria-hidden="true" />
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+                  <CalendarDays size={16} aria-hidden="true" />
                 </span>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                     Deadline
                   </p>
-                  <p className="mt-1 text-sm font-bold text-ink">{formatDate(activeDeadline)}</p>
+                  <p className="mt-1 text-xs font-bold text-ink">{formatDate(activeDeadline)}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-ink/60">
                     {deadlineStatusText}
                   </p>
@@ -479,45 +479,49 @@ function ApplicationCard({
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-2 text-sm font-semibold text-ink">
-                  Personal deadline
-                  <input
-                    type="date"
-                    value={personalDeadline}
-                    onChange={(event) => setPersonalDeadline(event.target.value)}
-                    className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                  />
-                </label>
+              <div className="mt-3 rounded-2xl border border-pine/10 bg-cream/35 p-2.5">
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-ink/35">
+                  Timeline
+                </p>
 
-                <label className="grid gap-2 text-sm font-semibold text-ink">
-                  Reminder date
-                  <input
-                    type="date"
-                    value={reminderDate}
-                    onChange={(event) => setReminderDate(event.target.value)}
-                    className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                  />
-                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="grid gap-1 text-xs font-semibold text-ink">
+                    Personal
+                    <input
+                      type="date"
+                      value={personalDeadline}
+                      onChange={(event) => setPersonalDeadline(event.target.value)}
+                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    />
+                  </label>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <label className="grid gap-2 text-sm font-semibold text-ink">
-                    Submitted date
+                  <label className="grid gap-1 text-xs font-semibold text-ink">
+                    Reminder
+                    <input
+                      type="date"
+                      value={reminderDate}
+                      onChange={(event) => setReminderDate(event.target.value)}
+                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-xs font-semibold text-ink">
+                    Submitted
                     <input
                       type="date"
                       value={submittedDate}
                       onChange={(event) => setSubmittedDate(event.target.value)}
-                      className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                     />
                   </label>
 
-                  <label className="grid gap-2 text-sm font-semibold text-ink">
-                    Decision date
+                  <label className="grid gap-1 text-xs font-semibold text-ink">
+                    Decision
                     <input
                       type="date"
                       value={decisionDate}
                       onChange={(event) => setDecisionDate(event.target.value)}
-                      className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                      className="h-8 rounded-xl border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                     />
                   </label>
                 </div>
