@@ -357,7 +357,7 @@ function ContinueWorkingSection({
                     }}
                     className="group min-w-0 cursor-pointer overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-pine/15"
                   >
-                    <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
                       <div className="min-w-0 flex-1 overflow-hidden">
                         <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">
                           {opportunity.title}
@@ -369,44 +369,49 @@ function ContinueWorkingSection({
                             "Provider not listed"}{" "}
                           · {opportunity.country || "Country not listed"}
                         </p>
-                        <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-                          <Badge className="max-w-[10rem] truncate" tone="neutral">
-                            {opportunity.funding_type || "Funding not listed"}
-                          </Badge>
-                          {degree ? (
-                            <Badge className="max-w-[10rem] truncate" tone="neutral">
-                              {degree}
-                            </Badge>
-                          ) : null}
-                          <Badge className="max-w-full truncate" tone="neutral">
-                            {formatShortDate(opportunity.deadline)}
-                          </Badge>
-                          {saved.is_tracking ? <Badge tone="mint">Tracking</Badge> : null}
-                        </div>
                       </div>
 
-                      <div className="flex shrink-0 flex-col items-end gap-2">
-                        <button
-                          type="button"
-                          disabled={trackingSavedId === saved.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleTrackSaved(saved);
-                          }}
-                          className="rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-bold text-pine transition hover:bg-pine hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {trackingSavedId === saved.id
-                            ? "Tracking..."
-                            : saved.is_tracking
-                              ? "Open tracker"
-                              : "Track"}
-                        </button>
-                        <ArrowRight
-                          size={15}
-                          aria-hidden="true"
-                          className="mr-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
-                        />
-                      </div>
+                      <ArrowRight
+                        size={15}
+                        aria-hidden="true"
+                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
+                      />
+                    </div>
+
+                    <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                      <Badge className="max-w-[10rem] truncate" tone="neutral">
+                        {opportunity.funding_type || "Funding not listed"}
+                      </Badge>
+                      {degree ? (
+                        <Badge className="max-w-[10rem] truncate" tone="neutral">
+                          {degree}
+                        </Badge>
+                      ) : null}
+                      <Badge className="max-w-full truncate" tone="neutral">
+                        {formatShortDate(opportunity.deadline)}
+                      </Badge>
+                      {saved.is_tracking ? <Badge tone="mint">Tracking</Badge> : null}
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between gap-2 border-t border-pine/10 pt-2">
+                      <span className="truncate text-[11px] font-semibold text-ink/40">
+                        Click card for scholarship details
+                      </span>
+                      <button
+                        type="button"
+                        disabled={trackingSavedId === saved.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleTrackSaved(saved);
+                        }}
+                        className="shrink-0 rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-bold text-pine transition hover:bg-pine hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {trackingSavedId === saved.id
+                          ? "Opening..."
+                          : saved.is_tracking
+                            ? "Open tracker"
+                            : "Track"}
+                      </button>
                     </div>
                   </div>
                 );
