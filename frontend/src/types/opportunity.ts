@@ -251,6 +251,7 @@ export type OpportunityApplication = {
   decision_at: string | null;
   personal_deadline: string | null;
   checklist_snapshot: ChecklistItem[];
+  required_documents: string[];
   latest_sop_draft: {
     id: number;
     title: string;

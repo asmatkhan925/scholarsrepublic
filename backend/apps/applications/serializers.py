@@ -125,6 +125,7 @@ def get_published_opportunity(attrs):
 class OpportunityApplicationSerializer(serializers.ModelSerializer):
     opportunity_detail = OpportunityListSerializer(source="opportunity", read_only=True)
     latest_sop_draft = serializers.SerializerMethodField()
+    required_documents = serializers.SerializerMethodField()
 
     class Meta:
         model = OpportunityApplication
@@ -144,6 +145,7 @@ class OpportunityApplicationSerializer(serializers.ModelSerializer):
             "personal_deadline",
             "checklist_snapshot",
             "latest_sop_draft",
+            "required_documents",
             "created_at",
             "updated_at",
         )
@@ -153,9 +155,17 @@ class OpportunityApplicationSerializer(serializers.ModelSerializer):
             "opportunity_detail",
             "saved_opportunity",
             "latest_sop_draft",
+            "required_documents",
             "created_at",
             "updated_at",
         )
+    def get_required_documents(self, obj):
+        documents = obj.opportunity.required_documents or []
+        if not isinstance(documents, list):
+            return []
+        return [str(document).strip() for document in documents if str(document).strip()]
+
+
     def get_latest_sop_draft(self, obj):
         base_queryset = SOPDraft.objects.filter(user_id=obj.user_id)
 
@@ -214,7 +224,6 @@ class OpportunityApplicationCreateSerializer(serializers.ModelSerializer):
             "decision_at",
             "personal_deadline",
             "checklist_snapshot",
-            "latest_sop_draft",
             "created_at",
             "updated_at",
         )

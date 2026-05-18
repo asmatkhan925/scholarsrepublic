@@ -427,6 +427,14 @@ function ApplicationCard({
   const latestSopDraft = application.latest_sop_draft;
   const completedChecklistCount = checklist.filter((item) => item.done).length;
   const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
+  const missingRequiredDocuments = (application.required_documents ?? []).filter((document) => {
+    const normalizedDocument = document.trim().toLowerCase();
+
+    return (
+      normalizedDocument &&
+      !checklist.some((item) => item.label.trim().toLowerCase() === normalizedDocument)
+    );
+  });
   const deadlineStatusText = getDeadlineStatusText(activeDeadline);
   const statusGuidance = getStatusGuidance(statusValue, Boolean(latestSopDraft));
 
@@ -462,6 +470,21 @@ function ApplicationCard({
 
   function removeChecklistItem(index: number) {
     setChecklist((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function addRequiredDocumentsToChecklist() {
+    if (!missingRequiredDocuments.length) {
+      return;
+    }
+
+    setChecklist((current) => [
+      ...current,
+      ...missingRequiredDocuments.map((document) => ({
+        label: document,
+        done: false,
+        url: "",
+      })),
+    ]);
   }
 
   function updateChecklistItemUrl(index: number, url: string) {
@@ -686,9 +709,21 @@ function ApplicationCard({
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full bg-cream px-2 py-1 text-[11px] font-semibold text-ink/55">
-                      Save changes to keep progress
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {missingRequiredDocuments.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={addRequiredDocumentsToChecklist}
+                          className="inline-flex items-center gap-1 rounded-full bg-pine px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-pine/90"
+                        >
+                          <Plus size={12} aria-hidden="true" />
+                          Add official docs ({missingRequiredDocuments.length})
+                        </button>
+                      ) : null}
+                      <span className="rounded-full bg-cream px-2 py-1 text-[11px] font-semibold text-ink/55">
+                        Save changes to keep progress
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -716,6 +751,11 @@ function ApplicationCard({
 
                   <p className="mt-2 text-[11px] leading-5 text-ink/45">
                     Keep documents in your own Drive. Paste restricted Google Drive or document links here; Scholars Republic will only store the link.
+                    {application.required_documents?.length ? (
+                      <span className="font-semibold text-pine">
+                        {" "}Official docs available from this scholarship.
+                      </span>
+                    ) : null}
                   </p>
 
                   <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
