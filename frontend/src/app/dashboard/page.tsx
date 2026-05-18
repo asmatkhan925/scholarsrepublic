@@ -330,30 +330,33 @@ function ContinueWorkingSection({
                 return (
                   <div
                     key={application.id}
-                    className="rounded-xl border border-pine/10 bg-white px-3 py-2"
+                    className="min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2"
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-ink">
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink">
                           {application.opportunity_detail.title}
                         </p>
                         <p className="mt-0.5 truncate text-xs text-ink/55">
                           {getProviderName(application)} · {application.opportunity_detail.country || "Country not listed"}
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          <Badge tone={readinessScore >= 75 ? "mint" : readinessScore >= 45 ? "saffron" : "danger"}>
+                        <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                          <Badge
+                            className="max-w-full truncate"
+                            tone={readinessScore >= 75 ? "mint" : readinessScore >= 45 ? "saffron" : "danger"}
+                          >
                             {readinessScore}% ready
                           </Badge>
-                          <Badge tone={application.latest_sop_draft ? "mint" : "saffron"}>
+                          <Badge className="max-w-full truncate" tone={application.latest_sop_draft ? "mint" : "saffron"}>
                             {application.latest_sop_draft ? "SOP ready" : "No SOP"}
                           </Badge>
-                          <Badge tone="neutral">{getDeadlineLabel(deadline)}</Badge>
+                          <Badge className="max-w-full truncate" tone="neutral">{getDeadlineLabel(deadline)}</Badge>
                         </div>
                       </div>
 
                       <ButtonLink
                         href="/dashboard/applications"
-                        className="shrink-0"
+                        className="shrink-0 self-start"
                         size="sm"
                         variant="ghost"
                       >
@@ -389,9 +392,9 @@ function ContinueWorkingSection({
                     key={saved.id}
                     className="rounded-xl border border-pine/10 bg-white px-3 py-2"
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-ink">{opportunity.title}</p>
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink">{opportunity.title}</p>
                         <p className="mt-0.5 truncate text-xs text-ink/55">
                           {opportunity.provider_name ||
                             opportunity.university_name ||
@@ -399,16 +402,16 @@ function ContinueWorkingSection({
                             "Provider not listed"}{" "}
                           · {opportunity.country || "Country not listed"}
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          <Badge tone="neutral">{opportunity.funding_type || "Funding not listed"}</Badge>
-                          {degree ? <Badge tone="neutral">{degree}</Badge> : null}
-                          <Badge tone="neutral">{formatShortDate(opportunity.deadline)}</Badge>
+                        <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                          <Badge className="max-w-[10rem] truncate" tone="neutral">{opportunity.funding_type || "Funding not listed"}</Badge>
+                          {degree ? <Badge className="max-w-[10rem] truncate" tone="neutral">{degree}</Badge> : null}
+                          <Badge className="max-w-full truncate" tone="neutral">{formatShortDate(opportunity.deadline)}</Badge>
                         </div>
                       </div>
 
                       <ButtonLink
                         href={`/scholarships/${opportunity.slug}`}
-                        className="shrink-0"
+                        className="shrink-0 self-start"
                         size="sm"
                         variant="ghost"
                       >
