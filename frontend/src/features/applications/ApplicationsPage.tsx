@@ -427,41 +427,43 @@ function ApplicationCard({
             </div>
           </div>
 
-          <div className="mt-3 grid gap-2 md:grid-cols-4">
-            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
-                Deadline
-              </p>
-              <p className="mt-1 text-sm font-bold text-ink">{formatDate(activeDeadline)}</p>
-            </div>
+          {!expanded ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-4">
+              <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
+                  Deadline
+                </p>
+                <p className="mt-1 text-sm font-bold text-ink">{formatDate(activeDeadline)}</p>
+              </div>
 
-            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
-                Next step
-              </p>
-              <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink/70">
-                {nextStep || "No next step added"}
-              </p>
-            </div>
+              <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
+                  Next step
+                </p>
+                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink/70">
+                  {nextStep || "No next step added"}
+                </p>
+              </div>
 
-            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
-                SOP
-              </p>
-              <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink/70">
-                {latestSopDraft ? latestSopDraft.title : "No SOP draft yet"}
-              </p>
-            </div>
+              <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
+                  SOP
+                </p>
+                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink/70">
+                  {latestSopDraft ? latestSopDraft.title : "No SOP draft yet"}
+                </p>
+              </div>
 
-            <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
-                Checklist
-              </p>
-              <p className="mt-1 text-sm font-bold text-ink">
-                {completedChecklistCount}/{checklist.length} completed
-              </p>
+              <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35">
+                  Checklist
+                </p>
+                <p className="mt-1 text-sm font-bold text-ink">
+                  {completedChecklistCount}/{checklist.length} completed
+                </p>
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {expanded ? (
             <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_18rem]">
