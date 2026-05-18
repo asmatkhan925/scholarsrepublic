@@ -988,18 +988,18 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <Card>
+    <Card className="dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-4 md:p-5">
-        <div className="mb-4 flex flex-col gap-3 border-b border-pine/10 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 border-b border-pine/10 pb-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
               {icon}
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <h2 className="text-base font-bold text-ink md:text-lg">{title}</h2>
+                <h2 className="text-base font-bold text-ink dark:text-white md:text-lg">{title}</h2>
               </div>
-              <p className="mt-1 text-sm leading-6 text-ink/60">{description}</p>
+              <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">{description}</p>
             </div>
           </div>
         </div>
@@ -1323,8 +1323,8 @@ function ProfilePageContent() {
         hideHeader
         title="Student Profile"
       >
-        <Card>
-          <CardContent className="p-6 text-sm text-ink/70">Loading profile form...</CardContent>
+        <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+          <CardContent className="p-6 text-sm text-ink/70 dark:text-white/60">Loading profile form...</CardContent>
         </Card>
       </DashboardShell>
     );
@@ -1337,23 +1337,23 @@ function ProfilePageContent() {
       title="Student Profile"
     >
       <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4">
-        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
-          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 md:px-5">
+        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">
             <div className="grid gap-4 xl:grid-cols-[1fr_20rem] xl:items-center">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
                   Student profile
                 </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
                   Improve your scholarship match.
                 </h1>
-                <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 xl:whitespace-nowrap">
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 dark:text-white/60 xl:whitespace-nowrap">
                   Fill the most important details first. You can save partial progress and return
                   later.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm">
+              <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-end justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
@@ -1369,26 +1369,26 @@ function ProfilePageContent() {
                   </Badge>
                 </div>
 
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-mint">
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-mint dark:bg-white/10">
                   <div
                     className="h-full rounded-full bg-pine"
                     style={{ width: `${completion.completion_percentage}%` }}
                   />
                 </div>
 
-                <p className="mt-2 text-xs leading-5 text-ink/50">
+                <p className="mt-2 text-xs leading-5 text-ink/50 dark:text-white/45">
                   {completion.completion_percentage}% profile complete
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+          <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
             <div className="px-4 py-3 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                 Completion
               </p>
-              <p className="mt-1 text-2xl font-bold text-ink">
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">
                 {completion.completion_percentage}%
               </p>
             </div>
@@ -1413,12 +1413,12 @@ function ProfilePageContent() {
         </section>
 
         {nextProfileSteps.length > 0 ? (
-          <Card>
+          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
             <CardContent className="p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-sm font-bold text-ink">Next details to complete</p>
-                  <p className="mt-1 text-sm leading-6 text-ink/60">
+                  <p className="text-sm font-bold text-ink dark:text-white">Next details to complete</p>
+                  <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">
                     These fields can improve your match score and recommendations.
                   </p>
                 </div>
@@ -1435,7 +1435,7 @@ function ProfilePageContent() {
         ) : null}
 
         {message ? (
-          <div className="rounded-2xl border border-pine/10 bg-mint/40 p-4 text-sm font-medium text-pine">
+          <div className="rounded-2xl border border-pine/10 bg-mint/40 p-4 text-sm font-medium text-pine dark:border-pine/20 dark:bg-pine/10">
             {message}
           </div>
         ) : null}
@@ -1863,15 +1863,15 @@ function ProfilePageContent() {
         </Section>
 
         {pendingNavigationHref && hasUnsavedChanges ? (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 px-4 py-5 backdrop-blur-sm sm:items-center">
-            <div className="w-full max-w-md rounded-[1.5rem] border border-pine/10 bg-white p-5 shadow-2xl">
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 px-4 py-5 backdrop-blur-sm dark:bg-black/55 sm:items-center">
+            <div className="w-full max-w-md rounded-[1.5rem] border border-pine/10 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-[#181b1d]">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-saffron/25 text-pine">
                   <Save size={18} aria-hidden="true" />
                 </span>
                 <div>
-                  <h2 className="text-lg font-bold text-ink">You have unsaved changes</h2>
-                  <p className="mt-2 text-sm leading-6 text-ink/65">
+                  <h2 className="text-lg font-bold text-ink dark:text-white">You have unsaved changes</h2>
+                  <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
                     Save your profile before leaving, or continue without saving these changes.
                   </p>
                 </div>
@@ -1924,11 +1924,11 @@ function ProfilePageContent() {
           </div>
         ) : null}
 
-        <Card className="sticky bottom-3 z-10 border-pine/15 bg-white/95 shadow-lg backdrop-blur">
+        <Card className="sticky bottom-3 z-10 border-pine/15 bg-white/95 shadow-lg backdrop-blur dark:border-white/10 dark:bg-[#181b1d]/95">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-bold text-ink">Save your profile</p>
-              <p className="text-sm leading-6 text-ink/60">
+              <p className="font-bold text-ink dark:text-white">Save your profile</p>
+              <p className="text-sm leading-6 text-ink/60 dark:text-white/58">
                 {hasUnsavedChanges
                   ? "You have changes that are not saved yet."
                   : "Better profile data improves matches and recommendations."}

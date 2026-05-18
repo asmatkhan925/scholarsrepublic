@@ -418,3 +418,42 @@ a {
 .dark .placeholder\:text-slate-400::placeholder {
   color: rgb(var(--color-ink) / 0.35);
 }
+
+/* Profile page dark-mode helpers */
+.dark .text-ink\/80 {
+  color: rgb(var(--color-ink) / 0.78);
+}
+
+.dark .text-ink\/68 {
+  color: rgb(var(--color-ink) / 0.64);
+}
+
+.dark .bg-mint {
+  background-color: rgb(91 188 151 / 0.12);
+}
+
+.dark .hover\:bg-mint\/35:hover,
+.dark .hover\:bg-mint\/40:hover {
+  background-color: rgb(91 188 151 / 0.10);
+}
+
+.dark .hover\:bg-saffron\/20:hover {
+  background-color: rgb(230 166 62 / 0.13);
+}
+
+.dark .accent-pine {
+  accent-color: rgb(var(--color-pine));
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.65;
+}
+
+.dark .bg-white\/95 {
+  background-color: rgb(var(--color-surface) / 0.95);
+}
+
+.dark .bg-ink\/25 {
+  background-color: rgb(0 0 0 / 0.55);
+}
