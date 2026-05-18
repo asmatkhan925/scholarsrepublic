@@ -558,7 +558,7 @@ function ApplicationCard({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!defaultExpanded) {
+    if (!defaultExpanded && !highlighted) {
       return;
     }
 
@@ -569,8 +569,8 @@ function ApplicationCard({
         behavior: "smooth",
         block: "center",
       });
-    }, 150);
-  }, [defaultExpanded]);
+    }, 200);
+  }, [application.id, defaultExpanded, highlighted]);
 
   const opportunity = application.opportunity_detail;
   const provider =
@@ -1490,15 +1490,19 @@ function ApplicationTrackerContent() {
       setError(null);
 
       try {
+        const currentTargetApplicationId = readApplicationIdFromUrl();
+
         const [applicationData, summaryData, targetApplication] = await Promise.all([
           getApplications(query),
           getApplicationSummary(),
-          targetApplicationId
-            ? getApplication(targetApplicationId).catch(() => null)
+          currentTargetApplicationId
+            ? getApplication(currentTargetApplicationId).catch(() => null)
             : Promise.resolve(null),
         ]);
 
         if (mounted) {
+          setTargetApplicationId(currentTargetApplicationId);
+
           const results =
             targetApplication &&
             !applicationData.results.some((application) => application.id === targetApplication.id)
@@ -1527,7 +1531,7 @@ function ApplicationTrackerContent() {
     return () => {
       mounted = false;
     };
-  }, [query, targetApplicationId]);
+  }, [query]);
 
   function handleUpdated(updated: OpportunityApplication) {
     setApplications((current) => {
@@ -1724,7 +1728,7 @@ function ApplicationTrackerContent() {
           <div className="grid gap-4">
             {visibleApplicationItems.map((application) => (
               <ApplicationCard
-                key={application.id}
+                key={`${application.id}-${targetApplicationId === application.id ? "target" : "normal"}`}
                 application={application}
                 defaultExpanded={targetApplicationId === application.id}
                 highlighted={targetApplicationId === application.id}
