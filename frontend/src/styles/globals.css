@@ -265,3 +265,43 @@ a {
 .dark .divide-pine\/10 > :not([hidden]) ~ :not([hidden]) {
   border-color: rgb(255 255 255 / 0.08);
 }
+
+/* Blog and guide dark-mode helpers */
+.dark .prose,
+.dark article {
+  color: rgb(var(--color-ink) / 0.68);
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark article h1,
+.dark article h2,
+.dark article h3,
+.dark article h4 {
+  color: rgb(var(--color-ink));
+}
+
+.dark .prose p,
+.dark .prose li,
+.dark article p,
+.dark article li {
+  color: rgb(var(--color-ink) / 0.64);
+}
+
+.dark .prose strong,
+.dark article strong {
+  color: rgb(var(--color-ink));
+}
+
+.dark .prose a,
+.dark article a {
+  color: rgb(var(--color-pine));
+}
+
+.dark .bg-cream\/60,
+.dark .bg-cream\/70,
+.dark .bg-cream\/80 {
+  background-color: rgb(255 255 255 / 0.045);
+}

@@ -144,24 +144,24 @@ const categories = [
 
 export default function BlogPage() {
   return (
-    <main className="min-h-screen bg-cream/40">
-      <section className="border-b border-ink/10 bg-white">
+    <main className="min-h-screen bg-cream/40 transition-colors dark:bg-[#0e1012]">
+      <section className="border-b border-ink/10 bg-white transition-colors dark:border-white/10 dark:bg-[#101214]">
         <div className="mx-auto max-w-6xl px-5 py-5 md:px-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <Link href="/" className="flex items-center gap-3 text-ink">
+            <Link href="/" className="flex items-center gap-3 text-ink dark:text-white">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pine text-white">
                 <GraduationCap size={22} aria-hidden="true" />
               </span>
               <span>
                 <span className="block text-base font-bold">Scholars Republic</span>
-                <span className="text-xs text-ink/55">Scholarship guides and student support</span>
+                <span className="text-xs text-ink/55 dark:text-white/50">Scholarship guides and student support</span>
               </span>
             </Link>
 
             <div className="flex flex-wrap gap-2 text-sm font-semibold">
               <Link
                 href="/scholarships"
-                className="rounded-xl border border-ink/10 bg-white px-4 py-2 text-ink/70 transition hover:bg-ink/5 hover:text-ink"
+                className="rounded-xl border border-ink/10 bg-white px-4 py-2 text-ink/70 transition hover:bg-ink/5 hover:text-ink dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 Search Scholarships
               </Link>
@@ -176,7 +176,7 @@ export default function BlogPage() {
         </div>
       </section>
 
-      <section className="border-b border-ink/10 bg-white">
+      <section className="border-b border-ink/10 bg-white transition-colors dark:border-white/10 dark:bg-[#101214]">
         <div className="mx-auto max-w-6xl px-5 py-10 md:px-8 md:py-12">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center">
             <div>
@@ -184,11 +184,11 @@ export default function BlogPage() {
                 Scholarship Help Center
               </p>
 
-              <h1 className="mt-3 max-w-3xl text-3xl font-bold leading-tight text-ink md:text-4xl">
+              <h1 className="mt-3 max-w-3xl text-3xl font-bold leading-tight text-ink dark:text-white md:text-4xl">
                 Practical guides for finding scholarships and preparing stronger applications
               </h1>
 
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/70 md:text-base">
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/70 dark:text-white/60 md:text-base">
                 Explore clear, student-focused guides on fully funded scholarships, no IELTS
                 options, country-specific programs, application documents, professor emails, CVs,
                 SOPs, and scholarship planning.
@@ -198,7 +198,7 @@ export default function BlogPage() {
                 {categories.map((category) => (
                   <span
                     key={category}
-                    className="rounded-full border border-ink/10 bg-cream/60 px-3 py-1 text-xs font-semibold text-ink/65"
+                    className="rounded-full border border-ink/10 bg-cream/60 px-3 py-1 text-xs font-semibold text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/60"
                   >
                     {category}
                   </span>
@@ -206,9 +206,9 @@ export default function BlogPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft">
-              <h2 className="text-base font-bold text-ink">Build your scholarship plan</h2>
-              <p className="mt-3 text-sm leading-6 text-ink/70">
+            <div className="rounded-2xl border border-pine/20 bg-pine/5 p-5 shadow-soft dark:border-pine/20 dark:bg-pine/10">
+              <h2 className="text-base font-bold text-ink dark:text-white">Build your scholarship plan</h2>
+              <p className="mt-3 text-sm leading-6 text-ink/70 dark:text-white/60">
                 Start by searching opportunities, completing your profile, and reading the document
                 guides before submitting applications.
               </p>
@@ -232,10 +232,10 @@ export default function BlogPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-pine">
                 Guides Library
               </p>
-              <h2 className="mt-1 text-xl font-bold text-ink">
+              <h2 className="mt-1 text-xl font-bold text-ink dark:text-white">
                 Scholarship articles and application resources
               </h2>
-              <p className="mt-2 text-sm leading-6 text-ink/65">
+              <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">
                 We are building this section step by step. Published guides are available now;
                 planned guides will be expanded into full articles.
               </p>
@@ -249,7 +249,7 @@ export default function BlogPage() {
                   <Link
                     key={guide.href}
                     href={guide.href}
-                    className="group rounded-2xl border border-ink/10 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-pine/30"
+                    className="group rounded-2xl border border-ink/10 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-pine/30 dark:border-white/10 dark:bg-[#181b1d] dark:hover:border-pine/35 dark:hover:bg-white/5"
                   >
                     <div className="flex items-start gap-4">
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pine/10 text-pine">
@@ -258,7 +258,7 @@ export default function BlogPage() {
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-ink/55">
+                          <span className="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-ink/55 dark:bg-white/5 dark:text-white/50">
                             {guide.category}
                           </span>
                           <span
@@ -272,11 +272,11 @@ export default function BlogPage() {
                           </span>
                         </div>
 
-                        <h3 className="mt-4 text-lg font-bold leading-snug text-ink group-hover:text-pine">
+                        <h3 className="mt-4 text-lg font-bold leading-snug text-ink group-hover:text-pine dark:text-white dark:group-hover:text-pine">
                           {guide.title}
                         </h3>
 
-                        <p className="mt-2 text-sm leading-6 text-ink/68">{guide.description}</p>
+                        <p className="mt-2 text-sm leading-6 text-ink/68 dark:text-white/58">{guide.description}</p>
 
                         <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-pine">
                           {guide.status === "Published" ? "Read guide" : "Preview outline"}
@@ -296,9 +296,9 @@ export default function BlogPage() {
         </div>
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-          <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">Quick actions</h2>
-            <p className="mt-2 text-sm leading-6 text-ink/60">
+          <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
+            <h2 className="text-base font-bold text-ink dark:text-white">Quick actions</h2>
+            <p className="mt-2 text-sm leading-6 text-ink/60 dark:text-white/58">
               Use these tools while preparing your scholarship application.
             </p>
 
@@ -310,17 +310,17 @@ export default function BlogPage() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="group rounded-xl border border-ink/10 bg-white p-4 transition hover:border-pine/30 hover:bg-pine/5"
+                    className="group rounded-xl border border-ink/10 bg-white p-4 transition hover:border-pine/30 hover:bg-pine/5 dark:border-white/10 dark:bg-white/5 dark:hover:border-pine/35 dark:hover:bg-pine/10"
                   >
                     <div className="flex gap-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pine/10 text-pine">
                         <Icon size={19} aria-hidden="true" />
                       </span>
                       <span>
-                        <span className="block text-sm font-bold text-ink group-hover:text-pine">
+                        <span className="block text-sm font-bold text-ink group-hover:text-pine dark:text-white dark:group-hover:text-pine">
                           {item.title}
                         </span>
-                        <span className="mt-1 block text-xs leading-5 text-ink/60">
+                        <span className="mt-1 block text-xs leading-5 text-ink/60 dark:text-white/55">
                           {item.description}
                         </span>
                       </span>
@@ -331,9 +331,9 @@ export default function BlogPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">Suggested reading order</h2>
-            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-ink/70">
+          <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-5 shadow-soft dark:border-saffron/25 dark:bg-saffron/10">
+            <h2 className="text-base font-bold text-ink dark:text-white">Suggested reading order</h2>
+            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-ink/70 dark:text-white/60">
               <li>Search for suitable scholarships.</li>
               <li>Check IELTS or no-IELTS requirements.</li>
               <li>Prepare your CV and documents.</li>
@@ -342,16 +342,16 @@ export default function BlogPage() {
             </ol>
           </div>
 
-          <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft">
-            <h2 className="text-base font-bold text-ink">New to Scholars Republic?</h2>
-            <p className="mt-3 text-sm leading-6 text-ink/70">
+          <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
+            <h2 className="text-base font-bold text-ink dark:text-white">New to Scholars Republic?</h2>
+            <p className="mt-3 text-sm leading-6 text-ink/70 dark:text-white/60">
               Create a free student profile to save opportunities, track applications, and use
               scholarship writing tools.
             </p>
 
             <Link
               href="/register"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-ink/90"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-ink/90 dark:bg-white/10 dark:hover:bg-white/15"
             >
               Create Free Profile
             </Link>
