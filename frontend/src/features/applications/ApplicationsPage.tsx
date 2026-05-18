@@ -94,6 +94,50 @@ const DEFAULT_APPLICATION_CHECKLIST: ChecklistItem[] = [
   { label: "Submit application before deadline", done: false },
 ];
 
+function normalizeChecklistLabel(label: string) {
+  const normalized = label
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  const aliases: Array<[RegExp, string]> = [
+    [/\b(statement of purpose|sop|personal statement|motivation letter|letter of motivation)\b/g, "sop"],
+    [/\b(curriculum vitae|resume|cv)\b/g, "cv"],
+    [/\b(academic transcript|transcripts|transcript)\b/g, "transcript"],
+    [/\b(letter of recommendation|letters of recommendation|recommendation letter|recommendation letters|reference letter|reference letters|lor)\b/g, "recommendation letter"],
+    [/\b(passport copy|copy of passport|passport)\b/g, "passport"],
+    [/\b(cnic|national id|identity card|id card)\b/g, "identity document"],
+    [/\b(study plan|research plan|research proposal)\b/g, "study plan"],
+    [/\b(english proficiency certificate|english language certificate|english proficiency)\b/g, "english proficiency"],
+  ];
+
+  return aliases.reduce(
+    (current, [pattern, replacement]) => current.replace(pattern, replacement),
+    normalized,
+  );
+}
+
+function areChecklistLabelsSimilar(first: string, second: string) {
+  const firstLabel = normalizeChecklistLabel(first);
+  const secondLabel = normalizeChecklistLabel(second);
+
+  if (!firstLabel || !secondLabel) {
+    return false;
+  }
+
+  return (
+    firstLabel === secondLabel ||
+    firstLabel.includes(secondLabel) ||
+    secondLabel.includes(firstLabel)
+  );
+}
+
 function getInitialChecklist(application: OpportunityApplication): ChecklistItem[] {
   const existing = application.checklist_snapshot ?? [];
 
@@ -428,11 +472,11 @@ function ApplicationCard({
   const completedChecklistCount = checklist.filter((item) => item.done).length;
   const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
   const missingRequiredDocuments = (application.required_documents ?? []).filter((document) => {
-    const normalizedDocument = document.trim().toLowerCase();
+    const normalizedDocument = normalizeChecklistLabel(document);
 
     return (
       normalizedDocument &&
-      !checklist.some((item) => item.label.trim().toLowerCase() === normalizedDocument)
+      !checklist.some((item) => areChecklistLabelsSimilar(item.label, document))
     );
   });
   const deadlineStatusText = getDeadlineStatusText(activeDeadline);
@@ -454,8 +498,8 @@ function ApplicationCard({
     }
 
     setChecklist((current) => {
-      const alreadyExists = current.some(
-        (item) => item.label.trim().toLowerCase() === label.toLowerCase(),
+      const alreadyExists = current.some((item) =>
+        areChecklistLabelsSimilar(item.label, label),
       );
 
       if (alreadyExists) {
@@ -473,18 +517,29 @@ function ApplicationCard({
   }
 
   function addRequiredDocumentsToChecklist() {
-    if (!missingRequiredDocuments.length) {
-      return;
-    }
+    setChecklist((current) => {
+      const documentsToAdd = (application.required_documents ?? []).filter((document) => {
+        const normalizedDocument = normalizeChecklistLabel(document);
 
-    setChecklist((current) => [
-      ...current,
-      ...missingRequiredDocuments.map((document) => ({
-        label: document,
-        done: false,
-        url: "",
-      })),
-    ]);
+        return (
+          normalizedDocument &&
+          !current.some((item) => areChecklistLabelsSimilar(item.label, document))
+        );
+      });
+
+      if (!documentsToAdd.length) {
+        return current;
+      }
+
+      return [
+        ...current,
+        ...documentsToAdd.map((document) => ({
+          label: document,
+          done: false,
+          url: "",
+        })),
+      ];
+    });
   }
 
   function updateChecklistItemUrl(index: number, url: string) {
