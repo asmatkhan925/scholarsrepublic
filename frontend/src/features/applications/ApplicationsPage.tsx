@@ -62,15 +62,18 @@ type QuickFilter =
   | "missing_sop"
   | "sop_ready"
   | "reminder_today"
-  | "no_next_step";
+  | "no_next_step"
+  | "needs_work"
+  | "ready";
 
-type TrackerSort = "smart" | "deadline" | "priority" | "updated";
+type TrackerSort = "smart" | "deadline" | "priority" | "updated" | "readiness";
 
 const TRACKER_SORT_OPTIONS: { value: TrackerSort; label: string }[] = [
   { value: "smart", label: "Smart" },
   { value: "deadline", label: "Deadline" },
   { value: "priority", label: "Priority" },
   { value: "updated", label: "Updated" },
+  { value: "readiness", label: "Ready" },
 ];
 
 const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
@@ -82,6 +85,8 @@ const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
   { value: "sop_ready", label: "SOP" },
   { value: "reminder_today", label: "Remind" },
   { value: "no_next_step", label: "No step" },
+  { value: "needs_work", label: "Weak" },
+  { value: "ready", label: "Ready" },
 ];
 
 const DEFAULT_APPLICATION_CHECKLIST: ChecklistItem[] = [
@@ -353,6 +358,10 @@ function sortApplications(
       return new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime();
     }
 
+    if (sortMode === "readiness") {
+      return getApplicationReadinessScore(second) - getApplicationReadinessScore(first);
+    }
+
     const firstDeadlineDays = getDaysUntil(getApplicationDeadline(first));
     const secondDeadlineDays = getDaysUntil(getApplicationDeadline(second));
 
@@ -380,6 +389,25 @@ function sortApplications(
       new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime()
     );
   });
+}
+
+function getApplicationReadinessScore(application: OpportunityApplication) {
+  const checklist = application.checklist_snapshot ?? [];
+  const completedChecklistCount = checklist.filter((item) => item.done).length;
+  const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
+  const checklistReadiness = checklist.length
+    ? Math.round((completedChecklistCount / checklist.length) * 40)
+    : 0;
+
+  return Math.min(
+    100,
+    checklistReadiness +
+      (application.latest_sop_draft ? 20 : 0) +
+      (linkedChecklistCount > 0 ? 10 : 0) +
+      (application.personal_deadline || application.opportunity_detail.deadline ? 10 : 0) +
+      (application.next_step.trim() ? 10 : 0) +
+      (application.status !== "preparing" ? 10 : 0),
+  );
 }
 
 function getReadinessTone(score: number): "mint" | "saffron" | "danger" {
@@ -444,6 +472,14 @@ function applicationMatchesQuickFilter(
 
   if (quickFilter === "no_next_step") {
     return !application.next_step.trim();
+  }
+
+  if (quickFilter === "needs_work") {
+    return getApplicationReadinessScore(application) < 45;
+  }
+
+  if (quickFilter === "ready") {
+    return getApplicationReadinessScore(application) >= 75;
   }
 
   return true;
