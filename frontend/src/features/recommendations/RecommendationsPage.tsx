@@ -91,11 +91,11 @@ function MatchScorePanel({ item }: { item: RecommendedOpportunity }) {
   const score = Math.min(Math.max(item.match.score, 0), 100);
 
   return (
-    <div className="rounded-2xl border border-pine/10 bg-mint/35 p-4">
+    <div className="rounded-2xl border border-pine/10 bg-mint/35 p-4 dark:border-white/10 dark:bg-pine/10">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
-          <p className="mt-1 text-sm font-semibold text-ink/65">Based on your profile</p>
+          <p className="mt-1 text-sm font-semibold text-ink/65 dark:text-white/58">Based on your profile</p>
         </div>
         <Badge tone={getReadinessTone(item.match.readiness_level)}>
           {item.match.readiness_level}
@@ -111,7 +111,7 @@ function MatchScorePanel({ item }: { item: RecommendedOpportunity }) {
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink/35">Fit</p>
         </div>
 
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-white/10">
           <div className="h-full rounded-full bg-pine" style={{ width: `${score}%` }} />
         </div>
       </div>
@@ -132,7 +132,7 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
   const deadlineTone = getDeadlineTone(opportunity.days_until_deadline);
 
   return (
-    <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
+    <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-0">
         <div className="grid gap-0 xl:grid-cols-[1fr_19rem]">
           <div className="p-4 md:p-5">
@@ -142,16 +142,16 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
               {opportunity.verified_status ? <Badge tone="mint">Verified</Badge> : null}
             </div>
 
-            <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
+            <h2 className="mt-3 text-lg font-bold leading-snug text-ink dark:text-white md:text-xl">
               {opportunity.title}
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-ink/65">
+            <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
               {provider} · {opportunity.country || "Country not listed"}
             </p>
 
             {opportunity.short_description ? (
-              <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink/65">
+              <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink/65 dark:text-white/58">
                 {opportunity.short_description}
               </p>
             ) : null}
@@ -170,37 +170,37 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-4">
+              <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-4 dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-center gap-2 text-pine">
                   <ShieldCheck size={16} aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-ink">Why it fits</h3>
+                  <h3 className="text-sm font-bold text-ink dark:text-white">Why it fits</h3>
                 </div>
 
                 {match.matched_reasons.length > 0 ? (
                   <ul className="mt-3 grid gap-2">
                     {match.matched_reasons.slice(0, 3).map((reason) => (
-                      <li key={reason} className="text-sm leading-6 text-ink/65">
+                      <li key={reason} className="text-sm leading-6 text-ink/65 dark:text-white/58">
                         {reason}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-3 text-sm leading-6 text-ink/65">
+                  <p className="mt-3 text-sm leading-6 text-ink/65 dark:text-white/58">
                     Your profile has partial overlap with this scholarship.
                   </p>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4">
+              <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4 dark:border-saffron/25 dark:bg-saffron/10">
                 <div className="flex items-center gap-2 text-pine">
                   <TriangleAlert size={16} aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-ink">Check before applying</h3>
+                  <h3 className="text-sm font-bold text-ink dark:text-white">Check before applying</h3>
                 </div>
 
                 {match.missing_requirements.length > 0 ? (
                   <ul className="mt-3 grid gap-2">
                     {match.missing_requirements.slice(0, 3).map((requirement) => (
-                      <li key={requirement} className="text-sm leading-6 text-ink/65">
+                      <li key={requirement} className="text-sm leading-6 text-ink/65 dark:text-white/58">
                         {requirement}
                       </li>
                     ))}
@@ -214,17 +214,17 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
             </div>
 
             {match.suggestions.length > 0 ? (
-              <div className="mt-4 rounded-2xl border border-pine/10 bg-white p-4">
+              <div className="mt-4 rounded-2xl border border-pine/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-center gap-2 text-pine">
                   <Sparkles size={16} aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-ink">Suggested next step</h3>
+                  <h3 className="text-sm font-bold text-ink dark:text-white">Suggested next step</h3>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-ink/65">{match.suggestions[0]}</p>
+                <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">{match.suggestions[0]}</p>
               </div>
             ) : null}
           </div>
 
-          <div className="border-t border-pine/10 bg-white p-4 xl:border-l xl:border-t-0">
+          <div className="border-t border-pine/10 bg-white p-4 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
             <MatchScorePanel item={item} />
 
             <div className="mt-4 grid gap-2">
@@ -246,9 +246,9 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
               />
             </div>
 
-            <div className="mt-4 rounded-2xl bg-[#f7faf8] px-4 py-3">
+            <div className="mt-4 rounded-2xl bg-[#f7faf8] px-4 py-3 dark:bg-[#181b1d]">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Deadline</p>
-              <p className="mt-1 text-sm font-bold text-ink">{formatDate(opportunity.deadline)}</p>
+              <p className="mt-1 text-sm font-bold text-ink dark:text-white">{formatDate(opportunity.deadline)}</p>
             </div>
           </div>
         </div>
@@ -346,17 +346,17 @@ function RecommendationsContent() {
       title="Recommendations"
     >
       <div className="space-y-5">
-        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
-          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 md:px-5">
+        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
                   Student workspace
                 </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
                   Recommended scholarships
                 </h1>
-                <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 xl:whitespace-nowrap">
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 dark:text-white/60 xl:whitespace-nowrap">
                   Focus on scholarships that match your profile, deadlines, and application
                   readiness.
                 </p>
@@ -373,31 +373,31 @@ function RecommendationsContent() {
             </div>
           </div>
 
-          <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+          <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Matches</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{stats.total}</p>
-              <p className="mt-1 text-xs text-ink/50">Current recommendations</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.total}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Current recommendations</p>
             </div>
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Strong</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{stats.strong}</p>
-              <p className="mt-1 text-xs text-ink/50">High readiness</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.strong}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">High readiness</p>
             </div>
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Medium</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{stats.medium}</p>
-              <p className="mt-1 text-xs text-ink/50">Needs checking</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.medium}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Needs checking</p>
             </div>
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{stats.urgent}</p>
-              <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.urgent}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Due within 14 days</p>
             </div>
           </div>
 
-          <div className="grid gap-3 border-t border-pine/10 bg-[#f7faf8] p-4 md:grid-cols-[1fr_14rem]">
-            <label className="grid gap-2 text-sm font-semibold text-ink">
+          <div className="grid gap-3 border-t border-pine/10 bg-[#f7faf8] p-4 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_14rem]">
+            <label className="grid gap-2 text-sm font-semibold text-ink dark:text-white">
               Search recommendations
               <div className="relative">
                 <Search
@@ -431,15 +431,15 @@ function RecommendationsContent() {
         </section>
 
         {loading ? (
-          <Card>
-            <CardContent className="p-6 text-sm text-ink/70">
+          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+            <CardContent className="p-6 text-sm text-ink/70 dark:text-white/60">
               Loading recommendations...
             </CardContent>
           </Card>
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4 text-sm leading-6 text-ink/70">
+          <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
             <p>{error}</p>
             <div className="mt-3">
               <ButtonLink href="/dashboard/profile" size="sm" variant="secondary">
@@ -483,15 +483,15 @@ function RecommendationsContent() {
         ) : null}
 
         {!loading && !error && recommendations.length > 0 ? (
-          <Card>
+          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
                   <GraduationCap size={18} aria-hidden="true" />
                 </span>
                 <div>
-                  <h2 className="font-bold text-ink">Use recommendations carefully</h2>
-                  <p className="mt-2 text-sm leading-6 text-ink/65">
+                  <h2 className="font-bold text-ink dark:text-white">Use recommendations carefully</h2>
+                  <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">
                     Match scores help you shortlist faster, but always verify eligibility, official
                     rules, and deadlines on the scholarship website before applying.
                   </p>
