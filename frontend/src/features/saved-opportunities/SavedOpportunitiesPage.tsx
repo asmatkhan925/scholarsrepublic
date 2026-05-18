@@ -151,7 +151,7 @@ function SavedOpportunityCard({
   }
 
   return (
-    <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
+    <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-0">
         <div className="grid gap-0 lg:grid-cols-[1fr_17rem]">
           <div className="p-4 md:p-5">
@@ -162,16 +162,16 @@ function SavedOpportunityCard({
               {isTracking ? <Badge tone="saffron">Tracking</Badge> : null}
             </div>
 
-            <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
+            <h2 className="mt-3 text-lg font-bold leading-snug text-ink dark:text-white md:text-xl">
               {opportunity.title}
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-ink/65">
+            <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
               {provider} · {opportunity.country || "Country not listed"}
             </p>
 
             {opportunity.short_description ? (
-              <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink/65">
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink/65 dark:text-white/58">
                 {opportunity.short_description}
               </p>
             ) : null}
@@ -186,19 +186,19 @@ function SavedOpportunityCard({
               {extraDegreeCount > 0 ? <Badge tone="neutral">+{extraDegreeCount} more</Badge> : null}
             </div>
 
-            <div className="mt-4 rounded-2xl bg-[#f7faf8] px-4 py-3 text-xs leading-5 text-ink/55">
+            <div className="mt-4 rounded-2xl bg-[#f7faf8] px-4 py-3 text-xs leading-5 text-ink/55 dark:bg-white/5 dark:text-white/50">
               Saved {formatDate(saved.created_at)}. Keep this saved only if you are likely to
               prepare a real application.
             </div>
           </div>
 
-          <div className="border-t border-pine/10 bg-mint/35 p-4 lg:border-l lg:border-t-0">
-            <div className="rounded-2xl border border-pine/10 bg-white p-4 shadow-sm">
+          <div className="border-t border-pine/10 bg-mint/35 p-4 dark:border-white/10 dark:bg-white/5 lg:border-l lg:border-t-0">
+            <div className="rounded-2xl border border-pine/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                   Deadline
                 </p>
-                <p className="mt-1 text-sm font-bold text-ink">
+                <p className="mt-1 text-sm font-bold text-ink dark:text-white">
                   {formatDate(opportunity.deadline)}
                 </p>
               </div>
@@ -206,7 +206,7 @@ function SavedOpportunityCard({
               <div className="mt-4 grid gap-2">
                 {isTracking ? (
                   <Button
-                    className="w-full border border-saffron/40 bg-saffron/20 text-ink shadow-sm hover:bg-saffron/30"
+                    className="w-full border border-saffron/40 bg-saffron/20 text-ink shadow-sm hover:bg-saffron/30 dark:text-white dark:hover:bg-saffron/25"
                     disabled={stopping}
                     onClick={handleStopTracking}
                     size="sm"
@@ -247,7 +247,7 @@ function SavedOpportunityCard({
             </div>
 
             {message ? <p className="mt-3 text-sm font-semibold text-pine">{message}</p> : null}
-            {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
+            {error ? <p className="mt-3 text-sm font-semibold text-red-700 dark:text-red-300">{error}</p> : null}
           </div>
         </div>
       </CardContent>
@@ -329,17 +329,17 @@ function SavedOpportunitiesContent() {
       title="Saved Opportunities"
     >
       <div className="space-y-5">
-        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
-          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 md:px-5">
+        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
                   Student dashboard
                 </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
                   Saved Opportunities
                 </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
                   Review your saved scholarships, remove weak options, and move serious choices into
                   your application tracker.
                 </p>
@@ -362,36 +362,36 @@ function SavedOpportunitiesContent() {
             </div>
           </div>
 
-          <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+          <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Saved</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{data?.count ?? savedItems.length}</p>
-              <p className="mt-1 text-xs text-ink/50">Total shortlist</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{data?.count ?? savedItems.length}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Total shortlist</p>
             </div>
 
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.urgent}</p>
-              <p className="mt-1 text-xs text-ink/50">Due within 14 days</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{deadlineStats.urgent}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Due within 14 days</p>
             </div>
 
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Rolling</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.rolling}</p>
-              <p className="mt-1 text-xs text-ink/50">Flexible deadlines</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{deadlineStats.rolling}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Flexible deadlines</p>
             </div>
 
             <div className="px-4 py-4 md:px-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Expired</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{deadlineStats.expired}</p>
-              <p className="mt-1 text-xs text-ink/50">Remove or review</p>
+              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{deadlineStats.expired}</p>
+              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Remove or review</p>
             </div>
           </div>
         </section>
 
         {loading ? (
-          <Card>
-            <CardContent className="p-6 text-sm text-ink/70">
+          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+            <CardContent className="p-6 text-sm text-ink/70 dark:text-white/60">
               Loading saved opportunities...
             </CardContent>
           </Card>
