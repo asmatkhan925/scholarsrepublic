@@ -233,6 +233,7 @@ export type ApplicationPriority = "low" | "medium" | "high";
 export type ChecklistItem = {
   label: string;
   done: boolean;
+  url?: string;
 };
 
 export type OpportunityApplication = {

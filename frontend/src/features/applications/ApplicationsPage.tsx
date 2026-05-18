@@ -8,6 +8,7 @@ import {
   BookmarkCheck,
   CalendarDays,
   ClipboardCheck,
+  ExternalLink,
   FileText,
   Plus,
   Search,
@@ -100,10 +101,11 @@ function getInitialChecklist(application: OpportunityApplication): ChecklistItem
     return existing.map((item) => ({
       label: item.label,
       done: Boolean(item.done),
+      url: item.url || "",
     }));
   }
 
-  return DEFAULT_APPLICATION_CHECKLIST.map((item) => ({ ...item }));
+  return DEFAULT_APPLICATION_CHECKLIST.map((item) => ({ ...item, url: item.url || "" }));
 }
 
 function humanize(value: string) {
@@ -451,7 +453,7 @@ function ApplicationCard({
         return current;
       }
 
-      return [...current, { label, done: false }];
+      return [...current, { label, done: false, url: "" }];
     });
 
     setNewChecklistItem("");
@@ -459,6 +461,12 @@ function ApplicationCard({
 
   function removeChecklistItem(index: number) {
     setChecklist((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function updateChecklistItemUrl(index: number, url: string) {
+    setChecklist((current) =>
+      current.map((item, itemIndex) => (itemIndex === index ? { ...item, url } : item)),
+    );
   }
 
   async function handleSave() {
@@ -699,36 +707,62 @@ function ApplicationCard({
                     </button>
                   </div>
 
+                  <p className="mt-2 text-[11px] leading-5 text-ink/45">
+                    Keep documents in your own Drive. Paste restricted Google Drive or document links here; Scholars Republic will only store the link.
+                  </p>
+
                   <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                     {checklist.map((item, index) => (
                       <div
                         key={`${item.label}-${index}`}
-                        className="flex min-w-0 items-start gap-2 rounded-xl border border-ink/10 bg-cream/30 px-2.5 py-2 text-xs text-ink transition hover:bg-cream/60"
+                        className="min-w-0 rounded-xl border border-ink/10 bg-cream/30 px-2.5 py-2 text-xs text-ink transition hover:bg-cream/60"
                       >
-                        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
-                          <input
-                            type="checkbox"
-                            checked={item.done}
-                            onChange={() => toggleChecklistItem(index)}
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-ink/20 text-pine focus:ring-pine/20"
-                          />
-                          <span
-                            className={
-                              item.done ? "min-w-0 text-ink/50 line-through" : "min-w-0 text-ink"
-                            }
-                          >
-                            {item.label}
-                          </span>
-                        </label>
+                        <div className="flex min-w-0 items-start gap-2">
+                          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
+                            <input
+                              type="checkbox"
+                              checked={item.done}
+                              onChange={() => toggleChecklistItem(index)}
+                              className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-ink/20 text-pine focus:ring-pine/20"
+                            />
+                            <span
+                              className={
+                                item.done ? "min-w-0 text-ink/50 line-through" : "min-w-0 text-ink"
+                              }
+                            >
+                              {item.label}
+                            </span>
+                          </label>
 
-                        <button
-                          type="button"
-                          onClick={() => removeChecklistItem(index)}
-                          aria-label={`Remove checklist item ${item.label}`}
-                          className="shrink-0 rounded-lg px-1.5 py-1 text-ink/35 transition hover:bg-red-50 hover:text-red-700"
-                        >
-                          <Trash2 size={13} aria-hidden="true" />
-                        </button>
+                          {item.url ? (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Open saved link for ${item.label}`}
+                              className="shrink-0 rounded-lg px-1.5 py-1 text-pine transition hover:bg-pine/10"
+                            >
+                              <ExternalLink size={13} aria-hidden="true" />
+                            </a>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            onClick={() => removeChecklistItem(index)}
+                            aria-label={`Remove checklist item ${item.label}`}
+                            className="shrink-0 rounded-lg px-1.5 py-1 text-ink/35 transition hover:bg-red-50 hover:text-red-700"
+                          >
+                            <Trash2 size={13} aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        <input
+                          type="url"
+                          value={item.url || ""}
+                          onChange={(event) => updateChecklistItemUrl(index, event.target.value)}
+                          placeholder="Optional Google Drive/document link"
+                          className="mt-2 h-7 w-full rounded-lg border border-pine/10 bg-white px-2 text-[11px] text-ink outline-none transition placeholder:text-ink/30 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        />
                       </div>
                     ))}
                   </div>
