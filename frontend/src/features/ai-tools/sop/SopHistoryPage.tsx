@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Copy, Download, Eye, FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { deleteSOPDraft, getSOPDrafts } from "@/lib/api";
+import { deleteSOPDraft, getSOPDrafts, startApplicationByScholarshipSlug } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { SOPDraft } from "@/types/ai";
 import { FormattedSOPText } from "./FormattedSOPText";
@@ -32,6 +32,8 @@ function SOPHistoryContent() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [trackingDraftId, setTrackingDraftId] = useState<number | null>(null);
+  const [trackingMessage, setTrackingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copiedFormattedId, setCopiedFormattedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +87,26 @@ function SOPHistoryContent() {
       });
     } finally {
       setDownloadingId(null);
+    }
+  }
+
+  async function handleStartTracking(draft: SOPDraft) {
+    if (!draft.opportunity_slug) {
+      setError("This SOP draft is not linked to a scholarship.");
+      return;
+    }
+
+    setTrackingDraftId(draft.id);
+    setTrackingMessage(null);
+    setError(null);
+
+    try {
+      await startApplicationByScholarshipSlug(draft.opportunity_slug);
+      setTrackingMessage("Application tracker is ready. You can open it from your tracker page.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setTrackingDraftId(null);
     }
   }
 
@@ -178,6 +200,21 @@ function SOPHistoryContent() {
                           >
                             View scholarship
                           </Link>
+                        ) : null}
+                        {draft.opportunity_slug ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleStartTracking(draft)}
+                            disabled={trackingDraftId === draft.id}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-pine/20 bg-white px-3 py-2 text-xs font-semibold text-pine transition hover:bg-pine/5 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {trackingDraftId === draft.id ? (
+                              <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                            ) : (
+                              <ClipboardCheck size={14} aria-hidden="true" />
+                            )}
+                            {trackingDraftId === draft.id ? "Tracking..." : "Track application"}
+                          </button>
                         ) : null}
                         <button
                           type="button"
