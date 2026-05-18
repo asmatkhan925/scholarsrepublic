@@ -152,10 +152,10 @@ function ApplicationActionCenter({
 
   const alertItems = [
     { label: "Tracked", value: totalTracked, href: "/dashboard/applications" },
-    { label: "Overdue", value: overdue, href: "/dashboard/applications" },
-    { label: "Due soon", value: dueSoon, href: "/dashboard/applications" },
-    { label: "Missing SOP", value: missingSop, href: "/dashboard/applications" },
-    { label: "Weak readiness", value: weakReadiness, href: "/dashboard/applications" },
+    { label: "Overdue", value: overdue, href: "/dashboard/applications?view=overdue" },
+    { label: "Due soon", value: dueSoon, href: "/dashboard/applications?view=due_soon" },
+    { label: "Missing SOP", value: missingSop, href: "/dashboard/applications?view=missing_sop" },
+    { label: "Weak readiness", value: weakReadiness, href: "/dashboard/applications?view=needs_work" },
   ];
 
   return (

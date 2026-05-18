@@ -76,6 +76,19 @@ const TRACKER_SORT_OPTIONS: { value: TrackerSort; label: string }[] = [
   { value: "readiness", label: "Ready" },
 ];
 
+const TRACKER_QUICK_FILTER_VALUES: QuickFilter[] = [
+  "all",
+  "due_soon",
+  "overdue",
+  "high_priority",
+  "missing_sop",
+  "sop_ready",
+  "reminder_today",
+  "no_next_step",
+  "needs_work",
+  "ready",
+];
+
 const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "due_soon", label: "Due" },
@@ -1432,13 +1445,27 @@ function TrackerAlertsPanel({
   );
 }
 
+function readQuickFilterFromUrl(): QuickFilter {
+  if (typeof window === "undefined") {
+    return "all";
+  }
+
+  const view = new URLSearchParams(window.location.search).get("view");
+
+  if (TRACKER_QUICK_FILTER_VALUES.includes(view as QuickFilter)) {
+    return view as QuickFilter;
+  }
+
+  return "all";
+}
+
 function ApplicationTrackerContent() {
   const [applications, setApplications] = useState<OpportunityApplicationResponse | null>(null);
   const [summary, setSummary] = useState<ApplicationSummary | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [search, setSearch] = useState("");
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(() => readQuickFilterFromUrl());
   const [sortMode, setSortMode] = useState<TrackerSort>("smart");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1451,6 +1478,19 @@ function ApplicationTrackerContent() {
     }),
     [priorityFilter, search, statusFilter],
   );
+
+  useEffect(() => {
+    function syncQuickFilterFromUrl() {
+      setQuickFilter(readQuickFilterFromUrl());
+    }
+
+    syncQuickFilterFromUrl();
+    window.addEventListener("popstate", syncQuickFilterFromUrl);
+
+    return () => {
+      window.removeEventListener("popstate", syncQuickFilterFromUrl);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
