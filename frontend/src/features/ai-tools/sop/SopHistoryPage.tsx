@@ -174,14 +174,14 @@ function SOPHistoryContent() {
       hideHeader
     >
       <div className="space-y-4">
-        <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-soft md:p-5">
+        <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-soft dark:border-white/10 dark:bg-[#181b1d] md:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
                 <FileText size={14} aria-hidden="true" />
                 Saved drafts
               </div>
-              <h1 className="mt-2 text-xl font-bold text-ink">SOP history</h1>
+              <h1 className="mt-2 text-xl font-bold text-ink dark:text-white">SOP history</h1>
             </div>
 
             <Link
@@ -195,13 +195,13 @@ function SOPHistoryContent() {
         </section>
 
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
             {error}
           </div>
         ) : null}
 
         {trackingMessage ? (
-          <div className="flex flex-col gap-2 rounded-xl border border-pine/20 bg-pine/5 px-3 py-2 text-sm font-semibold text-pine sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 rounded-xl border border-pine/20 bg-pine/5 px-3 py-2 text-sm font-semibold text-pine dark:border-pine/20 dark:bg-pine/10 sm:flex-row sm:items-center sm:justify-between">
             <span>{trackingMessage}</span>
             <Link
               href="/dashboard/applications"
@@ -212,14 +212,14 @@ function SOPHistoryContent() {
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-ink/10 bg-white p-3 shadow-soft md:p-4">
+        <section className="rounded-2xl border border-ink/10 bg-white p-3 shadow-soft dark:border-white/10 dark:bg-[#181b1d] md:p-4">
           {loading ? (
-            <div className="flex items-center gap-2 px-2 py-8 text-sm font-semibold text-ink/60">
+            <div className="flex items-center gap-2 px-2 py-8 text-sm font-semibold text-ink/60 dark:text-white/58">
               <Loader2 size={17} className="animate-spin" aria-hidden="true" />
               Loading saved drafts...
             </div>
           ) : drafts.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-ink/15 bg-cream/40 px-4 py-8 text-center text-sm font-semibold text-ink/55">
+            <div className="rounded-xl border border-dashed border-ink/15 bg-cream/40 px-4 py-8 text-center text-sm font-semibold text-ink/55 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
               No saved SOP drafts yet.
             </div>
           ) : (
@@ -234,18 +234,18 @@ function SOPHistoryContent() {
                     id={`sop-draft-${draft.id}`}
                     className={`rounded-xl border p-3 transition ${
                       highlightedDraftId === draft.id
-                        ? "border-pine/40 bg-pine/5 ring-2 ring-pine/15"
-                        : "border-ink/10 bg-cream/30"
+                        ? "border-pine/40 bg-pine/5 ring-2 ring-pine/15 dark:bg-pine/10"
+                        : "border-ink/10 bg-cream/30 dark:border-white/10 dark:bg-white/5"
                     }`}
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0">
-                        <h2 className="truncate text-base font-bold text-ink">{draft.title}</h2>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink/55">
+                        <h2 className="truncate text-base font-bold text-ink dark:text-white">{draft.title}</h2>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink/55 dark:text-white/50">
                           {meta ? <span>{meta}</span> : null}
-                          {meta ? <span className="text-ink/30">&middot;</span> : null}
+                          {meta ? <span className="text-ink/30 dark:text-white/30">&middot;</span> : null}
                           <span>{draft.provider_label}</span>
-                          <span className="text-ink/30">&middot;</span>
+                          <span className="text-ink/30 dark:text-white/30">&middot;</span>
                           <span>{formatDate(draft.created_at)}</span>
                         </div>
                       </div>
@@ -264,7 +264,7 @@ function SOPHistoryContent() {
                             type="button"
                             onClick={() => void handleStartTracking(draft)}
                             disabled={trackingDraftId === draft.id}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-pine/20 bg-white px-3 py-2 text-xs font-semibold text-pine transition hover:bg-pine/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-pine/20 bg-white px-3 py-2 text-xs font-semibold text-pine transition hover:bg-pine/5 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:hover:bg-pine/10"
                           >
                             {trackingDraftId === draft.id ? (
                               <Loader2 size={14} className="animate-spin" aria-hidden="true" />
@@ -277,7 +277,7 @@ function SOPHistoryContent() {
                         <button
                           type="button"
                           onClick={() => setSelectedDraftId(selected ? null : draft.id)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                         >
                           <Eye size={14} aria-hidden="true" />
                           {selected ? "Hide" : "View"}
@@ -285,7 +285,7 @@ function SOPHistoryContent() {
                         <button
                           type="button"
                           onClick={() => void handleCopy(draft)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                         >
                           {copiedId === draft.id ? (
                             <CheckCircle2 size={14} aria-hidden="true" />
@@ -297,7 +297,7 @@ function SOPHistoryContent() {
                         <button
                           type="button"
                           onClick={() => void handleCopyFormatted(draft)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                         >
                           {copiedFormattedId === draft.id ? (
                             <CheckCircle2 size={14} aria-hidden="true" />
@@ -323,7 +323,7 @@ function SOPHistoryContent() {
                           type="button"
                           onClick={() => void handleDelete(draft)}
                           disabled={deletingId === draft.id}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/25 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/10"
                         >
                           {deletingId === draft.id ? (
                             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
@@ -336,7 +336,7 @@ function SOPHistoryContent() {
                     </div>
 
                     {selected ? (
-                      <div className="mt-3 rounded-xl border border-ink/10 bg-white p-4 text-sm leading-7 text-ink">
+                      <div className="mt-3 rounded-xl border border-ink/10 bg-white p-4 text-sm leading-7 text-ink dark:border-white/10 dark:bg-[#101214] dark:text-white/75">
                         <FormattedSOPText text={draft.sop_text} />
                       </div>
                     ) : null}
