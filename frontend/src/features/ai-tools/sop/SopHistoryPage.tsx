@@ -102,7 +102,7 @@ function SOPHistoryContent() {
 
     try {
       await startApplicationByScholarshipSlug(draft.opportunity_slug);
-      setTrackingMessage("Application tracker is ready. You can open it from your tracker page.");
+      setTrackingMessage("Application tracker is ready for this scholarship.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -159,6 +159,18 @@ function SOPHistoryContent() {
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
             {error}
+          </div>
+        ) : null}
+
+        {trackingMessage ? (
+          <div className="flex flex-col gap-2 rounded-xl border border-pine/20 bg-pine/5 px-3 py-2 text-sm font-semibold text-pine sm:flex-row sm:items-center sm:justify-between">
+            <span>{trackingMessage}</span>
+            <Link
+              href="/dashboard/applications"
+              className="inline-flex items-center justify-center rounded-lg bg-pine px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-pine/90"
+            >
+              Open tracker
+            </Link>
           </div>
         ) : null}
 
