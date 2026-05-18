@@ -102,6 +102,10 @@ function toDateInputValue(value: string | null) {
   return value.slice(0, 10);
 }
 
+function toDateTimePayload(value: string) {
+  return value ? `${value}T09:00:00` : null;
+}
+
 function getStatusTone(
   status: ApplicationStatus,
 ): "mint" | "saffron" | "sky" | "danger" | "neutral" {
@@ -166,6 +170,66 @@ function getDeadlineTone(value: string | null): "mint" | "saffron" | "danger" | 
   return "mint";
 }
 
+function getDeadlineStatusText(value: string | null) {
+  const days = getDaysUntil(value);
+
+  if (days === null) {
+    return "No deadline set";
+  }
+
+  if (days < 0) {
+    return `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`;
+  }
+
+  if (days === 0) {
+    return "Due today";
+  }
+
+  if (days === 1) {
+    return "Due tomorrow";
+  }
+
+  return `Due in ${days} days`;
+}
+
+function getStatusGuidance(status: ApplicationStatus, hasSopDraft: boolean) {
+  if (status === "preparing") {
+    return hasSopDraft
+      ? "Review your SOP, complete documents, and set a personal deadline."
+      : "Create your SOP draft, prepare documents, and set a personal deadline.";
+  }
+
+  if (status === "documents_pending") {
+    return "Focus on missing documents, recommendations, and final SOP review.";
+  }
+
+  if (status === "documents_ready") {
+    return "Check the official portal and prepare to submit before the deadline.";
+  }
+
+  if (status === "applied") {
+    return "Record your submitted date and set a reminder to follow up.";
+  }
+
+  if (status === "interview") {
+    return "Prepare interview notes and review your SOP before the interview.";
+  }
+
+  if (status === "result_waiting") {
+    return "Track the expected decision date and keep backup applications active.";
+  }
+
+  if (status === "selected") {
+    return "Record the decision date and prepare admission, visa, and funding steps.";
+  }
+
+  if (status === "rejected") {
+    return "Record the decision date, note lessons learned, and focus on the next option.";
+  }
+
+  return "";
+}
+
 function ApplicationCard({
   application,
   onUpdated,
@@ -182,6 +246,9 @@ function ApplicationCard({
   const [personalDeadline, setPersonalDeadline] = useState(
     toDateInputValue(application.personal_deadline),
   );
+  const [reminderDate, setReminderDate] = useState(toDateInputValue(application.reminder_at));
+  const [submittedDate, setSubmittedDate] = useState(toDateInputValue(application.submitted_at));
+  const [decisionDate, setDecisionDate] = useState(toDateInputValue(application.decision_at));
   const [checklist, setChecklist] = useState<ChecklistItem[]>(() =>
     getInitialChecklist(application),
   );
@@ -206,6 +273,8 @@ function ApplicationCard({
   const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
   const latestSopDraft = application.latest_sop_draft;
   const completedChecklistCount = checklist.filter((item) => item.done).length;
+  const deadlineStatusText = getDeadlineStatusText(activeDeadline);
+  const statusGuidance = getStatusGuidance(statusValue, Boolean(latestSopDraft));
 
   function toggleChecklistItem(index: number) {
     setChecklist((current) =>
@@ -226,6 +295,9 @@ function ApplicationCard({
       next_step: nextStep,
       notes,
       personal_deadline: personalDeadline || null,
+      reminder_at: toDateTimePayload(reminderDate),
+      submitted_at: toDateTimePayload(submittedDate),
+      decision_at: toDateTimePayload(decisionDate),
       checklist_snapshot: checklist,
     };
 
@@ -324,6 +396,12 @@ function ApplicationCard({
                 />
               </label>
 
+              {statusGuidance ? (
+                <div className="rounded-2xl border border-saffron/25 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/70 md:col-span-2">
+                  <strong className="text-ink">Suggested next action:</strong> {statusGuidance}
+                </div>
+              ) : null}
+
               <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
                 Application notes
                 <textarea
@@ -392,21 +470,58 @@ function ApplicationCard({
                     Deadline
                   </p>
                   <p className="mt-1 text-sm font-bold text-ink">{formatDate(activeDeadline)}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-ink/60">
+                    {deadlineStatusText}
+                  </p>
                   <p className="mt-1 text-xs leading-5 text-ink/50">
-                    Personal deadline overrides official deadline.
+                    Personal deadline overrides the official deadline.
                   </p>
                 </div>
               </div>
 
-              <label className="mt-4 grid gap-2 text-sm font-semibold text-ink">
-                Personal deadline
-                <input
-                  type="date"
-                  value={personalDeadline}
-                  onChange={(event) => setPersonalDeadline(event.target.value)}
-                  className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                />
-              </label>
+              <div className="mt-4 grid gap-3">
+                <label className="grid gap-2 text-sm font-semibold text-ink">
+                  Personal deadline
+                  <input
+                    type="date"
+                    value={personalDeadline}
+                    onChange={(event) => setPersonalDeadline(event.target.value)}
+                    className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-ink">
+                  Reminder date
+                  <input
+                    type="date"
+                    value={reminderDate}
+                    onChange={(event) => setReminderDate(event.target.value)}
+                    className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  />
+                </label>
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  <label className="grid gap-2 text-sm font-semibold text-ink">
+                    Submitted date
+                    <input
+                      type="date"
+                      value={submittedDate}
+                      onChange={(event) => setSubmittedDate(event.target.value)}
+                      className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    />
+                  </label>
+
+                  <label className="grid gap-2 text-sm font-semibold text-ink">
+                    Decision date
+                    <input
+                      type="date"
+                      value={decisionDate}
+                      onChange={(event) => setDecisionDate(event.target.value)}
+                      className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    />
+                  </label>
+                </div>
+              </div>
 
               
 
