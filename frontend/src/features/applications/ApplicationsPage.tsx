@@ -898,40 +898,29 @@ function ApplicationCard({
                   </select>
                 </label>
 
-                <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
-                  Next step
-                  <input
-                    value={nextStep}
-                    onChange={(event) => setNextStep(event.target.value)}
-                    className="rounded-2xl border border-pine/15 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    placeholder="Example: prepare SOP, upload documents, email professor..."
-                  />
-                </label>
-
-                {nextStepSuggestions.length > 0 ? (
-                  <div className="flex flex-col gap-1 rounded-xl border border-pine/10 bg-cream/30 px-2.5 py-2 md:col-span-2 sm:flex-row sm:items-center">
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
-                      Quick step
-                    </span>
-                    <select
-                      key={statusValue}
-                      defaultValue=""
-                      onChange={(event) => {
-                        if (event.target.value) {
-                          setNextStep(event.target.value);
-                        }
-                      }}
-                      className="h-8 min-w-0 flex-1 rounded-lg border border-pine/15 bg-white px-2 text-xs font-semibold text-ink/70 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                    >
-                      <option value="">Choose suggested next step...</option>
+                <div className="grid gap-1.5 md:col-span-2 sm:grid-cols-[6.5rem_1fr] sm:items-center">
+                  <label
+                    htmlFor={`next-step-${application.id}`}
+                    className="text-xs font-bold uppercase tracking-[0.12em] text-ink/40"
+                  >
+                    Next step
+                  </label>
+                  <div>
+                    <input
+                      id={`next-step-${application.id}`}
+                      list={`next-step-suggestions-${application.id}`}
+                      value={nextStep}
+                      onChange={(event) => setNextStep(event.target.value)}
+                      className="h-9 w-full rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                      placeholder="Write or choose a suggested next step..."
+                    />
+                    <datalist id={`next-step-suggestions-${application.id}`}>
                       {nextStepSuggestions.map((suggestion) => (
-                        <option key={suggestion} value={suggestion}>
-                          {suggestion}
-                        </option>
+                        <option key={suggestion} value={suggestion} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
-                ) : null}
+                </div>
 
                 {statusGuidance ? (
                   <div className="rounded-2xl border border-saffron/25 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/70 md:col-span-2">
