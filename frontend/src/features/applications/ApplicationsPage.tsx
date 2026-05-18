@@ -776,11 +776,7 @@ function ApplicationCard({
                 {opportunity.title}
               </h2>
 
-              <p className="mt-1 text-sm leading-6 text-ink/65">
-                {provider} · {opportunity.country || "Country not listed"}
-              </p>
-
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm leading-6 text-ink/65">
                 <Badge tone="neutral">{humanize(opportunity.opportunity_type)}</Badge>
                 <Badge tone="neutral">{humanize(opportunity.funding_type)}</Badge>
                 {degreeTags.map((degree) => (
@@ -789,6 +785,10 @@ function ApplicationCard({
                   </Badge>
                 ))}
                 {extraDegreeCount > 0 ? <Badge tone="neutral">+{extraDegreeCount} more</Badge> : null}
+                <span className="mx-0.5 text-ink/25">·</span>
+                <span className="min-w-0 font-medium text-ink/65">
+                  {provider} · {opportunity.country || "Country not listed"}
+                </span>
               </div>
             </div>
 
