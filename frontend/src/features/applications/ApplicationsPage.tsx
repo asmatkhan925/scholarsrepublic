@@ -24,6 +24,13 @@ import {
   getApplications,
   patchApplication,
 } from "@/lib/api";
+import {
+  getApplicationDeadline,
+  getApplicationReadinessScore,
+  getDaysUntil,
+  getReadinessLabel,
+  getReadinessTone,
+} from "@/features/applications/application-utils";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   ApplicationPriority,
@@ -236,18 +243,6 @@ function getPriorityTone(priority: ApplicationPriority): "mint" | "saffron" | "d
   return "mint";
 }
 
-function getDaysUntil(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const today = new Date();
-  const deadline = new Date(value);
-  const diff = deadline.getTime() - today.getTime();
-
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
 function getDeadlineTone(value: string | null): "mint" | "saffron" | "danger" | "sky" {
   const days = getDaysUntil(value);
 
@@ -326,10 +321,6 @@ function getStatusGuidance(status: ApplicationStatus, hasSopDraft: boolean) {
   return "";
 }
 
-function getApplicationDeadline(application: OpportunityApplication) {
-  return application.personal_deadline || application.opportunity_detail.deadline;
-}
-
 function getDateTime(value: string | null) {
   if (!value) {
     return Number.POSITIVE_INFINITY;
@@ -402,49 +393,6 @@ function sortApplications(
       new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime()
     );
   });
-}
-
-function getApplicationReadinessScore(application: OpportunityApplication) {
-  const checklist = application.checklist_snapshot ?? [];
-  const completedChecklistCount = checklist.filter((item) => item.done).length;
-  const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
-  const checklistReadiness = checklist.length
-    ? Math.round((completedChecklistCount / checklist.length) * 40)
-    : 0;
-
-  return Math.min(
-    100,
-    checklistReadiness +
-      (application.latest_sop_draft ? 20 : 0) +
-      (linkedChecklistCount > 0 ? 10 : 0) +
-      (application.personal_deadline || application.opportunity_detail.deadline ? 10 : 0) +
-      (application.next_step.trim() ? 10 : 0) +
-      (application.status !== "preparing" ? 10 : 0),
-  );
-}
-
-function getReadinessTone(score: number): "mint" | "saffron" | "danger" {
-  if (score >= 75) {
-    return "mint";
-  }
-
-  if (score >= 45) {
-    return "saffron";
-  }
-
-  return "danger";
-}
-
-function getReadinessLabel(score: number) {
-  if (score >= 75) {
-    return "Strong";
-  }
-
-  if (score >= 45) {
-    return "In progress";
-  }
-
-  return "Needs work";
 }
 
 function getNextStepSuggestions(

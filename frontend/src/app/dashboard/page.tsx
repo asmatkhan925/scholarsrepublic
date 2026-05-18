@@ -27,6 +27,13 @@ import {
   getProfileCompletion,
   getSavedOpportunities,
 } from "@/lib/api";
+import {
+  formatShortDate,
+  getApplicationDeadline,
+  getApplicationReadinessScore,
+  getDaysUntil,
+  getDeadlineLabel,
+} from "@/features/applications/application-utils";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   OpportunityApplication,
@@ -51,41 +58,6 @@ function getFirstName(fullName?: string) {
   }
 
   return fullName.trim().split(/\s+/)[0] || "Student";
-}
-
-function getDaysUntil(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const today = new Date();
-  const deadline = new Date(value);
-  const diff = deadline.getTime() - today.getTime();
-
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function getApplicationDeadline(application: OpportunityApplication) {
-  return application.personal_deadline || application.opportunity_detail.deadline;
-}
-
-function getApplicationReadinessScore(application: OpportunityApplication) {
-  const checklist = application.checklist_snapshot ?? [];
-  const completedChecklistCount = checklist.filter((item) => item.done).length;
-  const linkedChecklistCount = checklist.filter((item) => item.url?.trim()).length;
-  const checklistReadiness = checklist.length
-    ? Math.round((completedChecklistCount / checklist.length) * 40)
-    : 0;
-
-  return Math.min(
-    100,
-    checklistReadiness +
-      (application.latest_sop_draft ? 20 : 0) +
-      (linkedChecklistCount > 0 ? 10 : 0) +
-      (getApplicationDeadline(application) ? 10 : 0) +
-      (application.next_step.trim() ? 10 : 0) +
-      (application.status !== "preparing" ? 10 : 0),
-  );
 }
 
 function ApplicationActionCenter({
@@ -199,40 +171,6 @@ function ApplicationActionCenter({
       </div>
     </section>
   );
-}
-
-function formatShortDate(value: string | null) {
-  if (!value) {
-    return "No deadline";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function getDeadlineLabel(value: string | null) {
-  const days = getDaysUntil(value);
-
-  if (days === null) {
-    return "No deadline";
-  }
-
-  if (days < 0) {
-    return `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`;
-  }
-
-  if (days === 0) {
-    return "Due today";
-  }
-
-  if (days === 1) {
-    return "Due tomorrow";
-  }
-
-  return `Due in ${days} days`;
 }
 
 function getProviderName(application: OpportunityApplication) {
