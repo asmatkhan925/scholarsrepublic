@@ -20,6 +20,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
   deleteApplication,
+  getApplication,
   getApplicationSummary,
   getApplications,
   patchApplication,
@@ -1489,13 +1490,25 @@ function ApplicationTrackerContent() {
       setError(null);
 
       try {
-        const [applicationData, summaryData] = await Promise.all([
+        const [applicationData, summaryData, targetApplication] = await Promise.all([
           getApplications(query),
           getApplicationSummary(),
+          targetApplicationId
+            ? getApplication(targetApplicationId).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         if (mounted) {
-          setApplications(applicationData);
+          const results =
+            targetApplication &&
+            !applicationData.results.some((application) => application.id === targetApplication.id)
+              ? [targetApplication, ...applicationData.results]
+              : applicationData.results;
+
+          setApplications({
+            ...applicationData,
+            results,
+          });
           setSummary(summaryData);
         }
       } catch (requestError) {
@@ -1514,7 +1527,7 @@ function ApplicationTrackerContent() {
     return () => {
       mounted = false;
     };
-  }, [query]);
+  }, [query, targetApplicationId]);
 
   function handleUpdated(updated: OpportunityApplication) {
     setApplications((current) => {
