@@ -331,16 +331,7 @@ function ApplicationCard({
                 />
               </label>
 
-              <label className="mt-4 grid gap-2 text-sm font-semibold text-ink">
-                Notes
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={4}
-                  className="rounded-2xl border border-pine/15 px-3 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
-                  placeholder="Links, document notes, professor replies..."
-                />
-              </label>
+              
 
               <div className="mt-4 rounded-2xl border border-pine/10 bg-cream/50 p-3">
                 <div className="flex items-start gap-3">
