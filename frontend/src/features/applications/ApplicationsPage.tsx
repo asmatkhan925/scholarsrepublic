@@ -515,12 +515,12 @@ function ApplicationCard({
           {expanded ? (
             <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_18rem]">
               <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-2 text-sm font-semibold text-ink">
+                <label className="grid gap-1 text-xs font-semibold text-ink">
                   Status
                   <select
                     value={statusValue}
                     onChange={(event) => setStatusValue(event.target.value as ApplicationStatus)}
-                    className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    className="h-9 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                   >
                     {STATUS_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -530,12 +530,12 @@ function ApplicationCard({
                   </select>
                 </label>
 
-                <label className="grid gap-2 text-sm font-semibold text-ink">
+                <label className="grid gap-1 text-xs font-semibold text-ink">
                   Priority
                   <select
                     value={priority}
                     onChange={(event) => setPriority(event.target.value as ApplicationPriority)}
-                    className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    className="h-9 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
                   >
                     {PRIORITY_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -824,16 +824,16 @@ function ApplicationsSummaryHeader({
 }) {
   return (
     <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft">
-      <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 md:px-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 md:px-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
               Student dashboard
             </p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-ink md:text-2xl">
               Application Tracker
             </h1>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 xl:whitespace-nowrap">
+            <p className="mt-1 max-w-4xl text-xs leading-5 text-ink/60 xl:whitespace-nowrap">
               Track statuses, deadlines, notes, and priorities from preparation to results.
             </p>
           </div>
@@ -852,22 +852,23 @@ function ApplicationsSummaryHeader({
 
       <div className="grid divide-y divide-pine/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
         {[
-          ["Total", total, "Tracked"],
-          ["Preparing", preparing, "In progress"],
-          ["Applied", applied, "Submitted"],
-          ["Waiting", waiting, "Results"],
-          ["Selected", selected, "Success"],
-        ].map(([label, value, helper]) => (
-          <div key={label} className="px-4 py-4 md:px-5">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">{label}</p>
-            <p className="mt-1 text-2xl font-bold text-ink">{value}</p>
-            <p className="mt-1 text-xs text-ink/50">{helper}</p>
+          ["Total", total],
+          ["Preparing", preparing],
+          ["Applied", applied],
+          ["Waiting", waiting],
+          ["Selected", selected],
+        ].map(([label, value]) => (
+          <div key={label} className="px-3 py-2.5 md:px-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink/35">
+              {label}
+            </p>
+            <p className="mt-0.5 text-xl font-bold text-ink">{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid gap-3 border-t border-pine/10 bg-[#f7faf8] p-4 md:grid-cols-3">
-        <label className="grid gap-2 text-sm font-semibold text-ink">
+      <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 md:grid-cols-3">
+        <label className="grid gap-1 text-xs font-semibold text-ink">
           Search
           <div className="relative">
             <Search
@@ -878,7 +879,7 @@ function ApplicationsSummaryHeader({
             <input
               value={search}
               onChange={(event) => onSearch(event.target.value)}
-              className="w-full rounded-2xl border border-pine/15 bg-white py-3 pl-9 pr-4 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+              className="h-9 w-full rounded-xl border border-pine/15 bg-white pl-9 pr-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
               placeholder="Search title, country, notes..."
             />
           </div>
@@ -937,76 +938,61 @@ function TrackerAlertsPanel({
     {
       label: "Overdue",
       value: overdue,
-      helper: "deadlines passed",
+      helper: "past deadline",
       filter: "overdue" as QuickFilter,
     },
     {
       label: "Due soon",
       value: dueSoon,
-      helper: "within 7 days",
+      helper: "next 7 days",
       filter: "due_soon" as QuickFilter,
     },
     {
-      label: "Reminders today",
+      label: "Reminders",
       value: remindersToday,
-      helper: "follow up today",
+      helper: "today",
       filter: "reminder_today" as QuickFilter,
     },
     {
-      label: "Need next step",
+      label: "Need step",
       value: missingNextStep,
-      helper: "action missing",
+      helper: "missing action",
       filter: "no_next_step" as QuickFilter,
     },
   ];
 
-  if (alerts.every((alert) => alert.value === 0)) {
-    return (
-      <section className="rounded-2xl border border-pine/10 bg-white p-3 shadow-soft">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
-            <Bell size={16} aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-sm font-bold text-ink">Today looks clear</p>
-            <p className="text-xs leading-5 text-ink/55">
-              No overdue deadlines, reminders, or missing next steps in the current list.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  const hasAlerts = alerts.some((alert) => alert.value > 0);
 
   return (
-    <section className="rounded-2xl border border-pine/10 bg-white p-3 shadow-soft">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-saffron/15 text-pine">
-          <Bell size={15} aria-hidden="true" />
+    <section className="rounded-2xl border border-pine/10 bg-white px-3 py-2 shadow-soft">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-ink/40">
+          <Bell size={14} aria-hidden="true" />
+          {hasAlerts ? "Action alerts" : "Clear today"}
         </span>
-        <div>
-          <p className="text-sm font-bold text-ink">Today&apos;s action alerts</p>
-          <p className="text-xs text-ink/50">Use these shortcuts to focus on urgent applications.</p>
-        </div>
-      </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {alerts.map((alert) => (
           <button
             key={alert.label}
             type="button"
             onClick={() => onSelectQuickFilter(alert.filter)}
-            className={`rounded-2xl border px-3 py-2 text-left transition ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition ${
               alert.value > 0
-                ? "border-saffron/25 bg-saffron/10 hover:border-pine/30 hover:bg-pine/5"
-                : "border-ink/10 bg-cream/30 opacity-70"
+                ? "border-saffron/30 bg-saffron/10 text-ink hover:border-pine/30 hover:bg-pine/5"
+                : "border-ink/10 bg-cream/35 text-ink/55 hover:border-pine/20 hover:text-pine"
             }`}
           >
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/40">
-              {alert.label}
-            </p>
-            <p className="mt-1 text-xl font-bold text-ink">{alert.value}</p>
-            <p className="text-xs text-ink/50">{alert.helper}</p>
+            <span>{alert.label}</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                alert.value > 0 ? "bg-white text-pine" : "bg-white text-ink/45"
+              }`}
+            >
+              {alert.value}
+            </span>
+            <span className="hidden text-[11px] font-medium text-ink/45 sm:inline">
+              {alert.helper}
+            </span>
           </button>
         ))}
       </div>
@@ -1167,7 +1153,7 @@ function ApplicationTrackerContent() {
           />
         ) : null}
 
-        <section className="rounded-2xl border border-pine/10 bg-white p-3 shadow-soft">
+        <section className="rounded-2xl border border-pine/10 bg-white px-3 py-2 shadow-soft">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
               Quick view
