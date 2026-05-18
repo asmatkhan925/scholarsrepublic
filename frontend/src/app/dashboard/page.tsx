@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   ArrowRight,
-  BookOpenCheck,
   ClipboardCheck,
   FileText,
   GraduationCap,
@@ -19,7 +18,7 @@ import {
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge, ButtonLink, Card, CardContent, EmptyState, StatCard } from "@/components/ui";
+import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 import { getApplications, getApplicationSummary, getProfileCompletion } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityApplication, ApplicationSummary } from "@/types/opportunity";
@@ -116,34 +115,32 @@ function ApplicationActionCenter({
   if (loading) {
     return (
       <Card>
-        <CardContent className="p-4 text-sm text-ink/60">
-          Loading application alerts...
-        </CardContent>
+        <CardContent className="p-3 text-sm text-ink/60">Loading tracker alerts...</CardContent>
       </Card>
     );
   }
 
   if (totalTracked === 0) {
     return (
-      <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
+      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
-              <ClipboardCheck size={19} aria-hidden="true" />
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+              <ClipboardCheck size={17} aria-hidden="true" />
             </span>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-                Application Action Center
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+                Today&apos;s application focus
               </p>
-              <h2 className="mt-1 text-lg font-bold text-ink">No tracked applications yet</h2>
+              <h2 className="mt-1 text-base font-bold text-ink">No tracked applications yet</h2>
               <p className="mt-1 text-sm leading-6 text-ink/60">
                 Start tracking scholarships so deadlines, SOP drafts, documents, and next steps stay organized.
               </p>
             </div>
           </div>
-          <ButtonLink href="/scholarships" className="w-full sm:w-auto" variant="outline">
+          <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm" variant="outline">
             Browse Scholarships
-            <ArrowRight size={16} aria-hidden="true" />
+            <ArrowRight size={15} aria-hidden="true" />
           </ButtonLink>
         </div>
       </section>
@@ -155,32 +152,32 @@ function ApplicationActionCenter({
     { label: "Overdue", value: overdue, href: "/dashboard/applications?view=overdue" },
     { label: "Due soon", value: dueSoon, href: "/dashboard/applications?view=due_soon" },
     { label: "Missing SOP", value: missingSop, href: "/dashboard/applications?view=missing_sop" },
-    { label: "Weak readiness", value: weakReadiness, href: "/dashboard/applications?view=needs_work" },
+    { label: "Weak", value: weakReadiness, href: "/dashboard/applications?view=needs_work" },
   ];
 
   return (
-    <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
+    <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
-            <ClipboardCheck size={19} aria-hidden="true" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+            <ClipboardCheck size={17} aria-hidden="true" />
           </span>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-              Application Action Center
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+              Today&apos;s application focus
             </p>
-            <h2 className="mt-1 text-lg font-bold text-ink">
-              {needsAttention > 0 ? "Some applications need attention" : "Applications look organized"}
+            <h2 className="mt-1 text-base font-bold text-ink">
+              {needsAttention > 0 ? "Review applications that need attention" : "Applications look organized"}
             </h2>
             <p className="mt-1 text-sm leading-6 text-ink/60">
-              Review urgent deadlines, SOP gaps, and weak readiness before working on new scholarships.
+              Check urgent deadlines, SOP gaps, and weak readiness before starting new applications.
             </p>
           </div>
         </div>
 
-        <ButtonLink href="/dashboard/applications" className="w-full sm:w-auto" variant="secondary">
+        <ButtonLink href="/dashboard/applications" className="w-full sm:w-auto" size="sm" variant="secondary">
           Open Tracker
-          <ArrowRight size={16} aria-hidden="true" />
+          <ArrowRight size={15} aria-hidden="true" />
         </ButtonLink>
       </div>
 
@@ -189,13 +186,14 @@ function ApplicationActionCenter({
           <ButtonLink
             key={item.label}
             href={item.href}
-            className="justify-between rounded-2xl border-pine/10 bg-cream/40 px-3 py-2 text-left text-ink hover:bg-pine/5"
+            className="justify-between rounded-xl border-pine/10 bg-cream/40 px-2.5 py-2 text-left text-ink hover:bg-pine/5"
+            size="sm"
             variant="outline"
           >
-            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink/40">
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink/40">
               {item.label}
             </span>
-            <span className="text-base font-bold text-ink">{item.value}</span>
+            <span className="text-base font-bold leading-none text-ink">{item.value}</span>
           </ButtonLink>
         ))}
       </div>
@@ -360,59 +358,68 @@ function StudentDashboardContent() {
   const NextStepIcon = nextStep.icon;
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft">
-        <div className="grid gap-0 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="p-5 sm:p-6 md:p-8">
-            <Badge tone="mint" className="mb-4">
+    <div className="space-y-4">
+      <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
+        <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
+          <div>
+            <Badge tone="mint" className="mb-3">
               <GraduationCap size={14} aria-hidden="true" />
               Student workspace
             </Badge>
 
-            <h1 className="text-2xl font-bold tracking-tight text-ink md:text-4xl">
+            <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
               Welcome back, {firstName}.
             </h1>
 
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/70 md:text-base">
-              Use your dashboard to keep your scholarship search organized: improve your profile,
-              save opportunities, track applications, and prepare documents before deadlines arrive.
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
+              Keep your scholarship search organized: profile, recommendations, saved opportunities,
+              SOP drafts, and tracked applications in one place.
             </p>
 
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/dashboard/profile" className="w-full sm:w-auto">
-                Improve Profile
-                <ArrowRight size={16} aria-hidden="true" />
-              </ButtonLink>
-              <ButtonLink href="/scholarships" className="w-full sm:w-auto" variant="outline">
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-ink/55">
+              <span className="rounded-full bg-cream px-2.5 py-1">
+                Profile {completionPercent}%
+              </span>
+              <span className="rounded-full bg-cream px-2.5 py-1">
+                Readiness {readinessScore}/100
+              </span>
+              <span className="rounded-full bg-cream px-2.5 py-1">
+                Applications {applicationSummary?.total ?? applications.length}
+              </span>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
                 Browse Scholarships
+                <ArrowRight size={15} aria-hidden="true" />
+              </ButtonLink>
+              <ButtonLink href="/dashboard/applications" className="w-full sm:w-auto" size="sm" variant="outline">
+                Open Tracker
+              </ButtonLink>
+              <ButtonLink href="/dashboard/profile" className="w-full sm:w-auto" size="sm" variant="ghost">
+                Improve Profile
               </ButtonLink>
             </div>
           </div>
 
-          <div className="border-t border-pine/10 bg-mint/45 p-5 sm:p-6 md:p-7 lg:border-l lg:border-t-0">
-            <div className="h-full rounded-[1.5rem] border border-pine/10 bg-white/90 p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-pine">
-                    Next best step
-                  </p>
-                  <h2 className="mt-3 text-xl font-bold text-ink">{nextStep.title}</h2>
-                </div>
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pine text-white">
-                  <NextStepIcon size={21} aria-hidden="true" />
-                </span>
+          <div className="rounded-[1.25rem] border border-pine/10 bg-mint/35 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+                  Next best step
+                </p>
+                <h2 className="mt-1 text-lg font-bold leading-snug text-ink">{nextStep.title}</h2>
               </div>
-
-              <p className="mt-3 text-sm leading-6 text-ink/65">{nextStep.description}</p>
-
-              <ButtonLink
-                href={nextStep.href}
-                className="mt-5 w-full sm:w-auto"
-                variant="secondary"
-              >
-                {nextStep.action}
-              </ButtonLink>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pine text-white">
+                <NextStepIcon size={19} aria-hidden="true" />
+              </span>
             </div>
+
+            <p className="mt-2 text-sm leading-6 text-ink/65">{nextStep.description}</p>
+
+            <ButtonLink href={nextStep.href} className="mt-3 w-full sm:w-auto" size="sm" variant="secondary">
+              {nextStep.action}
+            </ButtonLink>
           </div>
         </div>
       </section>
@@ -424,154 +431,150 @@ function StudentDashboardContent() {
       />
 
       {error ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          description={
-            loadingCompletion ? "Loading profile progress..." : "Profile fields completed"
-          }
-          label="Profile completion"
-          value={`${completionPercent}%`}
-        />
-        <StatCard
-          description="Based on profile details and preparation signals"
-          label="Scholarship readiness"
-          value={`${readinessScore}/100`}
-        />
-        <Card className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine/70">
-            Readiness level
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <Badge tone={getReadinessTone(readinessLevel)}>{readinessLevel}</Badge>
-            <span className="text-sm text-ink/60">Keep improving step by step</span>
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-pine/10">
-            <div
-              className="h-full rounded-full bg-pine"
-              style={{ width: `${Math.min(Math.max(readinessScore, 0), 100)}%` }}
-            />
-          </div>
-        </Card>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between gap-3">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">
-                  Profile gaps
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+                  Preparation snapshot
                 </p>
-                <h2 className="mt-2 text-xl font-bold text-ink">Missing profile fields</h2>
+                <h2 className="mt-1 text-lg font-bold text-ink">Profile and readiness</h2>
               </div>
-              <ListChecks className="text-pine" size={24} aria-hidden="true" />
+              <Badge tone={getReadinessTone(readinessLevel)}>{readinessLevel}</Badge>
             </div>
 
-            {missingFields.length > 0 ? (
-              <ul className="mt-4 grid gap-2">
-                {missingFields.slice(0, 6).map((item) => (
-                  <li
-                    key={item}
-                    className="rounded-2xl border border-pine/10 bg-mint/30 px-4 py-2 text-sm text-ink/75"
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                className="mt-4 p-5"
-                description="Your key profile fields are complete. Keep them updated as your goals change."
-                icon={<UserRoundCheck size={22} aria-hidden="true" />}
-                title="Profile looks good"
-              />
-            )}
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-2 xl:grid-cols-5">
+              {[
+                ["Profile", loadingCompletion ? "..." : `${completionPercent}%`],
+                ["Readiness", `${readinessScore}/100`],
+                ["Level", readinessLevel],
+                ["Fields", missingFields.length],
+                ["Docs", missingDocuments.length],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-pine/10 bg-cream/35 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+                    {label}
+                  </p>
+                  <p className="mt-1 text-base font-bold text-ink">{value}</p>
+                </div>
+              ))}
+            </div>
 
-            {missingFields.length > 6 ? (
-              <p className="mt-3 text-sm text-ink/55">
-                +{missingFields.length - 6} more fields need attention.
-              </p>
-            ) : null}
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-pine/10">
+              <div
+                className="h-full rounded-full bg-pine"
+                style={{ width: `${Math.min(Math.max(readinessScore, 0), 100)}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between gap-3">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">
-                  Documents
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+                  Preparation gaps
                 </p>
-                <h2 className="mt-2 text-xl font-bold text-ink">Missing core documents</h2>
+                <h2 className="mt-1 text-lg font-bold text-ink">What still needs attention</h2>
               </div>
-              <FileText className="text-pine" size={24} aria-hidden="true" />
+              <ButtonLink href="/dashboard/profile" size="sm" variant="outline">
+                Update Profile
+              </ButtonLink>
             </div>
 
-            {missingDocuments.length > 0 ? (
-              <ul className="mt-4 grid gap-2">
-                {missingDocuments.slice(0, 6).map((item) => (
-                  <li
-                    key={item}
-                    className="rounded-2xl border border-pine/10 bg-skyglass px-4 py-2 text-sm text-ink/75"
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                className="mt-4 p-5"
-                description="Your important application documents look ready. Review official requirements before applying."
-                icon={<BookOpenCheck size={22} aria-hidden="true" />}
-                title="Core documents look ready"
-              />
-            )}
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-pine/10 bg-mint/25 p-3">
+                <div className="flex items-center gap-2">
+                  <ListChecks size={16} className="text-pine" aria-hidden="true" />
+                  <p className="text-sm font-bold text-ink">Profile fields</p>
+                </div>
 
-            {missingDocuments.length > 6 ? (
-              <p className="mt-3 text-sm text-ink/55">
-                +{missingDocuments.length - 6} more documents need attention.
-              </p>
-            ) : null}
+                {missingFields.length > 0 ? (
+                  <ul className="mt-3 grid gap-1.5">
+                    {missingFields.slice(0, 4).map((item) => (
+                      <li key={item} className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-ink/70">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
+                    Key profile fields look complete.
+                  </p>
+                )}
+
+                {missingFields.length > 4 ? (
+                  <p className="mt-2 text-xs text-ink/50">+{missingFields.length - 4} more fields</p>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-pine/10 bg-skyglass p-3">
+                <div className="flex items-center gap-2">
+                  <FileText size={16} className="text-pine" aria-hidden="true" />
+                  <p className="text-sm font-bold text-ink">Core documents</p>
+                </div>
+
+                {missingDocuments.length > 0 ? (
+                  <ul className="mt-3 grid gap-1.5">
+                    {missingDocuments.slice(0, 4).map((item) => (
+                      <li key={item} className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-ink/70">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
+                    Core documents look ready.
+                  </p>
+                )}
+
+                {missingDocuments.length > 4 ? (
+                  <p className="mt-2 text-xs text-ink/50">+{missingDocuments.length - 4} more documents</p>
+                ) : null}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </section>
 
       <section>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">
-              Quick actions
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+              Quick links
             </p>
-            <h2 className="mt-2 text-2xl font-bold text-ink">Keep your applications moving</h2>
+            <h2 className="mt-1 text-xl font-bold text-ink">Continue working</h2>
           </div>
-          <ButtonLink href="/blog" variant="outline">
+          <ButtonLink href="/blog" size="sm" variant="outline">
             Scholarship Guides
           </ButtonLink>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {actionCards.map((item) => {
             const Icon = item.icon;
 
             return (
-              <Card key={item.href} className="transition hover:-translate-y-1 hover:shadow-lg">
-                <CardContent className="p-5">
+              <Card key={item.href} className="transition hover:-translate-y-0.5 hover:shadow-lg">
+                <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-mint text-pine">
-                      <Icon size={19} aria-hidden="true" />
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+                      <Icon size={17} aria-hidden="true" />
                     </span>
                     {item.badge ? <Badge tone="saffron">{item.badge}</Badge> : null}
                   </div>
-                  <h3 className="mt-4 text-lg font-bold text-ink">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/65">{item.description}</p>
-                  <ButtonLink href={item.href} className="mt-4" variant="ghost">
+                  <h3 className="mt-3 text-base font-bold text-ink">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-5 text-ink/60">{item.description}</p>
+                  <ButtonLink href={item.href} className="mt-3" size="sm" variant="ghost">
                     {item.action}
-                    <ArrowRight size={16} aria-hidden="true" />
+                    <ArrowRight size={15} aria-hidden="true" />
                   </ButtonLink>
                 </CardContent>
               </Card>
