@@ -26,6 +26,7 @@ import {
   getApplicationSummary,
   getProfileCompletion,
   getSavedOpportunities,
+  startApplicationFromSaved,
 } from "@/lib/api";
 import {
   formatShortDate,
@@ -193,6 +194,27 @@ function ContinueWorkingSection({
 }) {
   const recentApplications = applications.slice(0, 3);
   const recentSaved = savedOpportunities.slice(0, 3);
+  const [trackingSavedId, setTrackingSavedId] = useState<number | null>(null);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
+
+  async function handleTrackSaved(saved: SavedOpportunity) {
+    if (saved.is_tracking && saved.application_id) {
+      window.location.href = `/dashboard/applications?application=${saved.application_id}`;
+      return;
+    }
+
+    setTrackingSavedId(saved.id);
+    setTrackingError(null);
+
+    try {
+      const application = await startApplicationFromSaved(saved.id);
+      window.location.href = `/dashboard/applications?application=${application.id}`;
+    } catch (requestError) {
+      setTrackingError(getErrorMessage(requestError));
+    } finally {
+      setTrackingSavedId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -242,6 +264,12 @@ function ContinueWorkingSection({
           </ButtonLink>
         </div>
       </div>
+
+      {trackingError ? (
+        <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          {trackingError}
+        </div>
+      ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="rounded-2xl border border-pine/10 bg-mint/20 p-3">
@@ -314,14 +342,21 @@ function ContinueWorkingSection({
                 const degree = opportunity.degree_levels[0];
 
                 return (
-                  <Link
+                  <div
                     key={saved.id}
-                    href={`/scholarships/${opportunity.slug}`}
-                    className="group block min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm"
+                    className="group relative min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm"
                   >
-                    <div className="flex min-w-0 items-start justify-between gap-3">
+                    <Link
+                      href={`/scholarships/${opportunity.slug}`}
+                      aria-label={`Open ${opportunity.title}`}
+                      className="absolute inset-0 z-0"
+                    />
+
+                    <div className="relative z-10 flex min-w-0 items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 overflow-hidden">
-                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">{opportunity.title}</p>
+                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">
+                          {opportunity.title}
+                        </p>
                         <p className="mt-0.5 truncate text-xs text-ink/55">
                           {opportunity.provider_name ||
                             opportunity.university_name ||
@@ -330,19 +365,42 @@ function ContinueWorkingSection({
                           · {opportunity.country || "Country not listed"}
                         </p>
                         <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-                          <Badge className="max-w-[10rem] truncate" tone="neutral">{opportunity.funding_type || "Funding not listed"}</Badge>
-                          {degree ? <Badge className="max-w-[10rem] truncate" tone="neutral">{degree}</Badge> : null}
-                          <Badge className="max-w-full truncate" tone="neutral">{formatShortDate(opportunity.deadline)}</Badge>
+                          <Badge className="max-w-[10rem] truncate" tone="neutral">
+                            {opportunity.funding_type || "Funding not listed"}
+                          </Badge>
+                          {degree ? (
+                            <Badge className="max-w-[10rem] truncate" tone="neutral">
+                              {degree}
+                            </Badge>
+                          ) : null}
+                          <Badge className="max-w-full truncate" tone="neutral">
+                            {formatShortDate(opportunity.deadline)}
+                          </Badge>
+                          {saved.is_tracking ? <Badge tone="mint">Tracking</Badge> : null}
                         </div>
                       </div>
 
-                      <ArrowRight
-                        size={15}
-                        aria-hidden="true"
-                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
-                      />
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <button
+                          type="button"
+                          disabled={trackingSavedId === saved.id}
+                          onClick={() => void handleTrackSaved(saved)}
+                          className="relative z-20 rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-bold text-pine transition hover:bg-pine hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {trackingSavedId === saved.id
+                            ? "Tracking..."
+                            : saved.is_tracking
+                              ? "Open tracker"
+                              : "Track"}
+                        </button>
+                        <ArrowRight
+                          size={15}
+                          aria-hidden="true"
+                          className="mr-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
+                        />
+                      </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
