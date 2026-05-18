@@ -338,7 +338,7 @@ function ApplicationCard({
                 </span>
               </label>
 
-              <div className="mt-3 rounded-2xl border border-pine/10 bg-white p-3">
+              <div className="mt-3 rounded-2xl border border-pine/10 bg-white p-3 md:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
