@@ -225,6 +225,18 @@ function ApplicationTrackerContent() {
     {} as Record<QuickFilter, number>,
   );
   const counts = summary?.counts_by_status;
+  const hasAnyTrackedApplications = (summary?.total ?? 0) > 0;
+  const hasActiveFilters = Boolean(
+    statusFilter || priorityFilter || search.trim() || quickFilter !== "all",
+  );
+
+  function clearTrackerFilters() {
+    setStatusFilter("");
+    setPriorityFilter("");
+    setSearch("");
+    setQuickFilter("all");
+    setSortMode("smart");
+  }
 
   return (
     <DashboardShell
@@ -320,7 +332,7 @@ function ApplicationTrackerContent() {
           </div>
         ) : null}
 
-        {!loading && !error && applicationItems.length === 0 ? (
+        {!loading && !error && !hasAnyTrackedApplications ? (
           <EmptyState
             action={
               <ButtonLink href="/scholarships">
@@ -334,9 +346,25 @@ function ApplicationTrackerContent() {
           />
         ) : null}
 
-        {!loading && !error && applicationItems.length > 0 && visibleApplicationItems.length === 0 ? (
-          <div className="rounded-2xl border border-ink/10 bg-white p-6 text-center text-sm font-semibold text-ink/55 shadow-soft">
-            No applications match this quick filter.
+        {!loading && !error && hasAnyTrackedApplications && visibleApplicationItems.length === 0 ? (
+          <div className="rounded-2xl border border-ink/10 bg-white p-6 text-center shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
+            <p className="text-sm font-bold text-ink dark:text-white">
+              No applications match the selected filters.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-ink/55 dark:text-white/55">
+              {hasActiveFilters
+                ? "Try clearing the search, status, priority, or quick view filter."
+                : "Try a different tracker view or sort option."}
+            </p>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={clearTrackerFilters}
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-pine px-4 py-2 text-sm font-semibold text-white transition hover:bg-pine/90"
+              >
+                Clear filters
+              </button>
+            ) : null}
           </div>
         ) : null}
 
