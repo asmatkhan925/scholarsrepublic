@@ -434,6 +434,82 @@ function getReadinessLabel(score: number) {
   return "Needs work";
 }
 
+function getNextStepSuggestions(
+  status: ApplicationStatus,
+  hasSopDraft: boolean,
+  completedChecklistCount: number,
+  checklistLength: number,
+) {
+  const suggestionsByStatus: Record<ApplicationStatus, string[]> = {
+    preparing: [
+      hasSopDraft ? "Review SOP draft and prepare final version" : "Create SOP draft",
+      "Collect transcripts and certificates",
+      "Request recommendation letters",
+      "Set a personal deadline",
+    ],
+    documents_pending: [
+      "Finish missing checklist documents",
+      "Add Google Drive links for prepared documents",
+      "Request pending recommendation letters",
+      "Review scholarship requirements again",
+    ],
+    documents_ready: [
+      "Review all documents before submission",
+      "Open official application portal",
+      "Prepare final SOP and CV files",
+      "Submit application before deadline",
+    ],
+    applied: [
+      "Record application submission details",
+      "Set a follow-up reminder",
+      "Save portal login/reference information in notes",
+      "Prepare backup scholarship applications",
+    ],
+    interview: [
+      "Prepare interview answers",
+      "Review SOP before interview",
+      "Collect questions for interviewer",
+      "Set interview reminder",
+    ],
+    result_waiting: [
+      "Check result announcement timeline",
+      "Set decision follow-up reminder",
+      "Keep backup applications active",
+      "Update notes with expected result date",
+    ],
+    selected: [
+      "Record decision date",
+      "Prepare admission and visa steps",
+      "Check funding acceptance instructions",
+      "Save offer details in notes",
+    ],
+    rejected: [
+      "Record decision date",
+      "Note lessons learned",
+      "Shortlist next scholarship options",
+      "Improve SOP for next application",
+    ],
+    withdrawn: [
+      "Record reason for withdrawal",
+      "Archive important notes",
+      "Focus on active applications",
+    ],
+    deferred: [
+      "Confirm deferred timeline",
+      "Set next follow-up reminder",
+      "Update documents if required",
+    ],
+  };
+
+  const suggestions = suggestionsByStatus[status] ?? [];
+
+  if (checklistLength > 0 && completedChecklistCount < checklistLength) {
+    return suggestions;
+  }
+
+  return suggestions.filter((suggestion) => !suggestion.toLowerCase().includes("missing checklist"));
+}
+
 function applicationMatchesQuickFilter(
   application: OpportunityApplication,
   quickFilter: QuickFilter,
@@ -555,6 +631,12 @@ function ApplicationCard({
   });
   const deadlineStatusText = getDeadlineStatusText(activeDeadline);
   const statusGuidance = getStatusGuidance(statusValue, Boolean(latestSopDraft));
+  const nextStepSuggestions = getNextStepSuggestions(
+    statusValue,
+    Boolean(latestSopDraft),
+    completedChecklistCount,
+    checklist.length,
+  );
 
   function toggleChecklistItem(index: number) {
     setChecklist((current) =>
@@ -825,6 +907,26 @@ function ApplicationCard({
                     placeholder="Example: prepare SOP, upload documents, email professor..."
                   />
                 </label>
+
+                {nextStepSuggestions.length > 0 ? (
+                  <div className="rounded-2xl border border-pine/10 bg-cream/35 px-3 py-2 md:col-span-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+                        Quick next step
+                      </span>
+                      {nextStepSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => setNextStep(suggestion)}
+                          className="rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink/65 transition hover:border-pine/30 hover:bg-pine/5 hover:text-pine"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 {statusGuidance ? (
                   <div className="rounded-2xl border border-saffron/25 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/70 md:col-span-2">
