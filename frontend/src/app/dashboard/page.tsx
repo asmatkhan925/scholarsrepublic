@@ -436,112 +436,115 @@ function StudentDashboardContent() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-                  Preparation snapshot
-                </p>
-                <h2 className="mt-1 text-lg font-bold text-ink">Profile and readiness</h2>
+      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
+              Preparation overview
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-ink">Profile, readiness, and gaps</h2>
+          </div>
+          <ButtonLink href="/dashboard/profile" size="sm" variant="outline">
+            Update Profile
+          </ButtonLink>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {[
+            ["Profile", loadingCompletion ? "..." : `${completionPercent}%`],
+            ["Readiness", `${readinessScore}/100`],
+            ["Level", readinessLevel],
+            ["Fields", missingFields.length],
+            ["Docs", missingDocuments.length],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="min-w-0 rounded-xl border border-pine/10 bg-cream/35 px-3 py-2"
+            >
+              <p className="truncate text-[10px] font-bold uppercase tracking-[0.1em] text-ink/35">
+                {label}
+              </p>
+              <p className="mt-0.5 truncate text-base font-bold leading-tight text-ink">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-pine/10">
+          <div
+            className="h-full rounded-full bg-pine"
+            style={{ width: `${Math.min(Math.max(readinessScore, 0), 100)}%` }}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-pine/10 bg-mint/25 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ListChecks size={16} className="text-pine" aria-hidden="true" />
+                <p className="text-sm font-bold text-ink">Profile fields</p>
               </div>
-              <Badge tone={getReadinessTone(readinessLevel)}>{readinessLevel}</Badge>
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/50">
+                {missingFields.length}
+              </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-2 xl:grid-cols-5">
-              {[
-                ["Profile", loadingCompletion ? "..." : `${completionPercent}%`],
-                ["Readiness", `${readinessScore}/100`],
-                ["Level", readinessLevel],
-                ["Fields", missingFields.length],
-                ["Docs", missingDocuments.length],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-pine/10 bg-cream/35 px-3 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-base font-bold text-ink">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-pine/10">
-              <div
-                className="h-full rounded-full bg-pine"
-                style={{ width: `${Math.min(Math.max(readinessScore, 0), 100)}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-                  Preparation gaps
-                </p>
-                <h2 className="mt-1 text-lg font-bold text-ink">What still needs attention</h2>
-              </div>
-              <ButtonLink href="/dashboard/profile" size="sm" variant="outline">
-                Update Profile
-              </ButtonLink>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-pine/10 bg-mint/25 p-3">
-                <div className="flex items-center gap-2">
-                  <ListChecks size={16} className="text-pine" aria-hidden="true" />
-                  <p className="text-sm font-bold text-ink">Profile fields</p>
-                </div>
-
-                {missingFields.length > 0 ? (
-                  <ul className="mt-3 grid gap-1.5">
-                    {missingFields.slice(0, 4).map((item) => (
-                      <li key={item} className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-ink/70">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
-                    Key profile fields look complete.
-                  </p>
-                )}
-
-                {missingFields.length > 4 ? (
-                  <p className="mt-2 text-xs text-ink/50">+{missingFields.length - 4} more fields</p>
+            {missingFields.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {missingFields.slice(0, 6).map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65"
+                  >
+                    {item}
+                  </span>
+                ))}
+                {missingFields.length > 6 ? (
+                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45">
+                    +{missingFields.length - 6} more
+                  </span>
                 ) : null}
               </div>
+            ) : (
+              <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
+                Key profile fields look complete.
+              </p>
+            )}
+          </div>
 
-              <div className="rounded-2xl border border-pine/10 bg-skyglass p-3">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-pine" aria-hidden="true" />
-                  <p className="text-sm font-bold text-ink">Core documents</p>
-                </div>
+          <div className="rounded-2xl border border-pine/10 bg-skyglass p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <FileText size={16} className="text-pine" aria-hidden="true" />
+                <p className="text-sm font-bold text-ink">Core documents</p>
+              </div>
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/50">
+                {missingDocuments.length}
+              </span>
+            </div>
 
-                {missingDocuments.length > 0 ? (
-                  <ul className="mt-3 grid gap-1.5">
-                    {missingDocuments.slice(0, 4).map((item) => (
-                      <li key={item} className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-ink/70">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
-                    Core documents look ready.
-                  </p>
-                )}
-
-                {missingDocuments.length > 4 ? (
-                  <p className="mt-2 text-xs text-ink/50">+{missingDocuments.length - 4} more documents</p>
+            {missingDocuments.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {missingDocuments.slice(0, 6).map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65"
+                  >
+                    {item}
+                  </span>
+                ))}
+                {missingDocuments.length > 6 ? (
+                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45">
+                    +{missingDocuments.length - 6} more
+                  </span>
                 ) : null}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
+                Core documents look ready.
+              </p>
+            )}
+          </div>
+        </div>
       </section>
 
       <section>
