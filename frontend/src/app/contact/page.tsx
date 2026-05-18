@@ -29,10 +29,12 @@ export default function ContactPage() {
         </p>
       }
     >
-      <section className="rounded-2xl border border-pine/20 bg-mint/35 p-5 shadow-soft md:p-6">
+      <section className="rounded-2xl border border-pine/20 bg-mint/35 p-5 shadow-soft transition-colors dark:border-pine/20 dark:bg-pine/10 md:p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">Email Support</p>
-        <h2 className="mt-2 text-2xl font-bold text-ink">support@scholarsrepublic.org</h2>
-        <p className="mt-3 text-sm leading-7 text-ink/70 md:text-base">
+        <h2 className="mt-2 break-words text-2xl font-bold text-ink dark:text-white">
+          support@scholarsrepublic.org
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-ink/70 dark:text-white/60 md:text-base">
           Email us at{" "}
           <a
             href="mailto:support@scholarsrepublic.org"
