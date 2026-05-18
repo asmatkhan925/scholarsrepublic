@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { AppChrome } from "@/components/layout/AppChrome";
+import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
 
@@ -17,11 +18,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <AuthProvider>
-          <AppChrome>{children}</AppChrome>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppChrome>{children}</AppChrome>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

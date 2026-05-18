@@ -5,6 +5,13 @@
 :root {
   color: #16211f;
   background: #f7faf8;
+  color-scheme: light;
+}
+
+:root.dark {
+  color: #edf7f3;
+  background: #08110f;
+  color-scheme: dark;
 }
 
 * {
@@ -17,6 +24,14 @@ body {
     linear-gradient(180deg, rgba(237, 247, 251, 0.7), rgba(247, 250, 248, 0) 360px), #f7faf8;
   color: #16211f;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(20, 83, 66, 0.28), transparent 360px),
+    linear-gradient(180deg, rgba(12, 26, 22, 0.94), rgba(8, 17, 15, 1) 420px),
+    #08110f;
+  color: #edf7f3;
 }
 
 a {

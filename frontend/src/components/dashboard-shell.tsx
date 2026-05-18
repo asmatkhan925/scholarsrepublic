@@ -13,7 +13,9 @@ import {
   GraduationCap,
   LayoutDashboard,
   Menu,
+  Moon,
   Search,
+  Sun,
   ShieldCheck,
   Sparkles,
   Star,
@@ -23,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { DashboardLogoutButton } from "@/components/dashboard-logout-button";
+import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/cn";
 
 type DashboardShellProps = {
@@ -180,7 +183,7 @@ function DashboardNavLink({
     return (
       <span
         className={cn(
-          "flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-ink/35",
+          "flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-ink/35 dark:text-white/35",
           compact ? "bg-white/70" : "",
         )}
       >
@@ -344,20 +347,44 @@ function MobileMenuPanel({
         ) : null}
       </nav>
 
-      <div className="mt-5 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-pine">Account</p>
+      <div className="mt-5 space-y-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine dark:text-mint">Account</p>
+        <ThemeToggle />
         <DashboardLogoutButton />
       </div>
     </div>
   );
 }
 
+function ThemeToggle() {
+  const { isDark, toggleTheme } = useTheme();
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-pine/10 bg-white px-3 py-2.5 text-sm font-semibold text-ink transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+    >
+      <span className="flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/30 dark:text-mint">
+          {isDark ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}
+        </span>
+        {isDark ? "Light theme" : "Dark theme"}
+      </span>
+      <span className="rounded-full bg-cream px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/45 dark:bg-white/10 dark:text-white/55">
+        {isDark ? "Dark" : "Light"}
+      </span>
+    </button>
+  );
+}
+
 function LogoutPanel() {
   return (
-    <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-3">
+    <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
       <div className="mb-3">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Account</p>
-        <p className="mt-1 text-xs leading-5 text-ink/55">Sign out when you are done.</p>
+        <p className="mt-1 text-xs leading-5 text-ink/55 dark:text-white/55">Sign out when you are done.</p>
       </div>
       <DashboardLogoutButton />
     </div>
@@ -376,19 +403,19 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#f7faf8]">
+    <div className="min-h-screen bg-[#f7faf8] text-ink transition-colors dark:bg-[#08110f] dark:text-white">
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-4 sm:px-5 md:px-8 lg:grid-cols-[17rem_1fr] lg:py-6">
         <aside className="hidden lg:block">
-          <div className="sticky top-5 rounded-[1.75rem] border border-pine/10 bg-white p-4 shadow-soft">
+          <div className="sticky top-5 rounded-[1.75rem] border border-pine/10 bg-white p-4 shadow-soft transition-colors dark:border-white/10 dark:bg-[#101c18]">
             <Link
               href="/"
-              className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-pine/5"
+              className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-pine/5 dark:hover:bg-white/5"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pine text-white">
                 <GraduationCap size={23} aria-hidden />
               </span>
               <span>
-                <span className="block text-base font-bold text-ink">Scholars Republic</span>
+                <span className="block text-base font-bold text-ink dark:text-white">Scholars Republic</span>
                 <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-pine/70">
                   Let&apos;s grow together
                 </span>
@@ -428,21 +455,22 @@ export function DashboardShell({
               ) : null}
             </nav>
 
-            <div className="mt-5 border-t border-pine/10 pt-4">
+            <div className="mt-5 space-y-3 border-t border-pine/10 pt-4 dark:border-white/10">
+              <ThemeToggle />
               <LogoutPanel />
             </div>
           </div>
         </aside>
 
         <main className="min-w-0">
-          <div className="mb-4 rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-sm lg:hidden">
+          <div className="mb-4 rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-sm transition-colors dark:border-white/10 dark:bg-[#101c18] lg:hidden">
             <div className="flex items-center justify-between gap-3">
               <Link href="/" className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-pine text-white">
                   <GraduationCap size={21} aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold text-ink">
+                  <span className="block truncate text-sm font-bold text-ink dark:text-white">
                     Scholars Republic
                   </span>
                   <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-pine/70">
@@ -453,7 +481,7 @@ export function DashboardShell({
 
               <button
                 type="button"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pine/10 bg-white text-ink shadow-sm transition hover:bg-mint"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pine/10 bg-white text-ink shadow-sm transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
                 aria-label={mobileOpen ? "Close dashboard menu" : "Open dashboard menu"}
                 aria-expanded={mobileOpen}
                 onClick={() => setMobileOpen((value) => !value)}
@@ -472,7 +500,7 @@ export function DashboardShell({
           </div>
 
           {!hideHeader ? (
-            <section className="mb-5 rounded-[1.75rem] border border-pine/10 bg-white p-5 shadow-soft md:p-7">
+            <section className="mb-5 rounded-[1.75rem] border border-pine/10 bg-white p-5 shadow-soft transition-colors dark:border-white/10 dark:bg-[#101c18] md:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-pine">
                 {mode === "admin" ? "Admin dashboard" : "Student dashboard"}
               </p>
