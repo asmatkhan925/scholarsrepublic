@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   ArrowRight,
+  Bell,
   BookmarkCheck,
   CalendarDays,
   ClipboardCheck,
@@ -52,7 +53,15 @@ const PRIORITY_OPTIONS: { value: ApplicationPriority; label: string }[] = [
   { value: "high", label: "High" },
 ];
 
-type QuickFilter = "all" | "due_soon" | "overdue" | "high_priority" | "missing_sop" | "sop_ready";
+type QuickFilter =
+  | "all"
+  | "due_soon"
+  | "overdue"
+  | "high_priority"
+  | "missing_sop"
+  | "sop_ready"
+  | "reminder_today"
+  | "no_next_step";
 
 const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -61,6 +70,8 @@ const QUICK_FILTER_OPTIONS: { value: QuickFilter; label: string }[] = [
   { value: "high_priority", label: "High priority" },
   { value: "missing_sop", label: "Missing SOP" },
   { value: "sop_ready", label: "SOP ready" },
+  { value: "reminder_today", label: "Reminders" },
+  { value: "no_next_step", label: "No next step" },
 ];
 
 const DEFAULT_APPLICATION_CHECKLIST: ChecklistItem[] = [
@@ -272,6 +283,14 @@ function applicationMatchesQuickFilter(
 
   if (quickFilter === "sop_ready") {
     return Boolean(application.latest_sop_draft);
+  }
+
+  if (quickFilter === "reminder_today") {
+    return getDaysUntil(application.reminder_at) === 0;
+  }
+
+  if (quickFilter === "no_next_step") {
+    return !application.next_step.trim();
   }
 
   return true;
@@ -901,6 +920,100 @@ function ApplicationsSummaryHeader({
   );
 }
 
+function TrackerAlertsPanel({
+  overdue,
+  dueSoon,
+  remindersToday,
+  missingNextStep,
+  onSelectQuickFilter,
+}: {
+  overdue: number;
+  dueSoon: number;
+  remindersToday: number;
+  missingNextStep: number;
+  onSelectQuickFilter: (filter: QuickFilter) => void;
+}) {
+  const alerts = [
+    {
+      label: "Overdue",
+      value: overdue,
+      helper: "deadlines passed",
+      filter: "overdue" as QuickFilter,
+    },
+    {
+      label: "Due soon",
+      value: dueSoon,
+      helper: "within 7 days",
+      filter: "due_soon" as QuickFilter,
+    },
+    {
+      label: "Reminders today",
+      value: remindersToday,
+      helper: "follow up today",
+      filter: "reminder_today" as QuickFilter,
+    },
+    {
+      label: "Need next step",
+      value: missingNextStep,
+      helper: "action missing",
+      filter: "no_next_step" as QuickFilter,
+    },
+  ];
+
+  if (alerts.every((alert) => alert.value === 0)) {
+    return (
+      <section className="rounded-2xl border border-pine/10 bg-white p-3 shadow-soft">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+            <Bell size={16} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-sm font-bold text-ink">Today looks clear</p>
+            <p className="text-xs leading-5 text-ink/55">
+              No overdue deadlines, reminders, or missing next steps in the current list.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-2xl border border-pine/10 bg-white p-3 shadow-soft">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-saffron/15 text-pine">
+          <Bell size={15} aria-hidden="true" />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-ink">Today&apos;s action alerts</p>
+          <p className="text-xs text-ink/50">Use these shortcuts to focus on urgent applications.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {alerts.map((alert) => (
+          <button
+            key={alert.label}
+            type="button"
+            onClick={() => onSelectQuickFilter(alert.filter)}
+            className={`rounded-2xl border px-3 py-2 text-left transition ${
+              alert.value > 0
+                ? "border-saffron/25 bg-saffron/10 hover:border-pine/30 hover:bg-pine/5"
+                : "border-ink/10 bg-cream/30 opacity-70"
+            }`}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/40">
+              {alert.label}
+            </p>
+            <p className="mt-1 text-xl font-bold text-ink">{alert.value}</p>
+            <p className="text-xs text-ink/50">{alert.helper}</p>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ApplicationTrackerContent() {
   const [applications, setApplications] = useState<OpportunityApplicationResponse | null>(null);
   const [summary, setSummary] = useState<ApplicationSummary | null>(null);
@@ -992,6 +1105,23 @@ function ApplicationTrackerContent() {
   }
 
   const applicationItems = applications?.results ?? [];
+  const trackerAlerts = {
+    overdue: applicationItems.filter(
+      (application) =>
+        getDaysUntil(application.personal_deadline || application.opportunity_detail.deadline) !==
+          null &&
+        getDaysUntil(application.personal_deadline || application.opportunity_detail.deadline)! < 0,
+    ).length,
+    dueSoon: applicationItems.filter((application) => {
+      const daysUntilDeadline = getDaysUntil(
+        application.personal_deadline || application.opportunity_detail.deadline,
+      );
+      return daysUntilDeadline !== null && daysUntilDeadline >= 0 && daysUntilDeadline <= 7;
+    }).length,
+    remindersToday: applicationItems.filter((application) => getDaysUntil(application.reminder_at) === 0)
+      .length,
+    missingNextStep: applicationItems.filter((application) => !application.next_step.trim()).length,
+  };
   const visibleApplicationItems = applicationItems.filter((application) =>
     applicationMatchesQuickFilter(application, quickFilter),
   );
@@ -1026,6 +1156,16 @@ function ApplicationTrackerContent() {
           total={summary?.total ?? 0}
           waiting={counts?.result_waiting ?? 0}
         />
+
+        {!loading && !error && applicationItems.length > 0 ? (
+          <TrackerAlertsPanel
+            dueSoon={trackerAlerts.dueSoon}
+            missingNextStep={trackerAlerts.missingNextStep}
+            onSelectQuickFilter={setQuickFilter}
+            overdue={trackerAlerts.overdue}
+            remindersToday={trackerAlerts.remindersToday}
+          />
+        ) : null}
 
         <section className="rounded-2xl border border-pine/10 bg-white p-3 shadow-soft">
           <div className="flex flex-wrap items-center gap-2">
