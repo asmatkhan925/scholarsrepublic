@@ -1,10 +1,7 @@
 import Link from "next/link";
 
-import {
-  SiteHeader } from "@/components/site-header";
+import { SiteHeader } from "@/components/site-header";
 import type { ReactNode } from "react";
-import { GraduationCap,
-} from "lucide-react";
 
 export const metadata = {
   title: "How to Write a Good SOP for Scholarships | Scholars Republic",
