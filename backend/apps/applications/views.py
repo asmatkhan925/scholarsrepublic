@@ -101,10 +101,16 @@ class OpportunityApplicationListCreateView(generics.ListCreateAPIView):
                 | Q(opportunity__provider_name__icontains=search)
                 | Q(opportunity__university_name__icontains=search)
                 | Q(opportunity__company_name__icontains=search)
-                | Q(opportunity__country__icontains=search)
+                | Q(opportunity__country_ref__name__icontains=search)
+                | Q(opportunity__eligible_country_refs__name__icontains=search)
+                | Q(opportunity__eligible_region_refs__name__icontains=search)
+                | Q(opportunity__study_field_refs__name__icontains=search)
+                | Q(opportunity__city__icontains=search)
+                | Q(opportunity__short_description__icontains=search)
+                | Q(opportunity__search_keywords__icontains=search)
                 | Q(notes__icontains=search)
                 | Q(next_step__icontains=search)
-            )
+            ).distinct()
 
         allowed_ordering = {
             "personal_deadline",
