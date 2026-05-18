@@ -867,67 +867,67 @@ function ApplicationCard({
 
           {expanded ? (
             <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_18rem]">
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-1 text-xs font-semibold text-ink">
-                  Status
-                  <select
-                    value={statusValue}
-                    onChange={(event) => setStatusValue(event.target.value as ApplicationStatus)}
-                    className="h-9 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                  >
-                    {STATUS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="grid gap-3">
+                <div className="flex w-full flex-nowrap items-end gap-2 overflow-x-auto rounded-2xl border border-pine/10 bg-cream/25 p-2">
+                  <label className="grid w-36 shrink-0 gap-1 text-xs font-semibold text-ink">
+                    Status
+                    <select
+                      value={statusValue}
+                      onChange={(event) => setStatusValue(event.target.value as ApplicationStatus)}
+                      className="h-9 w-full rounded-lg border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    >
+                      {STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <label className="grid gap-1 text-xs font-semibold text-ink">
-                  Priority
-                  <select
-                    value={priority}
-                    onChange={(event) => setPriority(event.target.value as ApplicationPriority)}
-                    className="h-9 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                  >
-                    {PRIORITY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className="grid w-32 shrink-0 gap-1 text-xs font-semibold text-ink">
+                    Priority
+                    <select
+                      value={priority}
+                      onChange={(event) => setPriority(event.target.value as ApplicationPriority)}
+                      className="h-9 w-full rounded-lg border border-pine/15 bg-white px-2 text-xs text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                    >
+                      {PRIORITY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <div className="grid gap-2 md:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
                   <label
                     htmlFor={`next-step-${application.id}`}
-                    className="flex items-center gap-2 text-sm font-semibold text-ink"
+                    className="grid min-w-[22rem] flex-1 gap-1 text-xs font-semibold text-ink"
                   >
-                    Next step
-                    {statusGuidance ? (
-                      <span className="group relative inline-flex cursor-help items-center rounded-full border border-saffron/25 bg-saffron/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink/45">
-                        Tip
-                        <span className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-72 rounded-xl border border-saffron/25 bg-white p-2 text-xs font-medium normal-case leading-5 tracking-normal text-ink/70 shadow-soft group-hover:block">
-                          {statusGuidance}
+                    <span className="flex items-center gap-2">
+                      Next step
+                      {statusGuidance ? (
+                        <span className="group relative inline-flex cursor-help items-center rounded-full border border-saffron/25 bg-saffron/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink/45">
+                          Tip
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-72 rounded-xl border border-saffron/25 bg-white p-2 text-xs font-medium normal-case leading-5 tracking-normal text-ink/70 shadow-soft group-hover:block">
+                            {statusGuidance}
+                          </span>
                         </span>
-                      </span>
-                    ) : null}
-                  </label>
-                  <div>
+                      ) : null}
+                    </span>
                     <input
                       id={`next-step-${application.id}`}
                       list={`next-step-suggestions-${application.id}`}
                       value={nextStep}
                       onChange={(event) => setNextStep(event.target.value)}
-                      className="h-9 w-full rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
-                      placeholder="Write or choose a suggested next step..."
+                      className="h-9 w-full rounded-lg border border-pine/15 bg-white px-2.5 text-xs text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                      placeholder="Write or choose suggested next step..."
                     />
                     <datalist id={`next-step-suggestions-${application.id}`}>
                       {nextStepSuggestions.map((suggestion) => (
                         <option key={suggestion} value={suggestion} />
                       ))}
                     </datalist>
-                  </div>
+                  </label>
                 </div>
 
                 <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
