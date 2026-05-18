@@ -10,11 +10,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#16211f",
-        pine: "#0f513f",
-        mint: "#dff7ec",
-        saffron: "#f5b544",
-        skyglass: "#edf7fb",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        pine: "rgb(var(--color-pine) / <alpha-value>)",
+        mint: "rgb(var(--color-mint) / <alpha-value>)",
+        saffron: "rgb(var(--color-saffron) / <alpha-value>)",
+        skyglass: "rgb(var(--color-skyglass) / <alpha-value>)",
+        cream: "rgb(var(--color-cream) / <alpha-value>)",
       },
       boxShadow: {
         soft: "0 16px 40px rgba(22, 33, 31, 0.08)",

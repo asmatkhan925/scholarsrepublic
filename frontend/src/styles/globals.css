@@ -3,13 +3,29 @@
 @tailwind utilities;
 
 :root {
-  color: #16211f;
-  background: #f7faf8;
+  --color-ink: 22 33 31;
+  --color-pine: 15 81 63;
+  --color-mint: 223 247 236;
+  --color-saffron: 245 181 68;
+  --color-skyglass: 237 247 251;
+  --color-cream: 247 250 248;
+  --color-surface: 255 255 255;
+
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-cream));
   color-scheme: light;
 }
 
 :root.dark {
-  color: #edf7f3;
+  --color-ink: 237 247 243;
+  --color-pine: 86 210 169;
+  --color-mint: 20 72 58;
+  --color-saffron: 245 181 68;
+  --color-skyglass: 16 35 42;
+  --color-cream: 12 24 20;
+  --color-surface: 16 28 24;
+
+  color: rgb(var(--color-ink));
   background: #08110f;
   color-scheme: dark;
 }
@@ -21,20 +37,64 @@
 body {
   margin: 0;
   background:
-    linear-gradient(180deg, rgba(237, 247, 251, 0.7), rgba(247, 250, 248, 0) 360px), #f7faf8;
-  color: #16211f;
+    linear-gradient(180deg, rgba(237, 247, 251, 0.7), rgba(247, 250, 248, 0) 360px),
+    rgb(var(--color-cream));
+  color: rgb(var(--color-ink));
   font-family: Arial, Helvetica, sans-serif;
 }
 
 .dark body {
   background:
-    radial-gradient(circle at top left, rgba(20, 83, 66, 0.28), transparent 360px),
+    radial-gradient(circle at top left, rgba(86, 210, 169, 0.18), transparent 360px),
     linear-gradient(180deg, rgba(12, 26, 22, 0.94), rgba(8, 17, 15, 1) 420px),
     #08110f;
-  color: #edf7f3;
+  color: rgb(var(--color-ink));
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Dark-theme compatibility for older light utility classes already used across the dashboard. */
+.dark .bg-white {
+  background-color: rgb(var(--color-surface));
+}
+
+.dark .bg-white\/90 {
+  background-color: rgb(var(--color-surface) / 0.9);
+}
+
+.dark .bg-white\/80 {
+  background-color: rgb(var(--color-surface) / 0.8);
+}
+
+.dark .bg-white\/70 {
+  background-color: rgb(var(--color-surface) / 0.7);
+}
+
+.dark .bg-\[\#f7faf8\] {
+  background-color: rgb(var(--color-cream));
+}
+
+.dark .shadow-soft {
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  color: rgb(var(--color-ink));
+  background-color: rgb(255 255 255 / 0.05);
+  border-color: rgb(255 255 255 / 0.12);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(237 247 243 / 0.38);
+}
+
+.dark option {
+  color: #edf7f3;
+  background-color: #101c18;
 }
