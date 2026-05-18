@@ -898,12 +898,20 @@ function ApplicationCard({
                   </select>
                 </label>
 
-                <div className="grid gap-1.5 md:col-span-2 sm:grid-cols-[6.5rem_1fr] sm:items-center">
+                <div className="grid gap-2 md:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
                   <label
                     htmlFor={`next-step-${application.id}`}
-                    className="text-xs font-bold uppercase tracking-[0.12em] text-ink/40"
+                    className="flex items-center gap-2 text-sm font-semibold text-ink"
                   >
                     Next step
+                    {statusGuidance ? (
+                      <span className="group relative inline-flex cursor-help items-center rounded-full border border-saffron/25 bg-saffron/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink/45">
+                        Tip
+                        <span className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-72 rounded-xl border border-saffron/25 bg-white p-2 text-xs font-medium normal-case leading-5 tracking-normal text-ink/70 shadow-soft group-hover:block">
+                          {statusGuidance}
+                        </span>
+                      </span>
+                    ) : null}
                   </label>
                   <div>
                     <input
@@ -921,12 +929,6 @@ function ApplicationCard({
                     </datalist>
                   </div>
                 </div>
-
-                {statusGuidance ? (
-                  <div className="rounded-2xl border border-saffron/25 bg-saffron/10 px-4 py-3 text-sm leading-6 text-ink/70 md:col-span-2">
-                    <strong className="text-ink">Suggested next action:</strong> {statusGuidance}
-                  </div>
-                ) : null}
 
                 <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
                   Application notes
