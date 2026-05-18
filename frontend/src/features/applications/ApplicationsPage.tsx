@@ -7,6 +7,7 @@ import {
   BookmarkCheck,
   CalendarDays,
   ClipboardCheck,
+  FileText,
   Search,
   Trash2,
 } from "lucide-react";
@@ -176,6 +177,7 @@ function ApplicationCard({
   const activeDeadline = application.personal_deadline || opportunity.deadline;
   const degreeTags = opportunity.degree_levels.slice(0, 2);
   const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
+  const latestSopDraft = application.latest_sop_draft;
 
   async function handleSave() {
     setSaving(true);
@@ -324,6 +326,51 @@ function ApplicationCard({
                   placeholder="Links, document notes, professor replies..."
                 />
               </label>
+
+              <div className="mt-4 rounded-2xl border border-pine/10 bg-cream/50 p-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-pine">
+                    <FileText size={16} aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink/35">
+                      SOP draft
+                    </p>
+                    {latestSopDraft ? (
+                      <>
+                        <p className="mt-1 truncate text-sm font-bold text-ink">
+                          {latestSopDraft.title}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-ink/55">
+                          Latest draft saved. Review it before submission.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-1 text-sm font-bold text-ink">No SOP draft yet</p>
+                        <p className="mt-1 text-xs leading-5 text-ink/55">
+                          Create a draft for this scholarship from the SOP tool.
+                        </p>
+                      </>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {latestSopDraft ? (
+                        <ButtonLink
+                          href="/dashboard/ai/sop/history"
+                          size="sm"
+                          variant="outline"
+                        >
+                          Open SOP history
+                        </ButtonLink>
+                      ) : null}
+                      <ButtonLink href="/dashboard/ai/sop" size="sm" variant="outline">
+                        Create SOP
+                      </ButtonLink>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="mt-4 grid gap-2">
                 <Button className="w-full" disabled={saving} onClick={handleSave} size="sm">
