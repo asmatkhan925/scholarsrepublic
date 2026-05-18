@@ -268,15 +268,15 @@ export function HomePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-7 sm:px-5 md:px-8 md:py-9">
-        <div className="flex flex-col gap-3 rounded-[1.75rem] border border-pine/10 bg-white/85 p-5 shadow-soft md:flex-row md:items-end md:justify-between md:p-6">
+        <div className="flex flex-col gap-3 rounded-[1.75rem] border border-pine/10 bg-white/85 p-5 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:flex-row md:items-end md:justify-between md:p-6">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-pine">
               Scholarship help center
             </p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
               Prepare smarter before you apply
             </h2>
-            <p className="mt-2 text-sm leading-6 text-ink/65">
+            <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
               Use practical guides for SOP writing, CV structure, application planning, professor
               emails, and common scholarship requirements.
             </p>
@@ -289,11 +289,14 @@ export function HomePage() {
 
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           {guideLinks.map((guide) => (
-            <Card key={guide.href} className="transition hover:-translate-y-1 hover:shadow-lg">
+            <Card
+              key={guide.href}
+              className="transition hover:-translate-y-1 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]"
+            >
               <CardContent className="p-5">
                 <Badge tone="sky">Guide</Badge>
-                <h2 className="mt-3 text-base font-bold text-ink">{guide.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-ink/65">{guide.description}</p>
+                <h2 className="mt-3 text-base font-bold text-ink dark:text-white">{guide.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">{guide.description}</p>
                 <ButtonLink href={guide.href} className="mt-4" variant="ghost">
                   Read guide
                   <ArrowRight size={16} aria-hidden="true" />
