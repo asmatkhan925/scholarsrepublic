@@ -36,6 +36,17 @@ CHOICE_ALIASES = {
     },
 }
 
+COUNTRY_ALIASES = {
+    "united_states": ("United States", "United States of America", "USA", "US"),
+    "united_states_of_america": ("United States of America", "United States", "USA", "US"),
+    "usa": ("United States of America", "United States", "USA", "US"),
+    "us": ("United States of America", "United States", "USA", "US"),
+    "u_s": ("United States of America", "United States", "USA", "US"),
+    "u_s_a": ("United States of America", "United States", "USA", "US"),
+    "uk": ("United Kingdom", "UK", "Great Britain", "Britain"),
+    "u_k": ("United Kingdom", "UK", "Great Britain", "Britain"),
+}
+
 STUDY_FIELD_ALIASES = {
     "engineering": (
         "Engineering",
@@ -429,10 +440,43 @@ def resolve_study_field(name):
 
 
 def resolve_country(name):
+    name = clean_text(name)
+
     if not name:
         return None
 
-    return Country.objects.filter(is_active=True, name__iexact=name).first()
+    candidates = [name]
+    candidates.extend(COUNTRY_ALIASES.get(normalize_key(name), ()))
+
+    seen = set()
+    for candidate in candidates:
+        candidate = clean_text(candidate)
+        key = candidate.casefold()
+
+        if not candidate or key in seen:
+            continue
+
+        seen.add(key)
+
+        country = Country.objects.filter(is_active=True, name__iexact=candidate).first()
+        if country:
+            return country
+
+        country = Country.objects.filter(is_active=True, slug=slugify(candidate)).first()
+        if country:
+            return country
+
+        if len(candidate) == 2:
+            country = Country.objects.filter(is_active=True, iso2__iexact=candidate).first()
+            if country:
+                return country
+
+        if len(candidate) == 3:
+            country = Country.objects.filter(is_active=True, iso3__iexact=candidate).first()
+            if country:
+                return country
+
+    return None
 
 
 def resolve_pathway(value):
