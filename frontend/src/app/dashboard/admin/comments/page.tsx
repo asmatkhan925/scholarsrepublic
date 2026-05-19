@@ -40,13 +40,21 @@ function formatDate(value: string) {
 
 function getCommentPreview(comment: AdminOpportunityComment) {
   if (comment.is_deleted && !comment.body) {
-    return "This comment has already been deleted.";
+    return "This comment was deleted before deleted-comment text preservation was enabled.";
   }
 
   return comment.body || "No comment body.";
 }
 
 function getModerationStatus(comment: AdminOpportunityComment) {
+  if (
+    comment.moderation_status === "pending" ||
+    comment.moderation_status === "active" ||
+    comment.moderation_status === "deleted"
+  ) {
+    return comment.moderation_status;
+  }
+
   if (!comment.is_deleted) {
     return "active";
   }

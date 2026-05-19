@@ -586,6 +586,11 @@ class OpportunityDraft(models.Model):
 
 
 class OpportunityComment(models.Model):
+    class ModerationStatus(models.TextChoices):
+        PENDING = "pending", "Pending review"
+        ACTIVE = "active", "Active"
+        DELETED = "deleted", "Deleted"
+
     opportunity = models.ForeignKey(
         "opportunities.Opportunity",
         on_delete=models.CASCADE,
@@ -604,6 +609,12 @@ class OpportunityComment(models.Model):
         related_name="replies",
     )
     body = models.TextField(max_length=2000)
+    moderation_status = models.CharField(
+        max_length=20,
+        choices=ModerationStatus.choices,
+        default=ModerationStatus.PENDING,
+        db_index=True,
+    )
     is_deleted = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -615,6 +626,7 @@ class OpportunityComment(models.Model):
             models.Index(fields=["user", "created_at"]),
             models.Index(fields=["parent", "created_at"]),
             models.Index(fields=["is_deleted"]),
+            models.Index(fields=["moderation_status"]),
         ]
 
     def __str__(self) -> str:
@@ -638,5 +650,5 @@ class OpportunityComment(models.Model):
 
     def soft_delete(self):
         self.is_deleted = True
-        self.body = ""
-        self.save(update_fields=["is_deleted", "body", "updated_at"])
+        self.moderation_status = self.ModerationStatus.DELETED
+        self.save(update_fields=["is_deleted", "moderation_status", "updated_at"])

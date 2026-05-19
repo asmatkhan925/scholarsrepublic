@@ -151,6 +151,7 @@ export type ScholarshipCommentReply = {
   user_name: string;
   user_role: string;
   body: string;
+  moderation_status: "pending" | "active" | "deleted";
   is_deleted: boolean;
   can_delete: boolean;
   created_at: string;
@@ -188,6 +189,7 @@ export type AdminOpportunityComment = {
   user_email: string;
   user_role: string;
   body: string;
+  moderation_status: "pending" | "active" | "deleted";
   is_deleted: boolean;
   replies_count: number;
   created_at: string;

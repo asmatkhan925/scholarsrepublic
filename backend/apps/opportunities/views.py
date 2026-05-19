@@ -834,6 +834,7 @@ class ScholarshipCommentListCreateView(APIView):
             opportunity=opportunity,
             user=request.user,
             body=serializer.validated_data["body"],
+            moderation_status=OpportunityComment.ModerationStatus.PENDING,
             is_deleted=True,
         )
 
@@ -875,6 +876,7 @@ class ScholarshipCommentReplyCreateView(APIView):
             user=request.user,
             parent=parent,
             body=serializer.validated_data["body"],
+            moderation_status=OpportunityComment.ModerationStatus.PENDING,
             is_deleted=True,
         )
 
@@ -896,12 +898,13 @@ class AdminOpportunityCommentListView(generics.ListAPIView):
         )
 
         moderation_status = self.request.query_params.get("status")
-        if moderation_status == "active":
-            queryset = queryset.filter(is_deleted=False)
-        elif moderation_status == "pending":
-            queryset = queryset.filter(is_deleted=True).exclude(body="")
-        elif moderation_status == "deleted":
-            queryset = queryset.filter(is_deleted=True, body="")
+        if moderation_status in {
+            OpportunityComment.ModerationStatus.PENDING,
+            OpportunityComment.ModerationStatus.ACTIVE,
+            OpportunityComment.ModerationStatus.DELETED,
+        }:
+            queryset = queryset.filter(moderation_status=moderation_status)
+
 
         comment_type = self.request.query_params.get("type")
         if comment_type == "top_level":
@@ -936,22 +939,24 @@ class AdminOpportunityCommentModerateView(APIView):
         if action == "approve":
             if not comment.body:
                 return Response(
-                    {"detail": "Deleted comments cannot be approved because the body was removed."},
+                    {"detail": "Deleted comments without body cannot be approved."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            comment.moderation_status = OpportunityComment.ModerationStatus.ACTIVE
             comment.is_deleted = False
-            comment.save(update_fields=["is_deleted", "updated_at"])
+            comment.save(update_fields=["moderation_status", "is_deleted", "updated_at"])
 
         elif action == "hide":
             if not comment.body:
                 return Response(
-                    {"detail": "Deleted comments are already hidden."},
+                    {"detail": "Deleted comments without body are already hidden."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            comment.moderation_status = OpportunityComment.ModerationStatus.PENDING
             comment.is_deleted = True
-            comment.save(update_fields=["is_deleted", "updated_at"])
+            comment.save(update_fields=["moderation_status", "is_deleted", "updated_at"])
 
         elif action == "delete":
             comment.soft_delete()

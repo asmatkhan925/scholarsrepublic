@@ -659,6 +659,7 @@ class AdminOpportunityCommentSerializer(serializers.ModelSerializer):
             "user_email",
             "user_role",
             "body",
+            "moderation_status",
             "is_deleted",
             "replies_count",
             "created_at",
