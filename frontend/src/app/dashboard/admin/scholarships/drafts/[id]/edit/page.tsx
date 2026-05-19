@@ -72,35 +72,16 @@ function normalizeDraftPayload(parsed: Record<string, unknown>) {
   };
 }
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Not imported";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value));
-}
-
 function humanize(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function getStatusTone(status: OpportunityDraft["status"]): "mint" | "saffron" | "danger" | "neutral" | "sky" {
-  if (status === "validated") {
-    return "mint";
-  }
-
-  if (status === "imported") {
-    return "sky";
-  }
-
-  if (status === "error") {
-    return "danger";
-  }
-
+function getStatusTone(
+  status: OpportunityDraft["status"],
+): "mint" | "saffron" | "danger" | "neutral" | "sky" {
+  if (status === "validated") return "mint";
+  if (status === "imported") return "sky";
+  if (status === "error") return "danger";
   return "saffron";
 }
 
@@ -117,12 +98,6 @@ function DraftStatusPanel({ draft }: { draft: OpportunityDraft }) {
           {draft.validation_warnings.length > 0 ? (
             <Badge tone="saffron">{draft.validation_warnings.length} warning(s)</Badge>
           ) : null}
-        </div>
-
-        <div className="grid gap-1.5 text-xs font-semibold text-ink/50 dark:text-white/45">
-          <p>Source: {draft.source_name || "Not detected"}</p>
-          <p>Updated: {formatDate(draft.updated_at)}</p>
-          <p>Imported: {formatDate(draft.imported_at)}</p>
         </div>
 
         {draft.validation_errors.length > 0 ? (
@@ -244,7 +219,11 @@ function AdminDraftEditContent() {
       setDraft(validated);
       setTitle(validated.title);
       setJsonText(JSON.stringify(validated.raw_payload, null, 2));
-      setMessage(validated.status === "validated" ? "Draft saved and validated." : "Draft saved, but validation found issues.");
+      setMessage(
+        validated.status === "validated"
+          ? "Draft saved and validated."
+          : "Draft saved, but validation found issues.",
+      );
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -295,7 +274,7 @@ function AdminDraftEditContent() {
                 </h1>
 
                 <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Fix GPT JSON here, then validate and import as a real scholarship draft.
+                  Fix missing country, fields, source, deadline, and JSON issues here.
                 </p>
               </div>
 
@@ -321,7 +300,7 @@ function AdminDraftEditContent() {
 
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
               <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
-                This page edits the imported GPT draft only. It will not appear in Scholarship Manager until you import it as a scholarship draft.
+                This edits the imported GPT draft only. It will not appear in Scholarship Manager until imported as a scholarship draft.
               </div>
             </div>
           </div>
@@ -366,7 +345,6 @@ function AdminDraftEditContent() {
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
-                    placeholder="Imported scholarship draft title"
                   />
                 </label>
 
