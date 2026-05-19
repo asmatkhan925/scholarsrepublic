@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
   ArrowRight,
   BookOpenCheck,
@@ -20,6 +22,8 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui";
+import { getAdminOverview, type AdminOverviewResponse } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 
 type AdminAction = {
   title: string;
@@ -131,6 +135,35 @@ const supportActions: AdminAction[] = [
   },
 ];
 
+function MiniStat({
+  label,
+  value,
+  tone = "normal",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "normal" | "warning" | "danger";
+}) {
+  return (
+    <div
+      className={`rounded-xl border px-2.5 py-2 ${
+        tone === "danger"
+          ? "border-red-200 bg-red-50 dark:border-red-400/25 dark:bg-red-500/10"
+          : tone === "warning"
+            ? "border-saffron/30 bg-saffron/10 dark:border-saffron/25 dark:bg-saffron/10"
+            : "border-pine/10 bg-white dark:border-white/10 dark:bg-white/5"
+      }`}
+    >
+      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+        {label}
+      </p>
+      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function ActionCard({ item }: { item: AdminAction }) {
   const Icon = item.icon;
   const primary = item.tone === "primary";
@@ -199,6 +232,33 @@ function WorkflowCard({ step }: { step: WorkflowStep }) {
 
 function AdminDashboardContent() {
   const { user } = useAuth();
+  const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadOverview() {
+      try {
+        const data = await getAdminOverview();
+
+        if (active) {
+          setOverview(data);
+          setOverviewError(null);
+        }
+      } catch (requestError) {
+        if (active) {
+          setOverviewError(getErrorMessage(requestError));
+        }
+      }
+    }
+
+    void loadOverview();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <DashboardShell
@@ -247,37 +307,29 @@ function AdminDashboardContent() {
 
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
               <div className="grid grid-cols-2 gap-1.5">
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Main flow
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    4 steps
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Source rule
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    Official
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-2.5 py-2 dark:border-saffron/25 dark:bg-saffron/10">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/45 dark:text-white/45">
-                    Publish
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    Manual
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 text-xs leading-5 text-ink/60 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
-                  Verify before students see it.
-                </div>
+                <MiniStat
+                  label="Pending comments"
+                  value={overview?.comments.pending ?? "..."}
+                  tone={(overview?.comments.pending ?? 0) > 0 ? "warning" : "normal"}
+                />
+                <MiniStat
+                  label="New drafts"
+                  value={overview?.drafts.new ?? "..."}
+                  tone={(overview?.drafts.new ?? 0) > 0 ? "warning" : "normal"}
+                />
+                <MiniStat label="Published" value={overview?.scholarships.published ?? "..."} />
+                <MiniStat
+                  label="Unverified"
+                  value={overview?.scholarships.unverified ?? "..."}
+                  tone={(overview?.scholarships.unverified ?? 0) > 0 ? "warning" : "normal"}
+                />
               </div>
+
+              {overviewError ? (
+                <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
+                  {overviewError}
+                </p>
+              ) : null}
             </div>
           </div>
         </section>

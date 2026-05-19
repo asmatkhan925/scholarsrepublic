@@ -73,6 +73,37 @@ export const api = axios.create({
   },
 });
 
+export type AdminOverviewResponse = {
+  scholarships: {
+    total: number;
+    draft: number;
+    published: number;
+    archived: number;
+    featured: number;
+    unverified: number;
+    expiring_soon: number;
+  };
+  drafts: {
+    total: number;
+    new: number;
+    validated: number;
+    imported: number;
+    error: number;
+  };
+  comments: {
+    pending: number;
+    active: number;
+    deleted: number;
+  };
+  students: {
+    total: number;
+  };
+  applications: {
+    total: number;
+    saved: number;
+  };
+};
+
 export type HealthResponse = {
   status: "ok";
   message: string;
@@ -227,6 +258,11 @@ export async function getScholarshipPicker(params?: ScholarshipPickerQueryParams
 
 export async function getScholarship(slug: string) {
   const response = await api.get<OpportunityDetail>(`/scholarships/${slug}/`);
+  return response.data;
+}
+
+export async function getAdminOverview() {
+  const response = await api.get<AdminOverviewResponse>("/admin/overview/");
   return response.data;
 }
 

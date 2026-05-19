@@ -7,6 +7,7 @@ from apps.applications.views import (
     ScholarshipStartApplicationView,
 )
 from apps.opportunities.views import (
+    AdminOverviewView,
     AdminOpportunityCommentListView,
     AdminOpportunityCommentModerateView,
     AdminOpportunityDetailView,
@@ -113,6 +114,11 @@ urlpatterns = [
         "scholarships/<slug:slug>/",
         PublicScholarshipDetailView.as_view(),
         name="scholarship-detail",
+    ),
+    path(
+        "admin/overview/",
+        AdminOverviewView.as_view(),
+        name="admin-overview",
     ),
     path(
         "admin/comments/",

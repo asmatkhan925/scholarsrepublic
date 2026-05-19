@@ -1,4 +1,6 @@
+from datetime import timedelta
 from django.db.models import Count, F, Prefetch, Q
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -103,6 +105,65 @@ class IsStudentUser(permissions.BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.role == User.Role.STUDENT
+        )
+
+
+class AdminOverviewView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def get(self, request):
+        today = timezone.localdate()
+        soon = today + timedelta(days=30)
+
+        scholarships = Opportunity.objects.filter(
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP
+        )
+        drafts = OpportunityDraft.objects.all()
+        comments = OpportunityComment.objects.all()
+
+        return Response(
+            {
+                "scholarships": {
+                    "total": scholarships.count(),
+                    "draft": scholarships.filter(status=Opportunity.Status.DRAFT).count(),
+                    "published": scholarships.filter(status=Opportunity.Status.PUBLISHED).count(),
+                    "archived": scholarships.filter(status=Opportunity.Status.ARCHIVED).count(),
+                    "featured": scholarships.filter(featured=True).count(),
+                    "unverified": scholarships.filter(verified_status=False).count(),
+                    "expiring_soon": scholarships.filter(
+                        status=Opportunity.Status.PUBLISHED,
+                        is_rolling_deadline=False,
+                        deadline__isnull=False,
+                        deadline__gte=today,
+                        deadline__lte=soon,
+                    ).count(),
+                },
+                "drafts": {
+                    "total": drafts.count(),
+                    "new": drafts.filter(status=OpportunityDraft.Status.NEW).count(),
+                    "validated": drafts.filter(status=OpportunityDraft.Status.VALIDATED).count(),
+                    "imported": drafts.filter(status=OpportunityDraft.Status.IMPORTED).count(),
+                    "error": drafts.filter(status=OpportunityDraft.Status.ERROR).count(),
+                },
+                "comments": {
+                    "pending": comments.filter(
+                        moderation_status=OpportunityComment.ModerationStatus.PENDING
+                    ).count(),
+                    "active": comments.filter(
+                        moderation_status=OpportunityComment.ModerationStatus.ACTIVE
+                    ).count(),
+                    "deleted": comments.filter(
+                        moderation_status=OpportunityComment.ModerationStatus.DELETED
+                    ).count(),
+                },
+                "students": {
+                    "total": User.objects.filter(role=User.Role.STUDENT).count(),
+                },
+                "applications": {
+                    "total": OpportunityApplication.objects.count(),
+                    "saved": SavedOpportunity.objects.count(),
+                },
+            }
         )
 
 
