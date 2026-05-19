@@ -681,12 +681,19 @@ function StudyFieldSelect({
   const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
   const isKnownField = Object.values(fieldCategories).flat().includes(value);
   const isCustom = Boolean(value && !isKnownField);
+  const showCustomField = selectedField === "Other" || isCustom;
 
   return (
-    <div className="grid min-w-0 gap-2 md:col-span-2 xl:col-span-2">
+    <div className="grid min-w-0 gap-1.5 md:col-span-2 xl:col-span-4">
       <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
-      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(9rem,13rem)_minmax(14rem,1fr)]">
+      <div
+        className={
+          showCustomField
+            ? "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(15rem,1fr)_minmax(16rem,1fr)]"
+            : "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(20rem,1fr)]"
+        }
+      >
         <select
           value={category}
           onChange={(event) => {
@@ -725,21 +732,20 @@ function StudyFieldSelect({
           ))}
           <option value="Other">Other / write my own</option>
         </select>
-      </div>
 
-      {selectedField === "Other" || isCustom ? (
-        <div className="rounded-xl border border-pine/10 bg-white/70 p-2 dark:border-white/10 dark:bg-white/5">
-          <TextField
-            label="Write field of study"
-            placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
+        {showCustomField ? (
+          <input
+            aria-label="Write field of study"
             value={customField || value}
-            onChange={(nextValue) => {
-              setCustomField(nextValue);
-              onChange(nextValue);
+            onChange={(event) => {
+              setCustomField(event.target.value);
+              onChange(event.target.value);
             }}
+            placeholder="Write your field"
+            className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
           />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -761,6 +767,7 @@ function StudyFieldMultiPicker({
   const [customField, setCustomField] = useState("");
 
   const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
+  const showCustomField = field === "Other";
 
   function addField(fieldName: string) {
     const cleaned = fieldName.trim();
@@ -779,10 +786,16 @@ function StudyFieldMultiPicker({
   }
 
   return (
-    <div className="grid min-w-0 gap-2">
+    <div className="grid min-w-0 gap-1.5">
       <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
-      <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(10rem,13rem)_minmax(18rem,1fr)_auto]">
+      <div
+        className={
+          showCustomField
+            ? "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(15rem,1fr)_minmax(16rem,1fr)_auto]"
+            : "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(20rem,1fr)_auto]"
+        }
+      >
         <select
           value={category}
           onChange={(event) => {
@@ -813,35 +826,25 @@ function StudyFieldMultiPicker({
           <option value="Other">Other / write my own</option>
         </select>
 
-        {field !== "Other" ? (
-          <Button type="button" onClick={() => addField(field)} disabled={!field} variant="outline">
-            Add
-          </Button>
+        {showCustomField ? (
+          <input
+            aria-label="Write custom target field"
+            value={customField}
+            onChange={(event) => setCustomField(event.target.value)}
+            placeholder="Write custom field"
+            className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
+          />
         ) : null}
-      </div>
 
-      {field === "Other" ? (
-        <div className="rounded-xl border border-pine/10 bg-white/70 p-2 dark:border-white/10 dark:bg-white/5">
-          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-            <TextField
-              label="Write custom field"
-              placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
-              value={customField}
-              onChange={setCustomField}
-            />
-            <div className="flex items-end">
-              <Button
-                type="button"
-                onClick={() => addField(customField)}
-                disabled={!customField.trim()}
-                variant="outline"
-              >
-                Add
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+        <Button
+          type="button"
+          onClick={() => addField(showCustomField ? customField : field)}
+          disabled={showCustomField ? !customField.trim() : !field}
+          variant="outline"
+        >
+          Add
+        </Button>
+      </div>
 
       {values.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 pt-1">
@@ -1343,7 +1346,7 @@ function ProfilePageContent() {
       <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
           <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_28rem] xl:items-center">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_36rem] xl:items-center">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
                   Student profile
@@ -1357,9 +1360,9 @@ function ProfilePageContent() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-pine/10 bg-white/90 p-3 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
-                <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-stretch">
-                  <div className="rounded-xl border border-pine/10 bg-mint/45 p-2.5 dark:border-white/10 dark:bg-pine/10">
+              <div className="rounded-2xl border border-pine/10 bg-white/90 p-2.5 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
+                <div className="grid gap-1.5 lg:grid-cols-[10rem_1fr] lg:items-stretch">
+                  <div className="rounded-xl border border-pine/10 bg-mint/45 px-2.5 py-2 dark:border-white/10 dark:bg-pine/10">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
                         Readiness
@@ -1369,59 +1372,60 @@ function ProfilePageContent() {
                       </Badge>
                     </div>
 
-                    <p className="mt-1 text-2xl font-black text-pine">
-                      {completion.scholarship_readiness_score}
-                      <span className="text-sm font-bold text-ink/45 dark:text-white/45">/100</span>
-                    </p>
+                    <div className="mt-1 flex items-end justify-between gap-2">
+                      <p className="text-2xl font-black leading-none text-pine">
+                        {completion.scholarship_readiness_score}
+                        <span className="text-sm font-bold text-ink/45 dark:text-white/45">/100</span>
+                      </p>
+                      <span className="text-[11px] font-semibold text-ink/50 dark:text-white/45">
+                        {completion.completion_percentage}%
+                      </span>
+                    </div>
 
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white dark:bg-white/10">
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white dark:bg-white/10">
                       <div
                         className="h-full rounded-full bg-pine"
                         style={{ width: `${completion.completion_percentage}%` }}
                       />
                     </div>
-
-                    <p className="mt-1 text-[11px] font-semibold text-ink/50 dark:text-white/45">
-                      {completion.completion_percentage}% complete
-                    </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
-                        Completion
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                        Complete
                       </p>
-                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
                         {completion.completion_percentage}%
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
-                        Documents
+                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                        Docs
                       </p>
-                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
                         {preparedDocumentCount}
-                        <span className="text-xs font-bold text-ink/40 dark:text-white/40">
+                        <span className="text-[11px] font-bold text-ink/40 dark:text-white/40">
                           /{DOCUMENT_OPTIONS.length}
                         </span>
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
+                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
                         Targets
                       </p>
-                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
                         {form.target_countries.length}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
+                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
                         Fields
                       </p>
-                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
                         {form.target_fields.length}
                       </p>
                     </div>
