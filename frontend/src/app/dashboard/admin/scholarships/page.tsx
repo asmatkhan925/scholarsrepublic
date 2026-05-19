@@ -28,6 +28,7 @@ import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityListItem, OpportunityStatus } from "@/types/opportunity";
 
 type VerifiedFilter = "all" | "verified" | "unverified";
+type ManagerView = "needs_publishing" | "unverified" | "published" | "drafts" | "archived" | "all";
 
 function humanize(value: string) {
   if (!value) {
@@ -133,6 +134,72 @@ function MiniStat({
         {value}
       </p>
     </div>
+  );
+}
+
+function getManagerView(
+  statusFilter: "all" | OpportunityStatus,
+  verifiedFilter: VerifiedFilter,
+): ManagerView {
+  if (statusFilter === "draft" && verifiedFilter === "unverified") {
+    return "needs_publishing";
+  }
+
+  if (statusFilter === "all" && verifiedFilter === "unverified") {
+    return "unverified";
+  }
+
+  if (statusFilter === "published" && verifiedFilter === "all") {
+    return "published";
+  }
+
+  if (statusFilter === "draft" && verifiedFilter === "all") {
+    return "drafts";
+  }
+
+  if (statusFilter === "archived" && verifiedFilter === "all") {
+    return "archived";
+  }
+
+  if (statusFilter === "all" && verifiedFilter === "all") {
+    return "all";
+  }
+
+  return "all";
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+  count,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  count?: string | number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition ${
+        active
+          ? "border-pine bg-pine text-white shadow-sm"
+          : "border-pine/15 bg-white text-pine hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+      }`}
+    >
+      {label}
+      {count !== undefined ? (
+        <span
+          className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+            active ? "bg-white/20 text-white" : "bg-pine/10 text-pine"
+          }`}
+        >
+          {count}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -324,8 +391,45 @@ function AdminScholarshipManagerContent() {
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("all");
-  const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("draft");
+  const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>("unverified");
+
+  const activeManagerView = getManagerView(statusFilter, verifiedFilter);
+
+  function applyManagerView(view: ManagerView) {
+    if (view === "needs_publishing") {
+      setStatusFilter("draft");
+      setVerifiedFilter("unverified");
+      return;
+    }
+
+    if (view === "unverified") {
+      setStatusFilter("all");
+      setVerifiedFilter("unverified");
+      return;
+    }
+
+    if (view === "published") {
+      setStatusFilter("published");
+      setVerifiedFilter("all");
+      return;
+    }
+
+    if (view === "drafts") {
+      setStatusFilter("draft");
+      setVerifiedFilter("all");
+      return;
+    }
+
+    if (view === "archived") {
+      setStatusFilter("archived");
+      setVerifiedFilter("all");
+      return;
+    }
+
+    setStatusFilter("all");
+    setVerifiedFilter("all");
+  }
 
   async function loadOverview() {
     try {
@@ -395,7 +499,7 @@ function AdminScholarshipManagerContent() {
     <DashboardShell
       mode="admin"
       title="Scholarship Manager"
-      description="Manage draft, published, archived, featured, and verified scholarships."
+      description="Manage imported scholarship records that need publishing, verification, editing, or archiving."
       hideHeader
     >
       <div className="space-y-4">
@@ -416,7 +520,7 @@ function AdminScholarshipManagerContent() {
                 </h1>
 
                 <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Manage real scholarship records after GPT drafts are imported.
+                  Default view shows draft + unverified scholarships that need admin action.
                 </p>
               </div>
 
@@ -458,7 +562,47 @@ function AdminScholarshipManagerContent() {
           </div>
 
           <div className="border-t border-pine/10 bg-mint/25 px-3 py-2 text-sm font-semibold leading-6 text-pine dark:border-white/10 dark:bg-pine/10">
-            Scholarship Manager shows real scholarship records only. GPT/imported drafts stay in the Draft Review Queue until you click “Import as scholarship draft.”
+            Scholarship Manager shows real scholarship records only. Review Queue keeps imported items until they pass validation and become real scholarship drafts.
+          </div>
+
+          <div className="border-t border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div className="flex flex-wrap gap-2">
+              <FilterChip
+                label="Needs publishing"
+                active={activeManagerView === "needs_publishing"}
+                onClick={() => applyManagerView("needs_publishing")}
+              />
+              <FilterChip
+                label="Unverified"
+                active={activeManagerView === "unverified"}
+                onClick={() => applyManagerView("unverified")}
+                count={overview?.scholarships.unverified}
+              />
+              <FilterChip
+                label="Published"
+                active={activeManagerView === "published"}
+                onClick={() => applyManagerView("published")}
+                count={overview?.scholarships.published}
+              />
+              <FilterChip
+                label="Drafts"
+                active={activeManagerView === "drafts"}
+                onClick={() => applyManagerView("drafts")}
+                count={overview?.scholarships.draft}
+              />
+              <FilterChip
+                label="Archived"
+                active={activeManagerView === "archived"}
+                onClick={() => applyManagerView("archived")}
+                count={overview?.scholarships.archived}
+              />
+              <FilterChip
+                label="All"
+                active={activeManagerView === "all"}
+                onClick={() => applyManagerView("all")}
+                count={overview?.scholarships.total}
+              />
+            </div>
           </div>
 
           <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_12rem_12rem_auto]">
