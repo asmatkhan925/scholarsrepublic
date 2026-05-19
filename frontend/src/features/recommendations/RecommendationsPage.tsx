@@ -202,11 +202,17 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
                 <ArrowRight size={15} aria-hidden="true" />
               </ButtonLink>
 
-              <SaveOpportunityButton opportunityType="scholarship" slug={opportunity.slug} />
+              <SaveOpportunityButton
+                opportunityType="scholarship"
+                slug={opportunity.slug}
+                initiallySaved={Boolean(opportunity.is_saved)}
+              />
 
               <StartApplicationButton
                 opportunitySlug={opportunity.slug}
+                savedOpportunityId={opportunity.saved_opportunity_id ?? undefined}
                 opportunityType="scholarship"
+                initiallyTracked={Boolean(opportunity.is_tracking)}
               />
             </div>
 

@@ -178,7 +178,12 @@ export type CreateScholarshipCommentPayload = {
 };
 
 export type RecommendedOpportunity = {
-  opportunity: OpportunityListItem;
+  opportunity: OpportunityListItem & {
+    is_saved?: boolean;
+    saved_opportunity_id?: number | null;
+    is_tracking?: boolean;
+    application_id?: number | null;
+  };
   match: OpportunityMatch;
 };
 

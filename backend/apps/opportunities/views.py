@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
-from apps.applications.models import SavedOpportunity
+from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityPathway
 from apps.opportunities.serializers import (
@@ -401,18 +401,64 @@ class ScholarshipMatchView(OpportunityMatchView):
 class RecommendedOpportunitiesView(OpportunityFilterMixin, StudentMatchMixin, APIView):
     limit = 20
 
+    def get_user_state_maps(self, request, opportunity_ids):
+        saved_by_opportunity = dict(
+            SavedOpportunity.objects.filter(
+                user=request.user,
+                opportunity_id__in=opportunity_ids,
+            ).values_list("opportunity_id", "id")
+        )
+        applications_by_opportunity = dict(
+            OpportunityApplication.objects.filter(
+                user=request.user,
+                opportunity_id__in=opportunity_ids,
+            ).values_list("opportunity_id", "id")
+        )
+
+        return saved_by_opportunity, applications_by_opportunity
+
+    def serialize_recommended_opportunity(
+        self,
+        request,
+        opportunity,
+        saved_by_opportunity,
+        applications_by_opportunity,
+    ):
+        data = OpportunityListSerializer(opportunity, context={"request": request}).data
+        saved_id = saved_by_opportunity.get(opportunity.id)
+        application_id = applications_by_opportunity.get(opportunity.id)
+
+        data["is_saved"] = saved_id is not None
+        data["saved_opportunity_id"] = saved_id
+        data["is_tracking"] = application_id is not None
+        data["application_id"] = application_id
+
+        return data
+
     def get(self, request):
         profile = self.get_profile(request)
         if not profile:
             return self.profile_missing_response()
 
         queryset = self.filter_queryset(self.get_published_queryset())
+        opportunities = list(queryset[:100])
+        opportunity_ids = [opportunity.id for opportunity in opportunities]
+        saved_by_opportunity, applications_by_opportunity = self.get_user_state_maps(
+            request,
+            opportunity_ids,
+        )
+
         recommendations = []
-        for opportunity in queryset[:100]:
+        for opportunity in opportunities:
             match = calculate_opportunity_match(profile, opportunity)
             recommendations.append(
                 {
-                    "opportunity": OpportunityListSerializer(opportunity).data,
+                    "opportunity": self.serialize_recommended_opportunity(
+                        request,
+                        opportunity,
+                        saved_by_opportunity,
+                        applications_by_opportunity,
+                    ),
                     "match": match,
                 }
             )
