@@ -17,6 +17,7 @@ type NavLink = {
   href: string;
   exact?: boolean;
   activePrefixes?: string[];
+  excludePrefixes?: string[];
   badge?: string;
   disabled?: boolean;
 };
@@ -55,12 +56,27 @@ const adminLinks: NavLink[] = [
   { label: "Workbench", href: "/dashboard/admin", exact: true },
   { label: "Import", href: "/dashboard/admin/scholarships/import" },
   { label: "Drafts", href: "/dashboard/admin/scholarships/drafts" },
-  { label: "Manager", href: "/dashboard/admin/scholarships" },
+  {
+    label: "Manager",
+    href: "/dashboard/admin/scholarships",
+    excludePrefixes: [
+      "/dashboard/admin/scholarships/import",
+      "/dashboard/admin/scholarships/drafts",
+    ],
+  },
   { label: "Comments", href: "/dashboard/admin/comments" },
   { label: "Django Admin", href: "/admin" },
 ];
 
 function isActiveLink(pathname: string, item: NavLink) {
+  if (
+    item.excludePrefixes?.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    )
+  ) {
+    return false;
+  }
+
   if (item.exact) {
     return pathname === item.href;
   }
