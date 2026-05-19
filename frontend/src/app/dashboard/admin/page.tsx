@@ -52,8 +52,8 @@ const workflowSteps: WorkflowStep[] = [
   },
   {
     label: "Step 2",
-    title: "Review draft queue",
-    description: "Validate warnings, errors, missing fields, source link, funding, deadline, and eligibility.",
+    title: "Review queue",
+    description: "Fix warnings, errors, missing fields, source link, funding, deadline, and eligibility.",
     href: "/dashboard/admin/scholarships/drafts",
     icon: FileSearch,
   },
@@ -83,8 +83,8 @@ const mainActions: AdminAction[] = [
     tone: "primary",
   },
   {
-    title: "Draft review queue",
-    description: "Validate imported drafts, review warnings, and import clean drafts as scholarships.",
+    title: "Review queue",
+    description: "Fix imported items that need action. Clean items become scholarship drafts automatically.",
     href: "/dashboard/admin/scholarships/drafts",
     icon: FileSearch,
     badge: "Review",
@@ -299,7 +299,7 @@ function AdminDashboardContent() {
                   href="/dashboard/admin/scholarships/drafts"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
-                  Review drafts
+                  Review queue
                   <ExternalLink size={15} aria-hidden="true" />
                 </a>
               </div>
@@ -313,9 +313,9 @@ function AdminDashboardContent() {
                   tone={(overview?.comments.pending ?? 0) > 0 ? "warning" : "normal"}
                 />
                 <MiniStat
-                  label="New drafts"
-                  value={overview?.drafts.new ?? "..."}
-                  tone={(overview?.drafts.new ?? 0) > 0 ? "warning" : "normal"}
+                  label="Needs review"
+                  value={overview?.drafts.needs_review ?? "..."}
+                  tone={(overview?.drafts.needs_review ?? 0) > 0 ? "warning" : "normal"}
                 />
                 <MiniStat label="Published" value={overview?.scholarships.published ?? "..."} />
                 <MiniStat

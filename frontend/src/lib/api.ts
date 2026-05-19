@@ -86,6 +86,7 @@ export type AdminOverviewResponse = {
   };
   drafts: {
     total: number;
+    needs_review: number;
     new: number;
     validated: number;
     imported: number;

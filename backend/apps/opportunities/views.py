@@ -119,6 +119,9 @@ class AdminOverviewView(APIView):
             opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP
         )
         drafts = OpportunityDraft.objects.all()
+        drafts_needing_review = drafts.filter(created_opportunity__isnull=True).exclude(
+            status=OpportunityDraft.Status.IMPORTED
+        )
         comments = OpportunityComment.objects.all()
 
         return Response(
@@ -140,6 +143,7 @@ class AdminOverviewView(APIView):
                 },
                 "drafts": {
                     "total": drafts.count(),
+                    "needs_review": drafts_needing_review.count(),
                     "new": drafts.filter(status=OpportunityDraft.Status.NEW).count(),
                     "validated": drafts.filter(status=OpportunityDraft.Status.VALIDATED).count(),
                     "imported": drafts.filter(status=OpportunityDraft.Status.IMPORTED).count(),
