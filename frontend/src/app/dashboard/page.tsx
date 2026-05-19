@@ -37,8 +37,8 @@ import {
 } from "@/features/applications/application-utils";
 import { getErrorMessage } from "@/lib/errors";
 import type {
-  OpportunityApplication,
   ApplicationSummary,
+  OpportunityApplication,
   SavedOpportunity,
 } from "@/types/opportunity";
 import type { ProfileCompletion } from "@/types/profile";
@@ -52,13 +52,40 @@ type ActionCard = {
   badge?: string;
 };
 
-
 function getFirstName(fullName?: string) {
   if (!fullName) {
     return "Student";
   }
 
   return fullName.trim().split(/\s+/)[0] || "Student";
+}
+
+function getProviderName(application: OpportunityApplication) {
+  return (
+    application.opportunity_detail.provider_name ||
+    application.opportunity_detail.university_name ||
+    application.opportunity_detail.company_name ||
+    "Provider not listed"
+  );
+}
+
+function SmallStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-pine/10 bg-white/90 px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+      <p className="truncate text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+        {label}
+      </p>
+      <p className="mt-0.5 truncate text-base font-black leading-none text-ink dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function ApplicationActionCenter({
@@ -87,26 +114,30 @@ function ApplicationActionCenter({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-3 text-sm text-ink/60">Loading tracker alerts...</CardContent>
+      <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+        <CardContent className="p-3 text-sm text-ink/60 dark:text-white/60">
+          Loading tracker alerts...
+        </CardContent>
       </Card>
     );
   }
 
   if (totalTracked === 0) {
     return (
-      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-3 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
               <ClipboardCheck size={17} aria-hidden="true" />
             </span>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-                Today&apos;s application focus
+                Application focus
               </p>
-              <h2 className="mt-1 text-base font-bold text-ink">No tracked applications yet</h2>
-              <p className="mt-1 text-sm leading-6 text-ink/60">
+              <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
+                No tracked applications yet
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">
                 Start tracking scholarships so deadlines, SOP drafts, documents, and next steps stay organized.
               </p>
             </div>
@@ -129,20 +160,20 @@ function ApplicationActionCenter({
   ];
 
   return (
-    <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+    <section className="rounded-[1.35rem] border border-pine/10 bg-white p-3 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
             <ClipboardCheck size={17} aria-hidden="true" />
           </span>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-              Today&apos;s application focus
+              Application focus
             </p>
-            <h2 className="mt-1 text-base font-bold text-ink">
+            <h2 className="mt-1 text-base font-bold text-ink dark:text-white">
               {needsAttention > 0 ? "Review applications that need attention" : "Applications look organized"}
             </h2>
-            <p className="mt-1 text-sm leading-6 text-ink/60">
+            <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">
               Check urgent deadlines, SOP gaps, and weak readiness before starting new applications.
             </p>
           </div>
@@ -154,32 +185,25 @@ function ApplicationActionCenter({
         </ButtonLink>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
         {alertItems.map((item) => (
           <ButtonLink
             key={item.label}
             href={item.href}
-            className="justify-between rounded-xl border-pine/10 bg-cream/40 px-2.5 py-2 text-left text-ink hover:bg-pine/5"
+            className="justify-between rounded-xl border-pine/10 bg-cream/40 px-2.5 py-2 text-left text-ink hover:bg-pine/5 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
             size="sm"
             variant="outline"
           >
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink/40">
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink/40 dark:text-white/40">
               {item.label}
             </span>
-            <span className="text-base font-bold leading-none text-ink">{item.value}</span>
+            <span className="text-base font-bold leading-none text-ink dark:text-white">
+              {item.value}
+            </span>
           </ButtonLink>
         ))}
       </div>
     </section>
-  );
-}
-
-function getProviderName(application: OpportunityApplication) {
-  return (
-    application.opportunity_detail.provider_name ||
-    application.opportunity_detail.university_name ||
-    application.opportunity_detail.company_name ||
-    "Provider not listed"
   );
 }
 
@@ -218,22 +242,24 @@ function ContinueWorkingSection({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-4 text-sm text-ink/60">Loading recent work...</CardContent>
+      <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+        <CardContent className="p-4 text-sm text-ink/60 dark:text-white/60">
+          Loading recent work...
+        </CardContent>
       </Card>
     );
   }
 
   if (recentApplications.length === 0 && recentSaved.length === 0) {
     return (
-      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-3 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
               Continue working
             </p>
-            <h2 className="mt-1 text-lg font-bold text-ink">Nothing active yet</h2>
-            <p className="mt-1 text-sm leading-6 text-ink/60">
+            <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">Nothing active yet</h2>
+            <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">
               Save scholarships or start tracking applications to resume them from here.
             </p>
           </div>
@@ -247,13 +273,15 @@ function ContinueWorkingSection({
   }
 
   return (
-    <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+    <section className="rounded-[1.35rem] border border-pine/10 bg-white p-3 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:p-4">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
             Continue working
           </p>
-          <h2 className="mt-1 text-lg font-bold text-ink">Pick up where you left off</h2>
+          <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">
+            Pick up where you left off
+          </h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <ButtonLink href="/dashboard/applications" size="sm" variant="outline">
@@ -266,15 +294,17 @@ function ContinueWorkingSection({
       </div>
 
       {trackingError ? (
-        <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+        <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
           {trackingError}
         </div>
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-pine/10 bg-mint/20 p-3">
+        <div className="rounded-2xl border border-pine/10 bg-mint/20 p-3 dark:border-white/10 dark:bg-pine/10">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-ink">Recently updated applications</p>
+            <p className="text-sm font-bold text-ink dark:text-white">
+              Recently updated applications
+            </p>
             <Badge tone="mint">{recentApplications.length}</Badge>
           </div>
 
@@ -288,14 +318,14 @@ function ContinueWorkingSection({
                   <Link
                     key={application.id}
                     href={`/dashboard/applications?application=${application.id}`}
-                    className="group block min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm"
+                    className="group block min-w-0 overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                   >
                     <div className="flex min-w-0 items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 overflow-hidden">
-                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">
+                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine dark:text-white">
                           {application.opportunity_detail.title}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-ink/55">
+                        <p className="mt-0.5 truncate text-xs text-ink/55 dark:text-white/50">
                           {getProviderName(application)} · {application.opportunity_detail.country || "Country not listed"}
                         </p>
                         <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
@@ -308,14 +338,16 @@ function ContinueWorkingSection({
                           <Badge className="max-w-full truncate" tone={application.latest_sop_draft ? "mint" : "saffron"}>
                             {application.latest_sop_draft ? "SOP ready" : "No SOP"}
                           </Badge>
-                          <Badge className="max-w-full truncate" tone="neutral">{getDeadlineLabel(deadline)}</Badge>
+                          <Badge className="max-w-full truncate" tone="neutral">
+                            {getDeadlineLabel(deadline)}
+                          </Badge>
                         </div>
                       </div>
 
                       <ArrowRight
                         size={15}
                         aria-hidden="true"
-                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
+                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine dark:text-white/30"
                       />
                     </div>
                   </Link>
@@ -323,15 +355,15 @@ function ContinueWorkingSection({
               })}
             </div>
           ) : (
-            <p className="rounded-xl bg-white px-3 py-2 text-sm text-ink/60">
+            <p className="rounded-xl bg-white px-3 py-2 text-sm text-ink/60 dark:bg-white/5 dark:text-white/58">
               No tracked applications yet.
             </p>
           )}
         </div>
 
-        <div className="rounded-2xl border border-pine/10 bg-skyglass p-3">
+        <div className="rounded-2xl border border-pine/10 bg-skyglass p-3 dark:border-white/10 dark:bg-white/5">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-ink">Recent saved opportunities</p>
+            <p className="text-sm font-bold text-ink dark:text-white">Recent saved opportunities</p>
             <Badge tone="saffron">{recentSaved.length}</Badge>
           </div>
 
@@ -355,14 +387,14 @@ function ContinueWorkingSection({
                         window.location.href = `/scholarships/${opportunity.slug}`;
                       }
                     }}
-                    className="group min-w-0 cursor-pointer overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-pine/15"
+                    className="group min-w-0 cursor-pointer overflow-hidden rounded-xl border border-pine/10 bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-pine/5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-pine/15 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                   >
                     <div className="flex min-w-0 items-start justify-between gap-2">
                       <div className="min-w-0 flex-1 overflow-hidden">
-                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine">
+                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-ink group-hover:text-pine dark:text-white">
                           {opportunity.title}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-ink/55">
+                        <p className="mt-0.5 truncate text-xs text-ink/55 dark:text-white/50">
                           {opportunity.provider_name ||
                             opportunity.university_name ||
                             opportunity.company_name ||
@@ -374,7 +406,7 @@ function ContinueWorkingSection({
                       <ArrowRight
                         size={15}
                         aria-hidden="true"
-                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine"
+                        className="mt-1 shrink-0 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-pine dark:text-white/30"
                       />
                     </div>
 
@@ -393,9 +425,9 @@ function ContinueWorkingSection({
                       {saved.is_tracking ? <Badge tone="mint">Tracking</Badge> : null}
                     </div>
 
-                    <div className="mt-2 flex items-center justify-between gap-2 border-t border-pine/10 pt-2">
-                      <span className="truncate text-[11px] font-semibold text-ink/40">
-                        Click card for scholarship details
+                    <div className="mt-2 flex items-center justify-between gap-2 border-t border-pine/10 pt-2 dark:border-white/10">
+                      <span className="truncate text-[11px] font-semibold text-ink/40 dark:text-white/40">
+                        Click card for details
                       </span>
                       <button
                         type="button"
@@ -404,7 +436,7 @@ function ContinueWorkingSection({
                           event.stopPropagation();
                           void handleTrackSaved(saved);
                         }}
-                        className="shrink-0 rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-bold text-pine transition hover:bg-pine hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        className="shrink-0 rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-bold text-pine transition hover:bg-pine hover:text-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:hover:bg-pine"
                       >
                         {trackingSavedId === saved.id
                           ? "Opening..."
@@ -418,7 +450,7 @@ function ContinueWorkingSection({
               })}
             </div>
           ) : (
-            <p className="rounded-xl bg-white px-3 py-2 text-sm text-ink/60">
+            <p className="rounded-xl bg-white px-3 py-2 text-sm text-ink/60 dark:bg-white/5 dark:text-white/58">
               No saved opportunities yet.
             </p>
           )}
@@ -479,7 +511,9 @@ function StudentDashboardContent() {
         ]);
 
         if (mounted) {
-          setApplications(summaryData.recently_updated.length ? summaryData.recently_updated : applicationData.results);
+          setApplications(
+            summaryData.recently_updated.length ? summaryData.recently_updated : applicationData.results,
+          );
           setApplicationSummary(summaryData);
           setRecentSavedOpportunities(savedData.results);
         }
@@ -506,7 +540,6 @@ function StudentDashboardContent() {
   const readinessLevel = completion?.readiness_level ?? "Low";
   const missingFields = completion?.missing_profile_fields ?? [];
   const missingDocuments = completion?.missing_core_documents ?? [];
-
   const firstName = getFirstName(user?.full_name);
 
   const nextStep = useMemo(() => {
@@ -514,7 +547,7 @@ function StudentDashboardContent() {
       return {
         title: "Complete your profile first",
         description:
-          "Add your education, goals, target countries, field preferences, and document status so your workspace becomes more useful.",
+          "Add education, goals, target countries, field preferences, and document status.",
         href: "/dashboard/profile",
         action: "Update Profile",
         icon: UserRoundCheck,
@@ -525,8 +558,8 @@ function StudentDashboardContent() {
       return {
         title: "Prepare missing documents",
         description:
-          "Your profile is improving. Now focus on the documents that most scholarship applications commonly ask for.",
-        href: "/dashboard/profile",
+          "Your profile is improving. Now focus on the documents scholarship applications commonly ask for.",
+        href: "/dashboard/profile#profile-documents",
         action: "Review Documents",
         icon: FileText,
       };
@@ -546,7 +579,7 @@ function StudentDashboardContent() {
     return {
       title: "Move applications forward",
       description:
-        "Your profile looks ready. Save promising scholarships and use the tracker to manage each application clearly.",
+        "Your profile looks ready. Save promising scholarships and manage each application clearly.",
       href: "/dashboard/applications",
       action: "Open Tracker",
       icon: ClipboardCheck,
@@ -570,7 +603,7 @@ function StudentDashboardContent() {
     },
     {
       title: "Application tracker",
-      description: "Manage deadlines, SOP drafts, checklists, Drive links, readiness, and next actions.",
+      description: "Manage deadlines, SOP drafts, checklists, readiness, and next actions.",
       href: "/dashboard/applications",
       action: "Open Tracker",
       icon: ClipboardCheck,
@@ -589,67 +622,68 @@ function StudentDashboardContent() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft">
-        <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
-          <div>
-            <Badge tone="mint" className="mb-3">
-              <GraduationCap size={14} aria-hidden="true" />
-              Student workspace
-            </Badge>
+      <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+        <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_28rem] xl:items-center">
+            <div className="min-w-0">
+              <Badge tone="mint" className="mb-2">
+                <GraduationCap size={14} aria-hidden="true" />
+                Student workspace
+              </Badge>
 
-            <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
-              Welcome back, {firstName}.
-            </h1>
+              <h1 className="text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
+                Welcome back, {firstName}.
+              </h1>
 
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65">
-              Keep your scholarship search organized: profile, recommendations, saved opportunities,
-              SOP drafts, and tracked applications in one place.
-            </p>
+              <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
+                Manage profile, recommendations, saved scholarships, SOP drafts, and tracked applications.
+              </p>
 
-            <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-ink/55">
-              <span className="rounded-full bg-cream px-2.5 py-1">
-                Profile {completionPercent}%
-              </span>
-              <span className="rounded-full bg-cream px-2.5 py-1">
-                Readiness {readinessScore}/100
-              </span>
-              <span className="rounded-full bg-cream px-2.5 py-1">
-                Applications {applicationSummary?.total ?? applications.length}
-              </span>
-            </div>
-
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
-                Browse Scholarships
-                <ArrowRight size={15} aria-hidden="true" />
-              </ButtonLink>
-              <ButtonLink href="/dashboard/applications" className="w-full sm:w-auto" size="sm" variant="outline">
-                Open Tracker
-              </ButtonLink>
-              <ButtonLink href="/dashboard/profile" className="w-full sm:w-auto" size="sm" variant="ghost">
-                Improve Profile
-              </ButtonLink>
-            </div>
-          </div>
-
-          <div className="rounded-[1.25rem] border border-pine/10 bg-mint/35 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-                  Next best step
-                </p>
-                <h2 className="mt-1 text-lg font-bold leading-snug text-ink">{nextStep.title}</h2>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
+                  Browse Scholarships
+                  <ArrowRight size={15} aria-hidden="true" />
+                </ButtonLink>
+                <ButtonLink href="/dashboard/applications" className="w-full sm:w-auto" size="sm" variant="outline">
+                  Open Tracker
+                </ButtonLink>
+                <ButtonLink href="/dashboard/profile" className="w-full sm:w-auto" size="sm" variant="ghost">
+                  Improve Profile
+                </ButtonLink>
               </div>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pine text-white">
-                <NextStepIcon size={19} aria-hidden="true" />
-              </span>
             </div>
 
-            <p className="mt-2 text-sm leading-6 text-ink/65">{nextStep.description}</p>
+            <div className="grid gap-2">
+              <div className="rounded-2xl border border-pine/10 bg-white/90 p-2.5 shadow-sm dark:border-white/10 dark:bg-white/5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
+                      Next best step
+                    </p>
+                    <h2 className="mt-1 text-base font-bold leading-snug text-ink dark:text-white">
+                      {nextStep.title}
+                    </h2>
+                  </div>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pine text-white">
+                    <NextStepIcon size={18} aria-hidden="true" />
+                  </span>
+                </div>
 
-            <ButtonLink href={nextStep.href} className="mt-3 w-full sm:w-auto" size="sm" variant="secondary">
-              {nextStep.action}
-            </ButtonLink>
+                <p className="mt-1.5 text-sm leading-5 text-ink/65 dark:text-white/58">
+                  {nextStep.description}
+                </p>
+
+                <ButtonLink href={nextStep.href} className="mt-2 w-full sm:w-auto" size="sm" variant="secondary">
+                  {nextStep.action}
+                </ButtonLink>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                <SmallStat label="Profile" value={loadingCompletion ? "..." : `${completionPercent}%`} />
+                <SmallStat label="Readiness" value={`${readinessScore}/100`} />
+                <SmallStat label="Applications" value={applicationSummary?.total ?? applications.length} />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -661,25 +695,27 @@ function StudentDashboardContent() {
       />
 
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </div>
       ) : null}
 
-      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-soft">
+      <section className="rounded-[1.35rem] border border-pine/10 bg-white p-3 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
               Preparation overview
             </p>
-            <h2 className="mt-1 text-lg font-bold text-ink">Profile, readiness, and gaps</h2>
+            <h2 className="mt-1 text-lg font-bold text-ink dark:text-white">
+              Profile, readiness, and gaps
+            </h2>
           </div>
           <ButtonLink href="/dashboard/profile" size="sm" variant="outline">
             Update Profile
           </ButtonLink>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
           {[
             ["Profile", loadingCompletion ? "..." : `${completionPercent}%`],
             ["Readiness", `${readinessScore}/100`],
@@ -687,33 +723,25 @@ function StudentDashboardContent() {
             ["Fields", missingFields.length],
             ["Docs", missingDocuments.length],
           ].map(([label, value]) => (
-            <div
-              key={label}
-              className="min-w-0 rounded-xl border border-pine/10 bg-cream/35 px-3 py-2"
-            >
-              <p className="truncate text-[10px] font-bold uppercase tracking-[0.1em] text-ink/35">
-                {label}
-              </p>
-              <p className="mt-0.5 truncate text-base font-bold leading-tight text-ink">{value}</p>
-            </div>
+            <SmallStat key={label} label={String(label)} value={value} />
           ))}
         </div>
 
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-pine/10">
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-pine/10 dark:bg-white/10">
           <div
             className="h-full rounded-full bg-pine"
             style={{ width: `${Math.min(Math.max(readinessScore, 0), 100)}%` }}
           />
         </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <div className="rounded-2xl border border-pine/10 bg-mint/25 p-3">
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-pine/10 bg-mint/25 p-3 dark:border-white/10 dark:bg-pine/10">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <ListChecks size={16} className="text-pine" aria-hidden="true" />
-                <p className="text-sm font-bold text-ink">Profile fields</p>
+                <p className="text-sm font-bold text-ink dark:text-white">Profile fields</p>
               </div>
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/50">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/50 dark:bg-white/10 dark:text-white/50">
                 {missingFields.length}
               </span>
             </div>
@@ -723,31 +751,31 @@ function StudentDashboardContent() {
                 {missingFields.slice(0, 6).map((item) => (
                   <span
                     key={item}
-                    className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65"
+                    className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65 dark:bg-white/10 dark:text-white/65"
                   >
                     {item}
                   </span>
                 ))}
                 {missingFields.length > 6 ? (
-                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45">
+                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45 dark:bg-white/10 dark:text-white/45">
                     +{missingFields.length - 6} more
                   </span>
                 ) : null}
               </div>
             ) : (
-              <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
+              <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60 dark:bg-white/10 dark:text-white/58">
                 Key profile fields look complete.
               </p>
             )}
           </div>
 
-          <div className="rounded-2xl border border-pine/10 bg-skyglass p-3">
+          <div className="rounded-2xl border border-pine/10 bg-skyglass p-3 dark:border-white/10 dark:bg-white/5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <FileText size={16} className="text-pine" aria-hidden="true" />
-                <p className="text-sm font-bold text-ink">Core documents</p>
+                <p className="text-sm font-bold text-ink dark:text-white">Core documents</p>
               </div>
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/50">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/50 dark:bg-white/10 dark:text-white/50">
                 {missingDocuments.length}
               </span>
             </div>
@@ -757,19 +785,19 @@ function StudentDashboardContent() {
                 {missingDocuments.slice(0, 6).map((item) => (
                   <span
                     key={item}
-                    className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65"
+                    className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65 dark:bg-white/10 dark:text-white/65"
                   >
                     {item}
                   </span>
                 ))}
                 {missingDocuments.length > 6 ? (
-                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45">
+                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45 dark:bg-white/10 dark:text-white/45">
                     +{missingDocuments.length - 6} more
                   </span>
                 ) : null}
               </div>
             ) : (
-              <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60">
+              <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60 dark:bg-white/10 dark:text-white/58">
                 Core documents look ready.
               </p>
             )}
@@ -789,7 +817,7 @@ function StudentDashboardContent() {
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
               Quick links
             </p>
-            <h2 className="mt-1 text-xl font-bold text-ink">Continue working</h2>
+            <h2 className="mt-1 text-xl font-bold text-ink dark:text-white">Continue working</h2>
           </div>
           <ButtonLink href="/blog" size="sm" variant="outline">
             Scholarship Guides
@@ -801,16 +829,18 @@ function StudentDashboardContent() {
             const Icon = item.icon;
 
             return (
-              <Card key={item.href} className="transition hover:-translate-y-0.5 hover:shadow-lg">
-                <CardContent className="p-4">
+              <Card key={item.href} className="transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
+                <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
                       <Icon size={17} aria-hidden="true" />
                     </span>
                     {item.badge ? <Badge tone="saffron">{item.badge}</Badge> : null}
                   </div>
-                  <h3 className="mt-3 text-base font-bold text-ink">{item.title}</h3>
-                  <p className="mt-1 text-sm leading-5 text-ink/60">{item.description}</p>
+                  <h3 className="mt-3 text-base font-bold text-ink dark:text-white">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-5 text-ink/60 dark:text-white/58">
+                    {item.description}
+                  </p>
                   <ButtonLink href={item.href} className="mt-3" size="sm" variant="ghost">
                     {item.action}
                     <ArrowRight size={15} aria-hidden="true" />
