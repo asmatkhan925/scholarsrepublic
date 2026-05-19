@@ -9,6 +9,58 @@ from apps.opportunities.models import Opportunity, OpportunityDraft, Opportunity
 from apps.reference_data.models import Country, StudyField
 
 ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
+
+CHOICE_ALIASES = {
+    "funding_type": {
+        "full_funding": Opportunity.FundingType.FULLY_FUNDED,
+        "fully_funded": Opportunity.FundingType.FULLY_FUNDED,
+        "fully-funded": Opportunity.FundingType.FULLY_FUNDED,
+        "fully funded": Opportunity.FundingType.FULLY_FUNDED,
+        "full scholarship": Opportunity.FundingType.FULLY_FUNDED,
+        "partial_funding": Opportunity.FundingType.PARTIALLY_FUNDED,
+        "partial-funded": Opportunity.FundingType.PARTIALLY_FUNDED,
+        "partial funded": Opportunity.FundingType.PARTIALLY_FUNDED,
+        "partial": Opportunity.FundingType.PARTIALLY_FUNDED,
+        "partially funded": Opportunity.FundingType.PARTIALLY_FUNDED,
+        "partially_funded": Opportunity.FundingType.PARTIALLY_FUNDED,
+        "tuition waiver": Opportunity.FundingType.TUITION_WAIVER,
+        "tuition_waiver": Opportunity.FundingType.TUITION_WAIVER,
+        "stipend": Opportunity.FundingType.STIPEND_ONLY,
+        "stipend_only": Opportunity.FundingType.STIPEND_ONLY,
+        "need based": Opportunity.FundingType.NEED_BASED,
+        "need_based": Opportunity.FundingType.NEED_BASED,
+        "merit based": Opportunity.FundingType.MERIT_BASED,
+        "merit_based": Opportunity.FundingType.MERIT_BASED,
+        "self funded": Opportunity.FundingType.SELF_FUNDED,
+        "self_funded": Opportunity.FundingType.SELF_FUNDED,
+    },
+}
+
+STUDY_FIELD_ALIASES = {
+    "engineering": (
+        "Engineering",
+        "Engineering & Technology",
+        "Engineering and Technology",
+        "Engineering, Manufacturing and Construction",
+    ),
+    "engineering_and_technology": (
+        "Engineering & Technology",
+        "Engineering and Technology",
+        "Engineering",
+    ),
+    "computer_science": (
+        "Computer Science",
+        "Computer Science & IT",
+        "Computer Science and IT",
+        "Information Technology",
+    ),
+    "business": (
+        "Business",
+        "Business & Management",
+        "Business and Management",
+        "Management",
+    ),
+}
 REQUIRED_TEXT_FIELDS = (
     "title",
     "country",
@@ -88,10 +140,7 @@ def validate_opportunity_draft_payload(payload):
         study_fields = []
 
         for field_name in fields_of_study:
-            study_field = StudyField.objects.filter(
-                is_active=True,
-                name__iexact=field_name,
-            ).first()
+            study_field = resolve_study_field(field_name)
 
             if study_field:
                 study_fields.append(study_field)
@@ -312,6 +361,10 @@ def clean_string_list(value):
     return cleaned
 
 
+def normalize_key(value):
+    return clean_text(value).casefold().replace("-", "_").replace(" ", "_")
+
+
 def clean_choice(value, choices, default, field_name, warnings):
     value = clean_text(value)
 
@@ -323,8 +376,56 @@ def clean_choice(value, choices, default, field_name, warnings):
     if value in valid_values:
         return value
 
+    normalized_value = normalize_key(value)
+    if normalized_value in valid_values:
+        return normalized_value
+
+    aliases = CHOICE_ALIASES.get(field_name, {})
+    alias_value = aliases.get(value.casefold()) or aliases.get(normalized_value)
+
+    if alias_value in valid_values:
+        return alias_value
+
     warnings.append(f'Unknown {field_name} "{value}" changed to default.')
     return default
+
+
+def resolve_study_field(name):
+    name = clean_text(name)
+
+    if not name:
+        return None
+
+    candidates = [name]
+    candidates.extend(STUDY_FIELD_ALIASES.get(normalize_key(name), ()))
+
+    seen = set()
+    for candidate in candidates:
+        candidate = clean_text(candidate)
+        key = candidate.casefold()
+
+        if not candidate or key in seen:
+            continue
+
+        seen.add(key)
+
+        study_field = StudyField.objects.filter(is_active=True, name__iexact=candidate).first()
+        if study_field:
+            return study_field
+
+        study_field = StudyField.objects.filter(is_active=True, slug=slugify(candidate)).first()
+        if study_field:
+            return study_field
+
+    normalized_name = normalize_key(name)
+    for study_field in StudyField.objects.filter(is_active=True).only("id", "name", "aliases"):
+        aliases = study_field.aliases if isinstance(study_field.aliases, list) else []
+        searchable_values = [study_field.name, *aliases]
+
+        if any(normalize_key(value) == normalized_name for value in searchable_values):
+            return study_field
+
+    return None
 
 
 def resolve_country(name):
