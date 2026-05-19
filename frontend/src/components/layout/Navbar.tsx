@@ -55,7 +55,7 @@ const studentToolLinks: NavLink[] = [
 const adminLinks: NavLink[] = [
   { label: "Workbench", href: "/dashboard/admin", exact: true },
   { label: "Import", href: "/dashboard/admin/scholarships/import" },
-  { label: "Drafts", href: "/dashboard/admin/scholarships/drafts" },
+  { label: "Review Queue", href: "/dashboard/admin/scholarships/drafts" },
   {
     label: "Manager",
     href: "/dashboard/admin/scholarships",
