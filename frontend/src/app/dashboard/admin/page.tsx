@@ -82,7 +82,7 @@ const primaryActions: WorkbenchAction[] = [
   {
     title: "Review imported drafts",
     description: "Validate AI or imported draft data before turning it into a real scholarship record.",
-    href: "/admin/opportunities/opportunitydraft/",
+    href: "/dashboard/admin/scholarships/drafts",
     icon: FileText,
     badge: "Draft queue",
     primary: true,
@@ -303,7 +303,7 @@ PASTE_TEXT_HERE`,
                 </a>
 
                 <a
-                  href="/admin/opportunities/opportunitydraft/"
+                  href="/dashboard/admin/scholarships/drafts"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   Review drafts

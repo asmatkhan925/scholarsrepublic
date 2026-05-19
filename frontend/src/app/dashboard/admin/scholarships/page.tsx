@@ -399,7 +399,7 @@ function AdminScholarshipManagerContent() {
                 </a>
 
                 <a
-                  href="/admin/opportunities/opportunitydraft/"
+                  href="/dashboard/admin/scholarships/drafts"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   Review drafts

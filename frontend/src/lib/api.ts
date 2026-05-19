@@ -32,6 +32,10 @@ import type {
   CreateScholarshipCommentPayload,
   OpportunityAdminPayload,
   OpportunityApplication,
+  OpportunityDraft,
+  OpportunityDraftImportResponse,
+  OpportunityDraftResponse,
+  OpportunityDraftStatus,
   OpportunityApplicationResponse,
   OpportunityDetail,
   OpportunityListItem,
@@ -247,6 +251,39 @@ export async function patchAdminOpportunity(id: number, payload: Partial<Opportu
 
 export async function deleteAdminOpportunity(id: number) {
   await api.delete(`/admin/opportunities/${id}/`);
+}
+
+export type AdminOpportunityDraftQueryParams = PaginationParams & {
+  status?: OpportunityDraftStatus;
+  search?: string;
+};
+
+export async function getAdminOpportunityDrafts(params?: AdminOpportunityDraftQueryParams) {
+  const response = await api.get<OpportunityDraftResponse>("/admin/opportunity-drafts/", {
+    params,
+  });
+  return response.data;
+}
+
+export async function getAdminOpportunityDraft(id: number) {
+  const response = await api.get<OpportunityDraft>(`/admin/opportunity-drafts/${id}/`);
+  return response.data;
+}
+
+export async function validateAdminOpportunityDraft(id: number) {
+  const response = await api.post<OpportunityDraft>(`/admin/opportunity-drafts/${id}/validate/`);
+  return response.data;
+}
+
+export async function importAdminOpportunityDraft(id: number) {
+  const response = await api.post<OpportunityDraftImportResponse>(
+    `/admin/opportunity-drafts/${id}/import/`,
+  );
+  return response.data;
+}
+
+export async function deleteAdminOpportunityDraft(id: number) {
+  await api.delete(`/admin/opportunity-drafts/${id}/`);
 }
 
 export async function getOpportunityMatch(slug: string) {

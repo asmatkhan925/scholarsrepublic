@@ -8,6 +8,10 @@ from apps.applications.views import (
 )
 from apps.opportunities.views import (
     AdminOpportunityDetailView,
+    AdminOpportunityDraftDetailView,
+    AdminOpportunityDraftImportView,
+    AdminOpportunityDraftListCreateView,
+    AdminOpportunityDraftValidateView,
     AdminOpportunityListCreateView,
     OpportunityCommentDeleteView,
     OpportunityMatchView,
@@ -107,6 +111,26 @@ urlpatterns = [
         "scholarships/<slug:slug>/",
         PublicScholarshipDetailView.as_view(),
         name="scholarship-detail",
+    ),
+    path(
+        "admin/opportunity-drafts/",
+        AdminOpportunityDraftListCreateView.as_view(),
+        name="admin-opportunity-draft-list",
+    ),
+    path(
+        "admin/opportunity-drafts/<int:pk>/",
+        AdminOpportunityDraftDetailView.as_view(),
+        name="admin-opportunity-draft-detail",
+    ),
+    path(
+        "admin/opportunity-drafts/<int:pk>/validate/",
+        AdminOpportunityDraftValidateView.as_view(),
+        name="admin-opportunity-draft-validate",
+    ),
+    path(
+        "admin/opportunity-drafts/<int:pk>/import/",
+        AdminOpportunityDraftImportView.as_view(),
+        name="admin-opportunity-draft-import",
     ),
     path(
         "admin/opportunities/",

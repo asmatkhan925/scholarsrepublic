@@ -6,15 +6,20 @@ from rest_framework.views import APIView
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.matching import calculate_opportunity_match
-from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityPathway
+from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityDraft, OpportunityPathway
 from apps.opportunities.serializers import (
     OpportunityAdminSerializer,
     OpportunityCommentCreateSerializer,
+    OpportunityDraftSerializer,
     OpportunityCommentReplySerializer,
     OpportunityCommentSerializer,
     OpportunityDetailSerializer,
     OpportunityListSerializer,
     OpportunityPathwaySerializer,
+)
+from apps.opportunities.services.opportunity_draft_importer import (
+    import_opportunity_draft,
+    validate_opportunity_draft_payload,
 )
 from apps.users.models import User
 
@@ -378,6 +383,123 @@ class AdminOpportunityDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OpportunityAdminSerializer
     permission_classes = [IsPlatformAdmin]
     queryset = Opportunity.objects.all()
+
+
+class AdminOpportunityDraftListCreateView(generics.ListCreateAPIView):
+    serializer_class = OpportunityDraftSerializer
+    permission_classes = [IsPlatformAdmin]
+
+    def get_queryset(self):
+        queryset = (
+            OpportunityDraft.objects.all()
+            .select_related(
+                "created_opportunity",
+                "created_opportunity__country_ref",
+                "created_opportunity__pathway",
+                "created_by",
+            )
+            .prefetch_related(
+                "created_opportunity__eligible_country_refs",
+                "created_opportunity__eligible_region_refs",
+                "created_opportunity__study_field_refs",
+            )
+        )
+
+        draft_status = self.request.query_params.get("status")
+        if draft_status:
+            queryset = queryset.filter(status=draft_status)
+
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(source_name__icontains=search)
+                | Q(source_url__icontains=search)
+                | Q(slug__icontains=search)
+            )
+
+        return queryset.order_by("-updated_at")
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class AdminOpportunityDraftDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = OpportunityDraftSerializer
+    permission_classes = [IsPlatformAdmin]
+    queryset = OpportunityDraft.objects.all()
+
+
+class AdminOpportunityDraftValidateView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, pk):
+        try:
+            draft = OpportunityDraft.objects.get(pk=pk)
+        except OpportunityDraft.DoesNotExist:
+            return Response({"detail": "Draft not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        cleaned, warnings, errors = validate_opportunity_draft_payload(draft.raw_payload)
+        opportunity = cleaned.get("opportunity", {})
+
+        draft.confidence = cleaned.get("confidence", "")
+        draft.source_url = opportunity.get("source_url", "")
+        draft.source_name = opportunity.get("source_name", "")
+        draft.validation_warnings = warnings
+        draft.validation_errors = errors
+        draft.status = OpportunityDraft.Status.ERROR if errors else OpportunityDraft.Status.VALIDATED
+
+        if not draft.created_by_id:
+            draft.created_by = request.user
+
+        draft.save(
+            update_fields=[
+                "created_by",
+                "confidence",
+                "source_url",
+                "source_name",
+                "validation_warnings",
+                "validation_errors",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        return Response(OpportunityDraftSerializer(draft, context={"request": request}).data)
+
+
+class AdminOpportunityDraftImportView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, pk):
+        try:
+            draft = OpportunityDraft.objects.get(pk=pk)
+        except OpportunityDraft.DoesNotExist:
+            return Response({"detail": "Draft not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        opportunity = import_opportunity_draft(draft, user=request.user)
+
+        draft.refresh_from_db()
+
+        if not opportunity:
+            return Response(
+                {
+                    "detail": "Draft could not be imported. Review validation errors.",
+                    "draft": OpportunityDraftSerializer(draft, context={"request": request}).data,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "draft": OpportunityDraftSerializer(draft, context={"request": request}).data,
+                "opportunity": OpportunityListSerializer(
+                    opportunity,
+                    context={"request": request},
+                ).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class StudentMatchMixin:

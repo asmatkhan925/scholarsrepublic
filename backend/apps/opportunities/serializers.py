@@ -2,7 +2,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
-from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityPathway
+from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityDraft, OpportunityPathway
 from apps.reference_data.models import Country, Region, StudyField
 from apps.reference_data.serializers import (
     CountrySerializer,
@@ -488,6 +488,49 @@ class OpportunityAdminSerializer(serializers.ModelSerializer):
 class RecommendedOpportunitySerializer(serializers.Serializer):
     opportunity = OpportunityListSerializer(read_only=True)
     match = serializers.DictField(read_only=True)
+
+
+class OpportunityDraftSerializer(serializers.ModelSerializer):
+    created_opportunity_detail = OpportunityListSerializer(source="created_opportunity", read_only=True)
+    created_by_email = serializers.EmailField(source="created_by.email", read_only=True)
+
+    class Meta:
+        model = OpportunityDraft
+        fields = (
+            "id",
+            "title",
+            "slug",
+            "raw_payload",
+            "status",
+            "source_url",
+            "source_name",
+            "confidence",
+            "validation_warnings",
+            "validation_errors",
+            "created_opportunity",
+            "created_opportunity_detail",
+            "created_by",
+            "created_by_email",
+            "imported_at",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "slug",
+            "source_url",
+            "source_name",
+            "confidence",
+            "validation_warnings",
+            "validation_errors",
+            "created_opportunity",
+            "created_opportunity_detail",
+            "created_by",
+            "created_by_email",
+            "imported_at",
+            "created_at",
+            "updated_at",
+        )
 
 
 class OpportunityCommentReplySerializer(serializers.ModelSerializer):

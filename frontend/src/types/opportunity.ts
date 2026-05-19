@@ -350,3 +350,38 @@ export type OpportunityPathwayQueryParams = {
 export type OpportunityAdminPayload = Partial<OpportunityDetail> & {
   title: string;
 };
+
+export type OpportunityDraftStatus = "new" | "validated" | "imported" | "error";
+
+export type OpportunityDraft = {
+  id: number;
+  title: string;
+  slug: string;
+  raw_payload: Record<string, unknown>;
+  status: OpportunityDraftStatus;
+  source_url: string;
+  source_name: string;
+  confidence: string;
+  validation_warnings: string[];
+  validation_errors: string[];
+  created_opportunity: number | null;
+  created_opportunity_detail: OpportunityListItem | null;
+  created_by: number | null;
+  created_by_email: string;
+  imported_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OpportunityDraftResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: OpportunityDraft[];
+};
+
+export type OpportunityDraftImportResponse = {
+  detail?: string;
+  draft: OpportunityDraft;
+  opportunity?: OpportunityListItem;
+};
