@@ -380,9 +380,29 @@ class AdminOpportunityListCreateView(OpportunityFilterMixin, generics.ListCreate
 
 
 class AdminOpportunityDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = OpportunityAdminSerializer
     permission_classes = [IsPlatformAdmin]
-    queryset = Opportunity.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return OpportunityDetailSerializer
+
+        return OpportunityAdminSerializer
+
+    def get_queryset(self):
+        return (
+            Opportunity.objects.all()
+            .select_related(
+                "country_ref",
+                "pathway",
+                "pathway__country_ref",
+                "pathway__parent",
+            )
+            .prefetch_related(
+                "eligible_country_refs",
+                "eligible_region_refs",
+                "study_field_refs",
+            )
+        )
 
 
 class AdminOpportunityDraftListCreateView(generics.ListCreateAPIView):

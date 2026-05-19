@@ -235,6 +235,11 @@ export async function getAdminOpportunities(params?: OpportunityQueryParams & Pa
   return response.data;
 }
 
+export async function getAdminOpportunity(id: number) {
+  const response = await api.get<OpportunityDetail>(`/admin/opportunities/${id}/`);
+  return response.data;
+}
+
 export async function createAdminOpportunity(payload: OpportunityAdminPayload) {
   const response = await api.post<OpportunityDetail>("/admin/opportunities/", payload);
   return response.data;

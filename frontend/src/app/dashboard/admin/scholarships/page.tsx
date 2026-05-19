@@ -264,13 +264,13 @@ function AdminScholarshipCard({
                   </span>
                 )}
 
-                <a
-                  href={`/admin/opportunities/opportunity/${item.id}/change/`}
+                <Link
+                  href={`/dashboard/admin/scholarships/${item.id}/edit`}
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-xs font-bold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   <Edit3 size={14} aria-hidden="true" />
                   Edit
-                </a>
+                </Link>
               </div>
 
               {updating ? (
