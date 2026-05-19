@@ -147,10 +147,21 @@ function ListSection({ title, items, icon }: { title: string; items: string[]; i
 
 function FactItem({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
-    <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">{label}</p>
-      <p className="mt-1 text-sm font-bold text-ink dark:text-white">{value}</p>
-      {helper ? <p className="mt-1 text-xs leading-5 text-ink/50 dark:text-white/50">{helper}</p> : null}
+    <div
+      className="rounded-xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5"
+      title={helper || undefined}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+          {label}
+        </p>
+        {helper ? (
+          <span className="shrink-0 rounded-full bg-pine/10 px-1.5 py-0.5 text-[10px] font-bold text-pine">
+            i
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-0.5 text-xs font-bold leading-5 text-ink dark:text-white">{value}</p>
     </div>
   );
 }
@@ -255,13 +266,12 @@ function MatchScoreSidebarCard({
         ) : null}
 
         {match.missing_requirements.length > 0 ? (
-          <div className="mt-4 rounded-xl border border-saffron/30 bg-saffron/15 p-2.5 dark:border-saffron/25 dark:bg-saffron/10">
-            <p className="text-xs font-bold text-ink dark:text-white">Check before applying</p>
-            <ul className="mt-2 grid gap-1 text-sm leading-6 text-ink/65 dark:text-white/60">
-              {match.missing_requirements.slice(0, 3).map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+          <div
+            className="mt-3 inline-flex cursor-help items-center gap-2 rounded-full border border-saffron/30 bg-saffron/15 px-3 py-1.5 text-xs font-semibold text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/65"
+            title={match.missing_requirements.slice(0, 3).join(" • ")}
+          >
+            <span className="h-2 w-2 rounded-full bg-saffron" aria-hidden="true" />
+            Check {match.missing_requirements.length} requirement{match.missing_requirements.length === 1 ? "" : "s"}
           </div>
         ) : null}
       </CardContent>
@@ -288,7 +298,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
           </Badge>
         </div>
 
-        <div className="mt-4 grid gap-3 text-sm leading-6 text-ink/65 dark:text-white/60">
+        <div className="mt-3 grid gap-2 text-sm leading-6 text-ink/65 dark:text-white/60">
           <div className="flex items-start gap-3">
             <Globe2 size={18} className="mt-1 shrink-0 text-pine" aria-hidden="true" />
             <div>
@@ -319,19 +329,20 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
           ) : null}
 
           {scholarship.verification_note ? (
-            <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
-              {scholarship.verification_note}
+            <p
+              className="truncate rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 text-xs font-semibold dark:border-white/10 dark:bg-white/5"
+              title={scholarship.verification_note}
+            >
+              Note: {scholarship.verification_note}
             </p>
           ) : null}
 
-          <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2">
-            Always confirm deadline and requirements on the official scholarship page before
-            applying.
-          </p>
-
           {!scholarship.verified_status ? (
-            <p className="rounded-xl border border-saffron/30 bg-saffron/15 px-3 py-2">
-              Please confirm final deadlines and requirements on the official source.
+            <p
+              className="cursor-help rounded-xl border border-saffron/30 bg-saffron/15 px-3 py-2 text-xs font-semibold dark:border-saffron/25 dark:bg-saffron/10"
+              title="Always confirm deadline, eligibility, benefits, and application instructions on the official scholarship source before applying."
+            >
+              Verify official source before applying
             </p>
           ) : null}
         </div>
@@ -355,7 +366,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
                 href={scholarship.source_url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
               >
                 Source Page
                 <ExternalLink size={15} aria-hidden="true" />
@@ -586,7 +597,7 @@ export default function ScholarshipDetailPage({
             <div className="grid gap-3">
               <section className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
                 <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-5 py-5 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-7">
-                  <div className="grid gap-3 xl:grid-cols-[1fr_21rem] xl:items-start">
+                  <div className="grid gap-3 xl:grid-cols-[1fr_22.5rem] xl:items-start">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={getDeadlineTone(scholarship)}>
@@ -727,9 +738,11 @@ export default function ScholarshipDetailPage({
                         ) : null}
                       </div>
 
-                      <p className="mt-3 text-xs leading-5 text-ink/50 dark:text-white/45">
-                        Always confirm deadline and requirements on the official scholarship page
-                        before applying.
+                      <p
+                        className="mt-2 cursor-help text-xs leading-5 text-ink/45 dark:text-white/40"
+                        title="Always confirm deadline, eligibility, benefits, and application instructions on the official scholarship source before applying."
+                      >
+                        Verify official source before applying.
                       </p>
                     </div>
                   </div>
@@ -750,7 +763,7 @@ export default function ScholarshipDetailPage({
                 </div>
               </section>
 
-              <section className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_17.5rem]">
+              <section className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="grid gap-3">
                   <DetailSection
                     title="Overview"
@@ -795,11 +808,11 @@ export default function ScholarshipDetailPage({
                   <TrustSidebarCard scholarship={scholarship} />
 
                   <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-                    <CardContent className="p-5">
-                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
+                    <CardContent className="p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
                         Key facts
                       </p>
-                      <div className="mt-4 grid gap-3">
+                      <div className="mt-2 grid gap-1.5">
                         {facts.slice(4).map((fact) => (
                           <FactItem
                             key={fact.label}
