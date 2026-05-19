@@ -15,6 +15,7 @@ import {
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { StartApplicationButton } from "@/components/applications/StartApplicationButton";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { MatchScoreBadge, MatchScoreDialog } from "@/components/opportunities/MatchScoreBadge";
 import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { Badge, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import { getRecommendedScholarships } from "@/lib/api";
@@ -41,22 +42,6 @@ function formatDate(value: string | null) {
     month: "short",
     day: "numeric",
   }).format(new Date(value));
-}
-
-function getReadinessTone(level: string): "mint" | "saffron" | "danger" | "sky" {
-  if (level === "High") {
-    return "mint";
-  }
-
-  if (level === "Medium") {
-    return "saffron";
-  }
-
-  if (level === "Low") {
-    return "danger";
-  }
-
-  return "sky";
 }
 
 function getDeadlineTone(days: number | null): "mint" | "saffron" | "danger" | "sky" {
@@ -87,39 +72,36 @@ function getDeadlineLabel(days: number | null) {
   return `${days} days left`;
 }
 
-function MatchScorePanel({ item }: { item: RecommendedOpportunity }) {
-  const score = Math.min(Math.max(item.match.score, 0), 100);
+function CompactMatchHint({
+  type,
+  count,
+  fallback,
+  title,
+}: {
+  type: "fit" | "check";
+  count: number;
+  fallback: string;
+  title: string;
+}) {
+  const Icon = type === "fit" ? ShieldCheck : TriangleAlert;
 
   return (
-    <div className="rounded-2xl border border-pine/10 bg-mint/35 p-4 dark:border-white/10 dark:bg-pine/10">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">Match score</p>
-          <p className="mt-1 text-sm font-semibold text-ink/65 dark:text-white/58">Based on your profile</p>
-        </div>
-        <Badge tone={getReadinessTone(item.match.readiness_level)}>
-          {item.match.readiness_level}
-        </Badge>
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-end justify-between gap-3">
-          <p className="text-3xl font-black tracking-tight text-pine">
-            {score}
-            <span className="text-base font-bold text-ink/45">/100</span>
-          </p>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink/35">Fit</p>
-        </div>
-
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-white/10">
-          <div className="h-full rounded-full bg-pine" style={{ width: `${score}%` }} />
-        </div>
-      </div>
-    </div>
+    <span
+      title={title || fallback}
+      className={
+        type === "fit"
+          ? "inline-flex cursor-help items-center gap-1.5 rounded-full border border-pine/15 bg-pine/5 px-2.5 py-1 text-xs font-semibold text-pine dark:border-pine/25 dark:bg-pine/10"
+          : "inline-flex cursor-help items-center gap-1.5 rounded-full border border-saffron/30 bg-saffron/15 px-2.5 py-1 text-xs font-semibold text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/65"
+      }
+    >
+      <Icon size={13} aria-hidden="true" />
+      {type === "fit" ? "Why it fits" : "Check"} {count > 0 ? `(${count})` : ""}
+    </span>
   );
 }
 
 function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { opportunity, match } = item;
   const provider =
     opportunity.university_name ||
@@ -127,36 +109,44 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
     opportunity.company_name ||
     "Provider not listed";
 
-  const degreeTags = opportunity.degree_levels.slice(0, 3);
+  const degreeTags = opportunity.degree_levels.slice(0, 2);
   const fieldTags = opportunity.fields_of_study.slice(0, 2);
   const deadlineTone = getDeadlineTone(opportunity.days_until_deadline);
+  const fitTitle =
+    match.matched_reasons.length > 0
+      ? match.matched_reasons.slice(0, 4).join(" • ")
+      : "Your profile has partial overlap with this scholarship.";
+  const checkTitle =
+    match.missing_requirements.length > 0
+      ? match.missing_requirements.slice(0, 4).join(" • ")
+      : "No major missing requirement detected from your profile.";
 
   return (
     <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-0">
-        <div className="grid gap-0 xl:grid-cols-[1fr_19rem]">
-          <div className="p-4 md:p-5">
-            <div className="flex flex-wrap items-center gap-2">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_16.5rem]">
+          <div className="p-3 md:p-4">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Badge tone={deadlineTone}>{getDeadlineLabel(opportunity.days_until_deadline)}</Badge>
               <Badge tone="neutral">{humanize(opportunity.funding_type)}</Badge>
               {opportunity.verified_status ? <Badge tone="mint">Verified</Badge> : null}
             </div>
 
-            <h2 className="mt-3 text-lg font-bold leading-snug text-ink dark:text-white md:text-xl">
+            <h2 className="mt-2 text-lg font-bold leading-snug text-ink dark:text-white md:text-xl">
               {opportunity.title}
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
+            <p className="mt-1.5 text-sm leading-5 text-ink/62 dark:text-white/58">
               {provider} · {opportunity.country || "Country not listed"}
             </p>
 
             {opportunity.short_description ? (
-              <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink/65 dark:text-white/58">
+              <p className="mt-2 line-clamp-2 text-sm leading-5 text-ink/62 dark:text-white/56">
                 {opportunity.short_description}
               </p>
             ) : null}
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {degreeTags.map((degree) => (
                 <Badge key={degree} tone="neutral">
                   {degree}
@@ -169,65 +159,39 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
               ))}
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-4 dark:border-white/10 dark:bg-white/5">
-                <div className="flex items-center gap-2 text-pine">
-                  <ShieldCheck size={16} aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-ink dark:text-white">Why it fits</h3>
-                </div>
-
-                {match.matched_reasons.length > 0 ? (
-                  <ul className="mt-3 grid gap-2">
-                    {match.matched_reasons.slice(0, 3).map((reason) => (
-                      <li key={reason} className="text-sm leading-6 text-ink/65 dark:text-white/58">
-                        {reason}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-3 text-sm leading-6 text-ink/65 dark:text-white/58">
-                    Your profile has partial overlap with this scholarship.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-saffron/30 bg-saffron/15 p-4 dark:border-saffron/25 dark:bg-saffron/10">
-                <div className="flex items-center gap-2 text-pine">
-                  <TriangleAlert size={16} aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-ink dark:text-white">Check before applying</h3>
-                </div>
-
-                {match.missing_requirements.length > 0 ? (
-                  <ul className="mt-3 grid gap-2">
-                    {match.missing_requirements.slice(0, 3).map((requirement) => (
-                      <li key={requirement} className="text-sm leading-6 text-ink/65 dark:text-white/58">
-                        {requirement}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-3 text-sm leading-6 text-ink/65">
-                    No major missing requirement detected from your profile.
-                  </p>
-                )}
-              </div>
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <CompactMatchHint
+                type="fit"
+                count={match.matched_reasons.length}
+                fallback="Your profile has partial overlap with this scholarship."
+                title={fitTitle}
+              />
+              <CompactMatchHint
+                type="check"
+                count={match.missing_requirements.length}
+                fallback="No major missing requirement detected from your profile."
+                title={checkTitle}
+              />
             </div>
 
             {match.suggestions.length > 0 ? (
-              <div className="mt-4 rounded-2xl border border-pine/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
-                <div className="flex items-center gap-2 text-pine">
-                  <Sparkles size={16} aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-ink dark:text-white">Suggested next step</h3>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">{match.suggestions[0]}</p>
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <Sparkles size={15} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
+                <p className="line-clamp-2 text-sm leading-5 text-ink/65 dark:text-white/58">
+                  {match.suggestions[0]}
+                </p>
               </div>
             ) : null}
           </div>
 
-          <div className="border-t border-pine/10 bg-white p-4 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
-            <MatchScorePanel item={item} />
+          <aside className="border-t border-pine/10 bg-white p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
+            <div className="flex flex-col gap-2">
+              <MatchScoreBadge
+                match={match}
+                onClick={() => setDialogOpen(true)}
+                className="w-full justify-center rounded-xl px-2.5 py-2 shadow-none ring-0"
+              />
 
-            <div className="mt-4 grid gap-2">
               <ButtonLink
                 href={`/scholarships/${opportunity.slug}`}
                 className="w-full"
@@ -246,12 +210,22 @@ function RecommendationCard({ item }: { item: RecommendedOpportunity }) {
               />
             </div>
 
-            <div className="mt-4 rounded-2xl bg-[#f7faf8] px-4 py-3 dark:bg-[#181b1d]">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Deadline</p>
-              <p className="mt-1 text-sm font-bold text-ink dark:text-white">{formatDate(opportunity.deadline)}</p>
+            <div className="mt-2 rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-[#181b1d]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+                Deadline
+              </p>
+              <p className="mt-0.5 text-sm font-bold text-ink dark:text-white">
+                {formatDate(opportunity.deadline)}
+              </p>
             </div>
-          </div>
+          </aside>
         </div>
+
+        <MatchScoreDialog
+          match={match}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+        />
       </CardContent>
     </Card>
   );
@@ -345,81 +319,83 @@ function RecommendationsContent() {
       hideHeader
       title="Recommendations"
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_28rem] xl:items-center">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
                   Student workspace
                 </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
+                <h1 className="mt-1.5 text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
                   Recommended scholarships
                 </h1>
-                <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 dark:text-white/60 xl:whitespace-nowrap">
-                  Focus on scholarships that match your profile, deadlines, and application
-                  readiness.
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
+                  Shortlist scholarships based on your profile, deadlines, and readiness.
                 </p>
               </div>
 
-              <ButtonLink
-                href="/dashboard/profile"
-                className="w-full sm:w-auto"
-                size="sm"
-                variant="outline"
-              >
-                Improve Profile
-              </ButtonLink>
+              <div className="grid grid-cols-4 gap-1.5">
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Matches
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {stats.total}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Strong
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {stats.strong}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Medium
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {stats.medium}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Urgent
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {stats.urgent}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Matches</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.total}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Current recommendations</p>
-            </div>
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Strong</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.strong}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">High readiness</p>
-            </div>
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Medium</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.medium}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Needs checking</p>
-            </div>
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.urgent}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Due within 14 days</p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 border-t border-pine/10 bg-[#f7faf8] p-4 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_14rem]">
-            <label className="grid gap-2 text-sm font-semibold text-ink dark:text-white">
-              Search recommendations
+          <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_12rem]">
+            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+              Search
               <div className="relative">
                 <Search
-                  size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35"
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/35"
                   aria-hidden="true"
                 />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full rounded-2xl border border-pine/15 bg-white py-3 pl-9 pr-4 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                  className="w-full rounded-xl border border-pine/15 bg-white py-2 pl-9 pr-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
                   placeholder="Search title, country, field..."
                 />
               </div>
             </label>
 
-            <label className="grid gap-2 text-sm font-semibold text-ink">
-              Match level
+            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+              Match
               <select
                 value={matchFilter}
                 onChange={(event) => setMatchFilter(event.target.value as MatchFilter)}
-                className="rounded-2xl border border-pine/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+                className="rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="all">All matches</option>
                 <option value="high">High only</option>
@@ -475,7 +451,7 @@ function RecommendationsContent() {
         ) : null}
 
         {!loading && !error && filteredRecommendations.length > 0 ? (
-          <section className="grid gap-4">
+          <section className="grid gap-3">
             {filteredRecommendations.map((item) => (
               <RecommendationCard key={item.opportunity.id} item={item} />
             ))}
@@ -484,14 +460,14 @@ function RecommendationsContent() {
 
         {!loading && !error && recommendations.length > 0 ? (
           <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-            <CardContent className="p-5">
+            <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
-                  <GraduationCap size={18} aria-hidden="true" />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
+                  <GraduationCap size={17} aria-hidden="true" />
                 </span>
                 <div>
                   <h2 className="font-bold text-ink dark:text-white">Use recommendations carefully</h2>
-                  <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">
+                  <p className="mt-1 text-sm leading-6 text-ink/65 dark:text-white/58">
                     Match scores help you shortlist faster, but always verify eligibility, official
                     rules, and deadlines on the scholarship website before applying.
                   </p>
