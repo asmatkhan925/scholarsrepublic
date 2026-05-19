@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { GraduationCap, Menu, Moon, Sparkles, Sun, X } from "lucide-react";
+import { ChevronDown, GraduationCap, Menu, Moon, Sparkles, Sun, X } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useTheme } from "@/components/theme-provider";
@@ -17,6 +17,8 @@ type NavLink = {
   href: string;
   exact?: boolean;
   activePrefixes?: string[];
+  badge?: string;
+  disabled?: boolean;
 };
 
 const publicLinks: NavLink[] = [
@@ -31,7 +33,22 @@ const studentLinks: NavLink[] = [
   { label: "Scholarships", href: "/scholarships" },
   { label: "Applications", href: "/dashboard/applications" },
   { label: "Saved", href: "/dashboard/saved" },
+  { label: "Profile", href: "/dashboard/profile" },
+];
+
+const studentToolLinks: NavLink[] = [
+  { label: "SOP Generator", href: "/dashboard/ai/sop", badge: "AI" },
+  { label: "SOP History", href: "/dashboard/ai/sop/history" },
+  { label: "Recommendations", href: "/dashboard/recommendations" },
   { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
+  { label: "CV Builder", href: "/dashboard/tools/cv", badge: "Soon", disabled: true },
+  { label: "Study Plan", href: "/dashboard/tools/study-plan", badge: "Soon", disabled: true },
+  {
+    label: "Professor Email",
+    href: "/dashboard/tools/professor-email",
+    badge: "Soon",
+    disabled: true,
+  },
 ];
 
 const adminLinks: NavLink[] = [
@@ -52,6 +69,10 @@ function isActiveLink(pathname: string, item: NavLink) {
   }
 
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+function hasActiveTool(pathname: string) {
+  return studentToolLinks.some((item) => !item.disabled && isActiveLink(pathname, item));
 }
 
 type NavbarProps = {
@@ -78,6 +99,128 @@ function NavbarThemeToggle({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function DesktopNavLink({ item }: { item: NavLink }) {
+  const pathname = usePathname();
+  const active = isActiveLink(pathname, item);
+
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "rounded-2xl px-3.5 py-2 text-sm font-semibold transition",
+        active
+          ? "bg-mint text-pine dark:bg-pine/15 dark:text-pine"
+          : "text-ink/70 hover:bg-pine/5 hover:text-ink dark:text-white/65 dark:hover:bg-white/5 dark:hover:text-white",
+      )}
+    >
+      {item.label}
+    </Link>
+  );
+}
+
+function DesktopToolsMenu() {
+  const pathname = usePathname();
+  const active = hasActiveTool(pathname);
+
+  return (
+    <details className="group relative">
+      <summary
+        className={cn(
+          "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-semibold transition [&::-webkit-details-marker]:hidden",
+          active
+            ? "bg-mint text-pine dark:bg-pine/15 dark:text-pine"
+            : "text-ink/70 hover:bg-pine/5 hover:text-ink dark:text-white/65 dark:hover:bg-white/5 dark:hover:text-white",
+        )}
+      >
+        Tools
+        <ChevronDown size={15} aria-hidden="true" className="transition group-open:rotate-180" />
+      </summary>
+
+      <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-3xl border border-pine/10 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-[#101214]">
+        <div className="grid gap-1">
+          {studentToolLinks.map((item) => {
+            const itemActive = isActiveLink(pathname, item);
+
+            if (item.disabled) {
+              return (
+                <span
+                  key={item.href}
+                  className="flex items-center justify-between rounded-2xl px-3 py-2 text-sm font-semibold text-ink/35 dark:text-white/35"
+                >
+                  <span>{item.label}</span>
+                  {item.badge ? (
+                    <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/40 dark:bg-white/10 dark:text-white/45">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </span>
+              );
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center justify-between rounded-2xl px-3 py-2 text-sm font-semibold transition",
+                  itemActive
+                    ? "bg-mint text-pine dark:bg-pine/15 dark:text-pine"
+                    : "text-ink/70 hover:bg-pine/5 hover:text-ink dark:text-white/65 dark:hover:bg-white/5 dark:hover:text-white",
+                )}
+              >
+                <span>{item.label}</span>
+                {item.badge ? (
+                  <span className="rounded-full bg-saffron px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function MobileNavLink({ item, onNavigate }: { item: NavLink; onNavigate: () => void }) {
+  const pathname = usePathname();
+  const active = isActiveLink(pathname, item);
+
+  if (item.disabled) {
+    return (
+      <span className="flex items-center justify-between rounded-2xl bg-ink/5 px-4 py-3 text-sm font-semibold text-ink/35 dark:bg-white/5 dark:text-white/35">
+        <span>{item.label}</span>
+        {item.badge ? (
+          <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/40 dark:bg-white/10 dark:text-white/45">
+            {item.badge}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition",
+        active
+          ? "bg-mint text-pine dark:bg-pine/15 dark:text-pine"
+          : "bg-ink/5 text-ink/75 hover:bg-mint dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white",
+      )}
+    >
+      <span>{item.label}</span>
+      {item.badge ? (
+        <span className="rounded-full bg-saffron px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink">
+          {item.badge}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 export function Navbar({ variant = "default" }: NavbarProps) {
   const { user, isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
@@ -96,6 +239,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
 
   const authLinks = user?.role === "admin" ? adminLinks : studentLinks;
   const navLinks = isAuthenticated ? authLinks : publicLinks;
+  const showStudentTools = isAuthenticated && user?.role === "student";
   const primaryHref = user?.role === "admin" ? "/admin" : "/dashboard";
   const primaryLabel = user?.role === "admin" ? "Admin" : "Dashboard";
 
@@ -149,24 +293,10 @@ export function Navbar({ variant = "default" }: NavbarProps) {
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
-          {navLinks.map((item) => {
-            const active = isActiveLink(pathname, item);
-
-            return (
-              <Link
-                key={`${item.label}-${item.href}`}
-                href={item.href}
-                className={cn(
-                  "rounded-2xl px-3.5 py-2 text-sm font-semibold transition",
-                  active
-                    ? "bg-mint text-pine dark:bg-pine/15 dark:text-pine"
-                    : "text-ink/70 hover:bg-pine/5 hover:text-ink dark:text-white/65 dark:hover:bg-white/5 dark:hover:text-white",
-                )}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+          {navLinks.map((item) => (
+            <DesktopNavLink key={`${item.label}-${item.href}`} item={item} />
+          ))}
+          {showStudentTools ? <DesktopToolsMenu /> : null}
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
@@ -205,25 +335,30 @@ export function Navbar({ variant = "default" }: NavbarProps) {
       {mobileOpen ? (
         <div className="border-t border-pine/10 bg-white px-5 py-4 shadow-soft dark:border-white/10 dark:bg-[#101214] md:hidden">
           <nav className="grid gap-2" aria-label="Mobile navigation">
-            {navLinks.map((item) => {
-              const active = isActiveLink(pathname, item);
+            {navLinks.map((item) => (
+              <MobileNavLink
+                key={`${item.label}-${item.href}`}
+                item={item}
+                onNavigate={() => setMobileOpen(false)}
+              />
+            ))}
 
-              return (
-                <Link
-                  key={`${item.label}-${item.href}`}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "rounded-2xl px-4 py-3 text-sm font-semibold transition",
-                    active
-                      ? "bg-mint text-pine dark:bg-pine/15 dark:text-pine"
-                      : "bg-ink/5 text-ink/75 hover:bg-mint dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+            {showStudentTools ? (
+              <div className="mt-2 rounded-3xl border border-pine/10 bg-[#f7faf8] p-2 dark:border-white/10 dark:bg-white/5">
+                <p className="px-2 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-pine">
+                  Tools
+                </p>
+                <div className="grid gap-2">
+                  {studentToolLinks.map((item) => (
+                    <MobileNavLink
+                      key={`${item.label}-${item.href}`}
+                      item={item}
+                      onNavigate={() => setMobileOpen(false)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </nav>
 
           <div className="mt-4 grid gap-2 border-t border-pine/10 pt-4 dark:border-white/10">
