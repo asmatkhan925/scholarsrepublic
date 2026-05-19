@@ -939,37 +939,81 @@ function CommaField({
   );
 }
 
+const PROFILE_SECTION_LINKS = [
+  { label: "Personal", href: "#profile-personal" },
+  { label: "Education", href: "#profile-education" },
+  { label: "Targets", href: "#profile-targets" },
+  { label: "Tests", href: "#profile-tests" },
+  { label: "Documents", href: "#profile-documents" },
+  { label: "Research", href: "#profile-research" },
+  { label: "Funding", href: "#profile-funding" },
+  { label: "Consent", href: "#profile-consent" },
+];
+
+function ProfileSectionNav() {
+  return (
+    <nav
+      aria-label="Profile sections"
+      className="sticky top-[4.75rem] z-30 overflow-x-auto rounded-2xl border border-pine/10 bg-white/95 p-1.5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-[#181b1d]/95"
+    >
+      <div className="flex min-w-max items-center gap-1">
+        <span className="hidden rounded-xl px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-pine sm:inline-flex">
+          Sections
+        </span>
+
+        {PROFILE_SECTION_LINKS.map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            className="inline-flex h-8 items-center justify-center rounded-xl px-3 text-xs font-semibold text-ink/65 transition hover:bg-mint hover:text-pine dark:text-white/62 dark:hover:bg-pine/15 dark:hover:text-pine"
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function Section({
+  id,
   title,
   description,
   icon,
   children,
 }: {
+  id?: string;
   title: string;
   description: string;
   icon: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-      <CardContent className="p-3 md:p-4">
-        <div className="mb-3 flex flex-col gap-2 border-b border-pine/10 pb-2 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
-              {icon}
-            </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <h2 className="text-base font-bold text-ink dark:text-white md:text-lg">{title}</h2>
+    <section id={id} className="scroll-mt-28">
+      <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+        <CardContent className="p-3 md:p-4">
+          <div className="mb-3 flex flex-col gap-2 border-b border-pine/10 pb-2 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
+                {icon}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <h2 className="text-base font-bold text-ink dark:text-white md:text-lg">
+                    {title}
+                  </h2>
+                </div>
+                <p className="mt-0.5 text-sm leading-5 text-ink/60 dark:text-white/58">
+                  {description}
+                </p>
               </div>
-              <p className="mt-0.5 text-sm leading-5 text-ink/60 dark:text-white/58">{description}</p>
             </div>
           </div>
-        </div>
 
-        <div>{children}</div>
-      </CardContent>
-    </Card>
+          <div>{children}</div>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
@@ -1393,6 +1437,8 @@ function ProfilePageContent() {
 
         </section>
 
+        <ProfileSectionNav />
+
         {nextProfileSteps.length > 0 ? (
           <Card className="dark:border-white/10 dark:bg-[#181b1d]">
             <CardContent className="p-3">
@@ -1428,6 +1474,7 @@ function ProfilePageContent() {
         ) : null}
 
         <Section
+          id="profile-personal"
           description="Basic contact and location details help match country-specific scholarships."
           icon={<UserRound size={20} aria-hidden="true" />}
           title="Personal details"
@@ -1470,6 +1517,7 @@ function ProfilePageContent() {
         </Section>
 
         <Section
+          id="profile-education"
           description="Education details are heavily used for scholarship eligibility and match scoring."
           icon={<GraduationCap size={20} aria-hidden="true" />}
           title="Education"
@@ -1525,6 +1573,7 @@ function ProfilePageContent() {
         </Section>
 
         <Section
+          id="profile-targets"
           description="Tell Scholars Republic what you want, so recommendations stay focused."
           icon={<Target size={20} aria-hidden="true" />}
           title="Scholarship targets"
@@ -1580,6 +1629,7 @@ function ProfilePageContent() {
         </Section>
 
         <Section
+          id="profile-tests"
           description="Language tests and proficiency certificates can unlock more scholarship options."
           icon={<Languages size={20} aria-hidden="true" />}
           title="Language and tests"
@@ -1659,6 +1709,7 @@ function ProfilePageContent() {
         </Section>
 
         <Section
+          id="profile-documents"
           description="Documents decide whether you can apply quickly when deadlines are near."
           icon={<FileText size={20} aria-hidden="true" />}
           title="Documents"
@@ -1720,6 +1771,7 @@ function ProfilePageContent() {
         </Section>
 
         <Section
+          id="profile-research"
           description="Research, skills, work, and links help for graduate and research scholarships."
           icon={<BookOpen size={20} aria-hidden="true" />}
           title="Research and experience"
@@ -1797,6 +1849,7 @@ function ProfilePageContent() {
         </Section>
 
         <Section
+          id="profile-funding"
           description="Funding needs and alerts help us prioritize practical opportunities."
           icon={<BriefcaseBusiness size={20} aria-hidden="true" />}
           title="Funding and preferences"
@@ -1835,6 +1888,7 @@ function ProfilePageContent() {
         </Section>
 
         <Section
+          id="profile-consent"
           description="Control alerts and consent for using your profile to calculate scholarship matches."
           icon={<Bell size={20} aria-hidden="true" />}
           title="Alerts and consent"
