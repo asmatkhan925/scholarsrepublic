@@ -25,6 +25,7 @@ import type {
   UpdateSOPDraftPayload,
 } from "@/types/ai";
 import type {
+  AdminOpportunityCommentResponse,
   ApplicationQueryParams,
   ApplicationSummary,
   CreateApplicationPayload,
@@ -295,6 +296,19 @@ export async function importAdminOpportunityDraft(id: number) {
 
 export async function deleteAdminOpportunityDraft(id: number) {
   await api.delete(`/admin/opportunity-drafts/${id}/`);
+}
+
+export type AdminCommentQueryParams = PaginationParams & {
+  search?: string;
+  status?: "active" | "deleted";
+  type?: "top_level" | "reply";
+};
+
+export async function getAdminOpportunityComments(params?: AdminCommentQueryParams) {
+  const response = await api.get<AdminOpportunityCommentResponse>("/admin/comments/", {
+    params,
+  });
+  return response.data;
 }
 
 export async function getOpportunityMatch(slug: string) {

@@ -119,7 +119,7 @@ const secondaryActions: WorkbenchAction[] = [
   {
     title: "Moderate comments",
     description: "Review and remove inappropriate scholarship comments or replies.",
-    href: "/admin/opportunities/opportunitycomment/",
+    href: "/dashboard/admin/comments",
     icon: MessageSquare,
   },
   {

@@ -634,6 +634,52 @@ class OpportunityCommentSerializer(serializers.ModelSerializer):
         )
 
 
+class AdminOpportunityCommentSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    user_role = serializers.CharField(source="user.role", read_only=True)
+    opportunity_title = serializers.CharField(source="opportunity.title", read_only=True)
+    opportunity_slug = serializers.CharField(source="opportunity.slug", read_only=True)
+    opportunity_status = serializers.CharField(source="opportunity.status", read_only=True)
+    parent_id = serializers.IntegerField(read_only=True)
+    replies_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OpportunityComment
+        fields = (
+            "id",
+            "opportunity",
+            "opportunity_title",
+            "opportunity_slug",
+            "opportunity_status",
+            "parent",
+            "parent_id",
+            "user",
+            "user_name",
+            "user_email",
+            "user_role",
+            "body",
+            "is_deleted",
+            "replies_count",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_user_name(self, obj):
+        if obj.is_deleted and not obj.body:
+            return "Deleted user"
+
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name or obj.user.email
+
+    def get_replies_count(self, obj):
+        if hasattr(obj, "moderation_replies_count"):
+            return obj.moderation_replies_count
+
+        return obj.replies.count()
+
+
 class OpportunityCommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = OpportunityComment

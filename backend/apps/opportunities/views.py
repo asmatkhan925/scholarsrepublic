@@ -8,6 +8,7 @@ from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityDraft, OpportunityPathway
 from apps.opportunities.serializers import (
+    AdminOpportunityCommentSerializer,
     OpportunityAdminSerializer,
     OpportunityCommentCreateSerializer,
     OpportunityDraftSerializer,
@@ -881,6 +882,42 @@ class ScholarshipCommentReplyCreateView(APIView):
             OpportunityCommentReplySerializer(reply, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class AdminOpportunityCommentListView(generics.ListAPIView):
+    serializer_class = AdminOpportunityCommentSerializer
+    permission_classes = [IsPlatformAdmin]
+
+    def get_queryset(self):
+        queryset = (
+            OpportunityComment.objects.select_related("user", "opportunity", "parent")
+            .annotate(moderation_replies_count=Count("replies"))
+            .order_by("-created_at")
+        )
+
+        moderation_status = self.request.query_params.get("status")
+        if moderation_status == "active":
+            queryset = queryset.filter(is_deleted=False)
+        elif moderation_status == "deleted":
+            queryset = queryset.filter(is_deleted=True)
+
+        comment_type = self.request.query_params.get("type")
+        if comment_type == "top_level":
+            queryset = queryset.filter(parent__isnull=True)
+        elif comment_type == "reply":
+            queryset = queryset.filter(parent__isnull=False)
+
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(body__icontains=search)
+                | Q(opportunity__title__icontains=search)
+                | Q(user__email__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+            )
+
+        return queryset
 
 
 class OpportunityCommentDeleteView(APIView):

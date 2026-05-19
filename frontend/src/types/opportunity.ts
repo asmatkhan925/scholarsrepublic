@@ -175,6 +175,32 @@ export type ScholarshipCommentResponse = {
   results: ScholarshipComment[];
 };
 
+export type AdminOpportunityComment = {
+  id: number;
+  opportunity: number;
+  opportunity_title: string;
+  opportunity_slug: string;
+  opportunity_status: string;
+  parent: number | null;
+  parent_id: number | null;
+  user: number;
+  user_name: string;
+  user_email: string;
+  user_role: string;
+  body: string;
+  is_deleted: boolean;
+  replies_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminOpportunityCommentResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: AdminOpportunityComment[];
+};
+
 export type CreateScholarshipCommentPayload = {
   body: string;
 };
