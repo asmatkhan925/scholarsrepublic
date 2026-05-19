@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MessageCircle, Reply, Send, Trash2 } from "lucide-react";
 
@@ -12,6 +13,7 @@ import {
   replyToScholarshipComment,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
+import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 import type { ScholarshipComment, ScholarshipCommentReply } from "@/types/opportunity";
 
 function formatCommentDate(value: string) {
@@ -210,6 +212,10 @@ function CommentItem({
 
 export function ScholarshipComments({ slug }: { slug: string }) {
   const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
+  const currentNextPath = getSafeNextPath(pathname);
+  const loginHref = buildAuthPath("/login", currentNextPath);
+  const registerHref = buildAuthPath("/register", currentNextPath);
   const [comments, setComments] = useState<ScholarshipComment[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
@@ -319,10 +325,10 @@ export function ScholarshipComments({ slug }: { slug: string }) {
                 </div>
               </div>
               <div className="flex flex-col gap-1.5 sm:flex-row">
-                <ButtonLink href="/login" size="sm" variant="outline">
+                <ButtonLink href={loginHref} size="sm" variant="outline">
                   Log in
                 </ButtonLink>
-                <ButtonLink href="/register" size="sm" variant="secondary">
+                <ButtonLink href={registerHref} size="sm" variant="secondary">
                   Create Profile
                 </ButtonLink>
               </div>

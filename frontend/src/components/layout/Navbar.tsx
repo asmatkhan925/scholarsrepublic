@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useTheme } from "@/components/theme-provider";
 import { Button, ButtonLink } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 
 type NavLink = {
   label: string;
@@ -82,6 +83,10 @@ export function Navbar({ variant = "default" }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const currentNextPath = getSafeNextPath(pathname);
+  const loginHref = buildAuthPath("/login", currentNextPath);
+  const registerHref = buildAuthPath("/register", currentNextPath);
 
   async function handleLogout() {
     await logout();
@@ -175,10 +180,10 @@ export function Navbar({ variant = "default" }: NavbarProps) {
             </>
           ) : (
             <>
-              <ButtonLink href="/login" variant="outline">
+              <ButtonLink href={loginHref} variant="outline">
                 Login
               </ButtonLink>
-              <ButtonLink href="/register">
+              <ButtonLink href={registerHref}>
                 <Sparkles size={16} aria-hidden="true" />
                 Create Free Profile
               </ButtonLink>
@@ -236,10 +241,10 @@ export function Navbar({ variant = "default" }: NavbarProps) {
               </>
             ) : (
               <>
-                <ButtonLink href="/login" variant="outline" onClick={() => setMobileOpen(false)}>
+                <ButtonLink href={loginHref} variant="outline" onClick={() => setMobileOpen(false)}>
                   Login
                 </ButtonLink>
-                <ButtonLink href="/register" onClick={() => setMobileOpen(false)}>
+                <ButtonLink href={registerHref} onClick={() => setMobileOpen(false)}>
                   Create Free Profile
                 </ButtonLink>
               </>

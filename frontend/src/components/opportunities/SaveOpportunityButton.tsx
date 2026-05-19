@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BookmarkCheck, BookmarkPlus, Loader2, ShieldCheck } from "lucide-react";
 
@@ -12,6 +13,7 @@ import {
   unsaveScholarshipBySlug,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
+import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 
 type SaveOpportunityButtonProps = {
   slug: string;
@@ -29,6 +31,8 @@ export function SaveOpportunityButton({
   onSavedChange,
 }: SaveOpportunityButtonProps) {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const pathname = usePathname();
+  const loginHref = buildAuthPath("/login", getSafeNextPath(pathname));
   const [saved, setSaved] = useState(initiallySaved);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +85,7 @@ export function SaveOpportunityButton({
 
   if (!isAuthenticated) {
     return (
-      <ButtonLink href="/login" className="w-full whitespace-nowrap" size="sm" variant="secondary">
+      <ButtonLink href={loginHref} className="w-full whitespace-nowrap" size="sm" variant="secondary">
         <BookmarkPlus size={15} aria-hidden="true" />
         Login to Save
       </ButtonLink>

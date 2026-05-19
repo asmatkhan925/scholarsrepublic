@@ -11,7 +11,6 @@ import {
   ExternalLink,
   FileText,
   GraduationCap,
-  Globe2,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";

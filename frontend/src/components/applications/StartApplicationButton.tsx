@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ClipboardCheck, Loader2 } from "lucide-react";
 
@@ -12,6 +12,7 @@ import {
   startApplicationFromSaved,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
+import { buildAuthPath, getSafeNextPath } from "@/lib/redirects";
 import type { OpportunityApplication, OpportunityType } from "@/types/opportunity";
 
 type StartApplicationButtonProps = {
@@ -30,7 +31,9 @@ export function StartApplicationButton({
   onStarted,
 }: StartApplicationButtonProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const loginHref = buildAuthPath("/login", getSafeNextPath(pathname));
   const [tracked, setTracked] = useState(initiallyTracked);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +84,7 @@ export function StartApplicationButton({
 
   if (!isAuthenticated) {
     return (
-      <ButtonLink href="/login" className="w-full whitespace-nowrap" size="sm" variant="outline">
+      <ButtonLink href={loginHref} className="w-full whitespace-nowrap" size="sm" variant="outline">
         <ClipboardCheck size={15} aria-hidden="true" />
         Login to Track
       </ButtonLink>
