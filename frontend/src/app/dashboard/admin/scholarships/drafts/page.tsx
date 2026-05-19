@@ -31,7 +31,7 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityDraft, OpportunityDraftStatus } from "@/types/opportunity";
 
-type DraftStatusFilter = "all" | OpportunityDraftStatus;
+type DraftStatusFilter = "needs_review" | "all" | OpportunityDraftStatus;
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -318,7 +318,7 @@ function DraftReviewCard({
 
 function DraftReviewQueueContent() {
   const [drafts, setDrafts] = useState<OpportunityDraft[]>([]);
-  const [statusFilter, setStatusFilter] = useState<DraftStatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<DraftStatusFilter>("needs_review");
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -332,11 +332,18 @@ function DraftReviewQueueContent() {
     try {
       const response = await getAdminOpportunityDrafts({
         page_size: 100,
-        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(statusFilter !== "all" && statusFilter !== "needs_review"
+          ? { status: statusFilter }
+          : {}),
         ...(search.trim() ? { search: search.trim() } : {}),
       });
 
-      setDrafts(response.results);
+      const visibleResults =
+        statusFilter === "needs_review"
+          ? response.results.filter((draft) => draft.status !== "imported")
+          : response.results;
+
+      setDrafts(visibleResults);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -360,7 +367,13 @@ function DraftReviewQueueContent() {
   );
 
   async function updateDraftInList(updated: OpportunityDraft) {
-    setDrafts((current) => current.map((draft) => (draft.id === updated.id ? updated : draft)));
+    setDrafts((current) => {
+      if (statusFilter === "needs_review" && updated.status === "imported") {
+        return current.filter((draft) => draft.id !== updated.id);
+      }
+
+      return current.map((draft) => (draft.id === updated.id ? updated : draft));
+    });
   }
 
   async function handleValidate(draft: OpportunityDraft) {
@@ -484,7 +497,7 @@ function DraftReviewQueueContent() {
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
                   <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Loaded
+                    Shown
                   </p>
                   <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
                     {stats.total}
@@ -548,6 +561,7 @@ function DraftReviewQueueContent() {
                 onChange={(event) => setStatusFilter(event.target.value as DraftStatusFilter)}
                 className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
+                <option value="needs_review">Needs review</option>
                 <option value="all">All status</option>
                 <option value="new">New</option>
                 <option value="validated">Validated</option>
@@ -600,7 +614,11 @@ function DraftReviewQueueContent() {
                 <ArrowLeft size={16} aria-hidden="true" />
               </ButtonLink>
             }
-            description="No imported drafts matched the selected search and filters."
+            description={
+              statusFilter === "needs_review"
+                ? "No drafts need review right now. Imported drafts are hidden by default."
+                : "No imported drafts matched the selected search and filters."
+            }
             icon={<FileSearch size={22} aria-hidden="true" />}
             title="No draft opportunities found"
           />
