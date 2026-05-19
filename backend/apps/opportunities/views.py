@@ -349,11 +349,29 @@ class PublicScholarshipDetailView(PublicOpportunityDetailView):
 
 
 class AdminOpportunityListCreateView(OpportunityFilterMixin, generics.ListCreateAPIView):
-    serializer_class = OpportunityAdminSerializer
     permission_classes = [IsPlatformAdmin]
 
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return OpportunityListSerializer
+
+        return OpportunityAdminSerializer
+
     def get_queryset(self):
-        return Opportunity.objects.all()
+        return (
+            Opportunity.objects.all()
+            .select_related(
+                "country_ref",
+                "pathway",
+                "pathway__country_ref",
+                "pathway__parent",
+            )
+            .prefetch_related(
+                "eligible_country_refs",
+                "eligible_region_refs",
+                "study_field_refs",
+            )
+        )
 
 
 class AdminOpportunityDetailView(generics.RetrieveUpdateDestroyAPIView):

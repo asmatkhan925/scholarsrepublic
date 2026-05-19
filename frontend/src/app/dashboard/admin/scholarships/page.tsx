@@ -49,6 +49,14 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function safeTextList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
 function getStatusTone(status: OpportunityStatus): "mint" | "saffron" | "danger" | "neutral" {
   if (status === "published") {
     return "mint";
@@ -66,15 +74,18 @@ function getStatusTone(status: OpportunityStatus): "mint" | "saffron" | "danger"
 }
 
 function getDeadlineTone(item: OpportunityListItem): "mint" | "saffron" | "danger" | "sky" {
-  if (item.is_rolling_deadline || item.days_until_deadline === null) {
+  const daysUntilDeadline =
+    typeof item.days_until_deadline === "number" ? item.days_until_deadline : null;
+
+  if (item.is_rolling_deadline || daysUntilDeadline === null) {
     return "sky";
   }
 
-  if (item.days_until_deadline < 0) {
+  if (daysUntilDeadline < 0) {
     return "danger";
   }
 
-  if (item.days_until_deadline <= 14) {
+  if (daysUntilDeadline <= 14) {
     return "saffron";
   }
 
@@ -82,15 +93,18 @@ function getDeadlineTone(item: OpportunityListItem): "mint" | "saffron" | "dange
 }
 
 function getDeadlineLabel(item: OpportunityListItem) {
-  if (item.is_rolling_deadline || item.days_until_deadline === null) {
+  const daysUntilDeadline =
+    typeof item.days_until_deadline === "number" ? item.days_until_deadline : null;
+
+  if (item.is_rolling_deadline || daysUntilDeadline === null) {
     return "Rolling";
   }
 
-  if (item.days_until_deadline < 0) {
+  if (daysUntilDeadline < 0) {
     return "Expired";
   }
 
-  return `${item.days_until_deadline} days left`;
+  return `${daysUntilDeadline} days left`;
 }
 
 function AdminScholarshipCard({
@@ -105,8 +119,8 @@ function AdminScholarshipCard({
   const provider =
     item.provider_name || item.university_name || item.company_name || "Provider not listed";
   const updating = updatingId === item.id;
-  const degreeTags = item.degree_levels.slice(0, 2);
-  const fieldTags = item.fields_of_study.slice(0, 2);
+  const degreeTags = safeTextList(item.degree_levels).slice(0, 2);
+  const fieldTags = safeTextList(item.fields_of_study).slice(0, 2);
 
   return (
     <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
