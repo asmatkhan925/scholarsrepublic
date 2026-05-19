@@ -288,10 +288,15 @@ function AdminScholarshipCard({
                     size="sm"
                     variant="primary"
                     disabled={updating}
-                    onClick={() => void onPatch(item.id, { status: "published" })}
+                    onClick={() =>
+                      void onPatch(item.id, {
+                        status: "published",
+                        verified_status: true,
+                      })
+                    }
                   >
                     <CheckCircle2 size={14} aria-hidden="true" />
-                    Publish
+                    {item.verified_status ? "Publish" : "Verify & publish"}
                   </Button>
                 )}
 
@@ -368,6 +373,12 @@ function AdminScholarshipCard({
                   Edit
                 </Link>
               </div>
+
+              {item.status !== "published" && !item.verified_status ? (
+                <p className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs font-semibold leading-5 text-ink/65 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
+                  Publishing will also mark this scholarship verified.
+                </p>
+              ) : null}
 
               {updating ? (
                 <p className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine/5 px-3 py-2 text-xs font-bold text-pine">
