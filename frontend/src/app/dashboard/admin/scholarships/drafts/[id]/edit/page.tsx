@@ -208,7 +208,7 @@ function AdminDraftEditContent() {
     }
   }
 
-  async function handleSaveAndValidate() {
+  async function handleSaveValidateAndImport() {
     setBusy(true);
     setMessage(null);
     setError(null);
@@ -216,14 +216,20 @@ function AdminDraftEditContent() {
     try {
       await saveDraft();
       const validated = await validateAdminOpportunityDraft(draftId);
+
+      if (validated.status === "validated" && validated.validation_errors.length === 0) {
+        const imported = await importAdminOpportunityDraft(draftId);
+        setDraft(imported.draft);
+        setTitle(imported.draft.title);
+        setJsonText(JSON.stringify(imported.draft.raw_payload, null, 2));
+        setMessage("Validated and imported as a real scholarship draft.");
+        return;
+      }
+
       setDraft(validated);
       setTitle(validated.title);
       setJsonText(JSON.stringify(validated.raw_payload, null, 2));
-      setMessage(
-        validated.status === "validated"
-          ? "Draft saved and validated."
-          : "Draft saved, but validation found issues.",
-      );
+      setMessage("Saved, but validation found issues. Fix the errors and try again.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -231,7 +237,7 @@ function AdminDraftEditContent() {
     }
   }
 
-  async function handleImport() {
+  async function handleImportOnly() {
     setBusy(true);
     setMessage(null);
     setError(null);
@@ -241,7 +247,7 @@ function AdminDraftEditContent() {
       setDraft(response.draft);
       setTitle(response.draft.title);
       setJsonText(JSON.stringify(response.draft.raw_payload, null, 2));
-      setMessage("Imported as a real scholarship draft. Review it before publishing.");
+      setMessage("Imported as a real scholarship draft.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -253,7 +259,7 @@ function AdminDraftEditContent() {
     <DashboardShell
       mode="admin"
       title="Edit Imported Draft"
-      description="Edit GPT/imported JSON before validating and importing it as a real scholarship draft."
+      description="Fix GPT/imported JSON before it becomes a real scholarship draft."
       hideHeader
     >
       <div className="space-y-4">
@@ -265,42 +271,49 @@ function AdminDraftEditContent() {
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-pine transition hover:text-pine/80"
               >
                 <ArrowLeft size={14} aria-hidden="true" />
-                Back to draft review queue
+                Back to review queue
               </Link>
 
-              <div className="mt-2 flex flex-col gap-2 xl:flex-row xl:items-baseline xl:gap-3">
-                <h1 className="shrink-0 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
-                  Edit imported draft
-                </h1>
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
+                Edit imported draft
+              </h1>
 
-                <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Fix missing country, fields, source, deadline, and JSON issues here.
-                </p>
-              </div>
+              <p className="mt-1 text-sm leading-6 text-ink/65 dark:text-white/60">
+                Fix missing country, source, fields, deadline, and JSON issues. A clean draft will be imported into Scholarship Manager automatically.
+              </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" onClick={() => void handleSave()} disabled={busy || loading} size="sm">
-                  {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Save size={15} aria-hidden="true" />}
-                  Save
+                <Button
+                  type="button"
+                  onClick={() => void handleSaveValidateAndImport()}
+                  disabled={busy || loading}
+                  size="sm"
+                  variant="primary"
+                >
+                  {busy ? (
+                    <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw size={15} aria-hidden="true" />
+                  )}
+                  Save, validate, and import
                 </Button>
 
-                <Button type="button" onClick={() => void handleSaveAndValidate()} disabled={busy || loading} size="sm" variant="outline">
-                  {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
-                  Save and validate
+                <Button
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={busy || loading}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Save size={15} aria-hidden="true" />
+                  Save only
                 </Button>
-
-                {canImport ? (
-                  <Button type="button" onClick={() => void handleImport()} disabled={busy} size="sm" variant="primary">
-                    {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Import size={15} aria-hidden="true" />}
-                    Import as scholarship draft
-                  </Button>
-                ) : null}
               </div>
             </div>
 
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
               <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
-                This edits the imported GPT draft only. It will not appear in Scholarship Manager until imported as a scholarship draft.
+                This page edits the imported review item. Once validation passes, it becomes a real scholarship draft in Scholarship Manager.
               </div>
             </div>
           </div>
@@ -335,7 +348,7 @@ function AdminDraftEditContent() {
                 <div className="flex items-center gap-2">
                   <FileJson size={17} className="text-pine" aria-hidden="true" />
                   <h2 className="text-lg font-bold text-ink dark:text-white">
-                    Imported draft JSON
+                    Imported JSON
                   </h2>
                 </div>
 
@@ -358,18 +371,6 @@ function AdminDraftEditContent() {
                     placeholder='{"opportunity": {...}}'
                   />
                 </label>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button type="button" onClick={() => void handleSaveAndValidate()} disabled={busy}>
-                    {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
-                    Save and validate
-                  </Button>
-
-                  <Button type="button" onClick={() => void handleSave()} disabled={busy} variant="outline">
-                    <Save size={15} aria-hidden="true" />
-                    Save only
-                  </Button>
-                </div>
               </CardContent>
             </Card>
 
@@ -382,20 +383,24 @@ function AdminDraftEditContent() {
                     Actions
                   </h2>
 
+                  <Button type="button" onClick={() => void handleSaveValidateAndImport()} disabled={busy}>
+                    {busy ? (
+                      <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Import size={15} aria-hidden="true" />
+                    )}
+                    Save, validate, and import
+                  </Button>
+
                   {canImport ? (
-                    <Button type="button" onClick={() => void handleImport()} disabled={busy}>
-                      {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Import size={15} aria-hidden="true" />}
-                      Import as scholarship draft
+                    <Button type="button" onClick={() => void handleImportOnly()} disabled={busy} variant="outline">
+                      Import now
                     </Button>
-                  ) : (
-                    <p className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs font-semibold leading-5 text-ink/65 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
-                      Save and validate first. Import becomes available only when validation passes.
-                    </p>
-                  )}
+                  ) : null}
 
                   {draft.created_opportunity ? (
                     <ButtonLink href={`/dashboard/admin/scholarships/${draft.created_opportunity}/edit`} variant="outline">
-                      Edit imported scholarship
+                      Edit in Scholarship Manager
                     </ButtonLink>
                   ) : null}
 
@@ -410,14 +415,6 @@ function AdminDraftEditContent() {
                       <ExternalLink size={14} aria-hidden="true" />
                     </a>
                   ) : null}
-
-                  <a
-                    href={`/admin/opportunities/opportunitydraft/${draft.id}/change/`}
-                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-sm font-bold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                  >
-                    Django fallback
-                    <ExternalLink size={14} aria-hidden="true" />
-                  </a>
                 </CardContent>
               </Card>
             </aside>

@@ -228,7 +228,7 @@ function DraftReviewCard({
                 ) : (
                   <RefreshCw size={14} aria-hidden="true" />
                 )}
-                Validate
+                {draft.created_opportunity ? "Revalidate" : "Validate and import"}
               </Button>
 
               <Button
@@ -369,11 +369,28 @@ function DraftReviewQueueContent() {
     setError(null);
 
     try {
-      const updated = await validateAdminOpportunityDraft(draft.id);
-      await updateDraftInList(updated);
-      setMessage(updated.status === "validated" ? "Draft validated." : "Draft has errors.");
+      const validated = await validateAdminOpportunityDraft(draft.id);
+
+      if (
+        validated.status === "validated" &&
+        validated.validation_errors.length === 0 &&
+        !validated.created_opportunity
+      ) {
+        const imported = await importAdminOpportunityDraft(draft.id);
+        await updateDraftInList(imported.draft);
+        setMessage("Validated and imported as a real scholarship draft. Open Scholarship Manager to edit or publish it.");
+        return;
+      }
+
+      await updateDraftInList(validated);
+      setMessage(
+        validated.status === "validated"
+          ? "Draft validated. You can import it now."
+          : "Validation found errors. Click Edit draft to fix them.",
+      );
     } catch (requestError) {
       setError(getErrorMessage(requestError));
+      await loadDrafts();
     } finally {
       setBusyId(null);
     }
@@ -441,7 +458,7 @@ function DraftReviewQueueContent() {
                 </h1>
 
                 <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Validate GPT/imported drafts, then import them as real scholarship drafts.
+                  Validate imported drafts. Clean drafts are automatically imported into Scholarship Manager.
                 </p>
               </div>
 
