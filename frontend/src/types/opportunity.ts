@@ -419,3 +419,8 @@ export type CreateOpportunityDraftPayload = {
   raw_payload: Record<string, unknown>;
   status?: OpportunityDraftStatus;
 };
+
+export type UpdateOpportunityDraftPayload = Partial<{
+  title: string;
+  raw_payload: Record<string, unknown>;
+}>;

@@ -289,13 +289,13 @@ function DraftReviewCard({
                 </a>
               ) : null}
 
-              <a
-                href={`/admin/opportunities/opportunitydraft/${draft.id}/change/`}
+              <Link
+                href={`/dashboard/admin/scholarships/drafts/${draft.id}/edit`}
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-xs font-bold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
               >
                 <FileText size={14} aria-hidden="true" />
-                Edit in Django
-              </a>
+                Edit draft
+              </Link>
 
               <Button
                 type="button"

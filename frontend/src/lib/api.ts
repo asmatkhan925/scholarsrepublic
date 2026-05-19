@@ -39,6 +39,7 @@ import type {
   OpportunityDraftImportResponse,
   OpportunityDraftResponse,
   OpportunityDraftStatus,
+  UpdateOpportunityDraftPayload,
   OpportunityApplicationResponse,
   OpportunityDetail,
   OpportunityListItem,
@@ -316,6 +317,14 @@ export async function getAdminOpportunityDraft(id: number) {
 
 export async function createAdminOpportunityDraft(payload: CreateOpportunityDraftPayload) {
   const response = await api.post<OpportunityDraft>("/admin/opportunity-drafts/", payload);
+  return response.data;
+}
+
+export async function patchAdminOpportunityDraft(
+  id: number,
+  payload: UpdateOpportunityDraftPayload,
+) {
+  const response = await api.patch<OpportunityDraft>(`/admin/opportunity-drafts/${id}/`, payload);
   return response.data;
 }
 
