@@ -238,6 +238,45 @@ function ApplicationTrackerContent() {
     setSortMode("smart");
   }
 
+  function humanizeFilterValue(value: string) {
+    return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  const activeFilterItems = [
+    search.trim()
+      ? {
+          label: "Search",
+          value: search.trim(),
+          onClear: () => setSearch(""),
+        }
+      : null,
+    statusFilter
+      ? {
+          label: "Status",
+          value: humanizeFilterValue(statusFilter),
+          onClear: () => setStatusFilter(""),
+        }
+      : null,
+    priorityFilter
+      ? {
+          label: "Priority",
+          value: humanizeFilterValue(priorityFilter),
+          onClear: () => setPriorityFilter(""),
+        }
+      : null,
+    quickFilter !== "all"
+      ? {
+          label: "View",
+          value:
+            QUICK_FILTER_OPTIONS.find((option) => option.value === quickFilter)?.label ??
+            humanizeFilterValue(quickFilter),
+          onClear: () => setQuickFilter("all"),
+        }
+      : null,
+  ].filter(
+    (item): item is { label: string; value: string; onClear: () => void } => Boolean(item),
+  );
+
   return (
     <DashboardShell
       description="Track the opportunities you are preparing, applied to, or waiting for."
@@ -319,6 +358,58 @@ function ApplicationTrackerContent() {
             </label>
           </div>
         </section>
+
+        {hasAnyTrackedApplications ? (
+          <section className="rounded-2xl border border-pine/10 bg-white px-3 py-2 shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs font-semibold text-ink/60 dark:text-white/55">
+                Showing{" "}
+                <span className="font-bold text-ink dark:text-white">
+                  {visibleApplicationItems.length}
+                </span>{" "}
+                of{" "}
+                <span className="font-bold text-ink dark:text-white">
+                  {summary?.total ?? applicationItems.length}
+                </span>{" "}
+                tracked application{(summary?.total ?? applicationItems.length) === 1 ? "" : "s"}
+              </p>
+
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={clearTrackerFilters}
+                  className="inline-flex h-8 items-center justify-center rounded-xl bg-pine px-3 text-xs font-semibold text-white transition hover:bg-pine/90"
+                >
+                  Clear filters
+                </button>
+              ) : null}
+            </div>
+
+            {activeFilterItems.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {activeFilterItems.map((item) => (
+                  <button
+                    key={`${item.label}-${item.value}`}
+                    type="button"
+                    onClick={item.onClear}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-pine/5 px-2.5 py-1 text-xs font-semibold text-pine transition hover:bg-pine/10 dark:border-pine/25 dark:bg-pine/10"
+                    aria-label={`Remove ${item.label} filter`}
+                  >
+                    <span className="text-ink/55 dark:text-white/55">{item.label}:</span>
+                    <span>{item.value}</span>
+                    <span aria-hidden="true" className="text-pine/70">
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs leading-5 text-ink/45 dark:text-white/45">
+                Use search, status, priority, or quick views to narrow your tracker.
+              </p>
+            )}
+          </section>
+        ) : null}
 
         {loading ? (
           <Card>
