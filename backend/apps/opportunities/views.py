@@ -898,8 +898,10 @@ class AdminOpportunityCommentListView(generics.ListAPIView):
         moderation_status = self.request.query_params.get("status")
         if moderation_status == "active":
             queryset = queryset.filter(is_deleted=False)
+        elif moderation_status == "pending":
+            queryset = queryset.filter(is_deleted=True).exclude(body="")
         elif moderation_status == "deleted":
-            queryset = queryset.filter(is_deleted=True)
+            queryset = queryset.filter(is_deleted=True, body="")
 
         comment_type = self.request.query_params.get("type")
         if comment_type == "top_level":
@@ -918,6 +920,49 @@ class AdminOpportunityCommentListView(generics.ListAPIView):
             )
 
         return queryset
+
+
+class AdminOpportunityCommentModerateView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def patch(self, request, pk):
+        try:
+            comment = OpportunityComment.objects.select_related("user", "opportunity", "parent").get(pk=pk)
+        except OpportunityComment.DoesNotExist:
+            return Response({"detail": "Comment not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        action = request.data.get("action")
+
+        if action == "approve":
+            if not comment.body:
+                return Response(
+                    {"detail": "Deleted comments cannot be approved because the body was removed."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            comment.is_deleted = False
+            comment.save(update_fields=["is_deleted", "updated_at"])
+
+        elif action == "hide":
+            if not comment.body:
+                return Response(
+                    {"detail": "Deleted comments are already hidden."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            comment.is_deleted = True
+            comment.save(update_fields=["is_deleted", "updated_at"])
+
+        elif action == "delete":
+            comment.soft_delete()
+
+        else:
+            return Response(
+                {"detail": "Invalid action. Use approve, hide, or delete."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(AdminOpportunityCommentSerializer(comment, context={"request": request}).data)
 
 
 class OpportunityCommentDeleteView(APIView):

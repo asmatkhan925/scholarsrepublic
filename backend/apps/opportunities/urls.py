@@ -8,6 +8,7 @@ from apps.applications.views import (
 )
 from apps.opportunities.views import (
     AdminOpportunityCommentListView,
+    AdminOpportunityCommentModerateView,
     AdminOpportunityDetailView,
     AdminOpportunityDraftDetailView,
     AdminOpportunityDraftImportView,
@@ -117,6 +118,11 @@ urlpatterns = [
         "admin/comments/",
         AdminOpportunityCommentListView.as_view(),
         name="admin-comment-list",
+    ),
+    path(
+        "admin/comments/<int:pk>/",
+        AdminOpportunityCommentModerateView.as_view(),
+        name="admin-comment-moderate",
     ),
     path(
         "admin/opportunity-drafts/",

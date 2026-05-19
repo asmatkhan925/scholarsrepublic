@@ -18,7 +18,7 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
+import { Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
   createAdminOpportunityDraft,
   validateAdminOpportunityDraft,

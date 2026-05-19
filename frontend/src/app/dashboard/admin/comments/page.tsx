@@ -19,13 +19,13 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
-  deleteScholarshipComment,
   getAdminOpportunityComments,
+  moderateAdminOpportunityComment,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { AdminOpportunityComment } from "@/types/opportunity";
 
-type StatusFilter = "all" | "active" | "deleted";
+type StatusFilter = "all" | "pending" | "active" | "deleted";
 type TypeFilter = "all" | "top_level" | "reply";
 
 function formatDate(value: string) {
@@ -46,17 +46,30 @@ function getCommentPreview(comment: AdminOpportunityComment) {
   return comment.body || "No comment body.";
 }
 
+function getModerationStatus(comment: AdminOpportunityComment) {
+  if (!comment.is_deleted) {
+    return "active";
+  }
+
+  if (comment.body) {
+    return "pending";
+  }
+
+  return "deleted";
+}
+
 function CommentModerationCard({
   comment,
-  deletingId,
-  onDelete,
+  busyId,
+  onModerate,
 }: {
   comment: AdminOpportunityComment;
-  deletingId: number | null;
-  onDelete: (comment: AdminOpportunityComment) => Promise<void>;
+  busyId: number | null;
+  onModerate: (comment: AdminOpportunityComment, action: "approve" | "hide" | "delete") => Promise<void>;
 }) {
-  const deleting = deletingId === comment.id;
+  const busy = busyId === comment.id;
   const isReply = comment.parent_id !== null;
+  const moderationStatus = getModerationStatus(comment);
 
   return (
     <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
@@ -64,8 +77,20 @@ function CommentModerationCard({
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_16rem]">
           <div className="p-3 md:p-4">
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge tone={comment.is_deleted ? "danger" : "mint"}>
-                {comment.is_deleted ? "Deleted" : "Active"}
+              <Badge
+                tone={
+                  moderationStatus === "active"
+                    ? "mint"
+                    : moderationStatus === "pending"
+                      ? "saffron"
+                      : "danger"
+                }
+              >
+                {moderationStatus === "active"
+                  ? "Active"
+                  : moderationStatus === "pending"
+                    ? "Pending review"
+                    : "Deleted"}
               </Badge>
               <Badge tone={isReply ? "sky" : "neutral"}>{isReply ? "Reply" : "Top-level"}</Badge>
               {comment.replies_count > 0 ? (
@@ -96,16 +121,50 @@ function CommentModerationCard({
                 View scholarship
               </Link>
 
-              {!comment.is_deleted ? (
+              {moderationStatus === "pending" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  disabled={busy}
+                  onClick={() => void onModerate(comment, "approve")}
+                >
+                  {busy ? (
+                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Undo2 size={14} aria-hidden="true" />
+                  )}
+                  Approve
+                </Button>
+              ) : null}
+
+              {moderationStatus === "active" ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={deleting}
-                  onClick={() => void onDelete(comment)}
+                  disabled={busy}
+                  onClick={() => void onModerate(comment, "hide")}
+                >
+                  {busy ? (
+                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Undo2 size={14} aria-hidden="true" />
+                  )}
+                  Hide
+                </Button>
+              ) : null}
+
+              {moderationStatus !== "deleted" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void onModerate(comment, "delete")}
                   className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-400/25 dark:text-red-300 dark:hover:bg-red-500/10"
                 >
-                  {deleting ? (
+                  {busy ? (
                     <Loader2 size={14} className="animate-spin" aria-hidden="true" />
                   ) : (
                     <Trash2 size={14} aria-hidden="true" />
@@ -128,11 +187,11 @@ function CommentModerationCard({
 
 function AdminCommentsContent() {
   const [comments, setComments] = useState<AdminOpportunityComment[]>([]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -164,40 +223,46 @@ function AdminCommentsContent() {
   const stats = useMemo(
     () => ({
       total: comments.length,
-      active: comments.filter((comment) => !comment.is_deleted).length,
-      deleted: comments.filter((comment) => comment.is_deleted).length,
+      active: comments.filter((comment) => getModerationStatus(comment) === "active").length,
+      pending: comments.filter((comment) => getModerationStatus(comment) === "pending").length,
+      deleted: comments.filter((comment) => getModerationStatus(comment) === "deleted").length,
       replies: comments.filter((comment) => comment.parent_id !== null).length,
     }),
     [comments],
   );
 
-  async function handleDelete(comment: AdminOpportunityComment) {
-    if (!window.confirm("Delete this comment from the public scholarship discussion?")) {
+  async function handleModerate(
+    comment: AdminOpportunityComment,
+    action: "approve" | "hide" | "delete",
+  ) {
+    if (
+      action === "delete" &&
+      !window.confirm("Delete this comment from the public scholarship discussion?")
+    ) {
       return;
     }
 
-    setDeletingId(comment.id);
+    setBusyId(comment.id);
     setMessage(null);
     setError(null);
 
     try {
-      await deleteScholarshipComment(comment.id);
+      const updated = await moderateAdminOpportunityComment(comment.id, action);
       setComments((current) =>
-        current.map((item) =>
-          item.id === comment.id
-            ? {
-                ...item,
-                body: "",
-                is_deleted: true,
-              }
-            : item,
-        ),
+        current.map((item) => (item.id === comment.id ? updated : item)),
       );
-      setMessage("Comment deleted.");
+
+      if (action === "approve") {
+        setMessage("Comment approved and visible publicly.");
+      } else if (action === "hide") {
+        setMessage("Comment hidden from the public page.");
+      } else {
+        setMessage("Comment deleted.");
+      }
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
-      setDeletingId(null);
+      setBusyId(null);
     }
   }
 
@@ -235,10 +300,10 @@ function AdminCommentsContent() {
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
                   <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Loaded
+                    Pending
                   </p>
                   <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.total}
+                    {stats.pending}
                   </p>
                 </div>
                 <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
@@ -299,6 +364,7 @@ function AdminCommentsContent() {
                 onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
                 className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
+                <option value="pending">Pending review</option>
                 <option value="active">Active</option>
                 <option value="deleted">Deleted</option>
                 <option value="all">All</option>
@@ -374,8 +440,8 @@ function AdminCommentsContent() {
               <CommentModerationCard
                 key={comment.id}
                 comment={comment}
-                deletingId={deletingId}
-                onDelete={handleDelete}
+                busyId={busyId}
+                onModerate={handleModerate}
               />
             ))}
           </section>
