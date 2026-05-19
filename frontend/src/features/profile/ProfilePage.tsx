@@ -602,7 +602,7 @@ function BooleanField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-2 rounded-xl border border-pine/10 bg-white px-2.5 py-2 text-sm font-medium text-ink/70 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10">
+    <label className="flex items-start gap-2 rounded-xl border border-pine/10 bg-white px-2.5 py-1.5 text-sm font-medium text-ink/70 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10">
       <input
         type="checkbox"
         checked={checked}
@@ -683,17 +683,17 @@ function StudyFieldSelect({
   const isCustom = Boolean(value && !isKnownField);
 
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2 md:col-span-2 xl:col-span-2">
       <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
-      <div className="grid gap-2 md:grid-cols-[14rem_1fr]">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(9rem,13rem)_minmax(14rem,1fr)]">
         <select
           value={category}
           onChange={(event) => {
             setCategory(event.target.value);
             setSelectedField("");
           }}
-          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           {categoryNames.map((categoryName) => (
             <option key={categoryName} value={categoryName}>
@@ -715,9 +715,9 @@ function StudyFieldSelect({
 
             onChange(nextValue);
           }}
-          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
-          <option value="">Select field</option>
+          <option value="">Select sub-branch / field</option>
           {fieldsForCategory.map((fieldName) => (
             <option key={fieldName} value={fieldName}>
               {fieldName}
@@ -728,15 +728,17 @@ function StudyFieldSelect({
       </div>
 
       {selectedField === "Other" || isCustom ? (
-        <TextField
-          label="Write field of study"
-          placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
-          value={customField || value}
-          onChange={(nextValue) => {
-            setCustomField(nextValue);
-            onChange(nextValue);
-          }}
-        />
+        <div className="rounded-xl border border-pine/10 bg-white/70 p-2 dark:border-white/10 dark:bg-white/5">
+          <TextField
+            label="Write field of study"
+            placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
+            value={customField || value}
+            onChange={(nextValue) => {
+              setCustomField(nextValue);
+              onChange(nextValue);
+            }}
+          />
+        </div>
       ) : null}
     </div>
   );
@@ -777,10 +779,10 @@ function StudyFieldMultiPicker({
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2">
       <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
-      <div className="grid gap-2 md:grid-cols-[14rem_1fr_auto]">
+      <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(10rem,13rem)_minmax(18rem,1fr)_auto]">
         <select
           value={category}
           onChange={(event) => {
@@ -788,7 +790,7 @@ function StudyFieldMultiPicker({
             setField("");
             setCustomField("");
           }}
-          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           {categoryNames.map((categoryName) => (
             <option key={categoryName} value={categoryName}>
@@ -800,9 +802,9 @@ function StudyFieldMultiPicker({
         <select
           value={field}
           onChange={(event) => setField(event.target.value)}
-          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
-          <option value="">Select field</option>
+          <option value="">Select sub-branch / field</option>
           {fieldsForCategory.map((fieldName) => (
             <option key={fieldName} value={fieldName} disabled={values.includes(fieldName)}>
               {fieldName}
@@ -819,34 +821,36 @@ function StudyFieldMultiPicker({
       </div>
 
       {field === "Other" ? (
-        <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-          <TextField
-            label="Write field"
-            placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
-            value={customField}
-            onChange={setCustomField}
-          />
-          <div className="flex items-end">
-            <Button
-              type="button"
-              onClick={() => addField(customField)}
-              disabled={!customField.trim()}
-              variant="outline"
-            >
-              Add
-            </Button>
+        <div className="rounded-xl border border-pine/10 bg-white/70 p-2 dark:border-white/10 dark:bg-white/5">
+          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+            <TextField
+              label="Write custom field"
+              placeholder="Example: Robotics, Islamic Studies, Textile Engineering"
+              value={customField}
+              onChange={setCustomField}
+            />
+            <div className="flex items-end">
+              <Button
+                type="button"
+                onClick={() => addField(customField)}
+                disabled={!customField.trim()}
+                variant="outline"
+              >
+                Add
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
 
       {values.length > 0 ? (
-        <div className="flex flex-wrap gap-2 pt-1">
+        <div className="flex flex-wrap gap-1.5 pt-1">
           {values.map((fieldName) => (
             <button
               key={fieldName}
               type="button"
               onClick={() => removeField(fieldName)}
-              className="rounded-2xl border border-pine/15 bg-mint px-3 py-1.5 text-sm font-medium text-pine transition hover:bg-saffron/20"
+              className="rounded-full border border-pine/15 bg-mint px-2.5 py-1 text-xs font-semibold text-pine transition hover:bg-saffron/20 dark:border-pine/25 dark:bg-pine/10"
             >
               {fieldName} ×
             </button>
@@ -1620,66 +1624,76 @@ function ProfilePageContent() {
           icon={<Languages size={20} aria-hidden="true" />}
           title="Language and tests"
         >
-          <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-              <BooleanField label="I have IELTS" {...booleanField("has_ielts")} />
-              <BooleanField label="I have TOEFL" {...booleanField("has_toefl")} />
-              <BooleanField label="I have Duolingo" {...booleanField("has_duolingo")} />
-              <BooleanField label="I have PTE" {...booleanField("has_pte")} />
-              <BooleanField label="I have HSK" {...booleanField("has_hsk")} />
-              <BooleanField label="I have GRE" {...booleanField("has_gre")} />
-              <BooleanField label="I have GMAT" {...booleanField("has_gmat")} />
-              <BooleanField
-                label="I can provide English proficiency certificate"
-                {...booleanField("english_proficiency_certificate")}
-              />
+          <div className="grid gap-3 lg:grid-cols-[1.15fr_1fr]">
+            <div className="grid gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-pine">
+                Tests and certificates
+              </p>
+              <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+                <BooleanField label="IELTS" {...booleanField("has_ielts")} />
+                <BooleanField label="TOEFL" {...booleanField("has_toefl")} />
+                <BooleanField label="Duolingo" {...booleanField("has_duolingo")} />
+                <BooleanField label="PTE" {...booleanField("has_pte")} />
+                <BooleanField label="HSK" {...booleanField("has_hsk")} />
+                <BooleanField label="GRE" {...booleanField("has_gre")} />
+                <BooleanField label="GMAT" {...booleanField("has_gmat")} />
+                <BooleanField
+                  label="English proficiency certificate"
+                  {...booleanField("english_proficiency_certificate")}
+                />
+              </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <TextField
-                label="IELTS score"
-                type="number"
-                min={0}
-                max={9}
-                step="0.5"
-                {...textField("ielts_score")}
-              />
-              <TextField
-                label="TOEFL score"
-                type="number"
-                min={0}
-                max={120}
-                {...textField("toefl_score")}
-              />
-              <TextField
-                label="Duolingo score"
-                type="number"
-                min={0}
-                max={160}
-                {...textField("duolingo_score")}
-              />
-              <TextField
-                label="PTE score"
-                type="number"
-                min={0}
-                max={90}
-                {...textField("pte_score")}
-              />
-              <SelectField label="HSK level" options={HSK_LEVELS} {...textField("hsk_level")} />
-              <TextField
-                label="GRE score"
-                type="number"
-                min={0}
-                max={340}
-                {...textField("gre_score")}
-              />
-              <TextField
-                label="GMAT score"
-                type="number"
-                min={0}
-                max={800}
-                {...textField("gmat_score")}
-              />
+            <div className="grid gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-pine">
+                Scores
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <TextField
+                  label="IELTS"
+                  type="number"
+                  min={0}
+                  max={9}
+                  step="0.5"
+                  {...textField("ielts_score")}
+                />
+                <TextField
+                  label="TOEFL"
+                  type="number"
+                  min={0}
+                  max={120}
+                  {...textField("toefl_score")}
+                />
+                <TextField
+                  label="Duolingo"
+                  type="number"
+                  min={0}
+                  max={160}
+                  {...textField("duolingo_score")}
+                />
+                <TextField
+                  label="PTE"
+                  type="number"
+                  min={0}
+                  max={90}
+                  {...textField("pte_score")}
+                />
+                <SelectField label="HSK level" options={HSK_LEVELS} {...textField("hsk_level")} />
+                <TextField
+                  label="GRE"
+                  type="number"
+                  min={0}
+                  max={340}
+                  {...textField("gre_score")}
+                />
+                <TextField
+                  label="GMAT"
+                  type="number"
+                  min={0}
+                  max={800}
+                  {...textField("gmat_score")}
+                />
+              </div>
             </div>
           </div>
         </Section>
