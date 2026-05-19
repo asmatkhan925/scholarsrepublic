@@ -18,6 +18,7 @@ import {
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { StartApplicationButton } from "@/components/applications/StartApplicationButton";
+import { MatchScoreBadge, MatchScoreDialog } from "@/components/opportunities/MatchScoreBadge";
 import { SaveOpportunityButton } from "@/components/opportunities/SaveOpportunityButton";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
@@ -168,22 +169,6 @@ function FactItem({ label, value, helper }: { label: string; value: string; help
   );
 }
 
-function getReadinessTone(level: string): "mint" | "saffron" | "danger" | "sky" {
-  if (level === "High") {
-    return "mint";
-  }
-
-  if (level === "Medium") {
-    return "saffron";
-  }
-
-  if (level === "Low") {
-    return "danger";
-  }
-
-  return "sky";
-}
-
 function MatchScoreSidebarCard({
   match,
   matchLoading,
@@ -193,12 +178,16 @@ function MatchScoreSidebarCard({
   matchLoading: boolean;
   matchError: string | null;
 }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   if (matchLoading) {
     return (
       <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-        <CardContent className="p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-          <p className="mt-3 text-sm leading-6 text-ink/65 dark:text-white/60">Calculating your profile match...</p>
+        <CardContent className="p-3">
+          <div className="inline-flex h-8 items-center gap-2 rounded-full border border-pine/10 bg-white/80 px-3 text-xs font-semibold text-ink/55 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-pine/45" aria-hidden="true" />
+            Checking match
+          </div>
         </CardContent>
       </Card>
     );
@@ -206,17 +195,16 @@ function MatchScoreSidebarCard({
 
   if (matchError) {
     return (
-      <Card>
-        <CardContent className="p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">Match score</p>
-          <h2 className="mt-2 text-lg font-bold text-ink dark:text-white">Complete your profile first</h2>
-          <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
-            Add your education, goals, and target countries to calculate your fit for this
-            scholarship.
-          </p>
-          <ButtonLink href="/dashboard/profile" className="mt-3" size="sm" variant="secondary">
-            Complete Profile
-          </ButtonLink>
+      <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
+              Match score
+            </p>
+            <ButtonLink href="/dashboard/profile" className="h-8 rounded-xl px-3 text-xs" size="sm" variant="outline">
+              Complete profile
+            </ButtonLink>
+          </div>
         </CardContent>
       </Card>
     );
@@ -226,56 +214,26 @@ function MatchScoreSidebarCard({
     return null;
   }
 
-  const score = Math.min(Math.max(match.score, 0), 100);
-
   return (
     <Card className="dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
             Match score
           </p>
-          <Badge tone={getReadinessTone(match.readiness_level)}>{match.readiness_level}</Badge>
+
+          <MatchScoreBadge
+            match={match}
+            onClick={() => setDialogOpen(true)}
+            className="h-8 rounded-xl px-2.5 py-1.5 shadow-none ring-0"
+          />
         </div>
 
-        <div className="mt-2 rounded-xl border border-pine/10 bg-mint/35 px-2.5 py-2 dark:border-white/10 dark:bg-pine/10">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-2xl font-black tracking-tight text-pine">
-              {score}
-              <span className="text-sm font-bold text-ink/45 dark:text-white/45">/100</span>
-            </p>
-            <p className="text-xs font-semibold text-ink/55 dark:text-white/50">Profile fit</p>
-          </div>
-
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white dark:bg-white/10">
-            <div className="h-full rounded-full bg-pine" style={{ width: `${score}%` }} />
-          </div>
-        </div>
-
-        {match.matched_reasons.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {match.matched_reasons.slice(0, 3).map((reason, index) => (
-              <span
-                key={reason}
-                title={reason}
-                className="inline-flex cursor-help items-center gap-1 rounded-full border border-pine/15 bg-pine/5 px-2 py-1 text-[11px] font-semibold text-pine dark:border-pine/25 dark:bg-pine/10"
-              >
-                <ShieldCheck size={12} aria-hidden="true" />
-                Fit {index + 1}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        {match.missing_requirements.length > 0 ? (
-          <div
-            className="mt-2 inline-flex cursor-help items-center gap-1.5 rounded-full border border-saffron/30 bg-saffron/15 px-2.5 py-1 text-[11px] font-semibold text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/65"
-            title={match.missing_requirements.slice(0, 3).join(" • ")}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-saffron" aria-hidden="true" />
-            Check {match.missing_requirements.length}
-          </div>
-        ) : null}
+        <MatchScoreDialog
+          match={match}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+        />
       </CardContent>
     </Card>
   );
