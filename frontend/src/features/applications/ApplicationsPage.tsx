@@ -359,55 +359,40 @@ function ApplicationTrackerContent() {
           </div>
         </section>
 
-        {hasAnyTrackedApplications ? (
-          <section className="rounded-2xl border border-pine/10 bg-white px-3 py-2 shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs font-semibold text-ink/60 dark:text-white/55">
-                Showing{" "}
+        {hasAnyTrackedApplications && hasActiveFilters ? (
+          <section className="rounded-2xl border border-pine/10 bg-white px-2.5 py-1.5 shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold text-ink/55 dark:text-white/50">
                 <span className="font-bold text-ink dark:text-white">
                   {visibleApplicationItems.length}
-                </span>{" "}
-                of{" "}
-                <span className="font-bold text-ink dark:text-white">
-                  {summary?.total ?? applicationItems.length}
-                </span>{" "}
-                tracked application{(summary?.total ?? applicationItems.length) === 1 ? "" : "s"}
-              </p>
+                </span>
+                /{summary?.total ?? applicationItems.length} shown
+              </span>
 
-              {hasActiveFilters ? (
+              {activeFilterItems.map((item) => (
                 <button
+                  key={`${item.label}-${item.value}`}
                   type="button"
-                  onClick={clearTrackerFilters}
-                  className="inline-flex h-8 items-center justify-center rounded-xl bg-pine px-3 text-xs font-semibold text-white transition hover:bg-pine/90"
+                  onClick={item.onClear}
+                  className="inline-flex h-6 items-center gap-1 rounded-full border border-pine/15 bg-pine/5 px-2 text-[11px] font-semibold text-pine transition hover:bg-pine/10 dark:border-pine/25 dark:bg-pine/10"
+                  aria-label={`Remove ${item.label} filter`}
                 >
-                  Clear filters
+                  <span className="text-ink/50 dark:text-white/50">{item.label}:</span>
+                  <span>{item.value}</span>
+                  <span aria-hidden="true" className="text-pine/70">
+                    ×
+                  </span>
                 </button>
-              ) : null}
-            </div>
+              ))}
 
-            {activeFilterItems.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {activeFilterItems.map((item) => (
-                  <button
-                    key={`${item.label}-${item.value}`}
-                    type="button"
-                    onClick={item.onClear}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-pine/5 px-2.5 py-1 text-xs font-semibold text-pine transition hover:bg-pine/10 dark:border-pine/25 dark:bg-pine/10"
-                    aria-label={`Remove ${item.label} filter`}
-                  >
-                    <span className="text-ink/55 dark:text-white/55">{item.label}:</span>
-                    <span>{item.value}</span>
-                    <span aria-hidden="true" className="text-pine/70">
-                      ×
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-1 text-xs leading-5 text-ink/45 dark:text-white/45">
-                Use search, status, priority, or quick views to narrow your tracker.
-              </p>
-            )}
+              <button
+                type="button"
+                onClick={clearTrackerFilters}
+                className="inline-flex h-6 items-center justify-center rounded-full bg-pine px-2.5 text-[11px] font-semibold text-white transition hover:bg-pine/90"
+              >
+                Clear
+              </button>
+            </div>
           </section>
         ) : null}
 
