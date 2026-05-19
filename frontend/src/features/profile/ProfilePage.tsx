@@ -602,7 +602,7 @@ function BooleanField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-2 rounded-xl border border-pine/10 bg-white px-3 py-2 text-sm font-medium text-ink/70 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10">
+    <label className="flex items-start gap-2 rounded-xl border border-pine/10 bg-white px-2.5 py-2 text-sm font-medium text-ink/70 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10">
       <input
         type="checkbox"
         checked={checked}
@@ -1339,7 +1339,7 @@ function ProfilePageContent() {
       <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
           <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
-            <div className="grid gap-3 xl:grid-cols-[1fr_18rem] xl:items-center">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_28rem] xl:items-center">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
                   Student profile
@@ -1354,62 +1354,79 @@ function ProfilePageContent() {
               </div>
 
               <div className="rounded-2xl border border-pine/10 bg-white/90 p-3 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
-                      Readiness
-                    </p>
-                    <p className="mt-0.5 text-2xl font-black text-pine">
+                <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-stretch">
+                  <div className="rounded-xl border border-pine/10 bg-mint/45 p-2.5 dark:border-white/10 dark:bg-pine/10">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
+                        Readiness
+                      </p>
+                      <Badge tone={getReadinessTone(completion.readiness_level)}>
+                        {completion.readiness_level}
+                      </Badge>
+                    </div>
+
+                    <p className="mt-1 text-2xl font-black text-pine">
                       {completion.scholarship_readiness_score}
-                      <span className="text-base font-bold text-ink/45">/100</span>
+                      <span className="text-sm font-bold text-ink/45 dark:text-white/45">/100</span>
+                    </p>
+
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white dark:bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-pine"
+                        style={{ width: `${completion.completion_percentage}%` }}
+                      />
+                    </div>
+
+                    <p className="mt-1 text-[11px] font-semibold text-ink/50 dark:text-white/45">
+                      {completion.completion_percentage}% complete
                     </p>
                   </div>
-                  <Badge tone={getReadinessTone(completion.readiness_level)}>
-                    {completion.readiness_level}
-                  </Badge>
-                </div>
 
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-mint dark:bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-pine"
-                    style={{ width: `${completion.completion_percentage}%` }}
-                  />
-                </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
+                        Completion
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                        {completion.completion_percentage}%
+                      </p>
+                    </div>
 
-                <p className="mt-1.5 text-xs leading-5 text-ink/50 dark:text-white/45">
-                  {completion.completion_percentage}% profile complete
-                </p>
+                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
+                        Documents
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                        {preparedDocumentCount}
+                        <span className="text-xs font-bold text-ink/40 dark:text-white/40">
+                          /{DOCUMENT_OPTIONS.length}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
+                        Targets
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                        {form.target_countries.length}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
+                        Fields
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-ink dark:text-white">
+                        {form.target_fields.length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-            <div className="px-3 py-2.5 md:px-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink/35 dark:text-white/35">
-                Completion
-              </p>
-              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">
-                {completion.completion_percentage}%
-              </p>
-            </div>
-            <div className="px-3 py-2.5 md:px-4">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Documents</p>
-              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">
-                {preparedDocumentCount}
-                <span className="text-sm font-medium text-ink/40 dark:text-white/40">
-                  /{DOCUMENT_OPTIONS.length}
-                </span>
-              </p>
-            </div>
-            <div className="px-3 py-2.5 md:px-4">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Targets</p>
-              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">{form.target_countries.length}</p>
-            </div>
-            <div className="px-3 py-2.5 md:px-4">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Fields</p>
-              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">{form.target_fields.length}</p>
-            </div>
-          </div>
         </section>
 
         {nextProfileSteps.length > 0 ? (
@@ -1451,7 +1468,7 @@ function ProfilePageContent() {
           icon={<UserRound size={20} aria-hidden="true" />}
           title="Personal details"
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <TextField
               label="Phone number"
               type="tel"
@@ -1493,7 +1510,7 @@ function ProfilePageContent() {
           icon={<GraduationCap size={20} aria-hidden="true" />}
           title="Education"
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <SelectField
               label="Current education level"
               options={EDUCATION_LEVELS}
@@ -1549,7 +1566,7 @@ function ProfilePageContent() {
           title="Scholarship targets"
         >
           <div className="grid gap-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <SelectField
                 label="Target degree level"
                 options={TARGET_DEGREE_LEVELS}
@@ -1604,7 +1621,7 @@ function ProfilePageContent() {
           title="Language and tests"
         >
           <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               <BooleanField label="I have IELTS" {...booleanField("has_ielts")} />
               <BooleanField label="I have TOEFL" {...booleanField("has_toefl")} />
               <BooleanField label="I have Duolingo" {...booleanField("has_duolingo")} />
@@ -1673,7 +1690,7 @@ function ProfilePageContent() {
           title="Documents"
         >
           <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               <BooleanField label="CNIC" {...booleanField("has_cnic")} />
               <BooleanField label="Domicile" {...booleanField("has_domicile")} />
               <BooleanField label="Passport" {...booleanField("has_passport")} />
@@ -1734,7 +1751,7 @@ function ProfilePageContent() {
           title="Research and experience"
         >
           <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               <BooleanField
                 label="Research experience"
                 {...booleanField("has_research_experience")}
@@ -1749,7 +1766,7 @@ function ProfilePageContent() {
               />
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <TextField
                 label="Publications count"
                 type="number"
@@ -1811,7 +1828,7 @@ function ProfilePageContent() {
           title="Funding and preferences"
         >
           <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               <BooleanField
                 label="I need need-based support"
                 {...booleanField("need_based_support_required")}
