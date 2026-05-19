@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Archive,
@@ -23,7 +23,7 @@ import {
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
-import { getAdminOpportunities, patchAdminOpportunity } from "@/lib/api";
+import { getAdminOpportunities, getAdminOverview, patchAdminOpportunity, type AdminOverviewResponse } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityListItem, OpportunityStatus } from "@/types/opportunity";
 
@@ -105,6 +105,35 @@ function getDeadlineLabel(item: OpportunityListItem) {
   }
 
   return `${daysUntilDeadline} days left`;
+}
+
+function MiniStat({
+  label,
+  value,
+  tone = "normal",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "normal" | "warning" | "danger";
+}) {
+  return (
+    <div
+      className={`rounded-xl border px-2.5 py-2 ${
+        tone === "danger"
+          ? "border-red-200 bg-red-50 dark:border-red-400/25 dark:bg-red-500/10"
+          : tone === "warning"
+            ? "border-saffron/30 bg-saffron/10 dark:border-saffron/25 dark:bg-saffron/10"
+            : "border-pine/10 bg-white dark:border-white/10 dark:bg-white/5"
+      }`}
+    >
+      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+        {label}
+      </p>
+      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function AdminScholarshipCard({
@@ -289,6 +318,7 @@ function AdminScholarshipCard({
 
 function AdminScholarshipManagerContent() {
   const [items, setItems] = useState<OpportunityListItem[]>([]);
+  const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -296,6 +326,14 @@ function AdminScholarshipManagerContent() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("all");
   const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>("all");
+
+  async function loadOverview() {
+    try {
+      setOverview(await getAdminOverview());
+    } catch {
+      // Keep the manager usable even if overview stats fail.
+    }
+  }
 
   async function loadItems() {
     setLoading(true);
@@ -313,6 +351,7 @@ function AdminScholarshipManagerContent() {
       });
 
       setItems(response.results);
+      await loadOverview();
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -324,15 +363,6 @@ function AdminScholarshipManagerContent() {
     void loadItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, verifiedFilter]);
-
-  const stats = useMemo(() => {
-    return {
-      total: items.length,
-      draft: items.filter((item) => item.status === "draft").length,
-      published: items.filter((item) => item.status === "published").length,
-      unverified: items.filter((item) => !item.verified_status).length,
-    };
-  }, [items]);
 
   async function handlePatch(id: number, payload: Partial<OpportunityListItem>) {
     setUpdatingId(id);
@@ -353,6 +383,7 @@ function AdminScholarshipManagerContent() {
             : item,
         ),
       );
+      await loadOverview();
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -410,38 +441,18 @@ function AdminScholarshipManagerContent() {
 
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
               <div className="grid grid-cols-2 gap-1.5">
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Loaded
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.total}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Published
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.published}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Draft
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.draft}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-2.5 py-2 dark:border-saffron/25 dark:bg-saffron/10">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/45 dark:text-white/45">
-                    Unverified
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.unverified}
-                  </p>
-                </div>
+                <MiniStat label="Total" value={overview?.scholarships.total ?? "..."} />
+                <MiniStat label="Published" value={overview?.scholarships.published ?? "..."} />
+                <MiniStat
+                  label="Draft"
+                  value={overview?.scholarships.draft ?? "..."}
+                  tone={(overview?.scholarships.draft ?? 0) > 0 ? "warning" : "normal"}
+                />
+                <MiniStat
+                  label="Unverified"
+                  value={overview?.scholarships.unverified ?? "..."}
+                  tone={(overview?.scholarships.unverified ?? 0) > 0 ? "warning" : "normal"}
+                />
               </div>
             </div>
           </div>
