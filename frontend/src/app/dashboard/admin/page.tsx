@@ -90,7 +90,7 @@ const primaryActions: WorkbenchAction[] = [
   {
     title: "Manage scholarships",
     description: "Edit draft, published, archived, featured, and verified scholarship opportunities.",
-    href: "/admin/opportunities/opportunity/",
+    href: "/dashboard/admin/scholarships",
     icon: GraduationCap,
     badge: "Main",
     primary: true,

@@ -113,6 +113,10 @@ class OpportunityFilterMixin:
     def filter_queryset(self, queryset):
         params = self.request.query_params
 
+        opportunity_status = params.get("status")
+        if opportunity_status:
+            queryset = queryset.filter(status=opportunity_status)
+
         opportunity_type = params.get("opportunity_type")
         if opportunity_type:
             queryset = queryset.filter(opportunity_type=opportunity_type)

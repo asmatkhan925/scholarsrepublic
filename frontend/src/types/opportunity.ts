@@ -1,3 +1,5 @@
+export type OpportunityStatus = "draft" | "published" | "archived";
+
 export type OpportunityType =
   | "scholarship"
   | "job"
@@ -33,7 +35,7 @@ export type OpportunityListItem = {
   title: string;
   slug: string;
   opportunity_type: OpportunityType;
-  status: "draft" | "published" | "archived";
+  status: OpportunityStatus;
   featured: boolean;
   verified_status: boolean;
   pathway_detail?: OpportunityPathwayDetail | null;
@@ -332,6 +334,7 @@ export type OpportunityQueryParams = {
   hec_required?: boolean;
   remote?: boolean;
   ordering?: string;
+  status?: OpportunityStatus;
 };
 
 export type OpportunityPathwayQueryParams = {

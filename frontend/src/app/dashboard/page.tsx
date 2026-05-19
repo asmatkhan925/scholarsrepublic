@@ -250,7 +250,7 @@ function StudentDashboardContent() {
   const [applicationSummary, setApplicationSummary] = useState<ApplicationSummary | null>(null);
   const [recentSavedOpportunities, setRecentSavedOpportunities] = useState<SavedOpportunity[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loadingCompletion, setLoadingCompletion] = useState(true);
+  const [, setLoadingCompletion] = useState(true);
   const [loadingApplications, setLoadingApplications] = useState(true);
   const [trackingSavedId, setTrackingSavedId] = useState<number | null>(null);
 

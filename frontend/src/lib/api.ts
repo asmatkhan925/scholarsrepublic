@@ -223,7 +223,7 @@ export async function getScholarship(slug: string) {
   return response.data;
 }
 
-export async function getAdminOpportunities(params?: OpportunityQueryParams) {
+export async function getAdminOpportunities(params?: OpportunityQueryParams & PaginationParams) {
   const response = await api.get<OpportunityListResponse>("/admin/opportunities/", {
     params,
   });
