@@ -385,3 +385,9 @@ export type OpportunityDraftImportResponse = {
   draft: OpportunityDraft;
   opportunity?: OpportunityListItem;
 };
+
+export type CreateOpportunityDraftPayload = {
+  title: string;
+  raw_payload: Record<string, unknown>;
+  status?: OpportunityDraftStatus;
+};

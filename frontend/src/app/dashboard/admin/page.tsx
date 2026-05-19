@@ -74,7 +74,7 @@ const primaryActions: WorkbenchAction[] = [
   {
     title: "Research new scholarship",
     description: "Start here when you find a new official scholarship page. Copy source text and use the GPT prompt below.",
-    href: "#research-workflow",
+    href: "/dashboard/admin/scholarships/import",
     icon: Search,
     badge: "Start",
     primary: true,
@@ -382,7 +382,7 @@ PASTE_TEXT_HERE`,
               ) : (
                 <Clipboard size={16} aria-hidden="true" />
               )}
-              {copiedPrompt ? "Prompt copied" : "Copy GPT prompt"}
+              {copiedPrompt ? "Prompt copied" : "Open import page"}
             </button>
           </div>
 

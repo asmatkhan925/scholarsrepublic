@@ -32,6 +32,7 @@ import type {
   CreateScholarshipCommentPayload,
   OpportunityAdminPayload,
   OpportunityApplication,
+  CreateOpportunityDraftPayload,
   OpportunityDraft,
   OpportunityDraftImportResponse,
   OpportunityDraftResponse,
@@ -267,6 +268,11 @@ export async function getAdminOpportunityDrafts(params?: AdminOpportunityDraftQu
 
 export async function getAdminOpportunityDraft(id: number) {
   const response = await api.get<OpportunityDraft>(`/admin/opportunity-drafts/${id}/`);
+  return response.data;
+}
+
+export async function createAdminOpportunityDraft(payload: CreateOpportunityDraftPayload) {
+  const response = await api.post<OpportunityDraft>("/admin/opportunity-drafts/", payload);
   return response.data;
 }
 
