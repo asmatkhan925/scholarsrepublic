@@ -240,9 +240,6 @@ export function Navbar({ variant = "default" }: NavbarProps) {
   const authLinks = user?.role === "admin" ? adminLinks : studentLinks;
   const navLinks = isAuthenticated ? authLinks : publicLinks;
   const showStudentTools = isAuthenticated && user?.role === "student";
-  const primaryHref = user?.role === "admin" ? "/admin" : "/dashboard";
-  const primaryLabel = user?.role === "admin" ? "Admin" : "Dashboard";
-
   if (variant === "auth") {
     return (
       <header className="border-b border-slate-200 bg-white transition-colors dark:border-white/10 dark:bg-[#101214]">
@@ -302,12 +299,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
         <div className="hidden items-center gap-2 md:flex">
           <NavbarThemeToggle />
           {isAuthenticated ? (
-            <>
-              <ButtonLink href={primaryHref} variant="outline">
-                {primaryLabel}
-              </ButtonLink>
-              <Button onClick={handleLogout}>Logout</Button>
-            </>
+            <Button onClick={handleLogout}>Logout</Button>
           ) : (
             <>
               <ButtonLink href={loginHref} variant="outline">
@@ -364,16 +356,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
           <div className="mt-4 grid gap-2 border-t border-pine/10 pt-4 dark:border-white/10">
             <NavbarThemeToggle compact />
             {isAuthenticated ? (
-              <>
-                <ButtonLink
-                  href={primaryHref}
-                  variant="outline"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {primaryLabel}
-                </ButtonLink>
-                <Button onClick={handleLogout}>Logout</Button>
-              </>
+              <Button onClick={handleLogout}>Logout</Button>
             ) : (
               <>
                 <ButtonLink href={loginHref} variant="outline" onClick={() => setMobileOpen(false)}>
