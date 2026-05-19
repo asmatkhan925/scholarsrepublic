@@ -52,10 +52,12 @@ const studentToolLinks: NavLink[] = [
 ];
 
 const adminLinks: NavLink[] = [
-  { label: "Workbench", href: "/dashboard/admin" },
+  { label: "Workbench", href: "/dashboard/admin", exact: true },
+  { label: "Import", href: "/dashboard/admin/scholarships/import" },
+  { label: "Drafts", href: "/dashboard/admin/scholarships/drafts" },
+  { label: "Manager", href: "/dashboard/admin/scholarships" },
+  { label: "Comments", href: "/dashboard/admin/comments" },
   { label: "Django Admin", href: "/admin" },
-  { label: "Scholarships", href: "/scholarships" },
-  { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
 ];
 
 function isActiveLink(pathname: string, item: NavLink) {
