@@ -132,6 +132,116 @@ function DraftStatusPanel({ draft }: { draft: OpportunityDraft }) {
   );
 }
 
+type QuickFixForm = {
+  country: string;
+  deadline: string;
+  official_link: string;
+  source_url: string;
+  source_name: string;
+  funding_type: string;
+  fields_of_study: string;
+};
+
+const emptyQuickFix: QuickFixForm = {
+  country: "",
+  deadline: "",
+  official_link: "",
+  source_url: "",
+  source_name: "",
+  funding_type: "",
+  fields_of_study: "",
+};
+
+const fundingOptions = [
+  ["", "Not selected"],
+  ["fully_funded", "Fully funded"],
+  ["partially_funded", "Partially funded"],
+  ["tuition_waiver", "Tuition waiver"],
+  ["stipend_only", "Stipend only"],
+  ["need_based", "Need based"],
+  ["merit_based", "Merit based"],
+  ["self_funded", "Self funded"],
+  ["other", "Other"],
+];
+
+function getOpportunityObject(payload: Record<string, unknown>) {
+  return isRecord(payload.opportunity) ? payload.opportunity : payload;
+}
+
+function textListToTextarea(value: unknown) {
+  if (!Array.isArray(value)) {
+    return "";
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .join("\n");
+}
+
+function textareaToTextList(value: string) {
+  return value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function buildQuickFixForm(payload: Record<string, unknown>): QuickFixForm {
+  const opportunity = getOpportunityObject(payload);
+
+  return {
+    country: getText(opportunity.country),
+    deadline: getText(opportunity.deadline),
+    official_link: getText(opportunity.official_link),
+    source_url: getText(opportunity.source_url),
+    source_name: getText(opportunity.source_name),
+    funding_type: getText(opportunity.funding_type),
+    fields_of_study: textListToTextarea(opportunity.fields_of_study),
+  };
+}
+
+function applyQuickFixToPayload(payload: Record<string, unknown>, quickFix: QuickFixForm) {
+  const hasWrapper = isRecord(payload.opportunity);
+  const opportunity = {
+    ...getOpportunityObject(payload),
+    country: quickFix.country.trim(),
+    deadline: quickFix.deadline.trim(),
+    official_link: quickFix.official_link.trim(),
+    source_url: quickFix.source_url.trim(),
+    source_name: quickFix.source_name.trim(),
+    funding_type: quickFix.funding_type.trim(),
+    fields_of_study: textareaToTextList(quickFix.fields_of_study),
+  };
+
+  return hasWrapper ? { ...payload, opportunity } : { opportunity };
+}
+
+function QuickTextInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+      {label}
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
+      />
+    </label>
+  );
+}
+
 function AdminDraftEditContent() {
   const params = useParams<{ id: string }>();
   const draftId = Number(params.id);
@@ -139,6 +249,7 @@ function AdminDraftEditContent() {
   const [draft, setDraft] = useState<OpportunityDraft | null>(null);
   const [title, setTitle] = useState("");
   const [jsonText, setJsonText] = useState("");
+  const [quickFix, setQuickFix] = useState<QuickFixForm>(emptyQuickFix);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -158,6 +269,7 @@ function AdminDraftEditContent() {
       setDraft(data);
       setTitle(data.title);
       setJsonText(JSON.stringify(data.raw_payload, null, 2));
+      setQuickFix(buildQuickFixForm(data.raw_payload));
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -176,8 +288,37 @@ function AdminDraftEditContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
 
+  function updateQuickFixField<K extends keyof QuickFixForm>(
+    field: K,
+    value: QuickFixForm[K],
+  ) {
+    setQuickFix((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleJsonTextChange(value: string) {
+    setJsonText(value);
+
+    try {
+      setQuickFix(buildQuickFixForm(extractJson(value)));
+    } catch {
+      // Keep the current quick-fix form while the JSON is temporarily invalid.
+    }
+  }
+
+  function applyQuickFixPanel() {
+    try {
+      const patched = applyQuickFixToPayload(extractJson(jsonText), quickFix);
+      setJsonText(JSON.stringify(patched, null, 2));
+      setQuickFix(buildQuickFixForm(patched));
+      setMessage("Quick fixes applied to JSON. Save or validate when ready.");
+      setError(null);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    }
+  }
+
   async function saveDraft() {
-    const parsed = extractJson(jsonText);
+    const parsed = applyQuickFixToPayload(extractJson(jsonText), quickFix);
     const normalized = normalizeDraftPayload(parsed);
     const nextTitle = title.trim() || normalized.title;
 
@@ -189,6 +330,7 @@ function AdminDraftEditContent() {
     setDraft(updated);
     setTitle(updated.title);
     setJsonText(JSON.stringify(updated.raw_payload, null, 2));
+    setQuickFix(buildQuickFixForm(updated.raw_payload));
 
     return updated;
   }
@@ -222,6 +364,7 @@ function AdminDraftEditContent() {
         setDraft(imported.draft);
         setTitle(imported.draft.title);
         setJsonText(JSON.stringify(imported.draft.raw_payload, null, 2));
+        setQuickFix(buildQuickFixForm(imported.draft.raw_payload));
         setMessage("Validated and imported as a real scholarship draft.");
         return;
       }
@@ -229,6 +372,7 @@ function AdminDraftEditContent() {
       setDraft(validated);
       setTitle(validated.title);
       setJsonText(JSON.stringify(validated.raw_payload, null, 2));
+      setQuickFix(buildQuickFixForm(validated.raw_payload));
       setMessage("Saved, but validation found issues. Fix the errors and try again.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -247,6 +391,7 @@ function AdminDraftEditContent() {
       setDraft(response.draft);
       setTitle(response.draft.title);
       setJsonText(JSON.stringify(response.draft.raw_payload, null, 2));
+      setQuickFix(buildQuickFixForm(response.draft.raw_payload));
       setMessage("Imported as a real scholarship draft.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -361,11 +506,98 @@ function AdminDraftEditContent() {
                   />
                 </label>
 
+                <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-ink dark:text-white">
+                        Quick fixes
+                      </h3>
+                      <p className="mt-0.5 text-xs leading-5 text-ink/55 dark:text-white/50">
+                        Fix common validation errors here. These values are saved into the JSON.
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={applyQuickFixPanel}
+                      disabled={busy}
+                    >
+                      Apply to JSON
+                    </Button>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <QuickTextInput
+                      label="Country"
+                      value={quickFix.country}
+                      onChange={(value) => updateQuickFixField("country", value)}
+                      placeholder="United States of America"
+                    />
+
+                    <QuickTextInput
+                      label="Deadline"
+                      value={quickFix.deadline}
+                      onChange={(value) => updateQuickFixField("deadline", value)}
+                      placeholder="2026-06-27"
+                      type="date"
+                    />
+
+                    <QuickTextInput
+                      label="Official link"
+                      value={quickFix.official_link}
+                      onChange={(value) => updateQuickFixField("official_link", value)}
+                      placeholder="https://official-page..."
+                    />
+
+                    <QuickTextInput
+                      label="Source URL"
+                      value={quickFix.source_url}
+                      onChange={(value) => updateQuickFixField("source_url", value)}
+                      placeholder="https://source-page..."
+                    />
+
+                    <QuickTextInput
+                      label="Source name"
+                      value={quickFix.source_name}
+                      onChange={(value) => updateQuickFixField("source_name", value)}
+                      placeholder="University jobs page"
+                    />
+
+                    <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+                      Funding type
+                      <select
+                        value={quickFix.funding_type}
+                        onChange={(event) => updateQuickFixField("funding_type", event.target.value)}
+                        className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                      >
+                        {fundingOptions.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="mt-3 grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+                    Fields of study
+                    <textarea
+                      value={quickFix.fields_of_study}
+                      onChange={(event) => updateQuickFixField("fields_of_study", event.target.value)}
+                      rows={3}
+                      className="rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
+                      placeholder={"Medicine\nNatural Sciences\nPharmacy"}
+                    />
+                  </label>
+                </div>
+
                 <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
                   Raw JSON
                   <textarea
                     value={jsonText}
-                    onChange={(event) => setJsonText(event.target.value)}
+                    onChange={(event) => handleJsonTextChange(event.target.value)}
                     rows={28}
                     className="font-mono rounded-xl border border-pine/15 bg-white px-3 py-2 text-xs leading-5 text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
                     placeholder='{"opportunity": {...}}'
