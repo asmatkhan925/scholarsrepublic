@@ -416,18 +416,18 @@ function AdminScholarshipManagerContent() {
                 </h1>
 
                 <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Publish, verify, feature, archive, and review scholarship listings.
+                  Manage real scholarship records after GPT drafts are imported.
                 </p>
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <a
-                  href="/admin/opportunities/opportunity/add/"
+                <Link
+                  href="/dashboard/admin/scholarships/import"
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2 text-sm font-semibold text-white transition hover:bg-pine/90"
                 >
-                  Add scholarship
+                  Import with GPT
                   <ExternalLink size={15} aria-hidden="true" />
-                </a>
+                </Link>
 
                 <a
                   href="/dashboard/admin/scholarships/drafts"
@@ -455,6 +455,10 @@ function AdminScholarshipManagerContent() {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="border-t border-pine/10 bg-mint/25 px-3 py-2 text-sm font-semibold leading-6 text-pine dark:border-white/10 dark:bg-pine/10">
+            Scholarship Manager shows real scholarship records only. GPT/imported drafts stay in the Draft Review Queue until you click “Import as scholarship draft.”
           </div>
 
           <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_12rem_12rem_auto]">

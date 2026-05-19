@@ -118,6 +118,7 @@ function DraftReviewCard({
   const fields = getTextList(opportunity.fields_of_study).slice(0, 3);
   const busy = busyId === draft.id;
   const canImport = draft.status === "validated" && draft.validation_errors.length === 0;
+  const needsValidation = draft.status === "new";
 
   return (
     <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
@@ -242,8 +243,20 @@ function DraftReviewCard({
                 ) : (
                   <Import size={14} aria-hidden="true" />
                 )}
-                Import draft
+                Import as scholarship draft
               </Button>
+
+              {needsValidation ? (
+                <p className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs font-semibold leading-5 text-ink/65 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
+                  Validate first. This is only an imported GPT draft, not a real scholarship yet.
+                </p>
+              ) : null}
+
+              {draft.status === "validated" && !canImport ? (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
+                  Fix validation errors before importing as a scholarship draft.
+                </p>
+              ) : null}
 
               <button
                 type="button"
@@ -254,13 +267,13 @@ function DraftReviewCard({
                 {expanded ? "Hide JSON" : "View JSON"}
               </button>
 
-              {draft.created_opportunity_detail ? (
+              {draft.created_opportunity ? (
                 <Link
-                  href="/dashboard/admin/scholarships"
+                  href={`/dashboard/admin/scholarships/${draft.created_opportunity}/edit`}
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/20 bg-pine/5 px-3 text-xs font-bold text-pine transition hover:bg-pine/10"
                 >
                   <CheckCircle2 size={14} aria-hidden="true" />
-                  Imported
+                  Edit imported scholarship
                 </Link>
               ) : null}
 
@@ -374,7 +387,7 @@ function DraftReviewQueueContent() {
     try {
       const response = await importAdminOpportunityDraft(draft.id);
       await updateDraftInList(response.draft);
-      setMessage("Draft imported as a draft scholarship. Review it before publishing.");
+      setMessage("Imported as a real scholarship draft. Open the scholarship manager or edit page before publishing.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
       await loadDrafts();
@@ -428,7 +441,7 @@ function DraftReviewQueueContent() {
                 </h1>
 
                 <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Validate AI/imported scholarship drafts before importing them as draft opportunities.
+                  Validate GPT/imported drafts, then import them as real scholarship drafts.
                 </p>
               </div>
 
@@ -445,7 +458,7 @@ function DraftReviewQueueContent() {
                   href="/dashboard/admin/scholarships"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
-                  Scholarship manager
+                  Real scholarship manager
                 </Link>
               </div>
             </div>
