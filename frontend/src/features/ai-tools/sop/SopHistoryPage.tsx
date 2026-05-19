@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+
 import { useEffect, useMemo, useState } from "react";
+
 import {
+  ArrowRight,
   CheckCircle2,
   ClipboardCheck,
   Copy,
@@ -20,6 +23,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { deleteSOPDraft, getSOPDrafts, startApplicationByScholarshipSlug } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { SOPDraft } from "@/types/ai";
+
 import { FormattedSOPText } from "./FormattedSOPText";
 import { downloadSOPAsDocx, formatSOPForClipboard } from "./format";
 
@@ -49,6 +53,25 @@ function getPreview(text: string) {
 
 function getWordCount(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function MiniStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-xl border border-pine/10 bg-white/90 px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+        {label}
+      </p>
+      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function SOPHistoryContent() {
@@ -212,52 +235,51 @@ function SOPHistoryContent() {
       hideHeader
     >
       <div className="space-y-4">
-        <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="bg-gradient-to-r from-pine/10 via-white to-saffron/10 px-4 py-4 dark:from-pine/10 dark:via-[#181b1d] dark:to-saffron/10 md:px-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
-                  <FileText size={14} aria-hidden="true" />
-                  Saved drafts
-                </div>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white">
-                  SOP history
-                </h1>
-                <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">
-                  Keep useful drafts, copy clean text, and connect SOPs to tracked applications.
-                </p>
+        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="grid gap-0 bg-gradient-to-r from-mint/75 via-white to-skyglass transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="px-4 py-4 md:px-5">
+              <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
+                <FileText size={14} aria-hidden="true" />
+                Saved SOP drafts
               </div>
 
-              <Link
-                href="/dashboard/ai/sop"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pine/90"
-              >
-                <Plus size={17} aria-hidden="true" />
-                Create new SOP
-              </Link>
-            </div>
-          </div>
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
+                SOP history
+              </h1>
 
-          <div className="grid divide-y divide-ink/10 dark:divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <div className="px-4 py-3 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                Drafts
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
+                Review saved drafts, copy clean text, download Word files, and connect linked SOPs to your application tracker.
               </p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.total}</p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href="/dashboard/ai/sop"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2 text-sm font-semibold text-white transition hover:bg-pine/90"
+                >
+                  <Plus size={16} aria-hidden="true" />
+                  Create new SOP
+                </Link>
+
+                <Link
+                  href="/dashboard/applications"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                >
+                  Open tracker
+                  <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+              </div>
             </div>
-            <div className="px-4 py-3 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                Linked
-              </p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{stats.linked}</p>
-            </div>
-            <div className="px-4 py-3 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                Words
-              </p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">
-                {stats.words.toLocaleString()}
-              </p>
+
+            <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
+              <div className="grid grid-cols-3 gap-1.5 xl:grid-cols-1">
+                <MiniStat label="Drafts" value={stats.total} />
+                <MiniStat label="Linked" value={stats.linked} />
+                <MiniStat label="Words" value={stats.words.toLocaleString()} />
+              </div>
+
+              <div className="mt-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-xs leading-5 text-ink/60 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
+                Keep only drafts that are useful. Delete weak or outdated versions to avoid confusion later.
+              </div>
             </div>
           </div>
         </section>
@@ -280,14 +302,14 @@ function SOPHistoryContent() {
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-ink/10 bg-white p-3 shadow-soft dark:border-white/10 dark:bg-[#181b1d] md:p-4">
+        <section className="rounded-[1.35rem] border border-pine/10 bg-white p-3 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:p-4">
           {loading ? (
             <div className="flex items-center gap-2 px-2 py-8 text-sm font-semibold text-ink/60 dark:text-white/58">
               <Loader2 size={17} className="animate-spin" aria-hidden="true" />
               Loading saved drafts...
             </div>
           ) : drafts.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-ink/15 bg-cream/40 px-4 py-8 text-center dark:border-white/10 dark:bg-white/5">
+            <div className="rounded-2xl border border-dashed border-pine/15 bg-[#f7faf8] px-4 py-8 text-center dark:border-white/10 dark:bg-white/5">
               <p className="text-sm font-bold text-ink dark:text-white">No saved SOP drafts yet.</p>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-ink/55 dark:text-white/55">
                 Generate an SOP, review it carefully, then save the final useful version here.
@@ -312,28 +334,41 @@ function SOPHistoryContent() {
                   <article
                     key={draft.id}
                     id={`sop-draft-${draft.id}`}
-                    className={`rounded-xl border p-3 transition ${
+                    className={`overflow-hidden rounded-2xl border transition ${
                       highlighted
                         ? "border-pine/40 bg-pine/5 ring-2 ring-pine/15 dark:bg-pine/10"
-                        : "border-ink/10 bg-cream/30 dark:border-white/10 dark:bg-white/5"
+                        : "border-pine/10 bg-[#f7faf8] dark:border-white/10 dark:bg-white/5"
                     }`}
                   >
-                    <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="min-w-0 flex-1 truncate text-base font-bold text-ink dark:text-white">
-                            {draft.title}
-                          </h2>
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-ink/45 dark:bg-white/5 dark:text-white/45">
+                    <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_18rem]">
+                      <div className="min-w-0 p-3 md:p-4">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {draft.opportunity_slug ? (
+                            <span className="rounded-full bg-pine/10 px-2 py-0.5 text-[11px] font-bold text-pine">
+                              Linked scholarship
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-bold text-ink/45 dark:bg-white/10 dark:text-white/45">
+                              General draft
+                            </span>
+                          )}
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/45 dark:bg-white/10 dark:text-white/45">
                             {wordCount} words
                           </span>
+                          {draft.provider_label ? (
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink/45 dark:bg-white/10 dark:text-white/45">
+                              {draft.provider_label}
+                            </span>
+                          ) : null}
                         </div>
+
+                        <h2 className="mt-2 text-base font-bold leading-snug text-ink dark:text-white md:text-lg">
+                          {draft.title}
+                        </h2>
 
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink/55 dark:text-white/50">
                           {meta ? <span>{meta}</span> : null}
                           {meta ? <span className="text-ink/30 dark:text-white/30">·</span> : null}
-                          <span>{draft.provider_label}</span>
-                          <span className="text-ink/30 dark:text-white/30">·</span>
                           <span>{formatDate(draft.created_at)}</span>
                         </div>
 
@@ -344,103 +379,107 @@ function SOPHistoryContent() {
                         ) : null}
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5 lg:max-w-[25rem] lg:justify-end">
-                        {draft.opportunity_slug ? (
-                          <Link
-                            href={`/scholarships/${draft.opportunity_slug}`}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-pine/20 bg-pine/5 px-2.5 text-xs font-semibold text-pine transition hover:bg-pine/10"
-                          >
-                            Scholarship
-                          </Link>
-                        ) : null}
-
-                        {draft.opportunity_slug ? (
+                      <aside className="border-t border-pine/10 bg-white p-3 dark:border-white/10 dark:bg-[#181b1d]/80 xl:border-l xl:border-t-0">
+                        <div className="grid gap-2">
                           <button
                             type="button"
-                            onClick={() => void handleStartTracking(draft)}
-                            disabled={trackingDraftId === draft.id}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-pine/20 bg-white px-2.5 text-xs font-semibold text-pine transition hover:bg-pine/5 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:hover:bg-pine/10"
+                            onClick={() => setSelectedDraftId(selected ? null : draft.id)}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-xs font-bold text-ink transition hover:bg-mint hover:text-pine dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                           >
-                            {trackingDraftId === draft.id ? (
+                            {selected ? (
+                              <EyeOff size={14} aria-hidden="true" />
+                            ) : (
+                              <Eye size={14} aria-hidden="true" />
+                            )}
+                            {selected ? "Hide draft" : "View draft"}
+                          </button>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleCopy(draft)}
+                              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-bold text-ink transition hover:bg-mint hover:text-pine dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                            >
+                              {copiedId === draft.id ? (
+                                <CheckCircle2 size={14} aria-hidden="true" />
+                              ) : (
+                                <Copy size={14} aria-hidden="true" />
+                              )}
+                              {copiedId === draft.id ? "Copied" : "Copy"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyFormatted(draft)}
+                              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-bold text-ink transition hover:bg-mint hover:text-pine dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                            >
+                              {copiedFormattedId === draft.id ? (
+                                <CheckCircle2 size={14} aria-hidden="true" />
+                              ) : (
+                                <Copy size={14} aria-hidden="true" />
+                              )}
+                              {copiedFormattedId === draft.id ? "Copied" : "Clean"}
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => void handleDownloadDocx(draft)}
+                            disabled={downloadingId === draft.id}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-xs font-bold text-ink transition hover:bg-mint hover:text-pine disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                          >
+                            {downloadingId === draft.id ? (
                               <Loader2 size={14} className="animate-spin" aria-hidden="true" />
                             ) : (
-                              <ClipboardCheck size={14} aria-hidden="true" />
+                              <Download size={14} aria-hidden="true" />
                             )}
-                            {trackingDraftId === draft.id ? "Tracking" : "Track"}
+                            Download .docx
                           </button>
-                        ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDraftId(selected ? null : draft.id)}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-2.5 text-xs font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
-                        >
-                          {selected ? (
-                            <EyeOff size={14} aria-hidden="true" />
-                          ) : (
-                            <Eye size={14} aria-hidden="true" />
-                          )}
-                          {selected ? "Hide" : "View"}
-                        </button>
+                          {draft.opportunity_slug ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              <Link
+                                href={`/scholarships/${draft.opportunity_slug}`}
+                                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/20 bg-pine/5 px-2.5 text-xs font-bold text-pine transition hover:bg-pine/10"
+                              >
+                                Scholarship
+                              </Link>
 
-                        <button
-                          type="button"
-                          onClick={() => void handleCopy(draft)}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-2.5 text-xs font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
-                        >
-                          {copiedId === draft.id ? (
-                            <CheckCircle2 size={14} aria-hidden="true" />
-                          ) : (
-                            <Copy size={14} aria-hidden="true" />
-                          )}
-                          {copiedId === draft.id ? "Copied" : "Copy"}
-                        </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleStartTracking(draft)}
+                                disabled={trackingDraftId === draft.id}
+                                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/20 bg-pine/5 px-2.5 text-xs font-bold text-pine transition hover:bg-pine/10 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {trackingDraftId === draft.id ? (
+                                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                                ) : (
+                                  <ClipboardCheck size={14} aria-hidden="true" />
+                                )}
+                                {trackingDraftId === draft.id ? "Tracking" : "Track"}
+                              </button>
+                            </div>
+                          ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => void handleCopyFormatted(draft)}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-2.5 text-xs font-semibold text-ink transition hover:bg-ink/5 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
-                        >
-                          {copiedFormattedId === draft.id ? (
-                            <CheckCircle2 size={14} aria-hidden="true" />
-                          ) : (
-                            <Copy size={14} aria-hidden="true" />
-                          )}
-                          {copiedFormattedId === draft.id ? "Copied" : "Formatted"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleDownloadDocx(draft)}
-                          disabled={downloadingId === draft.id}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-2.5 text-xs font-semibold text-ink transition hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
-                        >
-                          {downloadingId === draft.id ? (
-                            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                          ) : (
-                            <Download size={14} aria-hidden="true" />
-                          )}
-                          .docx
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(draft)}
-                          disabled={deletingId === draft.id}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-red-200 bg-white px-2.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/25 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/10"
-                        >
-                          {deletingId === draft.id ? (
-                            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                          ) : (
-                            <Trash2 size={14} aria-hidden="true" />
-                          )}
-                          Delete
-                        </button>
-                      </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(draft)}
+                            disabled={deletingId === draft.id}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 text-xs font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-400/25 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/10"
+                          >
+                            {deletingId === draft.id ? (
+                              <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                            ) : (
+                              <Trash2 size={14} aria-hidden="true" />
+                            )}
+                            Delete
+                          </button>
+                        </div>
+                      </aside>
                     </div>
 
                     {selected ? (
-                      <div className="mt-3 rounded-xl border border-ink/10 bg-white p-4 text-sm leading-7 text-ink dark:border-white/10 dark:bg-[#101214] dark:text-white/75">
+                      <div className="border-t border-pine/10 bg-white p-4 text-sm leading-7 text-ink dark:border-white/10 dark:bg-[#101214] dark:text-white/75">
                         <FormattedSOPText text={draft.sop_text} />
                       </div>
                     ) : null}
