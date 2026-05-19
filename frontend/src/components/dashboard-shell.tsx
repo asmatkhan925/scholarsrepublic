@@ -25,16 +25,21 @@ export function DashboardShell({
 
       <main className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-5 md:px-8 md:py-6">
         {!hideHeader ? (
-          <section className="mb-5 rounded-[1.5rem] border border-pine/10 bg-white p-4 shadow-soft transition-colors dark:border-white/10 dark:bg-[#101c18] md:p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">
-              {mode === "admin" ? "Admin dashboard" : "Student dashboard"}
-            </p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
-              {title}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/58">
-              {description}
-            </p>
+          <section className="mb-4 rounded-[1.25rem] border border-pine/10 bg-white px-4 py-3 shadow-sm transition-colors dark:border-white/10 dark:bg-[#101c18] md:px-5 md:py-4">
+            <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-pine">
+                  {mode === "admin" ? "Admin dashboard" : "Student dashboard"}
+                </p>
+                <h1 className="mt-1 truncate text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
+                  {title}
+                </h1>
+              </div>
+
+              <p className="max-w-2xl text-sm leading-6 text-ink/60 dark:text-white/55 md:text-right">
+                {description}
+              </p>
+            </div>
           </section>
         ) : null}
 
