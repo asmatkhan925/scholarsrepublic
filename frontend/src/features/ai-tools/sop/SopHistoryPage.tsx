@@ -271,14 +271,13 @@ function SOPHistoryContent() {
             </div>
 
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
-              <div className="grid grid-cols-3 gap-1.5 xl:grid-cols-1">
+              <div className="grid grid-cols-2 gap-1.5">
                 <MiniStat label="Drafts" value={stats.total} />
                 <MiniStat label="Linked" value={stats.linked} />
                 <MiniStat label="Words" value={stats.words.toLocaleString()} />
-              </div>
-
-              <div className="mt-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-xs leading-5 text-ink/60 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
-                Keep only drafts that are useful. Delete weak or outdated versions to avoid confusion later.
+                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 text-xs leading-5 text-ink/60 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
+                  Keep useful drafts. Delete weak versions.
+                </div>
               </div>
             </div>
           </div>
