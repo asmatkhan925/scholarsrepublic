@@ -301,6 +301,7 @@ export async function deleteAdminOpportunity(id: number) {
 export type AdminOpportunityDraftQueryParams = PaginationParams & {
   status?: OpportunityDraftStatus;
   search?: string;
+  needs_review?: boolean;
 };
 
 export async function getAdminOpportunityDrafts(params?: AdminOpportunityDraftQueryParams) {

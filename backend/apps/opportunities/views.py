@@ -487,6 +487,11 @@ class AdminOpportunityDraftListCreateView(generics.ListCreateAPIView):
             )
         )
 
+        if parse_bool(self.request.query_params.get("needs_review")):
+            queryset = queryset.filter(created_opportunity__isnull=True).exclude(
+                status=OpportunityDraft.Status.IMPORTED
+            )
+
         draft_status = self.request.query_params.get("status")
         if draft_status:
             queryset = queryset.filter(status=draft_status)

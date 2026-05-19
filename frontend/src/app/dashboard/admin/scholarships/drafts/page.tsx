@@ -332,6 +332,7 @@ function DraftReviewQueueContent() {
     try {
       const response = await getAdminOpportunityDrafts({
         page_size: 100,
+        ...(statusFilter === "needs_review" ? { needs_review: true } : {}),
         ...(statusFilter !== "all" && statusFilter !== "needs_review"
           ? { status: statusFilter }
           : {}),
@@ -340,7 +341,9 @@ function DraftReviewQueueContent() {
 
       const visibleResults =
         statusFilter === "needs_review"
-          ? response.results.filter((draft) => draft.status !== "imported")
+          ? response.results.filter(
+              (draft) => !draft.created_opportunity && draft.status !== "imported",
+            )
           : response.results;
 
       setDrafts(visibleResults);
@@ -368,7 +371,10 @@ function DraftReviewQueueContent() {
 
   async function updateDraftInList(updated: OpportunityDraft) {
     setDrafts((current) => {
-      if (statusFilter === "needs_review" && updated.status === "imported") {
+      if (
+        statusFilter === "needs_review" &&
+        (updated.status === "imported" || updated.created_opportunity)
+      ) {
         return current.filter((draft) => draft.id !== updated.id);
       }
 
