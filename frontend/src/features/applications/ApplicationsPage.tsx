@@ -308,9 +308,9 @@ function ApplicationTrackerContent() {
           />
         ) : null}
 
-        <section className="rounded-2xl border border-pine/10 bg-white px-2.5 py-1.5 shadow-soft">
+        <section className="rounded-2xl border border-pine/10 bg-white px-2.5 py-1.5 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+            <span className="mr-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
               View
             </span>
             {QUICK_FILTER_OPTIONS.map((option) => {
@@ -325,13 +325,13 @@ function ApplicationTrackerContent() {
                   className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-semibold transition ${
                     active
                       ? "border-pine bg-pine text-white"
-                      : "border-ink/10 bg-cream/40 text-ink/60 hover:border-pine/30 hover:bg-pine/5 hover:text-pine"
+                      : "border-ink/10 bg-cream/40 text-ink/60 hover:border-pine/30 hover:bg-pine/5 hover:text-pine dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
                   }`}
                 >
                   {option.label}
                   <span
                     className={`rounded-full px-1 text-[9px] leading-4 ${
-                      active ? "bg-white/20 text-white" : "bg-white text-ink/40"
+                      active ? "bg-white/20 text-white" : "bg-white text-ink/40 dark:bg-white/10 dark:text-white/45"
                     }`}
                   >
                     {count}
@@ -340,14 +340,14 @@ function ApplicationTrackerContent() {
               );
             })}
 
-            <span className="mx-0.5 hidden h-4 w-px bg-ink/10 sm:inline-block" />
+            <span className="mx-0.5 hidden h-4 w-px bg-ink/10 dark:bg-white/10 sm:inline-block" />
 
-            <label className="ml-0.5 inline-flex h-6 items-center gap-1 rounded-full border border-ink/10 bg-cream/40 px-2 text-[11px] font-semibold text-ink/60">
+            <label className="ml-0.5 inline-flex h-6 items-center gap-1 rounded-full border border-ink/10 bg-cream/40 px-2 text-[11px] font-semibold text-ink/60 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
               Sort
               <select
                 value={sortMode}
                 onChange={(event) => setSortMode(event.target.value as TrackerSort)}
-                className="bg-transparent text-[11px] font-semibold text-ink outline-none"
+                className="bg-transparent text-[11px] font-semibold text-ink outline-none dark:text-white"
               >
                 {TRACKER_SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -397,13 +397,13 @@ function ApplicationTrackerContent() {
         ) : null}
 
         {loading ? (
-          <Card>
-            <CardContent className="p-6 text-sm text-ink/70">Loading applications...</CardContent>
+          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+            <CardContent className="p-6 text-sm text-ink/70 dark:text-white/60">Loading applications...</CardContent>
           </Card>
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
             {error}
           </div>
         ) : null}
@@ -423,7 +423,7 @@ function ApplicationTrackerContent() {
         ) : null}
 
         {!loading && !error && hasAnyTrackedApplications && visibleApplicationItems.length === 0 ? (
-          <div className="rounded-2xl border border-ink/10 bg-white p-6 text-center shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="rounded-2xl border border-ink/10 bg-white p-5 text-center shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
             <p className="text-sm font-bold text-ink dark:text-white">
               No applications match the selected filters.
             </p>
@@ -445,7 +445,7 @@ function ApplicationTrackerContent() {
         ) : null}
 
         {!loading && !error && visibleApplicationItems.length > 0 ? (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {visibleApplicationItems.map((application) => (
               <ApplicationCard
                 key={`${application.id}-${targetApplicationId === application.id ? "target" : "normal"}`}
@@ -460,16 +460,24 @@ function ApplicationTrackerContent() {
         ) : null}
 
         {summary && summary.upcoming_deadlines.length > 0 ? (
-          <Card>
-            <CardContent className="p-5">
+          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+            <CardContent className="p-4">
               <div className="flex items-center gap-2 text-pine">
-                <CalendarDays size={18} aria-hidden="true" />
-                <h2 className="font-semibold text-ink">Upcoming personal deadlines</h2>
+                <CalendarDays size={17} aria-hidden="true" />
+                <h2 className="font-semibold text-ink dark:text-white">Upcoming personal deadlines</h2>
               </div>
-              <ul className="mt-4 grid gap-2 text-sm text-ink/70">
+              <ul className="mt-3 grid gap-1.5 text-sm text-ink/70 dark:text-white/60">
                 {summary.upcoming_deadlines.map((item) => (
-                  <li key={item.id} className="rounded-2xl bg-skyglass px-4 py-3">
-                    {item.opportunity_detail.title}: {formatDate(item.personal_deadline)}
+                  <li
+                    key={item.id}
+                    className="flex flex-col gap-0.5 rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <span className="font-semibold text-ink dark:text-white">
+                      {item.opportunity_detail.title}
+                    </span>
+                    <span className="text-xs font-bold text-pine">
+                      {formatDate(item.personal_deadline)}
+                    </span>
                   </li>
                 ))}
               </ul>
