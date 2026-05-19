@@ -93,8 +93,8 @@ function SavedOpportunityCard({
       ? `/scholarships/${opportunity.slug}`
       : "/scholarships";
   const deadlineBadge = getDeadlineBadge(opportunity.deadline);
-  const degreeTags = opportunity.degree_levels.slice(0, 3);
-  const extraDegreeCount = Math.max(opportunity.degree_levels.length - degreeTags.length, 0);
+  const degreeTags = opportunity.degree_levels.slice(0, 2);
+  const fieldTags = opportunity.fields_of_study.slice(0, 2);
   const isTracking = trackedApplicationId !== null;
 
   async function handleRemove() {
@@ -120,11 +120,9 @@ function SavedOpportunityCard({
     try {
       const application = await startApplicationFromSaved(saved.id);
       setTrackedApplicationId(application.id);
-      setMessage("Tracking started. You can stop tracking if this is no longer worth applying to.");
+      setMessage("Tracking started.");
     } catch (requestError) {
-      const errorMessage =
-        getErrorMessage(requestError) ?? "Could not start tracking. Please try again.";
-      setError(errorMessage);
+      setError(getErrorMessage(requestError) ?? "Could not start tracking. Please try again.");
     } finally {
       setStarting(false);
     }
@@ -142,7 +140,7 @@ function SavedOpportunityCard({
     try {
       await deleteApplication(trackedApplicationId);
       setTrackedApplicationId(null);
-      setMessage("Stopped tracking. You can start tracking again later.");
+      setMessage("Stopped tracking.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -153,102 +151,113 @@ function SavedOpportunityCard({
   return (
     <Card className="overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-0">
-        <div className="grid gap-0 lg:grid-cols-[1fr_17rem]">
-          <div className="p-4 md:p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="mint">{humanize(opportunity.opportunity_type)}</Badge>
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_15.5rem]">
+          <div className="p-3 md:p-4">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Badge tone={deadlineBadge.tone}>{deadlineBadge.label}</Badge>
-              {opportunity.verified_status ? <Badge tone="sky">Verified</Badge> : null}
+              <Badge tone="neutral">{humanize(opportunity.funding_type)}</Badge>
+              {opportunity.verified_status ? <Badge tone="mint">Verified</Badge> : null}
               {isTracking ? <Badge tone="saffron">Tracking</Badge> : null}
             </div>
 
-            <h2 className="mt-3 text-lg font-bold leading-snug text-ink dark:text-white md:text-xl">
+            <h2 className="mt-2 text-lg font-bold leading-snug text-ink dark:text-white md:text-xl">
               {opportunity.title}
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
+            <p className="mt-1.5 text-sm leading-5 text-ink/62 dark:text-white/58">
               {provider} · {opportunity.country || "Country not listed"}
             </p>
 
             {opportunity.short_description ? (
-              <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink/65 dark:text-white/58">
+              <p className="mt-2 line-clamp-2 text-sm leading-5 text-ink/62 dark:text-white/56">
                 {opportunity.short_description}
               </p>
             ) : null}
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge tone="neutral">{humanize(opportunity.funding_type)}</Badge>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <Badge tone="neutral">{humanize(opportunity.opportunity_type)}</Badge>
               {degreeTags.map((degree) => (
                 <Badge key={degree} tone="neutral">
                   {degree}
                 </Badge>
               ))}
-              {extraDegreeCount > 0 ? <Badge tone="neutral">+{extraDegreeCount} more</Badge> : null}
+              {fieldTags.map((field) => (
+                <Badge key={field} tone="sky">
+                  {field}
+                </Badge>
+              ))}
             </div>
 
-            <div className="mt-4 rounded-2xl bg-[#f7faf8] px-4 py-3 text-xs leading-5 text-ink/55 dark:bg-white/5 dark:text-white/50">
-              Saved {formatDate(saved.created_at)}. Keep this saved only if you are likely to
-              prepare a real application.
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-ink/50 dark:text-white/45">
+              <span className="rounded-full border border-pine/10 bg-[#f7faf8] px-2.5 py-1 dark:border-white/10 dark:bg-white/5">
+                Saved {formatDate(saved.created_at)}
+              </span>
+              <span
+                className="cursor-help rounded-full border border-pine/10 bg-[#f7faf8] px-2.5 py-1 dark:border-white/10 dark:bg-white/5"
+                title="Keep this saved only if you are likely to prepare a real application."
+              >
+                Shortlist item
+              </span>
             </div>
+
+            {message ? <p className="mt-2 text-sm font-semibold text-pine">{message}</p> : null}
+            {error ? (
+              <p className="mt-2 text-sm font-semibold text-red-700 dark:text-red-300">{error}</p>
+            ) : null}
           </div>
 
-          <div className="border-t border-pine/10 bg-mint/35 p-4 dark:border-white/10 dark:bg-white/5 lg:border-l lg:border-t-0">
-            <div className="rounded-2xl border border-pine/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                  Deadline
-                </p>
-                <p className="mt-1 text-sm font-bold text-ink dark:text-white">
-                  {formatDate(opportunity.deadline)}
-                </p>
-              </div>
+          <aside className="border-t border-pine/10 bg-white p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
+            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-[#181b1d]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+                Deadline
+              </p>
+              <p className="mt-0.5 text-sm font-bold text-ink dark:text-white">
+                {formatDate(opportunity.deadline)}
+              </p>
+            </div>
 
-              <div className="mt-4 grid gap-2">
-                {isTracking ? (
-                  <Button
-                    className="w-full border border-saffron/40 bg-saffron/20 text-ink shadow-sm hover:bg-saffron/30 dark:text-white dark:hover:bg-saffron/25"
-                    disabled={stopping}
-                    onClick={handleStopTracking}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <ClipboardCheck size={15} aria-hidden="true" />
-                    {stopping ? "Stopping..." : "Stop Tracking"}
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full shadow-sm"
-                    disabled={starting}
-                    onClick={handleStartTracking}
-                    size="sm"
-                    variant="primary"
-                  >
-                    <ClipboardCheck size={15} aria-hidden="true" />
-                    {starting ? "Starting..." : "Track Application"}
-                  </Button>
-                )}
-
-                <ButtonLink href={detailHref} className="w-full" size="sm" variant="outline">
-                  View Details
-                  <ArrowRight size={15} aria-hidden="true" />
-                </ButtonLink>
-
+            <div className="mt-2 grid gap-2">
+              {isTracking ? (
                 <Button
-                  className="w-full"
-                  disabled={removing}
-                  onClick={handleRemove}
+                  className="w-full border border-saffron/40 bg-saffron/20 text-ink shadow-sm hover:bg-saffron/30 dark:text-white dark:hover:bg-saffron/25"
+                  disabled={stopping}
+                  onClick={handleStopTracking}
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                 >
-                  <Trash2 size={15} aria-hidden="true" />
-                  {removing ? "Removing..." : "Remove Saved"}
+                  <ClipboardCheck size={15} aria-hidden="true" />
+                  {stopping ? "Stopping..." : "Stop Tracking"}
                 </Button>
-              </div>
-            </div>
+              ) : (
+                <Button
+                  className="w-full shadow-sm"
+                  disabled={starting}
+                  onClick={handleStartTracking}
+                  size="sm"
+                  variant="primary"
+                >
+                  <ClipboardCheck size={15} aria-hidden="true" />
+                  {starting ? "Starting..." : "Track Application"}
+                </Button>
+              )}
 
-            {message ? <p className="mt-3 text-sm font-semibold text-pine">{message}</p> : null}
-            {error ? <p className="mt-3 text-sm font-semibold text-red-700 dark:text-red-300">{error}</p> : null}
-          </div>
+              <ButtonLink href={detailHref} className="w-full" size="sm" variant="outline">
+                View Details
+                <ArrowRight size={15} aria-hidden="true" />
+              </ButtonLink>
+
+              <Button
+                className="w-full text-ink/55 hover:text-red-700 dark:text-white/50 dark:hover:text-red-300"
+                disabled={removing}
+                onClick={handleRemove}
+                size="sm"
+                variant="ghost"
+              >
+                <Trash2 size={15} aria-hidden="true" />
+                {removing ? "Removing..." : "Remove Saved"}
+              </Button>
+            </div>
+          </aside>
         </div>
       </CardContent>
     </Card>
@@ -328,63 +337,80 @@ function SavedOpportunitiesContent() {
       hideHeader
       title="Saved Opportunities"
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_28rem] xl:items-center">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
                   Student dashboard
                 </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
-                  Saved Opportunities
+                <h1 className="mt-1.5 text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
+                  Saved opportunities
                 </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
-                  Review your saved scholarships, remove weak options, and move serious choices into
-                  your application tracker.
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
+                  Keep your shortlist clean and move serious options into your application tracker.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
-                <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
-                  Browse More
-                  <Search size={15} aria-hidden="true" />
-                </ButtonLink>
-                <ButtonLink
-                  href="/dashboard/applications"
-                  className="w-full sm:w-auto"
-                  size="sm"
-                  variant="outline"
-                >
-                  Open Tracker
-                </ButtonLink>
+              <div className="grid grid-cols-4 gap-1.5">
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Saved
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {data?.count ?? savedItems.length}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Urgent
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {deadlineStats.urgent}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Rolling
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {deadlineStats.rolling}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-pine/10 bg-white/90 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Expired
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {deadlineStats.expired}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Saved</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{data?.count ?? savedItems.length}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Total shortlist</p>
-            </div>
+          <div className="flex flex-col gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-6 text-ink/60 dark:text-white/55">
+              Saved items are your shortlist. Track only the scholarships you seriously plan to apply for.
+            </p>
 
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Urgent</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{deadlineStats.urgent}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Due within 14 days</p>
-            </div>
-
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Rolling</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{deadlineStats.rolling}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Flexible deadlines</p>
-            </div>
-
-            <div className="px-4 py-4 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Expired</p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">{deadlineStats.expired}</p>
-              <p className="mt-1 text-xs text-ink/50 dark:text-white/45">Remove or review</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <ButtonLink href="/scholarships" className="w-full sm:w-auto" size="sm">
+                Browse More
+                <Search size={15} aria-hidden="true" />
+              </ButtonLink>
+              <ButtonLink
+                href="/dashboard/applications"
+                className="w-full sm:w-auto"
+                size="sm"
+                variant="outline"
+              >
+                Open Tracker
+              </ButtonLink>
             </div>
           </div>
         </section>
@@ -398,7 +424,7 @@ function SavedOpportunitiesContent() {
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
             {error}
           </div>
         ) : null}
@@ -418,7 +444,7 @@ function SavedOpportunitiesContent() {
         ) : null}
 
         {!loading && !error && savedItems.length > 0 ? (
-          <section className="grid gap-4">
+          <section className="grid gap-3">
             {savedItems.map((saved) => (
               <SavedOpportunityCard key={saved.id} saved={saved} onRemoved={handleRemoved} />
             ))}
