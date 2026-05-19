@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   ArrowLeft,
@@ -187,6 +187,12 @@ function CommentModerationCard({
 
 function AdminCommentsContent() {
   const [comments, setComments] = useState<AdminOpportunityComment[]>([]);
+  const [moderationStats, setModerationStats] = useState({
+    pending: 0,
+    active: 0,
+    deleted: 0,
+    replies: 0,
+  });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [search, setSearch] = useState("");
@@ -194,6 +200,22 @@ function AdminCommentsContent() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function loadModerationStats() {
+    const [pendingResponse, activeResponse, deletedResponse, repliesResponse] = await Promise.all([
+      getAdminOpportunityComments({ page_size: 1, status: "pending" }),
+      getAdminOpportunityComments({ page_size: 1, status: "active" }),
+      getAdminOpportunityComments({ page_size: 1, status: "deleted" }),
+      getAdminOpportunityComments({ page_size: 1, type: "reply" }),
+    ]);
+
+    setModerationStats({
+      pending: pendingResponse.count,
+      active: activeResponse.count,
+      deleted: deletedResponse.count,
+      replies: repliesResponse.count,
+    });
+  }
 
   async function loadComments() {
     setLoading(true);
@@ -208,6 +230,7 @@ function AdminCommentsContent() {
       });
 
       setComments(response.results);
+      await loadModerationStats();
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -219,17 +242,6 @@ function AdminCommentsContent() {
     void loadComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, typeFilter]);
-
-  const stats = useMemo(
-    () => ({
-      total: comments.length,
-      active: comments.filter((comment) => getModerationStatus(comment) === "active").length,
-      pending: comments.filter((comment) => getModerationStatus(comment) === "pending").length,
-      deleted: comments.filter((comment) => getModerationStatus(comment) === "deleted").length,
-      replies: comments.filter((comment) => comment.parent_id !== null).length,
-    }),
-    [comments],
-  );
 
   async function handleModerate(
     comment: AdminOpportunityComment,
@@ -251,6 +263,7 @@ function AdminCommentsContent() {
       setComments((current) =>
         current.map((item) => (item.id === comment.id ? updated : item)),
       );
+      await loadModerationStats();
 
       if (action === "approve") {
         setMessage("Comment approved and visible publicly.");
@@ -303,7 +316,7 @@ function AdminCommentsContent() {
                     Pending
                   </p>
                   <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.pending}
+                    {moderationStats.pending}
                   </p>
                 </div>
                 <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
@@ -311,7 +324,7 @@ function AdminCommentsContent() {
                     Active
                   </p>
                   <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.active}
+                    {moderationStats.active}
                   </p>
                 </div>
                 <div className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 dark:border-red-400/25 dark:bg-red-500/10">
@@ -319,7 +332,7 @@ function AdminCommentsContent() {
                     Deleted
                   </p>
                   <p className="mt-0.5 text-base font-black leading-none text-red-700 dark:text-red-300">
-                    {stats.deleted}
+                    {moderationStats.deleted}
                   </p>
                 </div>
                 <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
@@ -327,7 +340,7 @@ function AdminCommentsContent() {
                     Replies
                   </p>
                   <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.replies}
+                    {moderationStats.replies}
                   </p>
                 </div>
               </div>
