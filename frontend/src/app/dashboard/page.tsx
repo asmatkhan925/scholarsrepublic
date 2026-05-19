@@ -249,7 +249,6 @@ function StudentDashboardContent() {
   const [applications, setApplications] = useState<OpportunityApplication[]>([]);
   const [applicationSummary, setApplicationSummary] = useState<ApplicationSummary | null>(null);
   const [recentSavedOpportunities, setRecentSavedOpportunities] = useState<SavedOpportunity[]>([]);
-  const [savedCount, setSavedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loadingCompletion, setLoadingCompletion] = useState(true);
   const [loadingApplications, setLoadingApplications] = useState(true);
@@ -303,7 +302,6 @@ function StudentDashboardContent() {
           );
           setApplicationSummary(summaryData);
           setRecentSavedOpportunities(savedData.results);
-          setSavedCount(savedData.count);
         }
       } catch (requestError) {
         if (mounted) {
@@ -441,7 +439,7 @@ function StudentDashboardContent() {
   return (
     <div className="grid gap-4">
       <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="bg-gradient-to-r from-mint/80 via-white to-skyglass px-4 py-4 dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">
             <Badge tone="mint" className="mb-2">
               <GraduationCap size={14} aria-hidden="true" />
@@ -491,19 +489,6 @@ function StudentDashboardContent() {
               </p>
             </div>
 
-            <div className="mt-2 grid grid-cols-2 gap-1.5">
-              <MetricPill label="Profile" value={loadingCompletion ? "..." : `${completionPercent}%`} />
-              <MetricPill label="Readiness" value={`${readinessScore}/100`} tone={readinessScore >= 70 ? "good" : "warning"} />
-              <MetricPill label="Tracked" value={totalTracked} />
-              <MetricPill label="Saved" value={savedCount} />
-            </div>
-
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-pine/10 dark:bg-white/10">
-              <div
-                className="h-full rounded-full bg-pine"
-                style={{ width: `${Math.min(Math.max(readinessScore, 0), 100)}%` }}
-              />
-            </div>
           </aside>
         </div>
       </section>
