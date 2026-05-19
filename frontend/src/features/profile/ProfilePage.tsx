@@ -538,7 +538,7 @@ function TextField({
   }
 
   return (
-    <label className="grid gap-1.5 text-sm font-medium text-ink/80">
+    <label className="grid gap-1.5 text-sm font-medium text-ink/80 dark:text-white/75">
       {label}
       <input
         type={type}
@@ -550,9 +550,9 @@ function TextField({
         value={getTextInputValue(value)}
         onChange={(event) => handleChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+        className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
       />
-      {helper ? <span className="text-xs leading-5 text-ink/45">{helper}</span> : null}
+      {helper ? <span className="text-xs leading-5 text-ink/45 dark:text-white/45">{helper}</span> : null}
     </label>
   );
 }
@@ -569,12 +569,12 @@ function SelectField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-1.5 text-sm font-medium text-ink/80">
+    <label className="grid gap-1.5 text-sm font-medium text-ink/80 dark:text-white/75">
       {label}
       <select
         value={getTextInputValue(value)}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+        className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
       >
         <option value="">Select</option>
         {options.map((option) => {
@@ -602,7 +602,7 @@ function BooleanField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2.5 text-sm font-medium text-ink/70 transition hover:bg-mint/35">
+    <label className="flex items-start gap-2 rounded-xl border border-pine/10 bg-white px-3 py-2 text-sm font-medium text-ink/70 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10">
       <input
         type="checkbox"
         checked={checked}
@@ -630,8 +630,8 @@ function MultiCheckboxField({
   return (
     <div className="grid gap-2">
       <div>
-        <p className="text-sm font-medium text-ink/80">{label}</p>
-        {helper ? <p className="mt-1 text-xs leading-5 text-ink/45">{helper}</p> : null}
+        <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
+        {helper ? <p className="mt-1 text-xs leading-5 text-ink/45 dark:text-white/45">{helper}</p> : null}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -643,8 +643,8 @@ function MultiCheckboxField({
               key={option}
               className={
                 checked
-                  ? "flex items-center gap-2 rounded-2xl border border-pine bg-mint px-3 py-2 text-sm font-medium text-pine"
-                  : "flex items-center gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-sm font-medium text-ink/65 transition hover:bg-mint/35"
+                  ? "flex items-center gap-2 rounded-xl border border-pine bg-mint px-3 py-2 text-sm font-medium text-pine dark:border-pine/30 dark:bg-pine/15"
+                  : "flex items-center gap-2 rounded-xl border border-pine/10 bg-white px-3 py-2 text-sm font-medium text-ink/65 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10"
               }
             >
               <input
@@ -684,7 +684,7 @@ function StudyFieldSelect({
 
   return (
     <div className="grid gap-2">
-      <p className="text-sm font-medium text-ink/80">{label}</p>
+      <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
       <div className="grid gap-2 md:grid-cols-[14rem_1fr]">
         <select
@@ -693,7 +693,7 @@ function StudyFieldSelect({
             setCategory(event.target.value);
             setSelectedField("");
           }}
-          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           {categoryNames.map((categoryName) => (
             <option key={categoryName} value={categoryName}>
@@ -715,7 +715,7 @@ function StudyFieldSelect({
 
             onChange(nextValue);
           }}
-          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           <option value="">Select field</option>
           {fieldsForCategory.map((fieldName) => (
@@ -778,7 +778,7 @@ function StudyFieldMultiPicker({
 
   return (
     <div className="grid gap-2">
-      <p className="text-sm font-medium text-ink/80">{label}</p>
+      <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
       <div className="grid gap-2 md:grid-cols-[14rem_1fr_auto]">
         <select
@@ -788,7 +788,7 @@ function StudyFieldMultiPicker({
             setField("");
             setCustomField("");
           }}
-          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           {categoryNames.map((categoryName) => (
             <option key={categoryName} value={categoryName}>
@@ -800,7 +800,7 @@ function StudyFieldMultiPicker({
         <select
           value={field}
           onChange={(event) => setField(event.target.value)}
-          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           <option value="">Select field</option>
           {fieldsForCategory.map((fieldName) => (
@@ -853,7 +853,7 @@ function StudyFieldMultiPicker({
           ))}
         </div>
       ) : (
-        <p className="text-xs leading-5 text-ink/45">
+        <p className="text-xs leading-5 text-ink/45 dark:text-white/45">
           Select from common fields, or choose Other to write your own.
         </p>
       )}
@@ -893,7 +893,7 @@ function CountryRegionPicker({
 
   return (
     <div className="grid gap-2">
-      <p className="text-sm font-medium text-ink/80">{label}</p>
+      <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
       <div className="grid gap-2 md:grid-cols-[12rem_1fr_auto]">
         <select
@@ -902,7 +902,7 @@ function CountryRegionPicker({
             setRegion(event.target.value);
             setCountry("");
           }}
-          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           {regionNames.map((regionName) => (
             <option key={regionName} value={regionName}>
@@ -914,7 +914,7 @@ function CountryRegionPicker({
         <select
           value={country}
           onChange={(event) => setCountry(event.target.value)}
-          className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
+          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
         >
           <option value="">Select country</option>
           {countriesForRegion.map((countryName) => (
@@ -943,7 +943,7 @@ function CountryRegionPicker({
           ))}
         </div>
       ) : (
-        <p className="text-xs leading-5 text-ink/45">
+        <p className="text-xs leading-5 text-ink/45 dark:text-white/45">
           Select a region first, then add countries you are seriously considering.
         </p>
       )}
@@ -963,15 +963,15 @@ function CommaField({
   onChange: (value: string[]) => void;
 }) {
   return (
-    <label className="grid gap-1.5 text-sm font-medium text-ink/80">
+    <label className="grid gap-1.5 text-sm font-medium text-ink/80 dark:text-white/75">
       {label}
       <input
         value={joinCommaList(values)}
         onChange={(event) => onChange(splitCommaList(event.target.value))}
-        className="w-full rounded-2xl border border-pine/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+        className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
         placeholder="Separate items with commas"
       />
-      <span className="text-xs leading-5 text-ink/45">{helper}</span>
+      <span className="text-xs leading-5 text-ink/45 dark:text-white/45">{helper}</span>
     </label>
   );
 }
@@ -989,17 +989,17 @@ function Section({
 }) {
   return (
     <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-      <CardContent className="p-4 md:p-5">
-        <div className="mb-4 flex flex-col gap-3 border-b border-pine/10 pb-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+      <CardContent className="p-3 md:p-4">
+        <div className="mb-3 flex flex-col gap-2 border-b border-pine/10 pb-2 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
               {icon}
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <h2 className="text-base font-bold text-ink dark:text-white md:text-lg">{title}</h2>
               </div>
-              <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">{description}</p>
+              <p className="mt-0.5 text-sm leading-5 text-ink/60 dark:text-white/58">{description}</p>
             </div>
           </div>
         </div>
@@ -1336,30 +1336,30 @@ function ProfilePageContent() {
       hideHeader
       title="Student Profile"
     >
-      <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4">
+      <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">
-            <div className="grid gap-4 xl:grid-cols-[1fr_20rem] xl:items-center">
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
+            <div className="grid gap-3 xl:grid-cols-[1fr_18rem] xl:items-center">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
                   Student profile
                 </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
+                <h1 className="mt-1.5 text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
                   Improve your scholarship match.
                 </h1>
-                <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/65 dark:text-white/60 xl:whitespace-nowrap">
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
                   Fill the most important details first. You can save partial progress and return
                   later.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
+              <div className="rounded-2xl border border-pine/10 bg-white/90 p-3 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-end justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
                       Readiness
                     </p>
-                    <p className="mt-1 text-3xl font-black text-pine">
+                    <p className="mt-0.5 text-2xl font-black text-pine">
                       {completion.scholarship_readiness_score}
                       <span className="text-base font-bold text-ink/45">/100</span>
                     </p>
@@ -1369,14 +1369,14 @@ function ProfilePageContent() {
                   </Badge>
                 </div>
 
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-mint dark:bg-white/10">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-mint dark:bg-white/10">
                   <div
                     className="h-full rounded-full bg-pine"
                     style={{ width: `${completion.completion_percentage}%` }}
                   />
                 </div>
 
-                <p className="mt-2 text-xs leading-5 text-ink/50 dark:text-white/45">
+                <p className="mt-1.5 text-xs leading-5 text-ink/50 dark:text-white/45">
                   {completion.completion_percentage}% profile complete
                 </p>
               </div>
@@ -1384,37 +1384,37 @@ function ProfilePageContent() {
           </div>
 
           <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-            <div className="px-4 py-3 md:px-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
+            <div className="px-3 py-2.5 md:px-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink/35 dark:text-white/35">
                 Completion
               </p>
-              <p className="mt-1 text-2xl font-bold text-ink dark:text-white">
+              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">
                 {completion.completion_percentage}%
               </p>
             </div>
-            <div className="px-4 py-3 md:px-5">
+            <div className="px-3 py-2.5 md:px-4">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Documents</p>
-              <p className="mt-1 text-2xl font-bold text-ink">
+              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">
                 {preparedDocumentCount}
-                <span className="text-sm font-medium text-ink/80/40">
+                <span className="text-sm font-medium text-ink/40 dark:text-white/40">
                   /{DOCUMENT_OPTIONS.length}
                 </span>
               </p>
             </div>
-            <div className="px-4 py-3 md:px-5">
+            <div className="px-3 py-2.5 md:px-4">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Targets</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{form.target_countries.length}</p>
+              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">{form.target_countries.length}</p>
             </div>
-            <div className="px-4 py-3 md:px-5">
+            <div className="px-3 py-2.5 md:px-4">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">Fields</p>
-              <p className="mt-1 text-2xl font-bold text-ink">{form.target_fields.length}</p>
+              <p className="mt-0.5 text-xl font-bold text-ink dark:text-white">{form.target_fields.length}</p>
             </div>
           </div>
         </section>
 
         {nextProfileSteps.length > 0 ? (
           <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-sm font-bold text-ink dark:text-white">Next details to complete</p>
@@ -1925,7 +1925,7 @@ function ProfilePageContent() {
         ) : null}
 
         <Card className="sticky bottom-3 z-10 border-pine/15 bg-white/95 shadow-lg backdrop-blur dark:border-white/10 dark:bg-[#181b1d]/95">
-          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold text-ink dark:text-white">Save your profile</p>
               <p className="text-sm leading-6 text-ink/60 dark:text-white/58">
