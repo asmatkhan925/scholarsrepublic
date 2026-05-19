@@ -243,13 +243,15 @@ function SOPHistoryContent() {
                 Saved SOP drafts
               </div>
 
-              <h1 className="mt-2 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
-                SOP history
-              </h1>
+              <div className="mt-2 flex flex-col gap-2 xl:flex-row xl:items-baseline xl:gap-3">
+                <h1 className="shrink-0 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
+                  SOP history
+                </h1>
 
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
-                Review saved drafts, copy clean text, download Word files, and connect linked SOPs to your application tracker.
-              </p>
+                <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
+                  Review saved drafts, copy clean text, download Word files, and connect linked SOPs to your application tracker.
+                </p>
+              </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link
