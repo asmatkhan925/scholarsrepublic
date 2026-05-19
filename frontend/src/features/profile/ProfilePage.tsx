@@ -675,32 +675,20 @@ function StudyFieldSelect({
 }) {
   const categoryNames = Object.keys(fieldCategories);
   const [category, setCategory] = useState(categoryNames[0] ?? "");
-  const [selectedField, setSelectedField] = useState("");
-  const [customField, setCustomField] = useState("");
 
   const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
-  const isKnownField = Object.values(fieldCategories).flat().includes(value);
-  const isCustom = Boolean(value && !isKnownField);
-  const showCustomField = selectedField === "Other" || isCustom;
+  const listId = `study-field-${label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
 
   return (
-    <div className="grid min-w-0 gap-1.5 md:col-span-2 xl:col-span-4">
+    <div className="grid min-w-0 gap-1.5 md:col-span-2 xl:col-span-2">
       <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
-      <div
-        className={
-          showCustomField
-            ? "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(15rem,1fr)_minmax(16rem,1fr)]"
-            : "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(20rem,1fr)]"
-        }
-      >
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(9rem,12rem)_minmax(14rem,1fr)]">
         <select
           value={category}
-          onChange={(event) => {
-            setCategory(event.target.value);
-            setSelectedField("");
-          }}
+          onChange={(event) => setCategory(event.target.value)}
           className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+          aria-label={`${label} category`}
         >
           {categoryNames.map((categoryName) => (
             <option key={categoryName} value={categoryName}>
@@ -709,42 +697,20 @@ function StudyFieldSelect({
           ))}
         </select>
 
-        <select
-          value={isKnownField ? value : selectedField}
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            setSelectedField(nextValue);
+        <input
+          list={listId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Select or write your field"
+          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
+          aria-label={label}
+        />
 
-            if (nextValue === "Other") {
-              onChange(customField);
-              return;
-            }
-
-            onChange(nextValue);
-          }}
-          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-        >
-          <option value="">Select sub-branch / field</option>
+        <datalist id={listId}>
           {fieldsForCategory.map((fieldName) => (
-            <option key={fieldName} value={fieldName}>
-              {fieldName}
-            </option>
+            <option key={fieldName} value={fieldName} />
           ))}
-          <option value="Other">Other / write my own</option>
-        </select>
-
-        {showCustomField ? (
-          <input
-            aria-label="Write field of study"
-            value={customField || value}
-            onChange={(event) => {
-              setCustomField(event.target.value);
-              onChange(event.target.value);
-            }}
-            placeholder="Write your field"
-            className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
-          />
-        ) : null}
+        </datalist>
       </div>
     </div>
   );
@@ -764,10 +730,10 @@ function StudyFieldMultiPicker({
   const categoryNames = Object.keys(fieldCategories);
   const [category, setCategory] = useState(categoryNames[0] ?? "");
   const [field, setField] = useState("");
-  const [customField, setCustomField] = useState("");
 
   const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
-  const showCustomField = field === "Other";
+  const availableFields = fieldsForCategory.filter((fieldName) => !values.includes(fieldName));
+  const listId = `target-field-${label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
 
   function addField(fieldName: string) {
     const cleaned = fieldName.trim();
@@ -778,7 +744,6 @@ function StudyFieldMultiPicker({
 
     onChange([...values, cleaned]);
     setField("");
-    setCustomField("");
   }
 
   function removeField(fieldName: string) {
@@ -789,21 +754,15 @@ function StudyFieldMultiPicker({
     <div className="grid min-w-0 gap-1.5">
       <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
 
-      <div
-        className={
-          showCustomField
-            ? "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(15rem,1fr)_minmax(16rem,1fr)_auto]"
-            : "grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(20rem,1fr)_auto]"
-        }
-      >
+      <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(18rem,1fr)_auto]">
         <select
           value={category}
           onChange={(event) => {
             setCategory(event.target.value);
             setField("");
-            setCustomField("");
           }}
           className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+          aria-label={`${label} category`}
         >
           {categoryNames.map((categoryName) => (
             <option key={categoryName} value={categoryName}>
@@ -812,34 +771,31 @@ function StudyFieldMultiPicker({
           ))}
         </select>
 
-        <select
+        <input
+          list={listId}
           value={field}
           onChange={(event) => setField(event.target.value)}
-          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-        >
-          <option value="">Select sub-branch / field</option>
-          {fieldsForCategory.map((fieldName) => (
-            <option key={fieldName} value={fieldName} disabled={values.includes(fieldName)}>
-              {fieldName}
-            </option>
-          ))}
-          <option value="Other">Other / write my own</option>
-        </select>
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addField(field);
+            }
+          }}
+          placeholder="Select or write target field"
+          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
+          aria-label={label}
+        />
 
-        {showCustomField ? (
-          <input
-            aria-label="Write custom target field"
-            value={customField}
-            onChange={(event) => setCustomField(event.target.value)}
-            placeholder="Write custom field"
-            className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
-          />
-        ) : null}
+        <datalist id={listId}>
+          {availableFields.map((fieldName) => (
+            <option key={fieldName} value={fieldName} />
+          ))}
+        </datalist>
 
         <Button
           type="button"
-          onClick={() => addField(showCustomField ? customField : field)}
-          disabled={showCustomField ? !customField.trim() : !field}
+          onClick={() => addField(field)}
+          disabled={!field.trim()}
           variant="outline"
         >
           Add
@@ -861,7 +817,7 @@ function StudyFieldMultiPicker({
         </div>
       ) : (
         <p className="text-xs leading-5 text-ink/45 dark:text-white/45">
-          Select from common fields, or choose Other to write your own.
+          Choose a suggestion or type your own field, then add it.
         </p>
       )}
     </div>
