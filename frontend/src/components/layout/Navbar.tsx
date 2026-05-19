@@ -52,7 +52,8 @@ const studentToolLinks: NavLink[] = [
 ];
 
 const adminLinks: NavLink[] = [
-  { label: "Admin", href: "/admin" },
+  { label: "Workbench", href: "/dashboard/admin" },
+  { label: "Django Admin", href: "/admin" },
   { label: "Scholarships", href: "/scholarships" },
   { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
 ];
