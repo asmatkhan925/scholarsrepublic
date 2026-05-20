@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ExternalLink,
   FileJson,
-  Import,
   Loader2,
   RefreshCw,
   Save,
@@ -40,8 +39,22 @@ function extractJson(input: string): Record<string, unknown> {
   const codeFenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = codeFenceMatch ? codeFenceMatch[1].trim() : trimmed;
 
+  if (candidate.startsWith("[")) {
+    throw new Error("This workflow accepts one scholarship JSON object, not a bulk array.");
+  }
+
+  function parseCandidate(value: string) {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (!isRecord(parsed)) {
+      throw new Error('Paste one JSON object with the shape {"confidence": "...", "opportunity": {...}}.');
+    }
+
+    return parsed;
+  }
+
   try {
-    return JSON.parse(candidate) as Record<string, unknown>;
+    return parseCandidate(candidate);
   } catch {
     const firstBrace = candidate.indexOf("{");
     const lastBrace = candidate.lastIndexOf("}");
@@ -50,7 +63,7 @@ function extractJson(input: string): Record<string, unknown> {
       throw new Error("Could not find a valid JSON object.");
     }
 
-    return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)) as Record<string, unknown>;
+    return parseCandidate(candidate.slice(firstBrace, lastBrace + 1));
   }
 }
 
@@ -350,7 +363,7 @@ function AdminDraftEditContent() {
     }
   }
 
-  async function handleSaveValidateAndImport() {
+  async function handleSaveAndValidate() {
     setBusy(true);
     setMessage(null);
     setError(null);
@@ -358,22 +371,15 @@ function AdminDraftEditContent() {
     try {
       await saveDraft();
       const validated = await validateAdminOpportunityDraft(draftId);
-
-      if (validated.status === "validated" && validated.validation_errors.length === 0) {
-        const imported = await importAdminOpportunityDraft(draftId);
-        setDraft(imported.draft);
-        setTitle(imported.draft.title);
-        setJsonText(JSON.stringify(imported.draft.raw_payload, null, 2));
-        setQuickFix(buildQuickFixForm(imported.draft.raw_payload));
-        setMessage("Validated and imported as a real scholarship draft.");
-        return;
-      }
-
       setDraft(validated);
       setTitle(validated.title);
       setJsonText(JSON.stringify(validated.raw_payload, null, 2));
       setQuickFix(buildQuickFixForm(validated.raw_payload));
-      setMessage("Saved, but validation found issues. Fix the errors and try again.");
+      setMessage(
+        validated.status === "validated" && validated.validation_errors.length === 0
+          ? "Review draft validated. Convert it to a scholarship draft when ready."
+          : "Saved, but validation found issues. Fix the errors and validate again.",
+      );
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -392,7 +398,7 @@ function AdminDraftEditContent() {
       setTitle(response.draft.title);
       setJsonText(JSON.stringify(response.draft.raw_payload, null, 2));
       setQuickFix(buildQuickFixForm(response.draft.raw_payload));
-      setMessage("Imported as a real scholarship draft.");
+      setMessage("Converted to a scholarship draft.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -404,7 +410,7 @@ function AdminDraftEditContent() {
     <DashboardShell
       mode="admin"
       title="Edit Imported Draft"
-      description="Fix GPT/imported JSON before it becomes a real scholarship draft."
+      description="Fix GPT/imported JSON before it becomes a scholarship draft."
       hideHeader
     >
       <div className="space-y-4">
@@ -424,13 +430,13 @@ function AdminDraftEditContent() {
               </h1>
 
               <p className="mt-1 text-sm leading-6 text-ink/65 dark:text-white/60">
-                Fix missing country, source, fields, deadline, and JSON issues. A clean draft will be imported into Scholarship Manager automatically.
+                Fix missing country, source, fields, deadline, and JSON issues. A clean review draft can then be converted into Scholarship Manager.
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
                   type="button"
-                  onClick={() => void handleSaveValidateAndImport()}
+                  onClick={() => void handleSaveAndValidate()}
                   disabled={busy || loading}
                   size="sm"
                   variant="primary"
@@ -440,7 +446,7 @@ function AdminDraftEditContent() {
                   ) : (
                     <RefreshCw size={15} aria-hidden="true" />
                   )}
-                  Save, validate, and import
+                  Save and validate review draft
                 </Button>
 
                 <Button
@@ -458,7 +464,7 @@ function AdminDraftEditContent() {
 
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
               <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
-                This page edits the imported review item. Once validation passes, it becomes a real scholarship draft in Scholarship Manager.
+                This page edits imported GPT output. It stays private until you convert it to a scholarship draft, then publish/verify later.
               </div>
             </div>
           </div>
@@ -615,18 +621,18 @@ function AdminDraftEditContent() {
                     Actions
                   </h2>
 
-                  <Button type="button" onClick={() => void handleSaveValidateAndImport()} disabled={busy}>
+                  <Button type="button" onClick={() => void handleSaveAndValidate()} disabled={busy}>
                     {busy ? (
                       <Loader2 size={15} className="animate-spin" aria-hidden="true" />
                     ) : (
-                      <Import size={15} aria-hidden="true" />
+                      <RefreshCw size={15} aria-hidden="true" />
                     )}
-                    Save, validate, and import
+                    Save and validate review draft
                   </Button>
 
                   {canImport ? (
                     <Button type="button" onClick={() => void handleImportOnly()} disabled={busy} variant="outline">
-                      Import now
+                      Convert to scholarship draft
                     </Button>
                   ) : null}
 

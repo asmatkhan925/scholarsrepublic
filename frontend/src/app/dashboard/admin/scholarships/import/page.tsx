@@ -32,15 +32,33 @@ type JsonPreview =
       valid: true;
       title: string;
       country: string;
+      provider: string;
+      degreeLevels: string[];
+      fieldsOfStudy: string[];
+      allStudyFields: boolean;
+      funding: string;
+      stipendSummary: string;
       source: string;
+      officialLink: string;
+      sourceUrl: string;
       deadline: string;
+      benefits: string;
+      eligibility: string;
+      howToApply: string;
+      requiredDocuments: string[];
       warnings: string[];
       missing: string[];
+      checklist: ChecklistItem[];
     }
   | {
       valid: false;
       message: string;
     };
+
+type ChecklistItem = {
+  label: string;
+  complete: boolean;
+};
 
 function extractJson(input: string): Record<string, unknown> {
   const trimmed = input.trim();
@@ -52,8 +70,22 @@ function extractJson(input: string): Record<string, unknown> {
   const codeFenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = codeFenceMatch ? codeFenceMatch[1].trim() : trimmed;
 
+  if (candidate.startsWith("[")) {
+    throw new Error('Paste one scholarship JSON object, not a bulk array.');
+  }
+
+  function parseCandidate(value: string) {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (!isRecord(parsed)) {
+      throw new Error('Paste one JSON object with the shape {"confidence": "...", "opportunity": {...}}.');
+    }
+
+    return parsed;
+  }
+
   try {
-    return JSON.parse(candidate) as Record<string, unknown>;
+    return parseCandidate(candidate);
   } catch {
     const firstBrace = candidate.indexOf("{");
     const lastBrace = candidate.lastIndexOf("}");
@@ -62,7 +94,7 @@ function extractJson(input: string): Record<string, unknown> {
       throw new Error("Could not find a JSON object in the pasted text.");
     }
 
-    return JSON.parse(candidate.slice(firstBrace, lastBrace + 1)) as Record<string, unknown>;
+    return parseCandidate(candidate.slice(firstBrace, lastBrace + 1));
   }
 }
 
@@ -72,6 +104,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function getBoolean(value: unknown) {
+  return value === true;
+}
+
+function humanize(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function normalizeDraftPayload(parsed: Record<string, unknown>) {
@@ -92,6 +136,122 @@ function getTextList(value: unknown) {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function summarizeText(value: string) {
+  if (!value) {
+    return "Not provided";
+  }
+
+  return value.length > 280 ? `${value.slice(0, 277).trim()}...` : value;
+}
+
+function buildCompletenessChecklist(opportunity: Record<string, unknown>): ChecklistItem[] {
+  return [
+    { label: "Title", complete: Boolean(getText(opportunity.title)) },
+    { label: "Country", complete: Boolean(getText(opportunity.country)) },
+    {
+      label: "Official link or source URL",
+      complete: Boolean(getText(opportunity.official_link) || getText(opportunity.source_url)),
+    },
+    { label: "Short description", complete: Boolean(getText(opportunity.short_description)) },
+    { label: "Description", complete: Boolean(getText(opportunity.description)) },
+    { label: "Eligibility", complete: Boolean(getText(opportunity.eligibility)) },
+    { label: "Benefits", complete: Boolean(getText(opportunity.benefits)) },
+    { label: "How to apply", complete: Boolean(getText(opportunity.how_to_apply)) },
+    {
+      label: "Deadline or rolling deadline",
+      complete: Boolean(getText(opportunity.deadline) || getBoolean(opportunity.is_rolling_deadline)),
+    },
+    {
+      label: "Funding type or stipend",
+      complete: Boolean(getText(opportunity.funding_type) || getText(opportunity.stipend_summary)),
+    },
+    { label: "Degree levels", complete: getTextList(opportunity.degree_levels).length > 0 },
+    {
+      label: "Fields or all study fields",
+      complete: getTextList(opportunity.fields_of_study).length > 0 || getBoolean(opportunity.all_study_fields),
+    },
+  ];
+}
+
+function PreviewField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-[#101214]">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold leading-5 text-ink/75 dark:text-white/68">
+        {value || "Not provided"}
+      </p>
+    </div>
+  );
+}
+
+function PreviewList({
+  label,
+  items,
+  emptyLabel = "Not provided",
+  tone = "neutral",
+}: {
+  label: string;
+  items: string[];
+  emptyLabel?: string;
+  tone?: "mint" | "saffron" | "sky" | "neutral" | "danger";
+}) {
+  return (
+    <div className="rounded-xl border border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-[#101214]">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+        {label}
+      </p>
+      {items.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {items.map((item) => (
+            <Badge key={item} tone={tone}>
+              {item}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-sm font-semibold text-ink/45 dark:text-white/40">{emptyLabel}</p>
+      )}
+    </div>
+  );
+}
+
+function CompletenessChecklist({ items }: { items: ChecklistItem[] }) {
+  const completeCount = items.filter((item) => item.complete).length;
+
+  return (
+    <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-bold text-ink dark:text-white">Completeness checklist</p>
+          <p className="text-xs font-semibold text-ink/50 dark:text-white/45">
+            {completeCount} of {items.length} recommended fields detected before creating the review draft.
+          </p>
+        </div>
+        <Badge tone={completeCount === items.length ? "mint" : "saffron"}>
+          {completeCount === items.length ? "Looks complete" : "Needs review"}
+        </Badge>
+      </div>
+
+      <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="flex items-center gap-2 rounded-xl border border-pine/10 bg-white px-2.5 py-2 text-xs font-semibold text-ink/65 dark:border-white/10 dark:bg-[#101214] dark:text-white/60"
+          >
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${item.complete ? "bg-pine" : "bg-saffron"}`}
+              aria-hidden="true"
+            />
+            {item.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AdminScholarshipImportContent() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceText, setSourceText] = useState("");
@@ -105,11 +265,13 @@ function AdminScholarshipImportContent() {
   const gptPrompt = useMemo(
     () => `You are helping me prepare a scholarship listing for Scholars Republic.
 
-Use only the official source URL and official source text I provide. Do not invent deadlines, benefits, eligibility, countries, universities, IELTS rules, application fees, documents, or funding details.
+Task: extract ONE scholarship from the official source below.
 
-Return valid JSON only. Do not use markdown. Do not add commentary.
+Use only facts that appear in the official source URL or official source text. Do not invent deadlines, benefits, eligibility, countries, universities, grades, IELTS rules, application fees, required documents, funding, application steps, or personal claims.
 
-Return this exact JSON shape:
+Return valid JSON only. Do not use markdown. Do not add commentary. Do not return an array. Do not include more than one scholarship.
+
+Return this exact backend-compatible JSON shape:
 {
   "confidence": "low | medium | high",
   "opportunity": {
@@ -130,6 +292,7 @@ Return this exact JSON shape:
     "is_rolling_deadline": false,
     "degree_levels": [],
     "fields_of_study": [],
+    "all_study_fields": false,
     "eligible_countries": [],
     "funding_type": "",
     "funding_amount": null,
@@ -152,11 +315,16 @@ Important rules:
 - If the official source does not clearly mention something, leave it blank, null, false, or [].
 - Put uncertain items in "warnings".
 - Put missing important facts in "missing_information".
+- Use "confidence": "high" only when title, country, source URL, deadline/rolling deadline, funding, eligibility, benefits, application steps, degree levels, and fields are clear from the official source.
 - Use YYYY-MM-DD for deadline only when the exact date is clear.
 - Use "is_rolling_deadline": true only if the source clearly says rolling/open deadline.
 - Use "funding_type" values like fully_funded, partially_funded, tuition_waiver, stipend_only, merit_based, need_based, self_funded, or leave blank.
 - Use simple study field names such as Engineering, Computer Science, Medicine, Business, Social Sciences, Arts, Law, Education, Agriculture, Natural Sciences, or All Fields.
-- Keep all writing student-friendly, accurate, and concise.
+- If the official source says all fields/any field/all programs, set "all_study_fields": true and use "fields_of_study": ["All Fields"].
+- Write complete but concise student-facing paragraphs for short_description, description, benefits, eligibility, and how_to_apply.
+- Include required_documents only when the source mentions them.
+- Keep wording accurate, neutral, and student-friendly.
+- This imported JSON becomes a private review draft only. It is not published until an admin verifies and publishes it later.
 
 Official source URL:
 ${sourceUrl || "PASTE_OFFICIAL_URL_HERE"}
@@ -173,17 +341,37 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
     try {
       const parsed = extractJson(jsonText);
       const opportunity = isRecord(parsed.opportunity) ? parsed.opportunity : parsed;
+      const officialLink = getText(opportunity.official_link);
+      const sourceUrlValue = getText(opportunity.source_url);
+      const deadlineValue = getText(opportunity.deadline);
+      const allStudyFields = getBoolean(opportunity.all_study_fields);
 
       return {
         valid: true,
         title: getText(opportunity.title) || "Title not detected",
         country: getText(opportunity.country) || "Country missing",
-        source: getText(opportunity.official_link) || getText(opportunity.source_url) || "Source missing",
+        provider:
+          getText(opportunity.provider_name) ||
+          getText(opportunity.university_name) ||
+          "Provider/university missing",
+        degreeLevels: getTextList(opportunity.degree_levels),
+        fieldsOfStudy: getTextList(opportunity.fields_of_study),
+        allStudyFields,
+        funding: humanize(getText(opportunity.funding_type)) || "Funding type missing",
+        stipendSummary: getText(opportunity.stipend_summary),
+        source: officialLink || sourceUrlValue || "Source missing",
+        officialLink,
+        sourceUrl: sourceUrlValue,
         deadline:
-          getText(opportunity.deadline) ||
-          (opportunity.is_rolling_deadline === true ? "Rolling deadline" : "Deadline missing"),
+          deadlineValue ||
+          (getBoolean(opportunity.is_rolling_deadline) ? "Rolling deadline" : "Deadline missing"),
+        benefits: getText(opportunity.benefits),
+        eligibility: getText(opportunity.eligibility),
+        howToApply: getText(opportunity.how_to_apply),
+        requiredDocuments: getTextList(opportunity.required_documents),
         warnings: getTextList(opportunity.warnings),
         missing: getTextList(opportunity.missing_information),
+        checklist: buildCompletenessChecklist(opportunity),
       };
     } catch (previewError) {
       return {
@@ -253,7 +441,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                 </h1>
 
                 <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Paste official source details, use GPT, then save the structured JSON as a draft.
+                  Paste one official source, use GPT, then create a private review draft.
                 </p>
               </div>
 
@@ -273,7 +461,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                 </Button>
 
                 <ButtonLink href="/dashboard/admin/scholarships/drafts" size="sm" variant="outline">
-                  Draft queue
+                  Review drafts
                 </ButtonLink>
               </div>
             </div>
@@ -283,7 +471,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                 <div className="flex gap-2">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
                   <p>
-                    Only use official scholarship pages. Do not publish AI output until it is reviewed and verified.
+                    This importer accepts one scholarship JSON object at a time. GPT output becomes a private review draft, not a published scholarship.
                   </p>
                 </div>
               </div>
@@ -299,7 +487,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
           <div className="rounded-2xl border border-pine/20 bg-pine/5 p-3 text-sm text-pine dark:border-pine/20 dark:bg-pine/10">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-bold">Draft created: {createdDraft.title}</p>
+                <p className="font-bold">Review draft created: {createdDraft.title}</p>
                 <p className="mt-1 text-xs font-semibold text-pine/75">
                   Status: {createdDraft.status} · Errors: {createdDraft.validation_errors.length} · Warnings:{" "}
                   {createdDraft.validation_warnings.length}
@@ -307,7 +495,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
               </div>
 
               <ButtonLink href="/dashboard/admin/scholarships/drafts" size="sm" variant="secondary">
-                Review in queue
+                Review draft
               </ButtonLink>
               <ButtonLink
                 href={`/dashboard/admin/scholarships/drafts/${createdDraft.id}/edit`}
@@ -361,7 +549,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                 <div className="flex items-center gap-2">
                   <FileJson size={17} className="text-pine" aria-hidden="true" />
                   <h2 className="text-lg font-bold text-ink dark:text-white">
-                    2. Paste GPT JSON result
+                    2. Paste one GPT JSON result
                   </h2>
                 </div>
 
@@ -378,28 +566,87 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
 
                 {jsonPreview ? (
                   <div
-                    className={`mt-3 rounded-xl border px-3 py-2 text-sm leading-6 ${
+                    className={`mt-3 rounded-2xl border p-3 text-sm leading-6 ${
                       jsonPreview.valid
                         ? "border-pine/10 bg-[#f7faf8] text-ink/70 dark:border-white/10 dark:bg-white/5 dark:text-white/65"
                         : "border-red-200 bg-red-50 text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300"
                     }`}
                   >
                     {jsonPreview.valid ? (
-                      <div>
+                      <div className="grid gap-3">
                         <div className="flex flex-wrap gap-1.5">
                           <Badge tone="mint">Valid JSON</Badge>
+                          <Badge tone="neutral">Single scholarship</Badge>
                           <Badge tone={jsonPreview.source === "Source missing" ? "saffron" : "neutral"}>
-                            {jsonPreview.source}
+                            {jsonPreview.source === "Source missing" ? "Source missing" : "Source detected"}
                           </Badge>
                           <Badge tone={jsonPreview.deadline === "Deadline missing" ? "saffron" : "sky"}>
                             {jsonPreview.deadline}
                           </Badge>
                         </div>
-                        <p className="mt-2 font-bold text-ink dark:text-white">{jsonPreview.title}</p>
-                        <p className="text-xs font-semibold text-ink/50 dark:text-white/45">
-                          {jsonPreview.country} · Warnings: {jsonPreview.warnings.length} · Missing:{" "}
-                          {jsonPreview.missing.length}
-                        </p>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-pine">
+                            Scholarship review preview
+                          </p>
+                          <h3 className="mt-1 text-lg font-black leading-snug text-ink dark:text-white">
+                            {jsonPreview.title}
+                          </h3>
+                          <p className="mt-1 text-sm font-semibold text-ink/55 dark:text-white/50">
+                            {jsonPreview.provider} · {jsonPreview.country}
+                          </p>
+                        </div>
+
+                        <CompletenessChecklist items={jsonPreview.checklist} />
+
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <PreviewList label="Degree levels" items={jsonPreview.degreeLevels} tone="neutral" />
+                          <PreviewList
+                            label="Fields of study"
+                            items={
+                              jsonPreview.allStudyFields && jsonPreview.fieldsOfStudy.length === 0
+                                ? ["All Fields"]
+                                : jsonPreview.fieldsOfStudy
+                            }
+                            emptyLabel={jsonPreview.allStudyFields ? "All fields" : "Not provided"}
+                            tone="sky"
+                          />
+                          <PreviewField
+                            label="Funding"
+                            value={
+                              jsonPreview.stipendSummary
+                                ? `${jsonPreview.funding} · ${jsonPreview.stipendSummary}`
+                                : jsonPreview.funding
+                            }
+                          />
+                          <PreviewField label="Deadline" value={jsonPreview.deadline} />
+                          <PreviewField label="Official link" value={jsonPreview.officialLink} />
+                          <PreviewField label="Source URL" value={jsonPreview.sourceUrl} />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <PreviewField label="Benefits summary" value={summarizeText(jsonPreview.benefits)} />
+                          <PreviewField label="Eligibility summary" value={summarizeText(jsonPreview.eligibility)} />
+                          <PreviewField label="How to apply summary" value={summarizeText(jsonPreview.howToApply)} />
+                        </div>
+
+                        <PreviewList
+                          label="Required documents"
+                          items={jsonPreview.requiredDocuments}
+                          emptyLabel="No required documents detected"
+                          tone="neutral"
+                        />
+                        <PreviewList
+                          label="Warnings"
+                          items={jsonPreview.warnings}
+                          emptyLabel="No warnings from GPT"
+                          tone="saffron"
+                        />
+                        <PreviewList
+                          label="Missing information"
+                          items={jsonPreview.missing}
+                          emptyLabel="No missing information listed"
+                          tone="danger"
+                        />
                       </div>
                     ) : (
                       <p className="font-semibold">{jsonPreview.message}</p>
@@ -414,7 +661,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                     onChange={(event) => setValidateImmediately(event.target.checked)}
                     className="h-4 w-4 rounded border-pine/20 text-pine focus:ring-pine"
                   />
-                  Validate immediately after creating draft
+                  Validate review draft immediately after creating
                 </label>
 
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -430,11 +677,11 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                     ) : (
                       <Sparkles size={15} aria-hidden="true" />
                     )}
-                    {creating ? "Creating..." : "Create draft"}
+                    {creating ? "Creating review draft..." : "Create review draft"}
                   </Button>
 
                   <ButtonLink href="/dashboard/admin/scholarships/drafts" size="sm" variant="outline">
-                    Open draft queue
+                    Open review drafts
                   </ButtonLink>
                 </div>
               </CardContent>
@@ -478,10 +725,10 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
 
                 <div className="mt-3 grid gap-2 text-sm leading-6 text-ink/65 dark:text-white/58">
                   <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                    Review warnings and errors in the draft queue.
+                    Review warnings and errors in the review drafts queue.
                   </p>
                   <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                    Import only clean drafts, then review again before publishing.
+                    Convert only clean review drafts to scholarship drafts, then review again before publishing.
                   </p>
                   <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
                     Verify official source and deadline before marking as verified.

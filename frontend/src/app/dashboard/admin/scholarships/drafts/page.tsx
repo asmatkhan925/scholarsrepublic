@@ -284,7 +284,7 @@ function DraftReviewCard({
                 ) : (
                   <RefreshCw size={14} aria-hidden="true" />
                 )}
-                {draft.created_opportunity ? "Revalidate" : "Validate draft"}
+                {draft.created_opportunity ? "Revalidate" : "Validate review draft"}
               </Button>
 
               <Button
@@ -297,20 +297,20 @@ function DraftReviewCard({
                 {busy ? (
                   <Loader2 size={14} className="animate-spin" aria-hidden="true" />
                 ) : (
-                <Import size={14} aria-hidden="true" />
+                  <Import size={14} aria-hidden="true" />
                 )}
-                Import clean draft
+                Convert to scholarship draft
               </Button>
 
               {needsValidation ? (
                 <p className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs font-semibold leading-5 text-ink/65 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
-                  Validate first. This is only an imported GPT draft, not a real scholarship yet.
+                  Validate first. This is imported GPT output in a private review draft, not a published scholarship.
                 </p>
               ) : null}
 
               {draft.status === "validated" && !canImport ? (
                 <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
-                  Fix validation errors before importing as a scholarship draft.
+                  Fix validation errors before converting to a scholarship draft.
                 </p>
               ) : null}
 
@@ -450,7 +450,7 @@ function DraftReviewQueueContent() {
       await updateDraftInList(validated);
       setMessage(
         validated.status === "validated"
-          ? "Draft validated. Review warnings, then import it as a scholarship draft when ready."
+          ? "Review draft validated. Review warnings, then convert it to a scholarship draft when ready."
           : "Validation found errors. Click Edit draft to fix them.",
       );
     } catch (requestError) {
@@ -469,7 +469,7 @@ function DraftReviewQueueContent() {
     try {
       const response = await importAdminOpportunityDraft(draft.id);
       await updateDraftInList(response.draft);
-      setMessage("Imported as a real scholarship draft. Open the scholarship manager or edit page before publishing.");
+      setMessage("Converted to a scholarship draft. Open the scholarship manager or edit page before publishing.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
       await loadDrafts();
