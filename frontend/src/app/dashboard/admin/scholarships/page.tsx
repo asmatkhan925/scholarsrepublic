@@ -730,8 +730,8 @@ function AdminScholarshipManagerContent() {
             </div>
           </div>
 
-          <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_11rem_11rem_11rem_14rem_13rem_12rem_auto]">
-            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+          <div className="grid grid-cols-1 gap-3 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-2 xl:grid-cols-4">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-ink dark:text-white md:col-span-2">
               Search
               <div className="relative">
                 <Search
@@ -747,20 +747,20 @@ function AdminScholarshipManagerContent() {
                       void loadItems();
                     }
                   }}
-                  className="h-10 w-full rounded-xl border border-pine/15 bg-white py-2 pl-9 pr-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
+                  className="h-10 w-full min-w-0 rounded-xl border border-pine/15 bg-white py-2 pl-9 pr-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
                   placeholder="Title, provider, country, field..."
                 />
               </div>
             </label>
 
-            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Status
               <select
                 value={statusFilter}
                 onChange={(event) =>
                   setStatusFilter(event.target.value as "all" | OpportunityStatus)
                 }
-                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                className="h-10 w-full min-w-0 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="all">All status</option>
                 <option value="draft">Draft</option>
@@ -769,12 +769,12 @@ function AdminScholarshipManagerContent() {
               </select>
             </label>
 
-            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Verified
               <select
                 value={verifiedFilter}
                 onChange={(event) => setVerifiedFilter(event.target.value as VerifiedFilter)}
-                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                className="h-10 w-full min-w-0 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="all">All</option>
                 <option value="verified">Verified</option>
@@ -782,12 +782,12 @@ function AdminScholarshipManagerContent() {
               </select>
             </label>
 
-            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Deadline
               <select
                 value={deadlineFilter}
                 onChange={(event) => setDeadlineFilter(event.target.value as DeadlineFilter)}
-                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                className="h-10 w-full min-w-0 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="all">All deadlines</option>
                 <option value="expiring">Next 30 days</option>
@@ -796,12 +796,12 @@ function AdminScholarshipManagerContent() {
               </select>
             </label>
 
-            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-ink dark:text-white md:col-span-2">
               Pathway
               <select
                 value={pathwayFilter}
                 onChange={(event) => setPathwayFilter(event.target.value)}
-                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                className="h-10 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="all">All pathways</option>
                 <option value="missing">No pathway assigned</option>
@@ -813,12 +813,12 @@ function AdminScholarshipManagerContent() {
               </select>
             </label>
 
-            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Pathway type
               <select
                 value={pathwayTypeFilter}
                 onChange={(event) => setPathwayTypeFilter(event.target.value)}
-                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                className="h-10 w-full min-w-0 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="all">All types</option>
                 {Array.from(new Set(pathways.map((pathway) => pathway.pathway_type))).map(
@@ -831,12 +831,12 @@ function AdminScholarshipManagerContent() {
               </select>
             </label>
 
-            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Sort
               <select
                 value={ordering}
                 onChange={(event) => setOrdering(event.target.value)}
-                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                className="h-10 w-full min-w-0 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="-updated_at">Recently updated</option>
                 <option value="deadline">Deadline soonest</option>
@@ -845,11 +845,11 @@ function AdminScholarshipManagerContent() {
               </select>
             </label>
 
-            <div className="flex items-end gap-2">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row md:col-span-2 xl:col-span-4">
               <Button
                 type="button"
                 onClick={() => void loadItems()}
-                className="w-full"
+                className="w-full sm:w-auto"
                 size="sm"
                 variant="outline"
               >
@@ -863,7 +863,7 @@ function AdminScholarshipManagerContent() {
                     setPathwayFilter("all");
                     setPathwayTypeFilter("all");
                   }}
-                  className="w-full"
+                  className="w-full sm:w-auto"
                   size="sm"
                   variant="ghost"
                 >
