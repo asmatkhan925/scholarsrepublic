@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -195,6 +196,16 @@ def validate_opportunity_draft_payload(payload):
         "funding_type",
         warnings,
     )
+    opportunity["stipend_summary"] = clean_text(
+        opportunity_payload.get("stipend_summary")
+    )[: Opportunity._meta.get_field("stipend_summary").max_length]
+    opportunity["funding_amount"] = clean_funding_amount(
+        opportunity_payload.get("funding_amount"),
+        warnings,
+    )
+    opportunity["funding_currency"] = clean_text(
+        opportunity_payload.get("funding_currency")
+    ).upper()[: Opportunity._meta.get_field("funding_currency").max_length]
     opportunity["degree_levels"] = clean_string_list(opportunity_payload.get("degree_levels"))
     opportunity["required_documents"] = clean_string_list(
         opportunity_payload.get("required_documents")
@@ -291,6 +302,9 @@ def import_opportunity_draft(draft, user=None, update_existing=False):
     opportunity.deadline = opportunity_data["deadline"]
     opportunity.is_rolling_deadline = opportunity_data["is_rolling_deadline"]
     opportunity.funding_type = opportunity_data["funding_type"]
+    opportunity.stipend_summary = opportunity_data["stipend_summary"]
+    opportunity.funding_amount = opportunity_data["funding_amount"]
+    opportunity.funding_currency = opportunity_data["funding_currency"]
     opportunity.degree_levels = opportunity_data["degree_levels"]
     opportunity.required_documents = opportunity_data["required_documents"]
     opportunity.tags = opportunity_data["tags"]
@@ -384,6 +398,29 @@ def parse_positive_int(value):
         return None
 
     return parsed if parsed > 0 else None
+
+
+def clean_funding_amount(value, warnings):
+    if value in (None, ""):
+        return None
+
+    cleaned_value = clean_text(value).replace(",", "")
+
+    try:
+        amount = Decimal(cleaned_value)
+    except (InvalidOperation, ValueError):
+        warnings.append(f'Invalid funding_amount "{clean_text(value)}" skipped.')
+        return None
+
+    if not amount.is_finite():
+        warnings.append(f'Invalid funding_amount "{clean_text(value)}" skipped.')
+        return None
+
+    if amount < 0:
+        warnings.append("Invalid funding_amount cannot be negative; skipped.")
+        return None
+
+    return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def clean_choice(value, choices, default, field_name, warnings):
@@ -535,6 +572,8 @@ def build_search_keywords(opportunity_data):
         opportunity_data.get("country"),
         opportunity_data.get("application_track"),
         opportunity_data.get("funding_type"),
+        opportunity_data.get("stipend_summary"),
+        opportunity_data.get("funding_currency"),
     ]
     values.extend(opportunity_data.get("degree_levels", []))
     values.extend(opportunity_data.get("tags", []))

@@ -157,6 +157,7 @@ type QuickFixForm = {
   source_name: string;
   pathway_id: number | null;
   funding_type: string;
+  stipend_summary: string;
   fields_of_study: string;
 };
 
@@ -168,6 +169,7 @@ const emptyQuickFix: QuickFixForm = {
   source_name: "",
   pathway_id: null,
   funding_type: "",
+  stipend_summary: "",
   fields_of_study: "",
 };
 
@@ -215,6 +217,7 @@ function buildQuickFixForm(payload: Record<string, unknown>): QuickFixForm {
     source_name: getText(opportunity.source_name),
     pathway_id: typeof opportunity.pathway_id === "number" ? opportunity.pathway_id : null,
     funding_type: getText(opportunity.funding_type),
+    stipend_summary: getText(opportunity.stipend_summary),
     fields_of_study: textListToTextarea(opportunity.fields_of_study),
   };
 }
@@ -230,6 +233,7 @@ function applyQuickFixToPayload(payload: Record<string, unknown>, quickFix: Quic
     source_name: quickFix.source_name.trim(),
     pathway_id: quickFix.pathway_id,
     funding_type: quickFix.funding_type.trim(),
+    stipend_summary: quickFix.stipend_summary.trim(),
     fields_of_study: textareaToTextList(quickFix.fields_of_study),
   };
 
@@ -614,6 +618,13 @@ function AdminDraftEditContent() {
                         ))}
                       </select>
                     </label>
+
+                    <QuickTextInput
+                      label="Stipend summary"
+                      value={quickFix.stipend_summary}
+                      onChange={(value) => updateQuickFixField("stipend_summary", value)}
+                      placeholder="Tuition, monthly stipend, travel allowance..."
+                    />
                   </div>
 
                   <label className="mt-3 grid gap-1.5 text-sm font-semibold text-ink dark:text-white">

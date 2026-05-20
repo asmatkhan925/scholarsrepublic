@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from io import StringIO
 
 from django.contrib.admin.sites import AdminSite
@@ -1309,6 +1310,88 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(draft.created_opportunity, opportunity)
         self.assertEqual(draft.validation_errors, [])
         self.assertIsNotNone(draft.imported_at)
+
+    def test_opportunity_draft_import_preserves_stipend_summary(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Stipend Summary",
+            slug="draft-import-stipend-summary",
+            raw_payload=self.draft_payload(
+                slug="draft-import-stipend-summary-opportunity",
+                stipend_summary="Full tuition plus 3,500 RMB monthly stipend.",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(
+            opportunity.stipend_summary,
+            "Full tuition plus 3,500 RMB monthly stipend.",
+        )
+
+    def test_opportunity_draft_import_preserves_funding_amount_and_currency(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Funding Amount",
+            slug="draft-import-funding-amount",
+            raw_payload=self.draft_payload(
+                slug="draft-import-funding-amount-opportunity",
+                funding_amount="3500.5",
+                funding_currency="rmb",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(opportunity.funding_amount, Decimal("3500.50"))
+        self.assertEqual(opportunity.funding_currency, "RMB")
+
+    def test_opportunity_draft_import_missing_stipend_does_not_block_import(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Missing Stipend",
+            slug="draft-import-missing-stipend",
+            raw_payload=self.draft_payload(
+                slug="draft-import-missing-stipend-opportunity",
+                stipend_summary="",
+                funding_amount=None,
+                funding_currency="",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(opportunity.stipend_summary, "")
+        self.assertIsNone(opportunity.funding_amount)
+        self.assertEqual(opportunity.funding_currency, "")
+
+    def test_opportunity_draft_import_invalid_funding_amount_warns_and_skips(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Invalid Funding Amount",
+            slug="draft-import-invalid-funding-amount",
+            raw_payload=self.draft_payload(
+                slug="draft-import-invalid-funding-amount-opportunity",
+                funding_amount="-100",
+                funding_currency="usd",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertIsNone(opportunity.funding_amount)
+        self.assertEqual(opportunity.funding_currency, "USD")
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.IMPORTED)
+        self.assertIn(
+            "Invalid funding_amount cannot be negative; skipped.",
+            draft.validation_warnings,
+        )
 
     def test_opportunity_draft_import_resolves_pathway_id_first(self):
         pathway = self.pathway()
