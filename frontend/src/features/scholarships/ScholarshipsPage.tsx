@@ -7,11 +7,12 @@ import {
   BadgeCheck,
   BookmarkCheck,
   CalendarDays,
+  Filter,
   GraduationCap,
   Search,
-  SlidersHorizontal,
   Sparkles,
   Star,
+  WalletCards,
   X,
 } from "lucide-react";
 
@@ -140,11 +141,12 @@ function ScholarshipCard({
   const fieldTags = scholarship.fields_of_study.slice(0, 2);
   const extraDegreeCount = Math.max(scholarship.degree_levels.length - degreeTags.length, 0);
   const deadlineTone = getDeadlineTone(scholarship);
+  const fundingLabel = humanize(scholarship.funding_type);
 
   return (
-    <Card className="self-start overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg">
+    <Card className="self-start overflow-hidden transition hover:-translate-y-0.5 hover:border-pine/20 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="flex flex-col p-0">
-        <div className="p-3.5 md:p-4">
+        <div className="border-b border-pine/10 bg-white p-3 dark:border-white/10 dark:bg-white/5">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={deadlineTone}>{getDeadlineLabel(scholarship)}</Badge>
@@ -181,6 +183,12 @@ function ScholarshipCard({
               />
             </div>
           </div>
+        </div>
+
+        <div className="p-3.5 md:p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-pine">
+            {scholarship.country || "Country not listed"}
+          </p>
 
           <h2 className="mt-2.5 text-base font-bold leading-snug text-ink md:text-lg">
             {scholarship.title}
@@ -196,21 +204,48 @@ function ScholarshipCard({
             </p>
           ) : null}
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-ink/65">
-            <span className="inline-flex items-center gap-1.5 font-medium text-ink/75">
-              <CalendarDays size={15} className="text-pine" aria-hidden="true" />
-              <span>Deadline:</span>
-              <span className="font-semibold text-ink">{formatDate(scholarship.deadline)}</span>
-            </span>
-            <span className="font-medium text-ink/60">
-              Funding: {humanize(scholarship.funding_type)}
-            </span>
-            {scholarship.stipend_summary ? (
+          <div className="mt-3 grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5 sm:grid-cols-3">
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+                <CalendarDays size={13} className="text-pine" aria-hidden="true" />
+                Deadline
+              </p>
+              <p className="mt-1 truncate text-xs font-bold text-ink dark:text-white" title={formatDate(scholarship.deadline)}>
+                {formatDate(scholarship.deadline)}
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+                <WalletCards size={13} className="text-pine" aria-hidden="true" />
+                Funding
+              </p>
+              <p className="mt-1 truncate text-xs font-bold text-ink dark:text-white" title={fundingLabel}>
+                {fundingLabel}
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+                <GraduationCap size={13} className="text-pine" aria-hidden="true" />
+                Degree
+              </p>
+              <p
+                className="mt-1 truncate text-xs font-bold text-ink dark:text-white"
+                title={scholarship.degree_levels.join(", ") || "Not listed"}
+              >
+                {scholarship.degree_levels[0] || "Not listed"}
+              </p>
+            </div>
+          </div>
+
+          {scholarship.stipend_summary ? (
+            <div className="mt-2.5">
               <Badge tone="saffron" className="px-2.5 py-0.5 text-[11px]">
                 Stipend: {scholarship.stipend_summary}
               </Badge>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {degreeTags.map((degree) => (
@@ -225,6 +260,12 @@ function ScholarshipCard({
               </Badge>
             ))}
           </div>
+
+          {scholarship.pathway_detail ? (
+            <p className="mt-2.5 line-clamp-1 text-xs font-semibold text-ink/45 dark:text-white/45">
+              Pathway: {scholarship.pathway_detail.full_path}
+            </p>
+          ) : null}
 
           {match ? (
             <div className="mt-2.5">
@@ -242,7 +283,7 @@ function ScholarshipCard({
         <div className="border-t border-pine/10 bg-white p-2.5 dark:border-white/10 dark:bg-white/5 md:p-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <ButtonLink href={`/scholarships/${scholarship.slug}`} size="sm" variant="outline">
-              View Details
+              View details
               <ArrowRight size={15} aria-hidden="true" />
             </ButtonLink>
 
@@ -662,21 +703,51 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       <main className="bg-[#f7faf8] transition-colors dark:bg-[#0e1012]">
         <section className="mx-auto max-w-7xl px-4 py-2.5 sm:px-5 md:px-8 md:py-3">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-2.5 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-6">
-              <div className="flex min-w-0 flex-col gap-1 md:flex-row md:items-baseline md:gap-2">
-                <h1 className="shrink-0 text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
+            <div className="grid gap-0 bg-gradient-to-r from-mint/75 via-white to-skyglass transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="px-4 py-4 md:px-6">
+                <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
+                  <Sparkles size={14} aria-hidden="true" />
+                  Verified scholarship discovery
+                </div>
+                <h1 className="mt-2 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
                   Find scholarships worth applying to.
                 </h1>
-                <span className="hidden text-lg font-bold text-pine/45 md:inline">·</span>
-                <p className="max-w-4xl text-sm leading-5 text-ink/70 dark:text-white/60 md:truncate">
-                  Search verified opportunities by country, funding, deadline, and pathway.
+                <p className="mt-1 max-w-4xl text-sm leading-6 text-ink/70 dark:text-white/60">
+                  Search published opportunities by country, funding, deadline, degree level, and pathway.
                 </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 lg:border-l lg:border-t-0">
+                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Results
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    {loading ? "..." : resultCount}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Sorting
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
+                    Deadline
+                  </p>
+                </div>
+                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+                    Sources
+                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-pine">
+                    Checked
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
           <Card className="mt-2 dark:border-white/10 dark:bg-[#181b1d]">
-            <CardContent className="p-2 md:p-2.5">
+            <CardContent className="p-3 md:p-3.5">
               <form onSubmit={handleFilterSubmit} className="grid gap-2">
                 <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                   <label className="grid min-w-0 text-xs font-semibold text-ink">
@@ -691,7 +762,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Search by scholarship, university, country..."
-                        className="h-9 w-full rounded-2xl border border-pine/15 bg-white pl-9 pr-3 text-[13px] text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10"
+                        className="h-10 w-full rounded-2xl border border-pine/15 bg-white pl-9 pr-3 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
                       />
                     </div>
                   </label>
@@ -708,7 +779,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                       size="sm"
                       variant={activeAdvancedFilters.length > 0 ? "outline" : "ghost"}
                     >
-                      <SlidersHorizontal size={14} aria-hidden="true" />
+                      <Filter size={14} aria-hidden="true" />
                       Filters
                       {activeAdvancedFilters.length > 0 ? ` (${activeAdvancedFilters.length})` : ""}
                     </Button>
@@ -724,6 +795,56 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                       Pathways{selectedPathway ? " (1)" : ""}
                     </Button>
                   </div>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-3">
+                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
+                    Country
+                    <select
+                      value={country}
+                      onChange={(event) => setCountry(event.target.value)}
+                      className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                    >
+                      <option value="">All countries</option>
+                      {countryOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
+                    Field
+                    <select
+                      value={field}
+                      onChange={(event) => setField(event.target.value)}
+                      className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                    >
+                      <option value="">All fields</option>
+                      {fieldOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
+                    Funding
+                    <select
+                      value={fundingType}
+                      onChange={(event) => setFundingType(event.target.value)}
+                      className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                    >
+                      <option value="">All funding</option>
+                      {FUNDING_TYPES.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
 
                 {activeFilterSummary.length > 0 ? (
@@ -747,56 +868,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
                 {advancedFiltersOpen ? (
                   <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
-                        Country
-                        <select
-                          value={country}
-                          onChange={(event) => setCountry(event.target.value)}
-                          className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                        >
-                          <option value="">All countries</option>
-                          {countryOptions.map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
-                        Field
-                        <select
-                          value={field}
-                          onChange={(event) => setField(event.target.value)}
-                          className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                        >
-                          <option value="">All fields</option>
-                          {fieldOptions.map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink">
-                        Funding
-                        <select
-                          value={fundingType}
-                          onChange={(event) => setFundingType(event.target.value)}
-                          className="w-full min-w-0 truncate rounded-2xl border border-pine/15 bg-white px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                        >
-                          <option value="">All funding</option>
-                          {FUNDING_TYPES.map((item) => (
-                            <option key={item.value} value={item.value}>
-                              {item.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex flex-wrap gap-1.5">
                         {[

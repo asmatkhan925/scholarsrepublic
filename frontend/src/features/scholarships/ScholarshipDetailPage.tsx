@@ -7,12 +7,16 @@ import {
   ArrowLeft,
   BadgeCheck,
   BookOpenCheck,
+  CalendarDays,
   CheckCircle2,
+  ClipboardCheck,
   ExternalLink,
   FileText,
   GraduationCap,
+  Globe2,
   ShieldCheck,
   Sparkles,
+  WalletCards,
 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -97,37 +101,55 @@ function DetailSection({
   }
 
   return (
-    <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-      <CardContent className="p-5 md:p-6">
-        <div className="flex items-start gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
-            {icon}
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-xl font-bold text-ink dark:text-white">{title}</h2>
-            <div className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/70 dark:text-white/62">{content}</div>
+    <Card className="overflow-hidden dark:border-white/10 dark:bg-[#181b1d]">
+      <CardContent className="p-0">
+        <div className="border-b border-pine/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5 md:px-5">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
+              {icon}
+            </span>
+            <h2 className="text-lg font-black text-ink dark:text-white">{title}</h2>
           </div>
+        </div>
+        <div className="px-4 py-4 md:px-5">
+          <div className="whitespace-pre-line text-sm leading-7 text-ink/72 dark:text-white/64">{content}</div>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function ListSection({ title, items, icon }: { title: string; items: string[]; icon: ReactNode }) {
+function DocumentsSection({ items }: { items: string[] }) {
   if (items.length === 0) {
-    return null;
+    return (
+      <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+        <CardContent className="p-4 md:p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
+              <FileText size={20} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-lg font-black text-ink dark:text-white">Required documents</h2>
+              <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">
+                Required documents are not listed here. Confirm the document checklist on the official scholarship page before applying.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-      <CardContent className="p-5 md:p-6">
+      <CardContent className="p-4 md:p-5">
         <div className="flex items-start gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine">
-            {icon}
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
+            <FileText size={20} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold text-ink dark:text-white">{title}</h2>
-            <ul className="mt-4 grid gap-2 md:grid-cols-2">
+            <h2 className="text-lg font-black text-ink dark:text-white">Required documents</h2>
+            <ul className="mt-3 grid gap-2 md:grid-cols-2">
               {items.map((item) => (
                 <li
                   key={item}
@@ -242,6 +264,7 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
   const lastVerified = scholarship.last_verified_at
     ? formatDate(scholarship.last_verified_at)
     : null;
+  const lastUpdated = scholarship.updated_at ? formatDate(scholarship.updated_at) : null;
 
   return (
     <Card className="dark:border-white/10 dark:bg-[#181b1d]">
@@ -268,7 +291,16 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
 
           <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
-              Verified
+              Updated
+            </p>
+            <p className="mt-0.5 truncate font-bold text-ink dark:text-white" title={lastUpdated || "Not listed"}>
+              {lastUpdated || "Not listed"}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
+              Verified on
             </p>
             <p className="mt-0.5 truncate font-bold text-ink dark:text-white" title={lastVerified || "Not verified yet"}>
               {lastVerified || "Not listed"}
@@ -520,6 +552,9 @@ export default function ScholarshipDetailPage({
       },
     ];
   }, [scholarship]);
+  const applyHref = scholarship?.official_link || scholarship?.source_url || "";
+  const heroDegreeTags = scholarship?.degree_levels.slice(0, 3) ?? [];
+  const heroFieldTags = scholarship?.fields_of_study.slice(0, 3) ?? [];
 
   return (
     <>
@@ -583,9 +618,16 @@ export default function ScholarshipDetailPage({
                         {scholarship.title}
                       </h1>
 
-                      <p className="mt-3 text-sm leading-7 text-ink/70 dark:text-white/62 md:text-base">
-                        {provider} · {scholarship.country || "Country not listed"}
-                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-ink/70 dark:text-white/62 md:text-base">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Globe2 size={16} className="text-pine" aria-hidden="true" />
+                          {scholarship.country || "Country not listed"}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <GraduationCap size={16} className="text-pine" aria-hidden="true" />
+                          {provider}
+                        </span>
+                      </div>
 
                       {scholarship.short_description ? (
                         <p className="mt-3 max-w-4xl text-sm leading-7 text-ink/70 dark:text-white/62 md:text-base">
@@ -606,6 +648,49 @@ export default function ScholarshipDetailPage({
                           </span>
                         </div>
                       ) : null}
+
+                      <div className="mt-4 grid gap-2 rounded-2xl border border-pine/10 bg-white/80 p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-3">
+                        <div>
+                          <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+                            <CalendarDays size={13} className="text-pine" aria-hidden="true" />
+                            Deadline
+                          </p>
+                          <p className="mt-1 text-sm font-black text-ink dark:text-white">
+                            {formatDate(scholarship.deadline)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+                            <WalletCards size={13} className="text-pine" aria-hidden="true" />
+                            Funding
+                          </p>
+                          <p className="mt-1 text-sm font-black text-ink dark:text-white">
+                            {humanize(scholarship.funding_type)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+                            <ClipboardCheck size={13} className="text-pine" aria-hidden="true" />
+                            Application fee
+                          </p>
+                          <p className="mt-1 text-sm font-black text-ink dark:text-white">
+                            {scholarship.application_fee_required ? "Required" : "No fee listed"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {heroDegreeTags.map((item) => (
+                          <Badge key={item} tone="neutral">
+                            {item}
+                          </Badge>
+                        ))}
+                        {heroFieldTags.map((item) => (
+                          <Badge key={item} tone="sky">
+                            {item}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="rounded-2xl border border-pine/10 bg-white/90 p-4 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
@@ -688,9 +773,19 @@ export default function ScholarshipDetailPage({
                             href={scholarship.official_link}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-2.5 text-xs font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                           >
-                            Official Website
+                            Official source / apply
+                            <ExternalLink size={15} aria-hidden="true" />
+                          </a>
+                        ) : applyHref ? (
+                          <a
+                            href={applyHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                          >
+                            Source page
                             <ExternalLink size={15} aria-hidden="true" />
                           </a>
                         ) : null}
@@ -741,11 +836,7 @@ export default function ScholarshipDetailPage({
                     icon={<ShieldCheck size={20} aria-hidden="true" />}
                   />
 
-                  <ListSection
-                    title="Required documents"
-                    items={scholarship.required_documents}
-                    icon={<FileText size={20} aria-hidden="true" />}
-                  />
+                  <DocumentsSection items={scholarship.required_documents} />
 
                   <DetailSection
                     title="How to apply"

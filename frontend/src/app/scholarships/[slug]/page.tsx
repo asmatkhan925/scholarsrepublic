@@ -31,6 +31,14 @@ export async function generateMetadata({
     description:
       scholarship.data.short_description ||
       "Review scholarship details, deadlines, source information, and application guidance on Scholars Republic.",
+    openGraph: {
+      title: scholarship.data.title,
+      description:
+        scholarship.data.short_description ||
+        "Review scholarship details, deadlines, source information, and application guidance on Scholars Republic.",
+      type: "article",
+      url: `/scholarships/${slug}`,
+    },
   };
 }
 
