@@ -21,6 +21,7 @@ export type OpportunityPathwayDetail = {
   country_id: number | null;
   parent: string;
   parent_id: number | null;
+  parent_slug: string | null;
   full_path: string;
   description: string;
   official_link: string;
@@ -351,6 +352,7 @@ export type OpportunityQueryParams = {
   pathway_type?: string;
   application_track?: string;
   exact_pathway?: boolean;
+  missing_pathway?: boolean;
   country?: string;
   degree_level?: string;
   field?: string;
@@ -373,10 +375,13 @@ export type OpportunityPathwayQueryParams = {
   parent?: string;
   parent_id?: number;
   root_only?: boolean;
+  page?: number;
+  page_size?: number;
 };
 
 export type OpportunityAdminPayload = Partial<OpportunityDetail> & {
   title: string;
+  pathway_id?: number | null;
 };
 
 export type OpportunityDraftStatus = "new" | "validated" | "imported" | "error";

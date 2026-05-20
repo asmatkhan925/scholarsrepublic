@@ -23,16 +23,33 @@ import {
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { AdminFilterButton, AdminHero, AdminLoading, AdminMetric, AdminNotice } from "@/components/admin/AdminUI";
+import {
+  AdminFilterButton,
+  AdminHero,
+  AdminLoading,
+  AdminMetric,
+  AdminNotice,
+} from "@/components/admin/AdminUI";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
-import { getAdminOpportunities, getAdminOverview, patchAdminOpportunity, type AdminOverviewResponse } from "@/lib/api";
+import {
+  getAdminOpportunityPathways,
+  getAdminOpportunities,
+  getAdminOverview,
+  patchAdminOpportunity,
+  type AdminOverviewResponse,
+} from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { OpportunityListItem, OpportunityStatus } from "@/types/opportunity";
+import type {
+  OpportunityListItem,
+  OpportunityPathwayDetail,
+  OpportunityStatus,
+} from "@/types/opportunity";
 
 type VerifiedFilter = "all" | "verified" | "unverified";
 type DeadlineFilter = "all" | "expiring" | "expired" | "rolling";
 type ManagerView = "needs_publishing" | "unverified" | "published" | "drafts" | "archived" | "all";
+type PathwayFilter = "all" | "missing" | string;
 
 function humanize(value: string) {
   if (!value) {
@@ -166,7 +183,11 @@ function AdminScholarshipCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge tone={getStatusTone(item.status)}>{humanize(item.status)}</Badge>
               <Badge tone={getDeadlineTone(item)}>{getDeadlineLabel(item)}</Badge>
-              {item.verified_status ? <Badge tone="mint">Verified</Badge> : <Badge tone="saffron">Needs verify</Badge>}
+              {item.verified_status ? (
+                <Badge tone="mint">Verified</Badge>
+              ) : (
+                <Badge tone="saffron">Needs verify</Badge>
+              )}
               {item.featured ? <Badge tone="sky">Featured</Badge> : null}
             </div>
 
@@ -186,6 +207,11 @@ function AdminScholarshipCard({
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               <Badge tone="neutral">{humanize(item.funding_type)}</Badge>
+              {item.pathway_detail ? (
+                <Badge tone="sky">{item.pathway_detail.full_path}</Badge>
+              ) : (
+                <Badge tone="saffron">No pathway</Badge>
+              )}
               {degreeTags.map((degree) => (
                 <Badge key={degree} tone="neutral">
                   {degree}
@@ -353,7 +379,11 @@ function AdminScholarshipTableRow({
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge tone={getStatusTone(item.status)}>{humanize(item.status)}</Badge>
           <Badge tone={getDeadlineTone(item)}>{getDeadlineLabel(item)}</Badge>
-          {item.verified_status ? <Badge tone="mint">Verified</Badge> : <Badge tone="saffron">Needs verify</Badge>}
+          {item.verified_status ? (
+            <Badge tone="mint">Verified</Badge>
+          ) : (
+            <Badge tone="saffron">Needs verify</Badge>
+          )}
           {item.featured ? <Badge tone="sky">Featured</Badge> : null}
         </div>
         <Link
@@ -375,15 +405,29 @@ function AdminScholarshipTableRow({
       <td className="px-3 py-3">
         <div className="flex flex-wrap gap-1.5">
           <Badge tone="neutral">{humanize(item.funding_type)}</Badge>
-          {safeTextList(item.degree_levels).slice(0, 2).map((degree) => (
-            <Badge key={degree} tone="neutral">{degree}</Badge>
-          ))}
+          {item.pathway_detail ? (
+            <Badge tone="sky">{item.pathway_detail.title}</Badge>
+          ) : (
+            <Badge tone="saffron">No pathway</Badge>
+          )}
+          {safeTextList(item.degree_levels)
+            .slice(0, 2)
+            .map((degree) => (
+              <Badge key={degree} tone="neutral">
+                {degree}
+              </Badge>
+            ))}
         </div>
       </td>
       <td className="px-3 py-3">
         <div className="flex min-w-[18rem] flex-wrap gap-1.5">
           {item.status === "published" ? (
-            <Button size="sm" variant="outline" disabled={updating} onClick={() => void onPatch(item.id, { status: "draft" })}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={updating}
+              onClick={() => void onPatch(item.id, { status: "draft" })}
+            >
               <FileText size={14} aria-hidden="true" />
               Draft
             </Button>
@@ -398,7 +442,12 @@ function AdminScholarshipTableRow({
               Publish
             </Button>
           )}
-          <Button size="sm" variant="outline" disabled={updating} onClick={() => void onPatch(item.id, { verified_status: !item.verified_status })}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={updating}
+            onClick={() => void onPatch(item.id, { verified_status: !item.verified_status })}
+          >
             <ShieldCheck size={14} aria-hidden="true" />
             {item.verified_status ? "Unverify" : "Verify"}
           </Button>
@@ -429,6 +478,7 @@ function AdminScholarshipTableRow({
 
 function AdminScholarshipManagerContent() {
   const [items, setItems] = useState<OpportunityListItem[]>([]);
+  const [pathways, setPathways] = useState<OpportunityPathwayDetail[]>([]);
   const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
@@ -438,6 +488,8 @@ function AdminScholarshipManagerContent() {
   const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("draft");
   const [verifiedFilter, setVerifiedFilter] = useState<VerifiedFilter>("unverified");
   const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilter>("all");
+  const [pathwayFilter, setPathwayFilter] = useState<PathwayFilter>("all");
+  const [pathwayTypeFilter, setPathwayTypeFilter] = useState("all");
   const [ordering, setOrdering] = useState("-updated_at");
 
   const activeManagerView = getManagerView(statusFilter, verifiedFilter);
@@ -505,6 +557,18 @@ function AdminScholarshipManagerContent() {
     }
   }
 
+  async function loadPathways() {
+    try {
+      const response = await getAdminOpportunityPathways({
+        active: true,
+        page_size: 300,
+      });
+      setPathways(response.results);
+    } catch {
+      setPathways([]);
+    }
+  }
+
   async function loadItems() {
     setLoading(true);
     setError(null);
@@ -517,6 +581,11 @@ function AdminScholarshipManagerContent() {
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(verifiedFilter === "verified" ? { verified: true } : {}),
         ...(verifiedFilter === "unverified" ? { verified: false } : {}),
+        ...(pathwayFilter !== "all" && pathwayFilter !== "missing"
+          ? { pathway: pathwayFilter }
+          : {}),
+        ...(pathwayFilter === "missing" ? { missing_pathway: true } : {}),
+        ...(pathwayTypeFilter !== "all" ? { pathway_type: pathwayTypeFilter } : {}),
         ...(search.trim() ? { search: search.trim() } : {}),
       });
 
@@ -532,7 +601,11 @@ function AdminScholarshipManagerContent() {
   useEffect(() => {
     void loadItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, verifiedFilter, ordering]);
+  }, [statusFilter, verifiedFilter, pathwayFilter, pathwayTypeFilter, ordering]);
+
+  useEffect(() => {
+    void loadPathways();
+  }, []);
 
   async function handlePatch(id: number, payload: Partial<OpportunityListItem>) {
     setUpdatingId(id);
@@ -592,7 +665,11 @@ function AdminScholarshipManagerContent() {
           metrics={
             <>
               <AdminMetric label="Total" value={overview?.scholarships.total ?? "..."} />
-              <AdminMetric label="Published" value={overview?.scholarships.published ?? "..."} tone="success" />
+              <AdminMetric
+                label="Published"
+                value={overview?.scholarships.published ?? "..."}
+                tone="success"
+              />
               <AdminMetric
                 label="Draft"
                 value={overview?.scholarships.draft ?? "..."}
@@ -609,7 +686,8 @@ function AdminScholarshipManagerContent() {
 
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
           <div className="border-t border-pine/10 bg-mint/25 px-3 py-2 text-sm font-semibold leading-6 text-pine dark:border-white/10 dark:bg-pine/10">
-            Scholarship Manager shows real scholarship records only. Review Queue keeps imported items until they pass validation and become real scholarship drafts.
+            Scholarship Manager shows real scholarship records only. Review Queue keeps imported
+            items until they pass validation and become real scholarship drafts.
           </div>
 
           <div className="border-t border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
@@ -652,7 +730,7 @@ function AdminScholarshipManagerContent() {
             </div>
           </div>
 
-          <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_11rem_11rem_11rem_12rem_auto]">
+          <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_11rem_11rem_11rem_14rem_13rem_12rem_auto]">
             <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Search
               <div className="relative">
@@ -679,7 +757,9 @@ function AdminScholarshipManagerContent() {
               Status
               <select
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as "all" | OpportunityStatus)}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as "all" | OpportunityStatus)
+                }
                 className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
               >
                 <option value="all">All status</option>
@@ -717,6 +797,41 @@ function AdminScholarshipManagerContent() {
             </label>
 
             <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+              Pathway
+              <select
+                value={pathwayFilter}
+                onChange={(event) => setPathwayFilter(event.target.value)}
+                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+              >
+                <option value="all">All pathways</option>
+                <option value="missing">No pathway assigned</option>
+                {pathways.map((pathway) => (
+                  <option key={pathway.id} value={pathway.slug}>
+                    {pathway.full_path}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+              Pathway type
+              <select
+                value={pathwayTypeFilter}
+                onChange={(event) => setPathwayTypeFilter(event.target.value)}
+                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+              >
+                <option value="all">All types</option>
+                {Array.from(new Set(pathways.map((pathway) => pathway.pathway_type))).map(
+                  (type) => (
+                    <option key={type} value={type}>
+                      {humanize(type)}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+
+            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Sort
               <select
                 value={ordering}
@@ -730,7 +845,7 @@ function AdminScholarshipManagerContent() {
               </select>
             </label>
 
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
               <Button
                 type="button"
                 onClick={() => void loadItems()}
@@ -741,17 +856,27 @@ function AdminScholarshipManagerContent() {
                 <RefreshCw size={15} aria-hidden="true" />
                 Refresh
               </Button>
+              {pathwayFilter !== "all" || pathwayTypeFilter !== "all" ? (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setPathwayFilter("all");
+                    setPathwayTypeFilter("all");
+                  }}
+                  className="w-full"
+                  size="sm"
+                  variant="ghost"
+                >
+                  Clear
+                </Button>
+              ) : null}
             </div>
           </div>
         </section>
 
-        {error ? (
-          <AdminNotice tone="danger">{error}</AdminNotice>
-        ) : null}
+        {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
 
-        {loading ? (
-          <AdminLoading label="Loading scholarships..." />
-        ) : null}
+        {loading ? <AdminLoading label="Loading scholarships..." /> : null}
 
         {!loading && visibleItems.length === 0 ? (
           <EmptyState

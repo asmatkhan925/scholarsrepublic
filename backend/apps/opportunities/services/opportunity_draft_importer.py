@@ -165,13 +165,14 @@ def validate_opportunity_draft_payload(payload):
                 "At least one known study field is required when all_study_fields is false."
             )
 
+    pathway_id = parse_positive_int(opportunity_payload.get("pathway_id"))
     pathway_value = clean_text(opportunity_payload.get("pathway"))
-    if pathway_value:
-        pathway = resolve_pathway(pathway_value)
+    if pathway_id or pathway_value:
+        pathway = resolve_pathway(pathway_id or pathway_value)
         if pathway:
             cleaned["pathway"] = pathway
         else:
-            warnings.append(f'Pathway "{pathway_value}" could not be resolved.')
+            warnings.append(f"Unknown pathway: {pathway_id or pathway_value}. Please select manually before publishing.")
 
     application_track = clean_text(opportunity_payload.get("application_track"))
     valid_tracks = {choice[0] for choice in Opportunity.ApplicationTrack.choices}
@@ -376,6 +377,15 @@ def normalize_key(value):
     return clean_text(value).casefold().replace("-", "_").replace(" ", "_")
 
 
+def parse_positive_int(value):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    return parsed if parsed > 0 else None
+
+
 def clean_choice(value, choices, default, field_name, warnings):
     value = clean_text(value)
 
@@ -480,12 +490,24 @@ def resolve_country(name):
 
 
 def resolve_pathway(value):
-    pathway = OpportunityPathway.objects.filter(slug=value).first()
+    pathway_id = parse_positive_int(value)
+    if pathway_id:
+        return OpportunityPathway.objects.filter(is_active=True, pk=pathway_id).first()
+
+    value = clean_text(value)
+    if not value:
+        return None
+
+    pathway = OpportunityPathway.objects.filter(is_active=True, slug=value).first()
     if pathway:
         return pathway
 
-    for candidate in OpportunityPathway.objects.select_related("parent").all():
-        if candidate.full_path == value:
+    normalized_value = normalize_key(value)
+    for candidate in OpportunityPathway.objects.filter(is_active=True).select_related("parent"):
+        if normalize_key(candidate.title) == normalized_value:
+            return candidate
+
+        if normalize_key(candidate.full_path) == normalized_value:
             return candidate
 
     return None

@@ -301,7 +301,9 @@ class OpportunityAPITests(APITestCase):
         )
 
     def draft_payload(self, **opportunity_overrides):
-        pathway = opportunity_overrides.pop("pathway", self.pathway().full_path)
+        pathway = opportunity_overrides.pop("pathway", None)
+        if pathway is None:
+            pathway = self.pathway().full_path
         opportunity = {
             "title": "CSC Scholarship at Example University 2026",
             "slug": "csc-scholarship-example-university-2026",
@@ -428,6 +430,26 @@ class OpportunityAPITests(APITestCase):
         with self.assertRaises(ValidationError):
             pathway.full_clean()
 
+    def test_opportunity_pathway_rejects_circular_parent_chain(self):
+        parent = OpportunityPathway.objects.create(
+            title="Circular Parent",
+            slug="circular-parent",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        child = OpportunityPathway.objects.create(
+            title="Circular Child",
+            slug="circular-child",
+            country_ref=self.china,
+            parent=parent,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+
+        parent.parent = child
+
+        with self.assertRaises(ValidationError):
+            parent.full_clean()
+
     def test_opportunity_can_link_to_pathway(self):
         pathway = OpportunityPathway.objects.create(
             title="CSC University Track",
@@ -535,6 +557,27 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(item["children_count"], 0)
         self.assertEqual(item["published_opportunity_count"], 0)
         self.assertTrue(item["is_active"])
+
+    def test_public_pathway_count_includes_descendant_opportunities(self):
+        root = OpportunityPathway.objects.create(
+            title="Count Root Pathway",
+            slug="count-root-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        child = OpportunityPathway.objects.create(
+            title="Count Child Pathway",
+            slug="count-child-pathway",
+            country_ref=self.china,
+            parent=root,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+        self.opportunity(slug="count-child-scholarship", pathway=child)
+
+        response = self.client.get("/api/opportunity-pathways/?root_only=true")
+
+        item = [item for item in self.results(response) if item["slug"] == root.slug][0]
+        self.assertEqual(item["published_opportunity_count"], 1)
 
     def test_public_pathway_list_filters(self):
         root = OpportunityPathway.objects.create(
@@ -785,6 +828,150 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["title"], "Admin Created Scholarship")
+
+    def test_admin_can_assign_update_and_clear_pathway_id(self):
+        pathway = OpportunityPathway.objects.create(
+            title="Admin Assign Pathway",
+            slug="admin-assign-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+        self.client.force_authenticate(self.admin)
+
+        create_response = self.client.post(
+            "/api/admin/opportunities/",
+            {
+                **self.admin_payload(),
+                "slug": "admin-pathway-assignment",
+                "pathway_id": pathway.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        opportunity = Opportunity.objects.get(slug="admin-pathway-assignment")
+        self.assertEqual(opportunity.pathway, pathway)
+
+        detail_response = self.client.get(f"/api/admin/opportunities/{opportunity.id}/")
+        self.assertEqual(detail_response.data["pathway_detail"]["slug"], pathway.slug)
+
+        clear_response = self.client.patch(
+            f"/api/admin/opportunities/{opportunity.id}/",
+            {"pathway_id": None},
+            format="json",
+        )
+
+        self.assertEqual(clear_response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertIsNone(opportunity.pathway)
+
+    def test_admin_rejects_inactive_pathway_assignment(self):
+        pathway = OpportunityPathway.objects.create(
+            title="Inactive Admin Assign Pathway",
+            slug="inactive-admin-assign-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+            is_active=False,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/opportunities/",
+            {
+                **self.admin_payload(),
+                "slug": "inactive-admin-pathway-assignment",
+                "pathway_id": pathway.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("pathway_id", response.data)
+
+    def test_admin_pathway_crud_and_soft_delete(self):
+        parent = OpportunityPathway.objects.create(
+            title="Admin Pathway Parent",
+            slug="admin-pathway-parent",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        self.client.force_authenticate(self.admin)
+
+        create_response = self.client.post(
+            "/api/admin/opportunity-pathways/",
+            {
+                "title": "Admin Pathway Child",
+                "slug": "admin-pathway-child",
+                "country_id": self.china.id,
+                "parent_id": parent.id,
+                "pathway_type": OpportunityPathway.PathwayType.APPLICATION_TRACK,
+                "description": "Admin managed child pathway.",
+                "display_order": 25,
+                "is_active": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        pathway_id = create_response.data["id"]
+        self.assertEqual(create_response.data["parent_id"], parent.id)
+        self.assertEqual(create_response.data["parent_slug"], parent.slug)
+
+        update_response = self.client.patch(
+            f"/api/admin/opportunity-pathways/{pathway_id}/",
+            {"title": "Admin Pathway Child Updated"},
+            format="json",
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_response.data["title"], "Admin Pathway Child Updated")
+
+        delete_response = self.client.delete(f"/api/admin/opportunity-pathways/{pathway_id}/")
+
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(OpportunityPathway.objects.get(pk=pathway_id).is_active)
+
+    def test_admin_pathway_api_rejects_circular_parent(self):
+        parent = OpportunityPathway.objects.create(
+            title="Admin Circular Parent",
+            slug="admin-circular-parent",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+        )
+        child = OpportunityPathway.objects.create(
+            title="Admin Circular Child",
+            slug="admin-circular-child",
+            country_ref=self.china,
+            parent=parent,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.patch(
+            f"/api/admin/opportunity-pathways/{parent.id}/",
+            {"parent_id": child.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("parent_id", response.data)
+
+    def test_admin_can_filter_missing_pathway(self):
+        pathway = OpportunityPathway.objects.create(
+            title="Manager Filter Pathway",
+            slug="manager-filter-pathway",
+            country_ref=self.china,
+            pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
+        )
+        missing = self.opportunity(slug="missing-pathway-admin-filter", pathway=None)
+        assigned = self.opportunity(slug="assigned-pathway-admin-filter", pathway=pathway)
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get("/api/admin/opportunities/?missing_pathway=true")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(missing.slug, slugs)
+        self.assertNotIn(assigned.slug, slugs)
 
     def test_admin_can_create_opportunity_with_normalized_reference_ids(self):
         self.client.force_authenticate(self.admin)
@@ -1122,6 +1309,47 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(draft.created_opportunity, opportunity)
         self.assertEqual(draft.validation_errors, [])
         self.assertIsNotNone(draft.imported_at)
+
+    def test_opportunity_draft_import_resolves_pathway_id_first(self):
+        pathway = self.pathway()
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Pathway Id",
+            slug="draft-import-pathway-id",
+            raw_payload=self.draft_payload(
+                slug="draft-import-pathway-id-opportunity",
+                pathway_id=pathway.id,
+                pathway="unknown-pathway-slug",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(opportunity.pathway, pathway)
+
+    def test_opportunity_draft_import_warns_for_unknown_pathway_without_failing(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Unknown Pathway",
+            slug="draft-import-unknown-pathway",
+            raw_payload=self.draft_payload(
+                slug="draft-import-unknown-pathway-opportunity",
+                pathway="unknown-pathway-slug",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertIsNone(opportunity.pathway)
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.IMPORTED)
+        self.assertIn(
+            "Unknown pathway: unknown-pathway-slug. Please select manually before publishing.",
+            draft.validation_warnings,
+        )
 
     def test_opportunity_draft_import_missing_required_fields_sets_error(self):
         draft = OpportunityDraft.objects.create(

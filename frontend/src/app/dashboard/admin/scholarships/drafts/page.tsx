@@ -20,7 +20,13 @@ import {
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { AdminFilterButton, AdminHero, AdminLoading, AdminMetric, AdminNotice } from "@/components/admin/AdminUI";
+import {
+  AdminFilterButton,
+  AdminHero,
+  AdminLoading,
+  AdminMetric,
+  AdminNotice,
+} from "@/components/admin/AdminUI";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
@@ -50,7 +56,9 @@ function humanize(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function getStatusTone(status: OpportunityDraftStatus): "mint" | "saffron" | "danger" | "neutral" | "sky" {
+function getStatusTone(
+  status: OpportunityDraftStatus,
+): "mint" | "saffron" | "danger" | "neutral" | "sky" {
   if (status === "validated") {
     return "mint";
   }
@@ -86,6 +94,14 @@ function getText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function getPathwayLabel(opportunity: Record<string, unknown>) {
+  if (typeof opportunity.pathway_id === "number") {
+    return `Pathway ID ${opportunity.pathway_id}`;
+  }
+
+  return getText(opportunity.pathway);
+}
+
 function getTextList(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -110,7 +126,11 @@ function getDraftAttentionItems(draft: OpportunityDraft) {
     items.push("Add country");
   }
 
-  if (!getText(opportunity.official_link) && !getText(opportunity.source_url) && !draft.source_url) {
+  if (
+    !getText(opportunity.official_link) &&
+    !getText(opportunity.source_url) &&
+    !draft.source_url
+  ) {
     items.push("Add official source");
   }
 
@@ -124,6 +144,10 @@ function getDraftAttentionItems(draft: OpportunityDraft) {
 
   if (getTextList(opportunity.fields_of_study).length === 0) {
     items.push("Add study fields");
+  }
+
+  if (!getPathwayLabel(opportunity)) {
+    items.push("Select pathway");
   }
 
   return items;
@@ -150,6 +174,7 @@ function DraftReviewCard({
   const shortDescription = getText(opportunity.short_description);
   const deadline = getText(opportunity.deadline);
   const fundingType = getText(opportunity.funding_type);
+  const pathwayLabel = getPathwayLabel(opportunity);
   const degreeLevels = getTextList(opportunity.degree_levels).slice(0, 3);
   const fields = getTextList(opportunity.fields_of_study).slice(0, 3);
   const attentionItems = getDraftAttentionItems(draft);
@@ -164,7 +189,9 @@ function DraftReviewCard({
           <div className="p-3 md:p-4">
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge tone={getStatusTone(draft.status)}>{humanize(draft.status)}</Badge>
-              {draft.confidence ? <Badge tone="neutral">Confidence: {draft.confidence}</Badge> : null}
+              {draft.confidence ? (
+                <Badge tone="neutral">Confidence: {draft.confidence}</Badge>
+              ) : null}
               {draft.validation_errors.length > 0 ? (
                 <Badge tone="danger">{draft.validation_errors.length} error(s)</Badge>
               ) : null}
@@ -189,7 +216,16 @@ function DraftReviewCard({
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               {fundingType ? <Badge tone="neutral">{humanize(fundingType)}</Badge> : null}
-              {deadline ? <Badge tone="sky">Deadline: {deadline}</Badge> : <Badge tone="saffron">No deadline</Badge>}
+              {deadline ? (
+                <Badge tone="sky">Deadline: {deadline}</Badge>
+              ) : (
+                <Badge tone="saffron">No deadline</Badge>
+              )}
+              {pathwayLabel ? (
+                <Badge tone="sky">{pathwayLabel}</Badge>
+              ) : (
+                <Badge tone="saffron">No pathway</Badge>
+              )}
               {degreeLevels.map((degree) => (
                 <Badge key={degree} tone="neutral">
                   {degree}
@@ -304,7 +340,8 @@ function DraftReviewCard({
 
               {needsValidation ? (
                 <p className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-xs font-semibold leading-5 text-ink/65 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
-                  Validate first. This is imported GPT output in a private review draft, not a published scholarship.
+                  Validate first. This is imported GPT output in a private review draft, not a
+                  published scholarship.
                 </p>
               ) : null}
 
@@ -469,7 +506,9 @@ function DraftReviewQueueContent() {
     try {
       const response = await importAdminOpportunityDraft(draft.id);
       await updateDraftInList(response.draft);
-      setMessage("Converted to a scholarship draft. Open the scholarship manager or edit page before publishing.");
+      setMessage(
+        "Converted to a scholarship draft. Open the scholarship manager or edit page before publishing.",
+      );
     } catch (requestError) {
       setError(getErrorMessage(requestError));
       await loadDrafts();
@@ -528,9 +567,17 @@ function DraftReviewQueueContent() {
           metrics={
             <>
               <AdminMetric label="Shown" value={stats.total} />
-              <AdminMetric label="New" value={stats.newCount} tone={stats.newCount > 0 ? "warning" : "normal"} />
+              <AdminMetric
+                label="New"
+                value={stats.newCount}
+                tone={stats.newCount > 0 ? "warning" : "normal"}
+              />
               <AdminMetric label="Validated" value={stats.validated} tone="success" />
-              <AdminMetric label="Errors" value={stats.errorCount} tone={stats.errorCount > 0 ? "danger" : "normal"} />
+              <AdminMetric
+                label="Errors"
+                value={stats.errorCount}
+                tone={stats.errorCount > 0 ? "danger" : "normal"}
+              />
             </>
           }
         />
@@ -623,17 +670,11 @@ function DraftReviewQueueContent() {
           </div>
         </section>
 
-        {message ? (
-          <AdminNotice>{message}</AdminNotice>
-        ) : null}
+        {message ? <AdminNotice>{message}</AdminNotice> : null}
 
-        {error ? (
-          <AdminNotice tone="danger">{error}</AdminNotice>
-        ) : null}
+        {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
 
-        {loading ? (
-          <AdminLoading label="Loading draft queue..." />
-        ) : null}
+        {loading ? <AdminLoading label="Loading draft queue..." /> : null}
 
         {!loading && drafts.length === 0 ? (
           <EmptyState

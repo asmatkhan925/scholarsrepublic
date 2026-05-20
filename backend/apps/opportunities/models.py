@@ -63,6 +63,19 @@ class OpportunityPathway(models.Model):
         if self.pk and self.parent_id == self.pk:
             raise ValidationError({"parent": "A pathway cannot be its own parent."})
 
+        current = self.parent
+        seen = set()
+
+        while current:
+            if current.pk in seen:
+                raise ValidationError({"parent": "Circular pathway parent chain detected."})
+
+            if self.pk and current.pk == self.pk:
+                raise ValidationError({"parent": "Circular pathway parent chain detected."})
+
+            seen.add(current.pk)
+            current = current.parent
+
     @property
     def full_path(self):
         titles = []

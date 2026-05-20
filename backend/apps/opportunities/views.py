@@ -220,6 +220,10 @@ class OpportunityFilterMixin:
         if pathway_type:
             queryset = queryset.filter(pathway__pathway_type=pathway_type)
 
+        missing_pathway = parse_bool(params.get("missing_pathway"))
+        if missing_pathway is not None:
+            queryset = queryset.filter(pathway__isnull=missing_pathway)
+
         application_track = params.get("application_track")
         if application_track:
             queryset = queryset.filter(application_track=application_track)
@@ -360,6 +364,67 @@ class PublicOpportunityPathwayDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return public_pathway_queryset()
+
+
+class AdminOpportunityPathwayListCreateView(generics.ListCreateAPIView):
+    serializer_class = OpportunityPathwaySerializer
+    permission_classes = [IsPlatformAdmin]
+
+    def get_queryset(self):
+        queryset = (
+            OpportunityPathway.objects.all()
+            .select_related("country_ref", "parent")
+            .annotate(
+                active_children_count=Count(
+                    "children",
+                    filter=Q(children__is_active=True),
+                    distinct=True,
+                )
+            )
+        )
+
+        params = self.request.query_params
+
+        active = parse_bool(params.get("active"))
+        if active is not None:
+            queryset = queryset.filter(is_active=active)
+
+        root_only = parse_bool(params.get("root_only"))
+        if root_only is not None:
+            queryset = queryset.filter(parent__isnull=root_only)
+
+        parent = params.get("parent")
+        if parent:
+            queryset = queryset.filter(parent__slug=parent)
+
+        parent_id = parse_positive_int(params.get("parent_id"))
+        if parent_id:
+            queryset = queryset.filter(parent_id=parent_id)
+
+        pathway_type = params.get("pathway_type")
+        if pathway_type:
+            queryset = queryset.filter(pathway_type=pathway_type)
+
+        search = params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(slug__icontains=search)
+                | Q(description__icontains=search)
+                | Q(country_ref__name__icontains=search)
+            )
+
+        return queryset.order_by("display_order", "title")
+
+
+class AdminOpportunityPathwayDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = OpportunityPathwaySerializer
+    permission_classes = [IsPlatformAdmin]
+    queryset = OpportunityPathway.objects.select_related("country_ref", "parent").all()
+
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save(update_fields=["is_active", "updated_at"])
 
 
 class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):

@@ -253,6 +253,50 @@ export async function getOpportunityPathway(slug: string) {
   return response.data;
 }
 
+export async function getAdminOpportunityPathways(
+  params?: OpportunityPathwayQueryParams & PaginationParams & { active?: boolean },
+) {
+  const response = await api.get<OpportunityPathwayListResponse>("/admin/opportunity-pathways/", {
+    params,
+  });
+  return response.data;
+}
+
+export type AdminOpportunityPathwayPayload = {
+  title: string;
+  slug: string;
+  pathway_type: string;
+  country_id?: number | null;
+  parent_id?: number | null;
+  description?: string;
+  official_link?: string;
+  display_order?: number;
+  is_active?: boolean;
+};
+
+export async function createAdminOpportunityPathway(payload: AdminOpportunityPathwayPayload) {
+  const response = await api.post<OpportunityPathwayDetail>(
+    "/admin/opportunity-pathways/",
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateAdminOpportunityPathway(
+  id: number,
+  payload: Partial<AdminOpportunityPathwayPayload>,
+) {
+  const response = await api.patch<OpportunityPathwayDetail>(
+    `/admin/opportunity-pathways/${id}/`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function deactivateAdminOpportunityPathway(id: number) {
+  await api.delete(`/admin/opportunity-pathways/${id}/`);
+}
+
 export async function getScholarships(params?: OpportunityQueryParams & PaginationParams) {
   const response = await api.get<OpportunityListResponse>("/scholarships/", {
     params,

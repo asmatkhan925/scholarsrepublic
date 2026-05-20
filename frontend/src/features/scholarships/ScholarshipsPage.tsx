@@ -24,6 +24,7 @@ import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/comp
 import {
   getCountries,
   getOpportunityPathways,
+  getOpportunityPathway,
   getStudyFields,
   getRecommendedScholarships,
   getSavedOpportunitySlugs,
@@ -102,6 +103,7 @@ function ScholarshipCard({
   initiallySaved,
   onSavedChange,
   onMatchSelect,
+  onPathwaySelect,
 }: {
   scholarship: OpportunityListItem;
   match?: RecommendedOpportunity["match"];
@@ -109,6 +111,7 @@ function ScholarshipCard({
   initiallySaved?: boolean;
   onSavedChange?: (slug: string, saved: boolean) => void;
   onMatchSelect?: (match: OpportunityMatch) => void;
+  onPathwaySelect?: (pathway: OpportunityPathwayDetail) => void;
 }) {
   const { user, isAuthenticated } = useAuth();
 
@@ -268,9 +271,14 @@ function ScholarshipCard({
           </div>
 
           {scholarship.pathway_detail ? (
-            <p className="mt-2.5 line-clamp-1 text-xs font-semibold text-ink/45 dark:text-white/45">
-              Pathway: {scholarship.pathway_detail.full_path}
-            </p>
+            <button
+              type="button"
+              onClick={() => onPathwaySelect?.(scholarship.pathway_detail!)}
+              className="mt-2.5 line-clamp-1 rounded-full border border-pine/10 bg-[#f7faf8] px-2.5 py-1 text-left text-xs font-semibold text-pine transition hover:border-pine/30 hover:bg-mint/45 dark:border-white/10 dark:bg-white/5"
+              title={scholarship.pathway_detail.full_path}
+            >
+              {scholarship.pathway_detail.full_path}
+            </button>
           ) : null}
 
           {match ? (
@@ -354,6 +362,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const [pathwaysLoading, setPathwaysLoading] = useState(false);
   const [selectedRootPathwaySlug, setSelectedRootPathwaySlug] = useState("");
   const [selectedPathwaySlug, setSelectedPathwaySlug] = useState("");
+  const [exactPathway, setExactPathway] = useState(false);
+  const [pathwayQueryInitialized, setPathwayQueryInitialized] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -480,9 +490,101 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
   const { user, loading: authLoading } = useAuth();
 
+  function updateScholarshipUrl(nextFilters: OpportunityQueryParams) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams();
+
+    if (nextFilters.search) params.set("search", String(nextFilters.search));
+    if (nextFilters.country) params.set("country", String(nextFilters.country));
+    if (nextFilters.field) params.set("field", String(nextFilters.field));
+    if (nextFilters.funding_type) params.set("funding_type", String(nextFilters.funding_type));
+    if (nextFilters.pathway) params.set("pathway", String(nextFilters.pathway));
+    if (nextFilters.exact_pathway) params.set("exact_pathway", "true");
+    if (nextFilters.no_ielts) params.set("no_ielts", "true");
+    if (nextFilters.no_application_fee) params.set("no_application_fee", "true");
+    if (nextFilters.verified) params.set("verified", "true");
+
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `/scholarships?${query}` : "/scholarships");
+  }
+
   useEffect(() => {
     hasResultsRef.current = Boolean(data || recommendedData);
   }, [data, recommendedData]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || pathwayQueryInitialized) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const initialSearch = params.get("search") ?? "";
+    const initialCountry = params.get("country") ?? "";
+    const initialField = params.get("field") ?? "";
+    const initialFundingType = params.get("funding_type") ?? "";
+    const initialPathway = params.get("pathway") ?? "";
+    const initialExactPathway = params.get("exact_pathway") === "true";
+    const initialNoIelts = params.get("no_ielts") === "true";
+    const initialNoApplicationFee = params.get("no_application_fee") === "true";
+    const initialVerified = params.get("verified") === "true";
+
+    setSearch(initialSearch);
+    setCountry(initialCountry);
+    setField(initialField);
+    setFundingType(initialFundingType);
+    setSelectedPathwaySlug(initialPathway);
+    setExactPathway(initialExactPathway);
+    setNoIelts(initialNoIelts);
+    setNoApplicationFee(initialNoApplicationFee);
+    setVerified(initialVerified);
+    setPathwaysOpen(Boolean(initialPathway));
+    setFilters({
+      ordering: "deadline",
+      search: initialSearch || undefined,
+      country: initialCountry || undefined,
+      field: initialField || undefined,
+      funding_type: initialFundingType || undefined,
+      pathway: initialPathway || undefined,
+      exact_pathway: initialExactPathway || undefined,
+      no_ielts: initialNoIelts || undefined,
+      no_application_fee: initialNoApplicationFee || undefined,
+      verified: initialVerified || undefined,
+    });
+    setPathwayQueryInitialized(true);
+  }, [pathwayQueryInitialized]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSelectedPathwayContext() {
+      if (!selectedPathwaySlug) {
+        return;
+      }
+
+      try {
+        const pathway = await getOpportunityPathway(selectedPathwaySlug);
+
+        if (!mounted) {
+          return;
+        }
+
+        setSelectedRootPathwaySlug(pathway.parent_slug || pathway.slug);
+      } catch {
+        if (mounted) {
+          setSelectedRootPathwaySlug("");
+        }
+      }
+    }
+
+    void loadSelectedPathwayContext();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedPathwaySlug]);
 
   useEffect(() => {
     let mounted = true;
@@ -588,6 +690,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     filters.field ||
     filters.funding_type ||
     filters.pathway ||
+    filters.exact_pathway ||
     filters.no_ielts ||
     filters.no_application_fee ||
     filters.verified,
@@ -632,25 +735,33 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   }, [country, field, noApplicationFee, noIelts, selectedFundingLabel, verified]);
 
   const activeFilterSummary = useMemo(() => {
-    return [...activeAdvancedFilters, selectedPathway ? selectedPathway.full_path : ""].filter(
-      Boolean,
-    );
-  }, [activeAdvancedFilters, selectedPathway]);
+    const pathwayLabel = selectedPathway
+      ? exactPathway
+        ? `Exact pathway: ${selectedPathway.full_path}`
+        : `Under pathway: ${selectedPathway.full_path}`
+      : "";
+
+    return [...activeAdvancedFilters, pathwayLabel].filter(Boolean);
+  }, [activeAdvancedFilters, exactPathway, selectedPathway]);
 
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
 
-    setFilters({
+    const nextFilters = {
       ordering: "deadline",
       search: search || undefined,
       country: country || undefined,
       field: field || undefined,
       funding_type: fundingType || undefined,
       pathway: selectedPathwaySlug || undefined,
+      exact_pathway: exactPathway || undefined,
       no_ielts: noIelts || undefined,
       no_application_fee: noApplicationFee || undefined,
       verified: verified || undefined,
-    });
+    };
+
+    setFilters(nextFilters);
+    updateScholarshipUrl(nextFilters);
   }
 
   function handleClearFilters() {
@@ -663,40 +774,56 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     setVerified(false);
     setSelectedRootPathwaySlug("");
     setSelectedPathwaySlug("");
-    setFilters({ ordering: "deadline" });
+    setExactPathway(false);
+    const nextFilters = { ordering: "deadline" };
+    setFilters(nextFilters);
+    updateScholarshipUrl(nextFilters);
   }
 
-  function handlePathwaySelect(pathway: OpportunityPathwayDetail) {
+  function handlePathwaySelect(
+    pathway: OpportunityPathwayDetail,
+    exact = Boolean(pathway.parent_id),
+  ) {
     setSelectedPathwaySlug(pathway.slug);
+    setExactPathway(exact);
 
     if (!pathway.parent_id) {
       setSelectedRootPathwaySlug(pathway.slug);
     }
 
-    setFilters((current) => ({
-      ...current,
+    const nextFilters = {
+      ...filters,
+      search: search || undefined,
+      country: country || undefined,
+      field: field || undefined,
+      funding_type: fundingType || undefined,
+      no_ielts: noIelts || undefined,
+      no_application_fee: noApplicationFee || undefined,
+      verified: verified || undefined,
       ordering: "deadline",
       pathway: pathway.slug,
-    }));
+      exact_pathway: exact || undefined,
+    };
+
+    setFilters(nextFilters);
+    updateScholarshipUrl(nextFilters);
   }
 
   function handleRootPathwaySelect(pathway: OpportunityPathwayDetail) {
     setSelectedRootPathwaySlug(pathway.slug);
-    handlePathwaySelect(pathway);
+    handlePathwaySelect(pathway, false);
   }
 
   function handleClearPathway() {
     setSelectedRootPathwaySlug("");
     setSelectedPathwaySlug("");
-    setFilters((current) => {
-      const next = { ...current };
-      delete next.pathway;
-
-      return {
-        ...next,
-        ordering: "deadline",
-      };
-    });
+    setExactPathway(false);
+    const next = { ...filters };
+    delete next.pathway;
+    delete next.exact_pathway;
+    next.ordering = "deadline";
+    setFilters(next);
+    updateScholarshipUrl(next);
   }
 
   function handleSavedChange(slug: string, saved: boolean) {
@@ -761,6 +888,110 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
               </div>
             </div>
           </div>
+
+          <Card className="mt-2 dark:border-white/10 dark:bg-[#181b1d]">
+            <CardContent className="p-3 md:p-3.5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-sm font-black text-ink dark:text-white">
+                    Scholarship pathways
+                  </h2>
+                  <p className="mt-0.5 text-xs leading-5 text-ink/55 dark:text-white/50">
+                    Browse country hubs, government programs, university tracks, and lab pathways.
+                  </p>
+                </div>
+
+                {selectedPathway ? (
+                  <Button
+                    type="button"
+                    className="h-8 px-2.5 text-xs"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleClearPathway}
+                  >
+                    <X size={14} aria-hidden="true" />
+                    Clear pathway
+                  </Button>
+                ) : null}
+              </div>
+
+              {pathwaysLoading && sortedRootPathways.length === 0 ? (
+                <p className="mt-2 text-xs text-ink/55">Loading pathways...</p>
+              ) : null}
+
+              {sortedRootPathways.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {sortedRootPathways.map((pathway) => {
+                    const selected = selectedRootPathwaySlug === pathway.slug;
+                    const hasPublished = pathway.published_opportunity_count > 0;
+
+                    return (
+                      <button
+                        key={pathway.slug}
+                        type="button"
+                        onClick={() => handleRootPathwaySelect(pathway)}
+                        className={`rounded-2xl border px-3 py-2 text-left text-xs font-semibold transition ${
+                          selected
+                            ? "border-pine bg-pine text-white"
+                            : "border-pine/10 bg-[#f7faf8] text-ink/75 hover:border-pine/30 hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/70"
+                        }`}
+                      >
+                        <span>{pathway.title}</span>
+                        <span
+                          className={`ml-1.5 ${selected ? "text-white/80" : "text-ink/45 dark:text-white/45"}`}
+                        >
+                          {hasPublished
+                            ? `${pathway.published_opportunity_count} published`
+                            : "Coming soon"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {selectedRootPathwaySlug && sortedChildPathways.length > 0 ? (
+                <div className="mt-3 border-t border-pine/10 pt-3 dark:border-white/10">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
+                    Child pathways
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {sortedChildPathways.map((pathway) => {
+                      const selected = selectedPathwaySlug === pathway.slug;
+
+                      return (
+                        <button
+                          key={pathway.slug}
+                          type="button"
+                          onClick={() => handlePathwaySelect(pathway, true)}
+                          className={`rounded-2xl border px-2.5 py-1.5 text-xs font-semibold transition ${
+                            selected
+                              ? "border-pine bg-white text-pine shadow-sm dark:bg-white/10"
+                              : "border-pine/10 bg-[#f7faf8] text-ink/65 hover:border-pine/30 hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65"
+                          }`}
+                        >
+                          {pathway.title}
+                          {pathway.published_opportunity_count === 0 ? (
+                            <span className="ml-1.5 text-ink/40 dark:text-white/40">
+                              Coming soon
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {selectedPathway ? (
+                <p className="mt-3 rounded-2xl border border-pine/10 bg-[#f7faf8] px-3 py-2 text-xs font-semibold text-ink/60 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
+                  {exactPathway
+                    ? `Showing exact pathway: ${selectedPathway.full_path}`
+                    : `Showing scholarships under ${selectedPathway.full_path}`}
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
 
           <Card className="mt-2 dark:border-white/10 dark:bg-[#181b1d]">
             <CardContent className="p-3 md:p-3.5">
@@ -1078,7 +1309,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 }
                 description={
                   selectedPathway
-                    ? "No published opportunities in this pathway yet. New verified opportunities will be added soon."
+                    ? "Try all scholarships or choose another pathway."
                     : hasActiveFilters
                       ? "Try removing filters or searching a broader country, field, or funding type."
                       : "No published scholarships are available yet. Browse the scholarship guides while new verified opportunities are added."
@@ -1086,7 +1317,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                 icon={<Search size={22} aria-hidden="true" />}
                 title={
                   selectedPathway
-                    ? "No published opportunities in this pathway yet"
+                    ? "No published scholarships in this pathway yet"
                     : hasActiveFilters
                       ? "No scholarships match these filters yet"
                       : "No scholarships published yet"
@@ -1110,6 +1341,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                     initiallySaved={savedSlugs.has(scholarship.slug)}
                     onSavedChange={handleSavedChange}
                     onMatchSelect={setSelectedMatch}
+                    onPathwaySelect={(pathway) => handlePathwaySelect(pathway, true)}
                   />
                 ))}
               </section>

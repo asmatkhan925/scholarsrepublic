@@ -18,16 +18,18 @@ import {
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { PathwaySelect } from "@/components/admin/PathwaySelect";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
   getAdminOpportunityDraft,
+  getAdminOpportunityPathways,
   importAdminOpportunityDraft,
   patchAdminOpportunityDraft,
   validateAdminOpportunityDraft,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { OpportunityDraft } from "@/types/opportunity";
+import type { OpportunityDraft, OpportunityPathwayDetail } from "@/types/opportunity";
 
 function extractJson(input: string): Record<string, unknown> {
   const trimmed = input.trim();
@@ -47,7 +49,9 @@ function extractJson(input: string): Record<string, unknown> {
     const parsed = JSON.parse(value) as unknown;
 
     if (!isRecord(parsed)) {
-      throw new Error('Paste one JSON object with the shape {"confidence": "...", "opportunity": {...}}.');
+      throw new Error(
+        'Paste one JSON object with the shape {"confidence": "...", "opportunity": {...}}.',
+      );
     }
 
     return parsed;
@@ -151,6 +155,7 @@ type QuickFixForm = {
   official_link: string;
   source_url: string;
   source_name: string;
+  pathway_id: number | null;
   funding_type: string;
   fields_of_study: string;
 };
@@ -161,6 +166,7 @@ const emptyQuickFix: QuickFixForm = {
   official_link: "",
   source_url: "",
   source_name: "",
+  pathway_id: null,
   funding_type: "",
   fields_of_study: "",
 };
@@ -207,6 +213,7 @@ function buildQuickFixForm(payload: Record<string, unknown>): QuickFixForm {
     official_link: getText(opportunity.official_link),
     source_url: getText(opportunity.source_url),
     source_name: getText(opportunity.source_name),
+    pathway_id: typeof opportunity.pathway_id === "number" ? opportunity.pathway_id : null,
     funding_type: getText(opportunity.funding_type),
     fields_of_study: textListToTextarea(opportunity.fields_of_study),
   };
@@ -221,6 +228,7 @@ function applyQuickFixToPayload(payload: Record<string, unknown>, quickFix: Quic
     official_link: quickFix.official_link.trim(),
     source_url: quickFix.source_url.trim(),
     source_name: quickFix.source_name.trim(),
+    pathway_id: quickFix.pathway_id,
     funding_type: quickFix.funding_type.trim(),
     fields_of_study: textareaToTextList(quickFix.fields_of_study),
   };
@@ -260,6 +268,7 @@ function AdminDraftEditContent() {
   const draftId = Number(params.id);
 
   const [draft, setDraft] = useState<OpportunityDraft | null>(null);
+  const [pathways, setPathways] = useState<OpportunityPathwayDetail[]>([]);
   const [title, setTitle] = useState("");
   const [jsonText, setJsonText] = useState("");
   const [quickFix, setQuickFix] = useState<QuickFixForm>(emptyQuickFix);
@@ -290,6 +299,18 @@ function AdminDraftEditContent() {
     }
   }
 
+  async function loadPathways() {
+    try {
+      const response = await getAdminOpportunityPathways({
+        active: true,
+        page_size: 300,
+      });
+      setPathways(response.results);
+    } catch {
+      setPathways([]);
+    }
+  }
+
   useEffect(() => {
     if (!Number.isFinite(draftId) || draftId <= 0) {
       setError("Invalid draft id.");
@@ -298,13 +319,11 @@ function AdminDraftEditContent() {
     }
 
     void loadDraft();
+    void loadPathways();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
 
-  function updateQuickFixField<K extends keyof QuickFixForm>(
-    field: K,
-    value: QuickFixForm[K],
-  ) {
+  function updateQuickFixField<K extends keyof QuickFixForm>(field: K, value: QuickFixForm[K]) {
     setQuickFix((current) => ({ ...current, [field]: value }));
   }
 
@@ -430,7 +449,8 @@ function AdminDraftEditContent() {
               </h1>
 
               <p className="mt-1 text-sm leading-6 text-ink/65 dark:text-white/60">
-                Fix missing country, source, fields, deadline, and JSON issues. A clean review draft can then be converted into Scholarship Manager.
+                Fix missing country, source, fields, deadline, and JSON issues. A clean review draft
+                can then be converted into Scholarship Manager.
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
@@ -464,7 +484,8 @@ function AdminDraftEditContent() {
 
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
               <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
-                This page edits imported GPT output. It stays private until you convert it to a scholarship draft, then publish/verify later.
+                This page edits imported GPT output. It stays private until you convert it to a
+                scholarship draft, then publish/verify later.
               </div>
             </div>
           </div>
@@ -498,9 +519,7 @@ function AdminDraftEditContent() {
               <CardContent className="grid gap-3 p-3 md:p-4">
                 <div className="flex items-center gap-2">
                   <FileJson size={17} className="text-pine" aria-hidden="true" />
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    Imported JSON
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">Imported JSON</h2>
                 </div>
 
                 <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
@@ -515,9 +534,7 @@ function AdminDraftEditContent() {
                 <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-ink dark:text-white">
-                        Quick fixes
-                      </h3>
+                      <h3 className="text-sm font-bold text-ink dark:text-white">Quick fixes</h3>
                       <p className="mt-0.5 text-xs leading-5 text-ink/55 dark:text-white/50">
                         Fix common validation errors here. These values are saved into the JSON.
                       </p>
@@ -550,6 +567,16 @@ function AdminDraftEditContent() {
                       type="date"
                     />
 
+                    <div className="md:col-span-2">
+                      <PathwaySelect
+                        label="Pathway"
+                        pathways={pathways}
+                        value={quickFix.pathway_id}
+                        onChange={(value) => updateQuickFixField("pathway_id", value)}
+                        disabled={busy}
+                      />
+                    </div>
+
                     <QuickTextInput
                       label="Official link"
                       value={quickFix.official_link}
@@ -575,7 +602,9 @@ function AdminDraftEditContent() {
                       Funding type
                       <select
                         value={quickFix.funding_type}
-                        onChange={(event) => updateQuickFixField("funding_type", event.target.value)}
+                        onChange={(event) =>
+                          updateQuickFixField("funding_type", event.target.value)
+                        }
                         className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
                       >
                         {fundingOptions.map(([value, label]) => (
@@ -591,7 +620,9 @@ function AdminDraftEditContent() {
                     Fields of study
                     <textarea
                       value={quickFix.fields_of_study}
-                      onChange={(event) => updateQuickFixField("fields_of_study", event.target.value)}
+                      onChange={(event) =>
+                        updateQuickFixField("fields_of_study", event.target.value)
+                      }
                       rows={3}
                       className="rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
                       placeholder={"Medicine\nNatural Sciences\nPharmacy"}
@@ -617,11 +648,13 @@ function AdminDraftEditContent() {
 
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-2 p-3 md:p-4">
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    Actions
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">Actions</h2>
 
-                  <Button type="button" onClick={() => void handleSaveAndValidate()} disabled={busy}>
+                  <Button
+                    type="button"
+                    onClick={() => void handleSaveAndValidate()}
+                    disabled={busy}
+                  >
                     {busy ? (
                       <Loader2 size={15} className="animate-spin" aria-hidden="true" />
                     ) : (
@@ -631,13 +664,21 @@ function AdminDraftEditContent() {
                   </Button>
 
                   {canImport ? (
-                    <Button type="button" onClick={() => void handleImportOnly()} disabled={busy} variant="outline">
+                    <Button
+                      type="button"
+                      onClick={() => void handleImportOnly()}
+                      disabled={busy}
+                      variant="outline"
+                    >
                       Convert to scholarship draft
                     </Button>
                   ) : null}
 
                   {draft.created_opportunity ? (
-                    <ButtonLink href={`/dashboard/admin/scholarships/${draft.created_opportunity}/edit`} variant="outline">
+                    <ButtonLink
+                      href={`/dashboard/admin/scholarships/${draft.created_opportunity}/edit`}
+                      variant="outline"
+                    >
                       Edit in Scholarship Manager
                     </ButtonLink>
                   ) : null}

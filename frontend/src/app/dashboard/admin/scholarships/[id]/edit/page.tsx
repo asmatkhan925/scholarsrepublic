@@ -5,23 +5,18 @@ import { useParams } from "next/navigation";
 
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ExternalLink,
-  Loader2,
-  Save,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, Save, ShieldCheck } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { PathwaySelect } from "@/components/admin/PathwaySelect";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
-import { getAdminOpportunity, patchAdminOpportunity } from "@/lib/api";
+import { getAdminOpportunity, getAdminOpportunityPathways, patchAdminOpportunity } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   OpportunityAdminPayload,
   OpportunityDetail,
+  OpportunityPathwayDetail,
   OpportunityStatus,
 } from "@/types/opportunity";
 
@@ -30,6 +25,7 @@ type ScholarshipEditForm = {
   provider_name: string;
   university_name: string;
   country: string;
+  pathway_id: number | null;
   status: OpportunityStatus;
   featured: boolean;
   verified_status: boolean;
@@ -64,6 +60,7 @@ const emptyForm: ScholarshipEditForm = {
   provider_name: "",
   university_name: "",
   country: "",
+  pathway_id: null,
   status: "draft",
   featured: false,
   verified_status: false,
@@ -126,6 +123,7 @@ function buildForm(opportunity: OpportunityDetail): ScholarshipEditForm {
     provider_name: opportunity.provider_name || "",
     university_name: opportunity.university_name || "",
     country: opportunity.country || "",
+    pathway_id: opportunity.pathway_detail?.id ?? null,
     status: opportunity.status,
     featured: Boolean(opportunity.featured),
     verified_status: Boolean(opportunity.verified_status),
@@ -258,6 +256,7 @@ function AdminScholarshipEditContent() {
   const opportunityId = Number(params.id);
 
   const [opportunity, setOpportunity] = useState<OpportunityDetail | null>(null);
+  const [pathways, setPathways] = useState<OpportunityPathwayDetail[]>([]);
   const [form, setForm] = useState<ScholarshipEditForm>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -296,6 +295,18 @@ function AdminScholarshipEditContent() {
     }
   }
 
+  async function loadPathways() {
+    try {
+      const response = await getAdminOpportunityPathways({
+        active: true,
+        page_size: 300,
+      });
+      setPathways(response.results);
+    } catch {
+      setPathways([]);
+    }
+  }
+
   useEffect(() => {
     if (!Number.isFinite(opportunityId) || opportunityId <= 0) {
       setError("Invalid scholarship id.");
@@ -304,6 +315,7 @@ function AdminScholarshipEditContent() {
     }
 
     void loadOpportunity();
+    void loadPathways();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opportunityId]);
 
@@ -318,6 +330,7 @@ function AdminScholarshipEditContent() {
       provider_name: form.provider_name.trim(),
       university_name: form.university_name.trim(),
       country: form.country.trim(),
+      pathway_id: form.pathway_id,
       status: form.status,
       featured: form.featured,
       verified_status: form.verified_status,
@@ -474,9 +487,7 @@ function AdminScholarshipEditContent() {
                 <CardContent className="grid gap-3 p-3 md:p-4">
                   <div className="flex items-center gap-2">
                     <ShieldCheck size={17} className="text-pine" aria-hidden="true" />
-                    <h2 className="text-lg font-bold text-ink dark:text-white">
-                      Core details
-                    </h2>
+                    <h2 className="text-lg font-bold text-ink dark:text-white">Core details</h2>
                   </div>
 
                   <TextInput
@@ -502,6 +513,13 @@ function AdminScholarshipEditContent() {
                       value={form.country}
                       onChange={(value) => updateField("country", value)}
                     />
+                    <div className="md:col-span-2">
+                      <PathwaySelect
+                        pathways={pathways}
+                        value={form.pathway_id}
+                        onChange={(value) => updateField("pathway_id", value)}
+                      />
+                    </div>
                     <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
                       Funding type
                       <select
@@ -536,9 +554,7 @@ function AdminScholarshipEditContent() {
 
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-3 p-3 md:p-4">
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    Main content
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">Main content</h2>
 
                   <TextArea
                     label="Description"
@@ -618,9 +634,7 @@ function AdminScholarshipEditContent() {
             <aside className="grid content-start gap-4">
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-3 p-3 md:p-4">
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    Publish readiness
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">Publish readiness</h2>
 
                   {publishReadiness.length === 0 ? (
                     <div className="rounded-xl border border-pine/15 bg-pine/5 px-3 py-2 text-sm font-semibold text-pine dark:border-pine/25 dark:bg-pine/10">
@@ -640,9 +654,7 @@ function AdminScholarshipEditContent() {
 
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-3 p-3 md:p-4">
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    Publishing
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">Publishing</h2>
 
                   <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
                     Status
@@ -762,9 +774,7 @@ function AdminScholarshipEditContent() {
 
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-2 p-3 md:p-4">
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    Language and fees
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">Language and fees</h2>
 
                   <Toggle
                     label="Application fee required"

@@ -16,6 +16,8 @@ from apps.opportunities.views import (
     AdminOpportunityDraftListCreateView,
     AdminOpportunityDraftValidateView,
     AdminOpportunityListCreateView,
+    AdminOpportunityPathwayDetailView,
+    AdminOpportunityPathwayListCreateView,
     OpportunityCommentDeleteView,
     OpportunityMatchView,
     PublicOpportunityDetailView,
@@ -119,6 +121,16 @@ urlpatterns = [
         "admin/overview/",
         AdminOverviewView.as_view(),
         name="admin-overview",
+    ),
+    path(
+        "admin/opportunity-pathways/",
+        AdminOpportunityPathwayListCreateView.as_view(),
+        name="admin-opportunity-pathway-list",
+    ),
+    path(
+        "admin/opportunity-pathways/<int:pk>/",
+        AdminOpportunityPathwayDetailView.as_view(),
+        name="admin-opportunity-pathway-detail",
     ),
     path(
         "admin/comments/",

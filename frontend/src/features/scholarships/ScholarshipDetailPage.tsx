@@ -112,7 +112,9 @@ function DetailSection({
           </div>
         </div>
         <div className="px-4 py-4 md:px-5">
-          <div className="whitespace-pre-line text-sm leading-7 text-ink/72 dark:text-white/64">{content}</div>
+          <div className="whitespace-pre-line text-sm leading-7 text-ink/72 dark:text-white/64">
+            {content}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -131,7 +133,8 @@ function DocumentsSection({ items }: { items: string[] }) {
             <div>
               <h2 className="text-lg font-black text-ink dark:text-white">Required documents</h2>
               <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">
-                Required documents are not listed here. Confirm the document checklist on the official scholarship page before applying.
+                Required documents are not listed here. Confirm the document checklist on the
+                official scholarship page before applying.
               </p>
             </div>
           </div>
@@ -222,7 +225,12 @@ function MatchScoreSidebarCard({
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
               Match score
             </p>
-            <ButtonLink href="/dashboard/profile" className="h-8 rounded-xl px-3 text-xs" size="sm" variant="outline">
+            <ButtonLink
+              href="/dashboard/profile"
+              className="h-8 rounded-xl px-3 text-xs"
+              size="sm"
+              variant="outline"
+            >
               Complete profile
             </ButtonLink>
           </div>
@@ -239,9 +247,7 @@ function MatchScoreSidebarCard({
     <Card className="dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
-            Match score
-          </p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">Match score</p>
 
           <MatchScoreBadge
             match={match}
@@ -250,11 +256,7 @@ function MatchScoreSidebarCard({
           />
         </div>
 
-        <MatchScoreDialog
-          match={match}
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-        />
+        <MatchScoreDialog match={match} open={dialogOpen} onClose={() => setDialogOpen(false)} />
       </CardContent>
     </Card>
   );
@@ -284,7 +286,10 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
               Deadline
             </p>
-            <p className="mt-0.5 truncate font-bold text-ink dark:text-white" title={formatDate(scholarship.deadline)}>
+            <p
+              className="mt-0.5 truncate font-bold text-ink dark:text-white"
+              title={formatDate(scholarship.deadline)}
+            >
               {formatDate(scholarship.deadline)}
             </p>
           </div>
@@ -293,7 +298,10 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
               Updated
             </p>
-            <p className="mt-0.5 truncate font-bold text-ink dark:text-white" title={lastUpdated || "Not listed"}>
+            <p
+              className="mt-0.5 truncate font-bold text-ink dark:text-white"
+              title={lastUpdated || "Not listed"}
+            >
               {lastUpdated || "Not listed"}
             </p>
           </div>
@@ -302,7 +310,10 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
               Verified on
             </p>
-            <p className="mt-0.5 truncate font-bold text-ink dark:text-white" title={lastVerified || "Not verified yet"}>
+            <p
+              className="mt-0.5 truncate font-bold text-ink dark:text-white"
+              title={lastVerified || "Not verified yet"}
+            >
               {lastVerified || "Not listed"}
             </p>
           </div>
@@ -312,7 +323,10 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
                 Source
               </p>
-              <p className="mt-0.5 truncate font-bold text-ink dark:text-white" title={scholarship.source_name}>
+              <p
+                className="mt-0.5 truncate font-bold text-ink dark:text-white"
+                title={scholarship.source_name}
+              >
                 {scholarship.source_name}
               </p>
             </div>
@@ -364,6 +378,53 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
             ) : null}
           </div>
         ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PathwayContextCard({ scholarship }: { scholarship: OpportunityDetail }) {
+  const pathway = scholarship.pathway_detail;
+
+  if (!pathway) {
+    return null;
+  }
+
+  return (
+    <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+      <CardContent className="p-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
+          Scholarship pathway
+        </p>
+        <h2 className="mt-1 text-sm font-black leading-5 text-ink dark:text-white">
+          {pathway.full_path}
+        </h2>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Badge tone="neutral">{humanize(pathway.pathway_type)}</Badge>
+          {pathway.country ? <Badge tone="sky">{pathway.country}</Badge> : null}
+        </div>
+        <div className="mt-3 grid gap-1.5">
+          <ButtonLink
+            href={`/scholarships?pathway=${encodeURIComponent(pathway.slug)}${
+              pathway.parent_id ? "&exact_pathway=true" : ""
+            }`}
+            size="sm"
+            variant="outline"
+          >
+            Browse this pathway
+          </ButtonLink>
+          {pathway.official_link ? (
+            <a
+              href={pathway.official_link}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+            >
+              Official pathway
+              <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );
@@ -807,7 +868,9 @@ export default function ScholarshipDetailPage({
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                         {fact.label}
                       </p>
-                      <p className="mt-1 text-sm font-bold text-ink dark:text-white">{fact.value}</p>
+                      <p className="mt-1 text-sm font-bold text-ink dark:text-white">
+                        {fact.value}
+                      </p>
                       {fact.helper ? (
                         <p className="mt-1 text-xs text-ink/50 dark:text-white/45">{fact.helper}</p>
                       ) : null}
@@ -856,6 +919,8 @@ export default function ScholarshipDetailPage({
 
                   <TrustSidebarCard scholarship={scholarship} />
 
+                  <PathwayContextCard scholarship={scholarship} />
+
                   <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                     <CardContent className="p-3">
                       <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
@@ -898,7 +963,9 @@ export default function ScholarshipDetailPage({
 
                         {scholarship.eligible_countries.length > 0 ? (
                           <div className="mt-3">
-                            <h3 className="text-xs font-bold text-ink dark:text-white">Eligible countries</h3>
+                            <h3 className="text-xs font-bold text-ink dark:text-white">
+                              Eligible countries
+                            </h3>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.eligible_countries.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="neutral">
@@ -911,7 +978,9 @@ export default function ScholarshipDetailPage({
 
                         {scholarship.target_regions.length > 0 ? (
                           <div className="mt-3">
-                            <h3 className="text-xs font-bold text-ink dark:text-white">Target regions</h3>
+                            <h3 className="text-xs font-bold text-ink dark:text-white">
+                              Target regions
+                            </h3>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {scholarship.target_regions.slice(0, 8).map((item) => (
                                 <Badge key={item} tone="neutral">

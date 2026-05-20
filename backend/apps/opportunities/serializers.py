@@ -20,9 +20,20 @@ ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
 
 class OpportunityPathwaySerializer(serializers.ModelSerializer):
     country = serializers.SerializerMethodField()
-    country_id = serializers.IntegerField(source="country_ref_id", read_only=True)
+    country_id = serializers.PrimaryKeyRelatedField(
+        source="country_ref",
+        queryset=Country.objects.filter(is_active=True),
+        allow_null=True,
+        required=False,
+    )
     parent = serializers.SerializerMethodField()
-    parent_id = serializers.IntegerField(read_only=True)
+    parent_id = serializers.PrimaryKeyRelatedField(
+        source="parent",
+        queryset=OpportunityPathway.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+    parent_slug = serializers.CharField(source="parent.slug", read_only=True)
     full_path = serializers.CharField(read_only=True)
     children_count = serializers.SerializerMethodField()
     published_opportunity_count = serializers.SerializerMethodField()
@@ -38,6 +49,7 @@ class OpportunityPathwaySerializer(serializers.ModelSerializer):
             "country_id",
             "parent",
             "parent_id",
+            "parent_slug",
             "full_path",
             "description",
             "official_link",
@@ -53,17 +65,63 @@ class OpportunityPathwaySerializer(serializers.ModelSerializer):
     def get_parent(self, obj):
         return obj.parent.title if obj.parent else ""
 
+    def validate(self, attrs):
+        parent = attrs.get("parent", getattr(self.instance, "parent", None))
+
+        if self.instance and parent:
+            if parent.pk == self.instance.pk:
+                raise serializers.ValidationError(
+                    {"parent_id": "A pathway cannot be its own parent."}
+                )
+
+            current = parent
+            seen = set()
+            while current:
+                if current.pk in seen or current.pk == self.instance.pk:
+                    raise serializers.ValidationError(
+                        {"parent_id": "Circular pathway parent chain detected."}
+                    )
+
+                seen.add(current.pk)
+                current = current.parent
+
+        return attrs
+
     def get_children_count(self, obj):
         if hasattr(obj, "active_children_count"):
             return obj.active_children_count
 
         return obj.children.filter(is_active=True).count()
 
-    def get_published_opportunity_count(self, obj):
-        if hasattr(obj, "direct_published_opportunity_count"):
-            return obj.direct_published_opportunity_count
+    def get_pathway_and_descendant_ids(self, obj):
+        seen = set()
+        queue = [obj.id]
 
-        return obj.opportunities.filter(status=Opportunity.Status.PUBLISHED).count()
+        while queue:
+            current_ids = []
+
+            for pathway_id in queue:
+                if pathway_id not in seen:
+                    current_ids.append(pathway_id)
+                    seen.add(pathway_id)
+
+            if not current_ids:
+                break
+
+            queue = list(
+                OpportunityPathway.objects.filter(
+                    is_active=True,
+                    parent_id__in=current_ids,
+                ).values_list("id", flat=True)
+            )
+
+        return list(seen)
+
+    def get_published_opportunity_count(self, obj):
+        return Opportunity.objects.filter(
+            status=Opportunity.Status.PUBLISHED,
+            pathway_id__in=self.get_pathway_and_descendant_ids(obj),
+        ).count()
 
 
 class OpportunityListSerializer(serializers.ModelSerializer):
@@ -257,6 +315,15 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
 
 class OpportunityAdminSerializer(serializers.ModelSerializer):
+    pathway_id = serializers.PrimaryKeyRelatedField(
+        source="pathway",
+        queryset=OpportunityPathway.objects.filter(is_active=True),
+        allow_null=True,
+        required=False,
+        write_only=True,
+    )
+    pathway_detail = OpportunityPathwaySerializer(source="pathway", read_only=True)
+
     def clean_text_list(self, value, field_name):
         if value in (None, ""):
             return []

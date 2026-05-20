@@ -20,10 +20,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminNotice } from "@/components/admin/AdminUI";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
-import {
-  createAdminOpportunityDraft,
-  validateAdminOpportunityDraft,
-} from "@/lib/api";
+import { createAdminOpportunityDraft, validateAdminOpportunityDraft } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityDraft } from "@/types/opportunity";
 
@@ -39,6 +36,7 @@ type JsonPreview =
       funding: string;
       stipendSummary: string;
       source: string;
+      pathway: string;
       officialLink: string;
       sourceUrl: string;
       deadline: string;
@@ -71,14 +69,16 @@ function extractJson(input: string): Record<string, unknown> {
   const candidate = codeFenceMatch ? codeFenceMatch[1].trim() : trimmed;
 
   if (candidate.startsWith("[")) {
-    throw new Error('Paste one scholarship JSON object, not a bulk array.');
+    throw new Error("Paste one scholarship JSON object, not a bulk array.");
   }
 
   function parseCandidate(value: string) {
     const parsed = JSON.parse(value) as unknown;
 
     if (!isRecord(parsed)) {
-      throw new Error('Paste one JSON object with the shape {"confidence": "...", "opportunity": {...}}.');
+      throw new Error(
+        'Paste one JSON object with the shape {"confidence": "...", "opportunity": {...}}.',
+      );
     }
 
     return parsed;
@@ -159,7 +159,9 @@ function buildCompletenessChecklist(opportunity: Record<string, unknown>): Check
     { label: "How to apply", complete: Boolean(getText(opportunity.how_to_apply)) },
     {
       label: "Deadline or rolling deadline",
-      complete: Boolean(getText(opportunity.deadline) || getBoolean(opportunity.is_rolling_deadline)),
+      complete: Boolean(
+        getText(opportunity.deadline) || getBoolean(opportunity.is_rolling_deadline),
+      ),
     },
     {
       label: "Funding type or stipend",
@@ -168,7 +170,9 @@ function buildCompletenessChecklist(opportunity: Record<string, unknown>): Check
     { label: "Degree levels", complete: getTextList(opportunity.degree_levels).length > 0 },
     {
       label: "Fields or all study fields",
-      complete: getTextList(opportunity.fields_of_study).length > 0 || getBoolean(opportunity.all_study_fields),
+      complete:
+        getTextList(opportunity.fields_of_study).length > 0 ||
+        getBoolean(opportunity.all_study_fields),
     },
   ];
 }
@@ -226,7 +230,8 @@ function CompletenessChecklist({ items }: { items: ChecklistItem[] }) {
         <div>
           <p className="text-sm font-bold text-ink dark:text-white">Completeness checklist</p>
           <p className="text-xs font-semibold text-ink/50 dark:text-white/45">
-            {completeCount} of {items.length} recommended fields detected before creating the review draft.
+            {completeCount} of {items.length} recommended fields detected before creating the review
+            draft.
           </p>
         </div>
         <Badge tone={completeCount === items.length ? "mint" : "saffron"}>
@@ -279,6 +284,8 @@ Return this exact backend-compatible JSON shape:
     "opportunity_type": "scholarship",
     "provider_name": "",
     "university_name": "",
+    "pathway_id": null,
+    "pathway": "",
     "country": "",
     "official_link": "",
     "source_url": "",
@@ -313,6 +320,7 @@ Return this exact backend-compatible JSON shape:
 
 Important rules:
 - If the official source does not clearly mention something, leave it blank, null, false, or [].
+- If you know the Scholars Republic pathway slug or numeric pathway_id from admin context, include it. Otherwise leave pathway_id as null and pathway blank.
 - Put uncertain items in "warnings".
 - Put missing important facts in "missing_information".
 - Use "confidence": "high" only when title, country, source URL, deadline/rolling deadline, funding, eligibility, benefits, application steps, degree levels, and fields are clear from the official source.
@@ -360,6 +368,10 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         funding: humanize(getText(opportunity.funding_type)) || "Funding type missing",
         stipendSummary: getText(opportunity.stipend_summary),
         source: officialLink || sourceUrlValue || "Source missing",
+        pathway:
+          typeof opportunity.pathway_id === "number"
+            ? `Pathway ID ${opportunity.pathway_id}`
+            : getText(opportunity.pathway),
         officialLink,
         sourceUrl: sourceUrlValue,
         deadline:
@@ -446,12 +458,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  onClick={() => void copyPrompt()}
-                  size="sm"
-                  variant="primary"
-                >
+                <Button type="button" onClick={() => void copyPrompt()} size="sm" variant="primary">
                   {copiedPrompt ? (
                     <CheckCircle2 size={15} aria-hidden="true" />
                   ) : (
@@ -469,9 +476,14 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
             <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
               <div className="rounded-2xl border border-saffron/30 bg-saffron/10 p-3 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
                 <div className="flex gap-2">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
+                  <AlertTriangle
+                    size={16}
+                    className="mt-0.5 shrink-0 text-pine"
+                    aria-hidden="true"
+                  />
                   <p>
-                    This importer accepts one scholarship JSON object at a time. GPT output becomes a private review draft, not a published scholarship.
+                    This importer accepts one scholarship JSON object at a time. GPT output becomes
+                    a private review draft, not a published scholarship.
                   </p>
                 </div>
               </div>
@@ -479,9 +491,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
           </div>
         </section>
 
-        {error ? (
-          <AdminNotice tone="danger">{error}</AdminNotice>
-        ) : null}
+        {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
 
         {createdDraft ? (
           <div className="rounded-2xl border border-pine/20 bg-pine/5 p-3 text-sm text-pine dark:border-pine/20 dark:bg-pine/10">
@@ -489,8 +499,8 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
               <div>
                 <p className="font-bold">Review draft created: {createdDraft.title}</p>
                 <p className="mt-1 text-xs font-semibold text-pine/75">
-                  Status: {createdDraft.status} · Errors: {createdDraft.validation_errors.length} · Warnings:{" "}
-                  {createdDraft.validation_warnings.length}
+                  Status: {createdDraft.status} · Errors: {createdDraft.validation_errors.length} ·
+                  Warnings: {createdDraft.validation_warnings.length}
                 </p>
               </div>
 
@@ -514,9 +524,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
               <CardContent className="p-3 md:p-4">
                 <div className="flex items-center gap-2">
                   <Search size={17} className="text-pine" aria-hidden="true" />
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    1. Official source
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">1. Official source</h2>
                 </div>
 
                 <div className="mt-3 grid gap-3">
@@ -577,10 +585,16 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                         <div className="flex flex-wrap gap-1.5">
                           <Badge tone="mint">Valid JSON</Badge>
                           <Badge tone="neutral">Single scholarship</Badge>
-                          <Badge tone={jsonPreview.source === "Source missing" ? "saffron" : "neutral"}>
-                            {jsonPreview.source === "Source missing" ? "Source missing" : "Source detected"}
+                          <Badge
+                            tone={jsonPreview.source === "Source missing" ? "saffron" : "neutral"}
+                          >
+                            {jsonPreview.source === "Source missing"
+                              ? "Source missing"
+                              : "Source detected"}
                           </Badge>
-                          <Badge tone={jsonPreview.deadline === "Deadline missing" ? "saffron" : "sky"}>
+                          <Badge
+                            tone={jsonPreview.deadline === "Deadline missing" ? "saffron" : "sky"}
+                          >
                             {jsonPreview.deadline}
                           </Badge>
                         </div>
@@ -599,7 +613,11 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                         <CompletenessChecklist items={jsonPreview.checklist} />
 
                         <div className="grid gap-2 md:grid-cols-2">
-                          <PreviewList label="Degree levels" items={jsonPreview.degreeLevels} tone="neutral" />
+                          <PreviewList
+                            label="Degree levels"
+                            items={jsonPreview.degreeLevels}
+                            tone="neutral"
+                          />
                           <PreviewList
                             label="Fields of study"
                             items={
@@ -621,12 +639,25 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                           <PreviewField label="Deadline" value={jsonPreview.deadline} />
                           <PreviewField label="Official link" value={jsonPreview.officialLink} />
                           <PreviewField label="Source URL" value={jsonPreview.sourceUrl} />
+                          <PreviewField
+                            label="Pathway"
+                            value={jsonPreview.pathway || "Select manually before import"}
+                          />
                         </div>
 
                         <div className="grid gap-2">
-                          <PreviewField label="Benefits summary" value={summarizeText(jsonPreview.benefits)} />
-                          <PreviewField label="Eligibility summary" value={summarizeText(jsonPreview.eligibility)} />
-                          <PreviewField label="How to apply summary" value={summarizeText(jsonPreview.howToApply)} />
+                          <PreviewField
+                            label="Benefits summary"
+                            value={summarizeText(jsonPreview.benefits)}
+                          />
+                          <PreviewField
+                            label="Eligibility summary"
+                            value={summarizeText(jsonPreview.eligibility)}
+                          />
+                          <PreviewField
+                            label="How to apply summary"
+                            value={summarizeText(jsonPreview.howToApply)}
+                          />
                         </div>
 
                         <PreviewList
@@ -680,7 +711,11 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                     {creating ? "Creating review draft..." : "Create review draft"}
                   </Button>
 
-                  <ButtonLink href="/dashboard/admin/scholarships/drafts" size="sm" variant="outline">
+                  <ButtonLink
+                    href="/dashboard/admin/scholarships/drafts"
+                    size="sm"
+                    variant="outline"
+                  >
                     Open review drafts
                   </ButtonLink>
                 </div>
@@ -693,9 +728,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
               <CardContent className="p-3 md:p-4">
                 <div className="flex items-center gap-2">
                   <Sparkles size={17} className="text-pine" aria-hidden="true" />
-                  <h2 className="text-lg font-bold text-ink dark:text-white">
-                    GPT prompt preview
-                  </h2>
+                  <h2 className="text-lg font-bold text-ink dark:text-white">GPT prompt preview</h2>
                 </div>
 
                 <pre className="mt-3 max-h-[34rem] overflow-auto whitespace-pre-wrap rounded-xl border border-pine/10 bg-[#f7faf8] p-3 text-xs leading-5 text-ink/70 dark:border-white/10 dark:bg-[#101214] dark:text-white/65">
@@ -728,7 +761,8 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                     Review warnings and errors in the review drafts queue.
                   </p>
                   <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                    Convert only clean review drafts to scholarship drafts, then review again before publishing.
+                    Convert only clean review drafts to scholarship drafts, then review again before
+                    publishing.
                   </p>
                   <p className="rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
                     Verify official source and deadline before marking as verified.
