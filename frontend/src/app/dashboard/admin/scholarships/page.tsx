@@ -660,6 +660,15 @@ function AdminScholarshipManagerContent() {
                 Review drafts
                 <ExternalLink size={15} aria-hidden="true" />
               </ButtonLink>
+
+              <ButtonLink
+                href="/dashboard/admin/scholarships/pathways"
+                size="sm"
+                variant="outline"
+              >
+                Manage pathways
+                <ExternalLink size={15} aria-hidden="true" />
+              </ButtonLink>
             </>
           }
           metrics={

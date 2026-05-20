@@ -264,7 +264,7 @@ export async function getAdminOpportunityPathways(
 
 export type AdminOpportunityPathwayPayload = {
   title: string;
-  slug: string;
+  slug?: string;
   pathway_type: string;
   country_id?: number | null;
   parent_id?: number | null;
@@ -295,6 +295,14 @@ export async function updateAdminOpportunityPathway(
 
 export async function deactivateAdminOpportunityPathway(id: number) {
   await api.delete(`/admin/opportunity-pathways/${id}/`);
+}
+
+export async function reactivateAdminOpportunityPathway(id: number) {
+  const response = await api.patch<OpportunityPathwayDetail>(
+    `/admin/opportunity-pathways/${id}/`,
+    { is_active: true },
+  );
+  return response.data;
 }
 
 export async function getScholarships(params?: OpportunityQueryParams & PaginationParams) {

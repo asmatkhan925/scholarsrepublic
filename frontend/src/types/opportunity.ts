@@ -17,8 +17,10 @@ export type OpportunityPathwayDetail = {
   title: string;
   slug: string;
   pathway_type: string;
+  pathway_type_display?: string;
   country: string;
   country_id: number | null;
+  country_ref?: number | null;
   parent: string;
   parent_id: number | null;
   parent_slug: string | null;
@@ -29,6 +31,8 @@ export type OpportunityPathwayDetail = {
   is_active: boolean;
   children_count: number;
   published_opportunity_count: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type OpportunityListItem = {
@@ -375,6 +379,7 @@ export type OpportunityPathwayQueryParams = {
   parent?: string;
   parent_id?: number;
   root_only?: boolean;
+  active?: boolean;
   page?: number;
   page_size?: number;
 };
