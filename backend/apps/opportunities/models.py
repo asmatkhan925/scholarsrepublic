@@ -426,10 +426,6 @@ class Opportunity(models.Model):
 
             delattr(self, "_pending_fields_of_study")
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self._apply_pending_reference_lists()
-
     def __str__(self) -> str:
         return self.title
 
@@ -518,6 +514,7 @@ class Opportunity(models.Model):
 
         self.full_clean()
         super().save(*args, **kwargs)
+        self._apply_pending_reference_lists()
 
 
 class OpportunityDraft(models.Model):

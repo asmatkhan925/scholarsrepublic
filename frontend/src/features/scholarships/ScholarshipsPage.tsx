@@ -210,7 +210,10 @@ function ScholarshipCard({
                 <CalendarDays size={13} className="text-pine" aria-hidden="true" />
                 Deadline
               </p>
-              <p className="mt-1 truncate text-xs font-bold text-ink dark:text-white" title={formatDate(scholarship.deadline)}>
+              <p
+                className="mt-1 truncate text-xs font-bold text-ink dark:text-white"
+                title={formatDate(scholarship.deadline)}
+              >
                 {formatDate(scholarship.deadline)}
               </p>
             </div>
@@ -220,7 +223,10 @@ function ScholarshipCard({
                 <WalletCards size={13} className="text-pine" aria-hidden="true" />
                 Funding
               </p>
-              <p className="mt-1 truncate text-xs font-bold text-ink dark:text-white" title={fundingLabel}>
+              <p
+                className="mt-1 truncate text-xs font-bold text-ink dark:text-white"
+                title={fundingLabel}
+              >
                 {fundingLabel}
               </p>
             </div>
@@ -544,8 +550,10 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           setData(response);
         }
       } catch {
-        if (mounted && !hasResultsRef.current) {
-          setError("Scholarship results are temporarily unavailable. Please try again later.");
+        if (mounted) {
+          setRecommendedData(null);
+          setData(null);
+          setError("We could not load scholarships right now. Please refresh or try again later.");
         }
       } finally {
         if (mounted) {
@@ -574,6 +582,16 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   }, [recommendations]);
 
   const resultCount = recommendedData?.count ?? data?.count ?? 0;
+  const hasActiveFilters = Boolean(
+    filters.search ||
+    filters.country ||
+    filters.field ||
+    filters.funding_type ||
+    filters.pathway ||
+    filters.no_ielts ||
+    filters.no_application_fee ||
+    filters.verified,
+  );
 
   const selectedPathway = useMemo(() => {
     return [...rootPathways, ...childPathways].find((item) => item.slug === selectedPathwaySlug);
@@ -614,10 +632,9 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   }, [country, field, noApplicationFee, noIelts, selectedFundingLabel, verified]);
 
   const activeFilterSummary = useMemo(() => {
-    return [
-      ...activeAdvancedFilters,
-      selectedPathway ? selectedPathway.full_path : "",
-    ].filter(Boolean);
+    return [...activeAdvancedFilters, selectedPathway ? selectedPathway.full_path : ""].filter(
+      Boolean,
+    );
   }, [activeAdvancedFilters, selectedPathway]);
 
   function handleFilterSubmit(event: FormEvent) {
@@ -713,7 +730,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   Find scholarships worth applying to.
                 </h1>
                 <p className="mt-1 max-w-4xl text-sm leading-6 text-ink/70 dark:text-white/60">
-                  Search published opportunities by country, funding, deadline, degree level, and pathway.
+                  Search published opportunities by country, funding, deadline, degree level, and
+                  pathway.
                 </p>
               </div>
 
@@ -738,9 +756,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
                     Sources
                   </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-pine">
-                    Checked
-                  </p>
+                  <p className="mt-0.5 text-base font-black leading-none text-pine">Checked</p>
                 </div>
               </div>
             </div>
@@ -1031,7 +1047,10 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           ) : null}
 
           {loading ? (
-            <section className="mt-2 grid gap-4 lg:grid-cols-2" aria-label="Scholarship result placeholders">
+            <section
+              className="mt-2 grid gap-4 lg:grid-cols-2"
+              aria-label="Scholarship result placeholders"
+            >
               <ScholarshipCardSkeleton />
               <ScholarshipCardSkeleton />
             </section>
@@ -1047,20 +1066,30 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             <div className="mt-2">
               <EmptyState
                 action={
-                  <Button type="button" onClick={handleClearFilters}>
-                    Clear Filters
-                  </Button>
+                  hasActiveFilters ? (
+                    <Button type="button" onClick={handleClearFilters}>
+                      Clear Filters
+                    </Button>
+                  ) : (
+                    <ButtonLink href="/blog" variant="secondary">
+                      Read Scholarship Guides
+                    </ButtonLink>
+                  )
                 }
                 description={
                   selectedPathway
                     ? "No published opportunities in this pathway yet. New verified opportunities will be added soon."
-                    : "Try removing filters or searching a broader country, field, or funding type."
+                    : hasActiveFilters
+                      ? "Try removing filters or searching a broader country, field, or funding type."
+                      : "No published scholarships are available yet. Browse the scholarship guides while new verified opportunities are added."
                 }
                 icon={<Search size={22} aria-hidden="true" />}
                 title={
                   selectedPathway
                     ? "No published opportunities in this pathway yet"
-                    : "No scholarships match these filters yet"
+                    : hasActiveFilters
+                      ? "No scholarships match these filters yet"
+                      : "No scholarships published yet"
                 }
               />
             </div>

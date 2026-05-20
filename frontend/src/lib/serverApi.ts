@@ -1,10 +1,29 @@
 import type { OpportunityDetail, OpportunityListResponse } from "@/types/opportunity";
 
-const API_BASE_URL =
-  process.env.SERVER_API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:8000/api";
 const SERVER_FETCH_TIMEOUT_MS = 4_000;
+
+class MissingServerApiBaseUrlError extends Error {
+  constructor() {
+    super(
+      "Missing SERVER_API_BASE_URL or NEXT_PUBLIC_API_BASE_URL in production. Set one to the Django API base URL.",
+    );
+  }
+}
+
+function resolveServerApiBaseUrl() {
+  const configuredBaseUrl =
+    process.env.SERVER_API_BASE_URL?.trim() || process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "http://localhost:8000/api";
+  }
+
+  throw new MissingServerApiBaseUrlError();
+}
 
 type ServerFetchResult<T> =
   | { data: T; notFound: false }
@@ -12,7 +31,7 @@ type ServerFetchResult<T> =
   | { data: null; notFound: false };
 
 function buildApiUrl(path: string, params?: Record<string, string | number | boolean | undefined>) {
-  const normalizedBase = API_BASE_URL.replace(/\/$/, "");
+  const normalizedBase = resolveServerApiBaseUrl().replace(/\/$/, "");
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = new URL(`${normalizedBase}${normalizedPath}`);
 
@@ -47,7 +66,11 @@ async function serverFetchJson<T>(
     }
 
     return { data: (await response.json()) as T, notFound: false };
-  } catch {
+  } catch (error) {
+    if (error instanceof MissingServerApiBaseUrlError) {
+      throw error;
+    }
+
     return { data: null, notFound: false };
   }
 }

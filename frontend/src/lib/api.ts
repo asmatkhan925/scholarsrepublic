@@ -60,7 +60,21 @@ import type {
 } from "@/types/opportunity";
 import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
+function resolvePublicApiBaseUrl() {
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "http://localhost:8000/api";
+  }
+
+  return null;
+}
+
+const API_BASE_URL = resolvePublicApiBaseUrl();
 
 type PaginationParams = {
   page?: number;
@@ -68,10 +82,20 @@ type PaginationParams = {
 };
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL ?? undefined,
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+api.interceptors.request.use((config) => {
+  if (!API_BASE_URL) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_API_BASE_URL in production. Set it to the Django API base URL.",
+    );
+  }
+
+  return config;
 });
 
 export type AdminOverviewResponse = {
@@ -386,7 +410,9 @@ export async function getRecommendedOpportunities(params?: OpportunityQueryParam
   return response.data;
 }
 
-export async function getRecommendedScholarships(params?: OpportunityQueryParams & PaginationParams) {
+export async function getRecommendedScholarships(
+  params?: OpportunityQueryParams & PaginationParams,
+) {
   const response = await api.get<RecommendedOpportunityResponse>("/scholarships/recommended/", {
     params,
   });

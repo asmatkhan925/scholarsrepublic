@@ -39,3 +39,9 @@ frontend/yarn-error.log*
 htmlcov/
 playwright-report/
 test-results/
+
+# Python virtual environments
+backend/.venv/
+backend/venv/
+.venv/
+venv/

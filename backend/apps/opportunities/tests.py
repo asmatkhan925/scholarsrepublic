@@ -135,6 +135,100 @@ class OpportunityAPITests(APITestCase):
             status=Opportunity.Status.PUBLISHED,
         )
 
+    def test_opportunity_save_generates_slug(self):
+        opportunity = Opportunity.objects.create(
+            title="Generated Slug Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        )
+
+        self.assertEqual(opportunity.slug, "generated-slug-scholarship")
+
+    def test_opportunity_save_generates_unique_duplicate_slug(self):
+        first = Opportunity.objects.create(
+            title="Duplicate Slug Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        )
+        second = Opportunity.objects.create(
+            title="Duplicate Slug Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        )
+
+        self.assertEqual(first.slug, "duplicate-slug-scholarship")
+        self.assertEqual(second.slug, "duplicate-slug-scholarship-2")
+
+    def test_opportunity_save_sets_published_at(self):
+        opportunity = Opportunity.objects.create(
+            title="Published Timestamp Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+            status=Opportunity.Status.PUBLISHED,
+        )
+
+        self.assertIsNotNone(opportunity.published_at)
+
+    def test_opportunity_save_sets_last_verified_at(self):
+        opportunity = Opportunity.objects.create(
+            title="Verified Timestamp Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+            verified_status=True,
+        )
+
+        self.assertIsNotNone(opportunity.last_verified_at)
+
+    def test_opportunity_save_syncs_pending_eligible_countries(self):
+        opportunity = Opportunity(
+            title="Eligible Country Sync Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        )
+        opportunity.eligible_countries = ["Pakistan", "China"]
+        opportunity.save()
+
+        self.assertEqual(
+            list(opportunity.eligible_country_refs.order_by("name").values_list("name", flat=True)),
+            ["China", "Pakistan"],
+        )
+
+    def test_opportunity_save_syncs_pending_target_regions(self):
+        opportunity = Opportunity(
+            title="Target Region Sync Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        )
+        opportunity.target_regions = ["Asia"]
+        opportunity.save()
+
+        self.assertEqual(
+            list(opportunity.eligible_region_refs.order_by("name").values_list("name", flat=True)),
+            ["Asia"],
+        )
+
+    def test_opportunity_save_syncs_pending_fields_of_study(self):
+        opportunity = Opportunity(
+            title="Study Field Sync Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        )
+        opportunity.fields_of_study = ["Computer Science", "Medicine"]
+        opportunity.save()
+
+        self.assertFalse(opportunity.all_study_fields)
+        self.assertEqual(
+            list(opportunity.study_field_refs.order_by("name").values_list("name", flat=True)),
+            ["Computer Science", "Medicine"],
+        )
+
+    def test_opportunity_save_all_fields_clears_field_refs(self):
+        opportunity = Opportunity(
+            title="All Fields Sync Scholarship",
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        )
+        opportunity.fields_of_study = ["Computer Science"]
+        opportunity.save()
+
+        opportunity.fields_of_study = ["All Fields"]
+        opportunity.save()
+        opportunity.refresh_from_db()
+
+        self.assertTrue(opportunity.all_study_fields)
+        self.assertFalse(opportunity.study_field_refs.exists())
+
     def profile(self, user=None, **overrides):
         data = {
             "user": user or self.student,
