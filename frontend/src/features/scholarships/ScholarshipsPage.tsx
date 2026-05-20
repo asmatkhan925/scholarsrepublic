@@ -940,23 +940,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   </div>
                 </div>
 
-                <div className="grid gap-2 md:grid-cols-3">
-                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
-                    Country
-                    <select
-                      value={country}
-                      onChange={(event) => setCountry(event.target.value)}
-                      className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-                    >
-                      <option value="">All countries</option>
-                      {countryOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
+                <div className="grid gap-2 md:grid-cols-1">
                   <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
                     Field
                     <select
@@ -968,22 +952,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                       {fieldOptions.map((item) => (
                         <option key={item} value={item}>
                           {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
-                    Funding
-                    <select
-                      value={fundingType}
-                      onChange={(event) => setFundingType(event.target.value)}
-                      className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-                    >
-                      <option value="">All funding</option>
-                      {FUNDING_TYPES.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
                         </option>
                       ))}
                     </select>
@@ -1011,6 +979,40 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
                 {advancedFiltersOpen ? (
                   <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
+                        Country
+                        <select
+                          value={country}
+                          onChange={(event) => setCountry(event.target.value)}
+                          className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                        >
+                          <option value="">All countries</option>
+                          {countryOptions.map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
+                        Funding
+                        <select
+                          value={fundingType}
+                          onChange={(event) => setFundingType(event.target.value)}
+                          className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                        >
+                          <option value="">All funding</option>
+                          {FUNDING_TYPES.map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex flex-wrap gap-1.5">
                         {[
