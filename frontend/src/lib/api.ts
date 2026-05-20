@@ -27,6 +27,8 @@ import type {
 import type {
   AdminOpportunityComment,
   AdminOpportunityCommentResponse,
+  AdminOpportunityDuplicatePayload,
+  AdminOpportunityDuplicateResponse,
   ApplicationQueryParams,
   ApplicationSummary,
   CreateApplicationPayload,
@@ -353,6 +355,16 @@ export async function getAdminOpportunities(params?: OpportunityQueryParams & Pa
 
 export async function getAdminOpportunity(id: number) {
   const response = await api.get<OpportunityDetail>(`/admin/opportunities/${id}/`);
+  return response.data;
+}
+
+export async function checkAdminOpportunityDuplicates(
+  payload: AdminOpportunityDuplicatePayload,
+) {
+  const response = await api.post<AdminOpportunityDuplicateResponse>(
+    "/admin/opportunities/check-duplicates/",
+    payload,
+  );
   return response.data;
 }
 

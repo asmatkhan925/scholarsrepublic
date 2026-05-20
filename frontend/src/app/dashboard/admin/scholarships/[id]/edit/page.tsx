@@ -8,12 +8,19 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, Save, ShieldCheck } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { DuplicateWarningPanel } from "@/components/admin/DuplicateWarningPanel";
 import { PathwaySelect } from "@/components/admin/PathwaySelect";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
-import { getAdminOpportunity, getAdminOpportunityPathways, patchAdminOpportunity } from "@/lib/api";
+import {
+  checkAdminOpportunityDuplicates,
+  getAdminOpportunity,
+  getAdminOpportunityPathways,
+  patchAdminOpportunity,
+} from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
+  AdminOpportunityDuplicateMatch,
   OpportunityAdminPayload,
   OpportunityDetail,
   OpportunityPathwayDetail,
@@ -262,6 +269,7 @@ function AdminScholarshipEditContent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateMatches, setDuplicateMatches] = useState<AdminOpportunityDuplicateMatch[]>([]);
 
   const publicHref = useMemo(() => {
     if (!opportunity || opportunity.status !== "published") {
@@ -319,7 +327,72 @@ function AdminScholarshipEditContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opportunityId]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkDuplicates() {
+      if (!form.title.trim() && !form.official_link.trim() && !form.source_url.trim()) {
+        setDuplicateMatches([]);
+        return;
+      }
+
+      try {
+        const response = await checkAdminOpportunityDuplicates({
+          title: form.title.trim(),
+          slug: opportunity?.slug,
+          official_link: form.official_link.trim(),
+          source_url: form.source_url.trim(),
+          provider_name: form.provider_name.trim(),
+          university_name: form.university_name.trim(),
+          country: form.country.trim(),
+          deadline: form.deadline,
+          degree_levels: textToList(form.degree_levels),
+          pathway_id: form.pathway_id,
+          exclude_id: opportunityId,
+        });
+
+        if (mounted) {
+          setDuplicateMatches(response.matches);
+        }
+      } catch {
+        if (mounted) {
+          setDuplicateMatches([]);
+        }
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      void checkDuplicates();
+    }, 500);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [
+    form.country,
+    form.deadline,
+    form.degree_levels,
+    form.official_link,
+    form.pathway_id,
+    form.provider_name,
+    form.source_url,
+    form.title,
+    form.university_name,
+    opportunity?.slug,
+    opportunityId,
+  ]);
+
   async function handleSave() {
+    if (
+      duplicateMatches.some((match) => match.confidence === "exact") &&
+      !window.confirm(
+        "An exact duplicate was found. Save anyway only if you are intentionally updating this record.",
+      )
+    ) {
+      return;
+    }
+
     setSaving(true);
     setSaved(false);
     setError(null);
@@ -470,6 +543,8 @@ function AdminScholarshipEditContent() {
             {error}
           </div>
         ) : null}
+
+        {!loading ? <DuplicateWarningPanel matches={duplicateMatches} compact /> : null}
 
         {loading ? (
           <Card className="dark:border-white/10 dark:bg-[#181b1d]">

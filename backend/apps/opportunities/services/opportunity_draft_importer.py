@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
+from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.reference_data.models import Country, StudyField
 
 ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
@@ -214,6 +215,7 @@ def validate_opportunity_draft_payload(payload):
 
     for field_name in (
         "slug",
+        "provider_name",
         "university_name",
         "department_name",
         "lab_name",
@@ -234,6 +236,17 @@ def validate_opportunity_draft_payload(payload):
     elif not is_rolling_deadline:
         warnings.append("Deadline is empty while is_rolling_deadline is false.")
 
+    duplicate_matches = find_duplicate_opportunities(
+        build_duplicate_candidate_data(opportunity, cleaned["pathway"])
+    )
+    cleaned["duplicate_matches"] = duplicate_matches
+    for match in duplicate_matches[:3]:
+        reasons = ", ".join(match["reasons"])
+        confidence = match["confidence"]
+        warnings.append(
+            f'Possible duplicate ({confidence}): "{match["title"]}" ({reasons}).'
+        )
+
     return cleaned, warnings, errors
 
 
@@ -249,6 +262,23 @@ def import_opportunity_draft(draft, user=None, update_existing=False):
     existing = Opportunity.objects.filter(slug=slug).first() if slug else None
     if existing and not update_existing:
         errors.append(f'Opportunity with slug "{slug}" already exists.')
+
+    duplicate_matches = find_duplicate_opportunities(
+        build_duplicate_candidate_data(
+            opportunity_data,
+            cleaned.get("pathway"),
+            exclude_id=existing.id if existing and update_existing else None,
+        )
+    )
+    for match in duplicate_matches:
+        if match["confidence"] == "exact" and not update_existing:
+            reasons = ", ".join(match["reasons"])
+            duplicate_error = (
+                f'Exact duplicate found: "{match["title"]}" ({reasons}). '
+                "Open the existing scholarship instead of importing a new one."
+            )
+            if duplicate_error not in errors:
+                errors.append(duplicate_error)
 
     draft.confidence = cleaned.get("confidence", "")
     draft.source_url = opportunity_data.get("source_url", "")
@@ -287,6 +317,7 @@ def import_opportunity_draft(draft, user=None, update_existing=False):
     opportunity.country_ref = cleaned["country_ref"]
     opportunity.pathway = cleaned["pathway"]
     opportunity.application_track = opportunity_data["application_track"]
+    opportunity.provider_name = opportunity_data["provider_name"]
     opportunity.university_name = opportunity_data["university_name"]
     opportunity.department_name = opportunity_data["department_name"]
     opportunity.lab_name = opportunity_data["lab_name"]
@@ -421,6 +452,23 @@ def clean_funding_amount(value, warnings):
         return None
 
     return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def build_duplicate_candidate_data(opportunity_data, pathway=None, exclude_id=None):
+    return {
+        "title": opportunity_data.get("title"),
+        "slug": opportunity_data.get("slug"),
+        "official_link": opportunity_data.get("official_link"),
+        "source_url": opportunity_data.get("source_url"),
+        "provider_name": opportunity_data.get("provider_name"),
+        "university_name": opportunity_data.get("university_name"),
+        "country": opportunity_data.get("country"),
+        "deadline": opportunity_data.get("deadline"),
+        "degree_levels": opportunity_data.get("degree_levels"),
+        "pathway_id": pathway.id if pathway else None,
+        "pathway": pathway.full_path if pathway else None,
+        "exclude_id": exclude_id,
+    }
 
 
 def clean_choice(value, choices, default, field_name, warnings):

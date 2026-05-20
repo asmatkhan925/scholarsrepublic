@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
 
@@ -91,6 +91,7 @@ from apps.opportunities.models import (
     OpportunityPathway,
 )
 from apps.opportunities.services.opportunity_draft_importer import import_opportunity_draft
+from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
 
@@ -889,6 +890,155 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("pathway_id", response.data)
 
+    def test_duplicate_detector_detects_duplicate_by_slug(self):
+        existing = self.opportunity(slug="duplicate-slug-check")
+
+        matches = find_duplicate_opportunities(
+            {
+                "title": "Different title",
+                "slug": "duplicate-slug-check",
+            }
+        )
+
+        self.assertEqual(matches[0]["id"], existing.id)
+        self.assertEqual(matches[0]["confidence"], "exact")
+        self.assertIn("Same slug", matches[0]["reasons"])
+
+    def test_duplicate_detector_detects_duplicate_by_official_link(self):
+        existing = self.opportunity(
+            slug="official-link-duplicate",
+            official_link="https://example.edu/scholarship",
+        )
+
+        matches = find_duplicate_opportunities(
+            {"title": "New title", "official_link": "https://example.edu/scholarship/"}
+        )
+
+        self.assertEqual(matches[0]["id"], existing.id)
+        self.assertEqual(matches[0]["confidence"], "exact")
+        self.assertIn("Same official link", matches[0]["reasons"])
+
+    def test_duplicate_detector_detects_duplicate_by_source_url(self):
+        existing = self.opportunity(
+            slug="source-url-duplicate",
+            source_url="https://example.edu/source",
+        )
+
+        matches = find_duplicate_opportunities(
+            {"title": "New title", "source_url": "https://example.edu/source/"}
+        )
+
+        self.assertEqual(matches[0]["id"], existing.id)
+        self.assertEqual(matches[0]["confidence"], "exact")
+        self.assertIn("Same source URL", matches[0]["reasons"])
+
+    def test_duplicate_detector_cross_matches_official_link_to_source_url(self):
+        existing = self.opportunity(
+            slug="cross-url-duplicate",
+            source_url="https://example.edu/cross-source",
+        )
+
+        matches = find_duplicate_opportunities(
+            {"title": "New title", "official_link": "https://example.edu/cross-source/"}
+        )
+
+        self.assertEqual(matches[0]["id"], existing.id)
+        self.assertEqual(matches[0]["confidence"], "exact")
+        self.assertIn("Same official link", matches[0]["reasons"])
+
+    def test_duplicate_detector_ignores_tracking_params_in_urls(self):
+        existing = self.opportunity(
+            slug="tracked-url-duplicate",
+            official_link="https://example.edu/apply?utm_source=newsletter&ref=admin",
+        )
+
+        matches = find_duplicate_opportunities(
+            {
+                "title": "New title",
+                "source_url": "https://example.edu/apply/?ref=admin&utm_medium=email",
+            }
+        )
+
+        self.assertEqual(matches[0]["id"], existing.id)
+        self.assertEqual(matches[0]["confidence"], "exact")
+
+    def test_duplicate_detector_detects_similar_title_context(self):
+        deadline = timezone.localdate() + timedelta(days=45)
+        existing = self.opportunity(
+            title="University of Turin PhD Programmes 42nd Cycle 2026",
+            slug="turin-phd-programmes-42-cycle",
+            provider_name="University of Turin",
+            country_ref=self.italy,
+            deadline=deadline,
+        )
+
+        matches = find_duplicate_opportunities(
+            {
+                "title": "University of Turin PhD Programme 42 Cycle 2026",
+                "provider_name": "University of Turin",
+                "country": "Italy",
+                "deadline": deadline.isoformat(),
+            }
+        )
+
+        self.assertEqual(matches[0]["id"], existing.id)
+        self.assertIn(matches[0]["confidence"], {"high", "medium"})
+        self.assertIn("Similar title with matching context", matches[0]["reasons"])
+
+    def test_duplicate_detector_does_not_flag_unrelated_scholarships(self):
+        self.opportunity(
+            title="China CSC Scholarship",
+            slug="china-csc-unrelated-duplicate-check",
+            provider_name="CSC",
+            country_ref=self.china,
+            deadline=timezone.localdate() + timedelta(days=20),
+        )
+
+        matches = find_duplicate_opportunities(
+            {
+                "title": "DAAD Research Grant Germany",
+                "provider_name": "DAAD",
+                "country": "Germany",
+                "deadline": (timezone.localdate() + timedelta(days=80)).isoformat(),
+            }
+        )
+
+        self.assertEqual(matches, [])
+
+    def test_duplicate_detector_respects_exclude_id(self):
+        existing = self.opportunity(
+            slug="exclude-duplicate-check",
+            official_link="https://example.edu/exclude",
+        )
+
+        matches = find_duplicate_opportunities(
+            {
+                "title": existing.title,
+                "slug": existing.slug,
+                "official_link": existing.official_link,
+                "exclude_id": existing.id,
+            }
+        )
+
+        self.assertEqual(matches, [])
+
+    def test_admin_duplicate_check_endpoint(self):
+        existing = self.opportunity(
+            slug="endpoint-duplicate-check",
+            source_url="https://example.edu/endpoint",
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/opportunities/check-duplicates/",
+            {"source_url": "https://example.edu/endpoint/"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["matches"][0]["id"], existing.id)
+        self.assertEqual(response.data["matches"][0]["confidence"], "exact")
+
     def test_admin_pathway_crud_and_soft_delete(self):
         parent = OpportunityPathway.objects.create(
             title="Admin Pathway Parent",
@@ -1434,6 +1584,62 @@ class OpportunityAPITests(APITestCase):
             draft.validation_warnings,
         )
 
+    def test_opportunity_draft_import_blocks_exact_duplicate_source(self):
+        existing = self.opportunity(
+            title="Existing Source Duplicate",
+            slug="existing-source-duplicate",
+            source_url="https://example.edu/existing-source",
+        )
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Duplicate Source",
+            slug="draft-import-duplicate-source",
+            raw_payload=self.draft_payload(
+                slug="draft-import-duplicate-source-opportunity",
+                source_url="https://example.edu/existing-source/",
+                official_link="https://example.edu/existing-source/",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNone(opportunity)
+        self.assertTrue(Opportunity.objects.filter(pk=existing.pk).exists())
+
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.ERROR)
+        self.assertTrue(
+            any("Exact duplicate found" in error for error in draft.validation_errors)
+        )
+
+    def test_opportunity_draft_validation_surfaces_possible_duplicate_warning(self):
+        self.opportunity(
+            title="Existing Similar Draft Warning",
+            slug="existing-similar-draft-warning",
+            provider_name="Example University",
+            country_ref=self.china,
+            deadline=date(2026, 3, 15),
+        )
+        draft = OpportunityDraft.objects.create(
+            title="Draft Similar Warning",
+            slug="draft-similar-warning",
+            raw_payload=self.draft_payload(
+                slug="draft-similar-warning-opportunity",
+                title="Existing Similar Draft Warning 2026",
+                provider_name="Example University",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, OpportunityDraft.Status.IMPORTED)
+        self.assertTrue(
+            any("Possible duplicate" in warning for warning in draft.validation_warnings)
+        )
+
     def test_opportunity_draft_import_missing_required_fields_sets_error(self):
         draft = OpportunityDraft.objects.create(
             title="Invalid Draft Import",
@@ -1489,6 +1695,26 @@ class OpportunityAPITests(APITestCase):
             'Opportunity with slug "csc-scholarship-example-university-2026" already exists.',
             draft.validation_errors,
         )
+
+    def test_opportunity_draft_import_update_existing_still_works_with_duplicate_slug(self):
+        existing = self.opportunity(
+            title="Existing Update Scholarship",
+            slug="csc-scholarship-example-university-2026",
+            short_description="Original summary.",
+        )
+        draft = OpportunityDraft.objects.create(
+            title="Update Existing Draft",
+            slug="update-existing-draft",
+            raw_payload=self.draft_payload(title="Updated Existing Scholarship"),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin, update_existing=True)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(opportunity.id, existing.id)
+        existing.refresh_from_db()
+        self.assertEqual(existing.title, "Updated Existing Scholarship")
 
     def test_opportunity_draft_import_unknown_application_track_becomes_other(self):
         draft = OpportunityDraft.objects.create(

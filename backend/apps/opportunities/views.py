@@ -20,6 +20,7 @@ from apps.opportunities.serializers import (
     OpportunityListSerializer,
     OpportunityPathwaySerializer,
 )
+from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
@@ -169,6 +170,14 @@ class AdminOverviewView(APIView):
                 },
             }
         )
+
+
+class AdminOpportunityDuplicateCheckView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request):
+        matches = find_duplicate_opportunities(request.data if isinstance(request.data, dict) else {})
+        return Response({"matches": matches})
 
 
 class OpportunityFilterMixin:

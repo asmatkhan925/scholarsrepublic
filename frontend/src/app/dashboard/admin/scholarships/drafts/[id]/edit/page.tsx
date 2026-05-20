@@ -18,10 +18,12 @@ import {
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { DuplicateWarningPanel } from "@/components/admin/DuplicateWarningPanel";
 import { PathwaySelect } from "@/components/admin/PathwaySelect";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
+  checkAdminOpportunityDuplicates,
   getAdminOpportunityDraft,
   getAdminOpportunityPathways,
   importAdminOpportunityDraft,
@@ -29,7 +31,12 @@ import {
   validateAdminOpportunityDraft,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { OpportunityDraft, OpportunityPathwayDetail } from "@/types/opportunity";
+import type {
+  AdminOpportunityDuplicateMatch,
+  AdminOpportunityDuplicatePayload,
+  OpportunityDraft,
+  OpportunityPathwayDetail,
+} from "@/types/opportunity";
 
 function extractJson(input: string): Record<string, unknown> {
   const trimmed = input.trim();
@@ -199,11 +206,35 @@ function textListToTextarea(value: unknown) {
     .join("\n");
 }
 
+function getNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function textareaToTextList(value: string) {
   return value
     .split(/[\n,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function buildDuplicatePayloadFromOpportunity(
+  opportunity: Record<string, unknown>,
+): AdminOpportunityDuplicatePayload {
+  return {
+    title: getText(opportunity.title),
+    slug: getText(opportunity.slug),
+    official_link: getText(opportunity.official_link),
+    source_url: getText(opportunity.source_url),
+    provider_name: getText(opportunity.provider_name),
+    university_name: getText(opportunity.university_name),
+    country: getText(opportunity.country),
+    deadline: getText(opportunity.deadline),
+    degree_levels: Array.isArray(opportunity.degree_levels)
+      ? opportunity.degree_levels.filter((item): item is string => typeof item === "string")
+      : [],
+    pathway_id: getNumber(opportunity.pathway_id),
+    pathway: getText(opportunity.pathway),
+  };
 }
 
 function buildQuickFixForm(payload: Record<string, unknown>): QuickFixForm {
@@ -280,6 +311,8 @@ function AdminDraftEditContent() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateMatches, setDuplicateMatches] = useState<AdminOpportunityDuplicateMatch[]>([]);
+  const hasExactDuplicate = duplicateMatches.some((match) => match.confidence === "exact");
 
   const canImport = useMemo(
     () => Boolean(draft && draft.status === "validated" && draft.validation_errors.length === 0),
@@ -326,6 +359,46 @@ function AdminDraftEditContent() {
     void loadPathways();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkDuplicates() {
+      if (!jsonText.trim()) {
+        setDuplicateMatches([]);
+        return;
+      }
+
+      try {
+        const parsed = extractJson(jsonText);
+        const opportunity = getOpportunityObject(parsed);
+        const payload = buildDuplicatePayloadFromOpportunity(opportunity);
+
+        if (!payload.title && !payload.official_link && !payload.source_url) {
+          setDuplicateMatches([]);
+          return;
+        }
+
+        const response = await checkAdminOpportunityDuplicates(payload);
+        if (mounted) {
+          setDuplicateMatches(response.matches);
+        }
+      } catch {
+        if (mounted) {
+          setDuplicateMatches([]);
+        }
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      void checkDuplicates();
+    }, 400);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [jsonText]);
 
   function updateQuickFixField<K extends keyof QuickFixForm>(field: K, value: QuickFixForm[K]) {
     setQuickFix((current) => ({ ...current, [field]: value }));
@@ -526,6 +599,8 @@ function AdminDraftEditContent() {
                   <h2 className="text-lg font-bold text-ink dark:text-white">Imported JSON</h2>
                 </div>
 
+                <DuplicateWarningPanel matches={duplicateMatches} />
+
                 <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
                   Draft title
                   <input
@@ -678,10 +753,10 @@ function AdminDraftEditContent() {
                     <Button
                       type="button"
                       onClick={() => void handleImportOnly()}
-                      disabled={busy}
+                      disabled={busy || hasExactDuplicate}
                       variant="outline"
                     >
-                      Convert to scholarship draft
+                      {hasExactDuplicate ? "Existing scholarship found" : "Convert to scholarship draft"}
                     </Button>
                   ) : null}
 

@@ -128,6 +128,40 @@ export type OpportunityPathwayListResponse = {
   results: OpportunityPathwayDetail[];
 };
 
+export type AdminOpportunityDuplicateConfidence = "exact" | "high" | "medium" | "low";
+
+export type AdminOpportunityDuplicateMatch = {
+  id: number;
+  title: string;
+  slug: string;
+  status: OpportunityStatus;
+  confidence: AdminOpportunityDuplicateConfidence;
+  reasons: string[];
+  deadline: string | null;
+  country: string;
+  provider_name: string;
+  pathway_detail?: Pick<OpportunityPathwayDetail, "id" | "title" | "slug" | "full_path"> | null;
+};
+
+export type AdminOpportunityDuplicatePayload = {
+  title?: string;
+  slug?: string;
+  official_link?: string;
+  source_url?: string;
+  provider_name?: string;
+  university_name?: string;
+  country?: string;
+  deadline?: string;
+  degree_levels?: string[];
+  pathway_id?: number | null;
+  pathway?: string;
+  exclude_id?: number | null;
+};
+
+export type AdminOpportunityDuplicateResponse = {
+  matches: AdminOpportunityDuplicateMatch[];
+};
+
 export type MatchBreakdown = {
   eligibility: number;
   degree_level: number;

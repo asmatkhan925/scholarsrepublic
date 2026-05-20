@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   AlertTriangle,
@@ -18,11 +18,20 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminNotice } from "@/components/admin/AdminUI";
+import { DuplicateWarningPanel } from "@/components/admin/DuplicateWarningPanel";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
-import { createAdminOpportunityDraft, validateAdminOpportunityDraft } from "@/lib/api";
+import {
+  checkAdminOpportunityDuplicates,
+  createAdminOpportunityDraft,
+  validateAdminOpportunityDraft,
+} from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { OpportunityDraft } from "@/types/opportunity";
+import type {
+  AdminOpportunityDuplicateMatch,
+  AdminOpportunityDuplicatePayload,
+  OpportunityDraft,
+} from "@/types/opportunity";
 
 type JsonPreview =
   | {
@@ -134,6 +143,28 @@ function getTextList(value: unknown) {
   }
 
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function getNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function buildDuplicatePayloadFromOpportunity(
+  opportunity: Record<string, unknown>,
+): AdminOpportunityDuplicatePayload {
+  return {
+    title: getText(opportunity.title),
+    slug: getText(opportunity.slug),
+    official_link: getText(opportunity.official_link),
+    source_url: getText(opportunity.source_url),
+    provider_name: getText(opportunity.provider_name),
+    university_name: getText(opportunity.university_name),
+    country: getText(opportunity.country),
+    deadline: getText(opportunity.deadline),
+    degree_levels: getTextList(opportunity.degree_levels),
+    pathway_id: getNumber(opportunity.pathway_id),
+    pathway: getText(opportunity.pathway),
+  };
 }
 
 function summarizeText(value: string) {
@@ -266,6 +297,8 @@ function AdminScholarshipImportContent() {
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [createdDraft, setCreatedDraft] = useState<OpportunityDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateMatches, setDuplicateMatches] = useState<AdminOpportunityDuplicateMatch[]>([]);
+  const hasExactDuplicate = duplicateMatches.some((match) => match.confidence === "exact");
 
   const gptPrompt = useMemo(
     () => `You are helping me prepare a scholarship listing for Scholars Republic.
@@ -391,6 +424,46 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         message: getErrorMessage(previewError) ?? "Could not parse the pasted JSON.",
       };
     }
+  }, [jsonText]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkDuplicates() {
+      if (!jsonText.trim()) {
+        setDuplicateMatches([]);
+        return;
+      }
+
+      try {
+        const parsed = extractJson(jsonText);
+        const opportunity = isRecord(parsed.opportunity) ? parsed.opportunity : parsed;
+        const payload = buildDuplicatePayloadFromOpportunity(opportunity);
+
+        if (!payload.title && !payload.official_link && !payload.source_url) {
+          setDuplicateMatches([]);
+          return;
+        }
+
+        const response = await checkAdminOpportunityDuplicates(payload);
+        if (mounted) {
+          setDuplicateMatches(response.matches);
+        }
+      } catch {
+        if (mounted) {
+          setDuplicateMatches([]);
+        }
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      void checkDuplicates();
+    }, 400);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+    };
   }, [jsonText]);
 
   async function copyPrompt() {
@@ -612,6 +685,8 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
 
                         <CompletenessChecklist items={jsonPreview.checklist} />
 
+                        <DuplicateWarningPanel matches={duplicateMatches} />
+
                         <div className="grid gap-2 md:grid-cols-2">
                           <PreviewList
                             label="Degree levels"
@@ -699,7 +774,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                   <Button
                     type="button"
                     onClick={() => void handleCreateDraft()}
-                    disabled={creating}
+                    disabled={creating || hasExactDuplicate}
                     size="sm"
                     variant="primary"
                   >
@@ -708,7 +783,11 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                     ) : (
                       <Sparkles size={15} aria-hidden="true" />
                     )}
-                    {creating ? "Creating review draft..." : "Create review draft"}
+                    {hasExactDuplicate
+                      ? "Existing scholarship found"
+                      : creating
+                        ? "Creating review draft..."
+                        : "Create review draft"}
                   </Button>
 
                   <ButtonLink

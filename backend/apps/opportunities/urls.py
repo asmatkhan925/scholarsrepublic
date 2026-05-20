@@ -11,6 +11,7 @@ from apps.opportunities.views import (
     AdminOpportunityCommentListView,
     AdminOpportunityCommentModerateView,
     AdminOpportunityDetailView,
+    AdminOpportunityDuplicateCheckView,
     AdminOpportunityDraftDetailView,
     AdminOpportunityDraftImportView,
     AdminOpportunityDraftListCreateView,
@@ -166,6 +167,11 @@ urlpatterns = [
         "admin/opportunities/",
         AdminOpportunityListCreateView.as_view(),
         name="admin-opportunity-list",
+    ),
+    path(
+        "admin/opportunities/check-duplicates/",
+        AdminOpportunityDuplicateCheckView.as_view(),
+        name="admin-opportunity-duplicate-check",
     ),
     path(
         "admin/opportunities/<int:pk>/",
