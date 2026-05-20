@@ -24,14 +24,19 @@ import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
   checkAdminOpportunityDuplicates,
   createAdminOpportunityDraft,
+  getAdminOpportunityPathways,
+  getCountries,
+  getStudyFields,
   validateAdminOpportunityDraft,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   AdminOpportunityDuplicateMatch,
   AdminOpportunityDuplicatePayload,
+  OpportunityPathwayDetail,
   OpportunityDraft,
 } from "@/types/opportunity";
+import type { CountryOption, StudyFieldOption } from "@/types/reference";
 
 type JsonPreview =
   | {
@@ -66,6 +71,41 @@ type ChecklistItem = {
   label: string;
   complete: boolean;
 };
+
+type ContextStatus = "idle" | "loading" | "loaded" | "error";
+
+const PATHWAY_CONTEXT_LIMIT = 200;
+
+const FUNDING_TYPE_VALUES = [
+  "fully_funded",
+  "partially_funded",
+  "tuition_waiver",
+  "stipend_only",
+  "merit_based",
+  "need_based",
+  "self_funded",
+];
+
+const APPLICATION_TRACK_VALUES = [
+  "direct",
+  "embassy",
+  "university",
+  "professor",
+  "regional",
+  "portal",
+  "other",
+];
+
+const DEGREE_LEVEL_EXAMPLES = [
+  "Bachelor",
+  "Master",
+  "PhD",
+  "Postdoctoral",
+  "Diploma",
+  "Exchange",
+  "Research",
+  "Short Course",
+];
 
 function extractJson(input: string): Record<string, unknown> {
   const trimmed = input.trim();
@@ -208,6 +248,119 @@ function buildCompletenessChecklist(opportunity: Record<string, unknown>): Check
   ];
 }
 
+function buildPathwayContext(pathways: OpportunityPathwayDetail[]) {
+  const activePathways = pathways.filter((pathway) => pathway.is_active);
+
+  if (activePathways.length === 0) {
+    return "No pathway context loaded. Use pathway_id null and pathway blank unless the admin provides one.";
+  }
+
+  return [...activePathways]
+    .sort((first, second) => {
+      const firstCountry = first.country || "";
+      const secondCountry = second.country || "";
+      const countrySort = firstCountry.localeCompare(secondCountry);
+
+      if (countrySort !== 0) {
+        return countrySort;
+      }
+
+      const pathSort = (first.full_path || first.title).localeCompare(
+        second.full_path || second.title,
+      );
+
+      if (pathSort !== 0) {
+        return pathSort;
+      }
+
+      return first.display_order - second.display_order;
+    })
+    .slice(0, PATHWAY_CONTEXT_LIMIT)
+    .map((pathway) => {
+      const country = pathway.country || "No country";
+      const fullPath = pathway.full_path || pathway.title;
+
+      return `ID: ${pathway.id} | slug: ${pathway.slug} | full_path: ${fullPath} | type: ${pathway.pathway_type} | country: ${country}`;
+    })
+    .join("\n");
+}
+
+function buildCountryContext(countries: CountryOption[]) {
+  if (countries.length === 0) {
+    return "No country context loaded. Use exact source wording for country and add a warning if host or eligible countries are unclear.";
+  }
+
+  return [...countries]
+    .sort((first, second) => {
+      const orderSort = first.display_order - second.display_order;
+
+      return orderSort || first.name.localeCompare(second.name);
+    })
+    .map((country) => country.name)
+    .join(", ");
+}
+
+function buildStudyFieldContext(studyFields: StudyFieldOption[]) {
+  if (studyFields.length === 0) {
+    return "No study field context loaded. Use broad study field names only when clearly supported by the source.";
+  }
+
+  const fieldNames = [...studyFields]
+    .sort((first, second) => {
+      const categorySort = first.category.localeCompare(second.category);
+
+      if (categorySort !== 0) {
+        return categorySort;
+      }
+
+      const orderSort = first.display_order - second.display_order;
+
+      return orderSort || first.name.localeCompare(second.name);
+    })
+    .map((field) => field.name);
+
+  if (!fieldNames.some((fieldName) => fieldName.toLowerCase() === "all fields")) {
+    fieldNames.push("All Fields");
+  }
+
+  return fieldNames.join(", ");
+}
+
+function ContextStatusItem({
+  label,
+  count,
+  status,
+}: {
+  label: string;
+  count: number;
+  status: ContextStatus;
+}) {
+  const statusLabel =
+    status === "loading"
+      ? "Loading"
+      : status === "loaded"
+        ? `${count} loaded`
+        : status === "error"
+          ? "Unavailable"
+          : "Pending";
+  const dotClass =
+    status === "loaded"
+      ? "bg-pine"
+      : status === "error"
+        ? "bg-saffron"
+        : "bg-ink/25 dark:bg-white/25";
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-[#101214]">
+      <span className="min-w-0 text-xs font-semibold text-ink/60 dark:text-white/55">{label}</span>
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-ink/70 dark:text-white/65">
+        <span className={`h-2 w-2 rounded-full ${dotClass}`} aria-hidden="true" />
+        {statusLabel}
+      </span>
+    </div>
+  );
+}
+
 function PreviewField({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-[#101214]">
@@ -298,16 +451,108 @@ function AdminScholarshipImportContent() {
   const [createdDraft, setCreatedDraft] = useState<OpportunityDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [duplicateMatches, setDuplicateMatches] = useState<AdminOpportunityDuplicateMatch[]>([]);
+  const [pathways, setPathways] = useState<OpportunityPathwayDetail[]>([]);
+  const [countries, setCountries] = useState<CountryOption[]>([]);
+  const [studyFields, setStudyFields] = useState<StudyFieldOption[]>([]);
+  const [pathwayContextStatus, setPathwayContextStatus] = useState<ContextStatus>("idle");
+  const [countryContextStatus, setCountryContextStatus] = useState<ContextStatus>("idle");
+  const [studyFieldContextStatus, setStudyFieldContextStatus] = useState<ContextStatus>("idle");
   const hasExactDuplicate = duplicateMatches.some((match) => match.confidence === "exact");
+  const contextHasWarning =
+    pathwayContextStatus === "error" ||
+    countryContextStatus === "error" ||
+    studyFieldContextStatus === "error";
+
+  const pathwayContext = useMemo(() => buildPathwayContext(pathways), [pathways]);
+  const countryContext = useMemo(() => buildCountryContext(countries), [countries]);
+  const studyFieldContext = useMemo(() => buildStudyFieldContext(studyFields), [studyFields]);
 
   const gptPrompt = useMemo(
-    () => `You are helping me prepare a scholarship listing for Scholars Republic.
+    () => `You are preparing ONE scholarship draft for Scholars Republic.
 
-Task: extract ONE scholarship from the official source below.
+Use only facts from the official source URL/text below. Do not invent deadlines, benefits, eligibility, host countries, eligible countries, IELTS rules, funding, fees, documents, application steps, providers, universities, degree levels, study fields, or pathway data.
 
-Use only facts that appear in the official source URL or official source text. Do not invent deadlines, benefits, eligibility, countries, universities, grades, IELTS rules, application fees, required documents, funding, application steps, or personal claims.
+PLATFORM CONTEXT
 
-Return valid JSON only. Do not use markdown. Do not add commentary. Do not return an array. Do not include more than one scholarship.
+Available Scholars Republic pathways:
+${pathwayContext}
+
+Allowed countries:
+${countryContext}
+
+Allowed study fields:
+${studyFieldContext}
+
+Allowed funding_type values:
+${FUNDING_TYPE_VALUES.join(", ")}
+
+Allowed application_track values:
+${APPLICATION_TRACK_VALUES.join(", ")}
+
+Degree level examples:
+${DEGREE_LEVEL_EXAMPLES.join(", ")}
+
+PATHWAY RULES
+- Prefer the most specific matching pathway.
+- Use pathway_id only if it appears in the available pathway list above.
+- Also fill pathway with the selected pathway slug.
+- If a child pathway matches, use the child pathway rather than only the parent.
+- If no confident pathway matches, use pathway_id null and pathway empty.
+- Never invent pathway IDs or pathway slugs.
+
+COUNTRY RULES
+- country means host country.
+- eligible_countries means applicant eligibility.
+- Use exact country names from the allowed country list when possible.
+- If the source says "international students" but does not list countries, do not invent countries.
+- Add a warning for unclear eligible countries.
+
+STUDY FIELD RULES
+- Use exact allowed study field names where possible.
+- If source says all fields, all programmes, any discipline, or equivalent, set all_study_fields true and fields_of_study ["All Fields"].
+- If only specific programmes are listed, map them to the closest allowed broader fields.
+- Do not invent narrow fields outside the platform list.
+
+DEADLINE RULES
+- Use YYYY-MM-DD only if the exact date is clear.
+- If rolling/open deadline, set is_rolling_deadline true and deadline empty.
+- If unclear, leave deadline empty and add a warning.
+
+FUNDING RULES
+- If only tuition is waived, use tuition_waiver.
+- If stipend only, use stipend_only.
+- If broad support is provided, summarize benefits.
+- If exact amount is clear, fill funding_amount and funding_currency.
+- If amount is unclear, use funding_amount null and funding_currency empty.
+
+LANGUAGE AND TEST RULES
+- Set ielts_required, toefl_required, duolingo_required, hsk_required only when clearly stated.
+- Set english_proficiency_certificate_accepted only when clearly stated.
+- Do not assume "no IELTS" unless the source clearly says IELTS is not required or alternatives are accepted.
+
+APPLICATION FEE RULES
+- Set application_fee_required true only if clearly stated.
+- If fee is not mentioned, use false and add missing_information item "Application fee not clearly mentioned."
+
+REQUIRED DOCUMENT RULES
+- Include only documents explicitly mentioned.
+- Do not add generic documents unless the source says so.
+
+WRITING RULES
+- short_description: 1-2 concise sentences.
+- description: clear student-facing summary.
+- benefits: complete but concise.
+- eligibility: complete but concise.
+- how_to_apply: clear steps.
+- Keep language neutral and professional.
+
+CONFIDENCE RULES
+- Use high only when title, host country, source URL, deadline/rolling status, funding, eligibility, benefits, application steps, degree levels, and study fields are clear.
+- Use medium if most major facts are clear.
+- Use low if important facts are missing.
+
+OUTPUT RULE
+Return valid JSON only. No markdown. No commentary. No array. Only one scholarship.
 
 Return this exact backend-compatible JSON shape:
 {
@@ -315,8 +560,12 @@ Return this exact backend-compatible JSON shape:
   "opportunity": {
     "title": "",
     "opportunity_type": "scholarship",
+    "application_track": "direct",
     "provider_name": "",
     "university_name": "",
+    "department_name": "",
+    "lab_name": "",
+    "professor_name": "",
     "pathway_id": null,
     "pathway": "",
     "country": "",
@@ -351,28 +600,12 @@ Return this exact backend-compatible JSON shape:
   }
 }
 
-Important rules:
-- If the official source does not clearly mention something, leave it blank, null, false, or [].
-- If you know the Scholars Republic pathway slug or numeric pathway_id from admin context, include it. Otherwise leave pathway_id as null and pathway blank.
-- Put uncertain items in "warnings".
-- Put missing important facts in "missing_information".
-- Use "confidence": "high" only when title, country, source URL, deadline/rolling deadline, funding, eligibility, benefits, application steps, degree levels, and fields are clear from the official source.
-- Use YYYY-MM-DD for deadline only when the exact date is clear.
-- Use "is_rolling_deadline": true only if the source clearly says rolling/open deadline.
-- Use "funding_type" values like fully_funded, partially_funded, tuition_waiver, stipend_only, merit_based, need_based, self_funded, or leave blank.
-- Use simple study field names such as Engineering, Computer Science, Medicine, Business, Social Sciences, Arts, Law, Education, Agriculture, Natural Sciences, or All Fields.
-- If the official source says all fields/any field/all programs, set "all_study_fields": true and use "fields_of_study": ["All Fields"].
-- Write complete but concise student-facing paragraphs for short_description, description, benefits, eligibility, and how_to_apply.
-- Include required_documents only when the source mentions them.
-- Keep wording accurate, neutral, and student-friendly.
-- This imported JSON becomes a private review draft only. It is not published until an admin verifies and publishes it later.
-
 Official source URL:
 ${sourceUrl || "PASTE_OFFICIAL_URL_HERE"}
 
 Official source text:
 ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
-    [sourceText, sourceUrl],
+    [countryContext, pathwayContext, sourceText, sourceUrl, studyFieldContext],
   );
   const jsonPreview = useMemo<JsonPreview | null>(() => {
     if (!jsonText.trim()) {
@@ -425,6 +658,73 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
       };
     }
   }, [jsonText]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    setPathwayContextStatus("loading");
+    setCountryContextStatus("loading");
+    setStudyFieldContextStatus("loading");
+
+    async function loadPathways() {
+      try {
+        const response = await getAdminOpportunityPathways({
+          active: true,
+          page_size: PATHWAY_CONTEXT_LIMIT,
+        });
+
+        if (mounted) {
+          setPathways(response.results.filter((pathway) => pathway.is_active));
+          setPathwayContextStatus("loaded");
+        }
+      } catch {
+        if (mounted) {
+          setPathways([]);
+          setPathwayContextStatus("error");
+        }
+      }
+    }
+
+    async function loadCountries() {
+      try {
+        const response = await getCountries();
+
+        if (mounted) {
+          setCountries(response.results);
+          setCountryContextStatus("loaded");
+        }
+      } catch {
+        if (mounted) {
+          setCountries([]);
+          setCountryContextStatus("error");
+        }
+      }
+    }
+
+    async function loadStudyFields() {
+      try {
+        const response = await getStudyFields();
+
+        if (mounted) {
+          setStudyFields(response.results);
+          setStudyFieldContextStatus("loaded");
+        }
+      } catch {
+        if (mounted) {
+          setStudyFields([]);
+          setStudyFieldContextStatus("error");
+        }
+      }
+    }
+
+    void loadPathways();
+    void loadCountries();
+    void loadStudyFields();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -808,6 +1108,43 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                 <div className="flex items-center gap-2">
                   <Sparkles size={17} className="text-pine" aria-hidden="true" />
                   <h2 className="text-lg font-bold text-ink dark:text-white">GPT prompt preview</h2>
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-ink dark:text-white">Prompt context</p>
+                      <p className="mt-0.5 text-xs font-semibold text-ink/50 dark:text-white/45">
+                        Live platform lists are included in the copied prompt when available.
+                      </p>
+                    </div>
+                    {contextHasWarning ? <Badge tone="saffron">Partial context</Badge> : null}
+                  </div>
+
+                  <div className="mt-3 grid gap-2">
+                    <ContextStatusItem
+                      label="Pathways loaded"
+                      count={pathways.length}
+                      status={pathwayContextStatus}
+                    />
+                    <ContextStatusItem
+                      label="Countries loaded"
+                      count={countries.length}
+                      status={countryContextStatus}
+                    />
+                    <ContextStatusItem
+                      label="Study fields loaded"
+                      count={studyFields.length}
+                      status={studyFieldContextStatus}
+                    />
+                  </div>
+
+                  {contextHasWarning ? (
+                    <p className="mt-3 rounded-xl border border-saffron/25 bg-saffron/10 px-3 py-2 text-xs font-semibold leading-5 text-ink/65 dark:text-white/58">
+                      Some context could not be loaded. The prompt still works and includes fallback
+                      instructions for missing context.
+                    </p>
+                  ) : null}
                 </div>
 
                 <pre className="mt-3 max-h-[34rem] overflow-auto whitespace-pre-wrap rounded-xl border border-pine/10 bg-[#f7faf8] p-3 text-xs leading-5 text-ink/70 dark:border-white/10 dark:bg-[#101214] dark:text-white/65">
