@@ -7,16 +7,13 @@ import {
   ArrowLeft,
   BadgeCheck,
   BookOpenCheck,
-  CalendarDays,
   CheckCircle2,
-  ClipboardCheck,
   ExternalLink,
   FileText,
   GraduationCap,
   Globe2,
   ShieldCheck,
   Sparkles,
-  WalletCards,
 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -588,17 +585,17 @@ export default function ScholarshipDetailPage({
             : undefined,
       },
       {
-        label: "IELTS",
-        value: scholarship.ielts_required ? "Required" : "Not required",
-        helper: scholarship.english_proficiency_certificate_accepted
-          ? "English proficiency certificate accepted"
-          : undefined,
-      },
-      {
         label: "Application fee",
         value: scholarship.application_fee_required ? "Required" : "No fee listed",
         helper: scholarship.application_fee_amount
           ? `${scholarship.application_fee_amount} ${scholarship.application_fee_currency}`
+          : undefined,
+      },
+      {
+        label: "IELTS",
+        value: scholarship.ielts_required ? "Required" : "Not required",
+        helper: scholarship.english_proficiency_certificate_accepted
+          ? "English proficiency certificate accepted"
           : undefined,
       },
       {
@@ -709,36 +706,6 @@ export default function ScholarshipDetailPage({
                           </span>
                         </div>
                       ) : null}
-
-                      <div className="mt-4 grid gap-2 rounded-2xl border border-pine/10 bg-white/80 p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-3">
-                        <div>
-                          <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
-                            <CalendarDays size={13} className="text-pine" aria-hidden="true" />
-                            Deadline
-                          </p>
-                          <p className="mt-1 text-sm font-black text-ink dark:text-white">
-                            {formatDate(scholarship.deadline)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
-                            <WalletCards size={13} className="text-pine" aria-hidden="true" />
-                            Funding
-                          </p>
-                          <p className="mt-1 text-sm font-black text-ink dark:text-white">
-                            {humanize(scholarship.funding_type)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/35 dark:text-white/35">
-                            <ClipboardCheck size={13} className="text-pine" aria-hidden="true" />
-                            Application fee
-                          </p>
-                          <p className="mt-1 text-sm font-black text-ink dark:text-white">
-                            {scholarship.application_fee_required ? "Required" : "No fee listed"}
-                          </p>
-                        </div>
-                      </div>
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {heroDegreeTags.map((item) => (
@@ -862,8 +829,8 @@ export default function ScholarshipDetailPage({
                   </div>
                 </div>
 
-                <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-                  {facts.slice(0, 4).map((fact) => (
+                <div className="grid divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
+                  {facts.slice(0, 5).map((fact) => (
                     <div key={fact.label} className="px-5 py-4">
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
                         {fact.label}
@@ -927,7 +894,7 @@ export default function ScholarshipDetailPage({
                         Key facts
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {facts.slice(4).map((fact) => (
+                        {facts.slice(5).map((fact) => (
                           <FactItem
                             key={fact.label}
                             label={fact.label}
