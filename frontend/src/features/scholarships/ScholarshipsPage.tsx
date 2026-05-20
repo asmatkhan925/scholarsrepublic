@@ -12,6 +12,7 @@ import {
   Search,
   Sparkles,
   Star,
+  Wallet,
   WalletCards,
   X,
 } from "lucide-react";
@@ -145,6 +146,8 @@ function ScholarshipCard({
   const extraDegreeCount = Math.max(scholarship.degree_levels.length - degreeTags.length, 0);
   const deadlineTone = getDeadlineTone(scholarship);
   const fundingLabel = humanize(scholarship.funding_type);
+  const pathway = scholarship.pathway_detail;
+  const stipendLabel = scholarship.stipend_summary || "See details";
 
   return (
     <Card className="self-start overflow-hidden transition hover:-translate-y-0.5 hover:border-pine/20 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">
@@ -189,11 +192,18 @@ function ScholarshipCard({
         </div>
 
         <div className="p-3.5 md:p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-pine">
-            {scholarship.country || "Country not listed"}
-          </p>
+          {pathway ? (
+            <button
+              type="button"
+              onClick={() => onPathwaySelect?.(pathway)}
+              className="inline-flex max-w-full rounded-full border border-pine/10 bg-pine/5 px-2.5 py-1 text-left text-xs font-semibold text-pine transition hover:border-pine/25 hover:bg-mint/45 dark:border-white/10 dark:bg-white/5"
+              title={pathway.full_path}
+            >
+              <span className="truncate">{pathway.title}</span>
+            </button>
+          ) : null}
 
-          <h2 className="mt-2.5 text-base font-bold leading-snug text-ink md:text-lg">
+          <h2 className={pathway ? "mt-2.5 text-base font-bold leading-snug text-ink md:text-lg" : "text-base font-bold leading-snug text-ink md:text-lg"}>
             {scholarship.title}
           </h2>
 
@@ -207,7 +217,7 @@ function ScholarshipCard({
             </p>
           ) : null}
 
-          <div className="mt-3 grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5 sm:grid-cols-3">
+          <div className="mt-3 grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5 sm:grid-cols-2 xl:grid-cols-4">
             <div className="min-w-0">
               <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
                 <CalendarDays size={13} className="text-pine" aria-hidden="true" />
@@ -246,15 +256,20 @@ function ScholarshipCard({
                 {scholarship.degree_levels[0] || "Not listed"}
               </p>
             </div>
-          </div>
 
-          {scholarship.stipend_summary ? (
-            <div className="mt-2.5">
-              <Badge tone="saffron" className="px-2.5 py-0.5 text-[11px]">
-                Stipend: {scholarship.stipend_summary}
-              </Badge>
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35">
+                <Wallet size={13} className="text-pine" aria-hidden="true" />
+                Stipend
+              </p>
+              <p
+                className="mt-1 truncate text-xs font-bold text-ink dark:text-white"
+                title={stipendLabel}
+              >
+                {stipendLabel}
+              </p>
             </div>
-          ) : null}
+          </div>
 
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {degreeTags.map((degree) => (
@@ -269,17 +284,6 @@ function ScholarshipCard({
               </Badge>
             ))}
           </div>
-
-          {scholarship.pathway_detail ? (
-            <button
-              type="button"
-              onClick={() => onPathwaySelect?.(scholarship.pathway_detail!)}
-              className="mt-2.5 line-clamp-1 rounded-full border border-pine/10 bg-[#f7faf8] px-2.5 py-1 text-left text-xs font-semibold text-pine transition hover:border-pine/30 hover:bg-mint/45 dark:border-white/10 dark:bg-white/5"
-              title={scholarship.pathway_detail.full_path}
-            >
-              {scholarship.pathway_detail.full_path}
-            </button>
-          ) : null}
 
           {match ? (
             <div className="mt-2.5">
@@ -486,7 +490,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const [verified, setVerified] = useState(false);
   const [filters, setFilters] = useState<OpportunityQueryParams>({ ordering: "deadline" });
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
-  const [pathwaysOpen, setPathwaysOpen] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
 
@@ -540,7 +543,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     setNoIelts(initialNoIelts);
     setNoApplicationFee(initialNoApplicationFee);
     setVerified(initialVerified);
-    setPathwaysOpen(Boolean(initialPathway));
+    setAdvancedFiltersOpen(Boolean(initialPathway));
     setFilters({
       ordering: "deadline",
       search: initialSearch || undefined,
@@ -735,14 +738,15 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   }, [country, field, noApplicationFee, noIelts, selectedFundingLabel, verified]);
 
   const activeFilterSummary = useMemo(() => {
-    const pathwayLabel = selectedPathway
+    const pathwayName = selectedPathway?.full_path || selectedPathwaySlug;
+    const pathwayLabel = pathwayName
       ? exactPathway
-        ? `Exact pathway: ${selectedPathway.full_path}`
-        : `Under pathway: ${selectedPathway.full_path}`
+        ? `Exact pathway: ${pathwayName}`
+        : `Under pathway: ${pathwayName}`
       : "";
 
     return [...activeAdvancedFilters, pathwayLabel].filter(Boolean);
-  }, [activeAdvancedFilters, exactPathway, selectedPathway]);
+  }, [activeAdvancedFilters, exactPathway, selectedPathway?.full_path, selectedPathwaySlug]);
 
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
@@ -847,8 +851,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       <main className="bg-[#f7faf8] transition-colors dark:bg-[#0e1012]">
         <section className="mx-auto max-w-7xl px-4 py-2.5 sm:px-5 md:px-8 md:py-3">
           <div className="overflow-hidden rounded-[1.75rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-            <div className="grid gap-0 bg-gradient-to-r from-mint/75 via-white to-skyglass transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 lg:grid-cols-[minmax(0,1fr)_22rem]">
-              <div className="px-4 py-4 md:px-6">
+            <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-4 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-6">
+              <div className="max-w-4xl">
                 <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
                   <Sparkles size={14} aria-hidden="true" />
                   Verified scholarship discovery
@@ -857,34 +861,9 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   Find scholarships worth applying to.
                 </h1>
                 <p className="mt-1 max-w-4xl text-sm leading-6 text-ink/70 dark:text-white/60">
-                  Search published opportunities by country, funding, deadline, degree level, and
-                  pathway.
+                  Search verified scholarship opportunities and use advanced filters only when you
+                  need a narrower list.
                 </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-1.5 border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 lg:border-l lg:border-t-0">
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Results
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {loading ? "..." : resultCount}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Sorting
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    Deadline
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Sources
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-pine">Checked</p>
-                </div>
               </div>
             </div>
           </div>
@@ -910,32 +889,18 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                     </div>
                   </label>
 
-                  <div className="grid grid-cols-2 gap-2 sm:flex lg:shrink-0">
-                    <Button type="submit" className="h-9 w-full px-3 text-xs sm:w-auto" size="sm">
-                      Apply
-                    </Button>
+                  <div className="grid gap-2 sm:flex lg:shrink-0">
                     <Button
                       type="button"
                       aria-expanded={advancedFiltersOpen}
                       className="h-9 w-full whitespace-nowrap px-3 text-xs sm:w-auto"
                       onClick={() => setAdvancedFiltersOpen((current) => !current)}
                       size="sm"
-                      variant={activeAdvancedFilters.length > 0 ? "outline" : "ghost"}
+                      variant={activeFilterSummary.length > 0 ? "outline" : "ghost"}
                     >
                       <Filter size={14} aria-hidden="true" />
-                      Filters
-                      {activeAdvancedFilters.length > 0 ? ` (${activeAdvancedFilters.length})` : ""}
-                    </Button>
-                    <Button
-                      type="button"
-                      aria-expanded={pathwaysOpen}
-                      className="col-span-2 h-9 w-full whitespace-nowrap px-3 text-xs sm:col-span-1 sm:w-auto"
-                      onClick={() => setPathwaysOpen((current) => !current)}
-                      size="sm"
-                      variant={selectedPathway ? "outline" : "ghost"}
-                    >
-                      <GraduationCap size={14} aria-hidden="true" />
-                      Pathways{selectedPathway ? " (1)" : ""}
+                      Advanced filters
+                      {activeFilterSummary.length > 0 ? ` (${activeFilterSummary.length})` : ""}
                     </Button>
                   </div>
                 </div>
@@ -1011,6 +976,105 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                       </label>
                     </div>
 
+                    <div className="grid gap-2 rounded-2xl border border-pine/10 bg-white p-2.5 dark:border-white/10 dark:bg-white/5">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-1.5">
+                          <h3 className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-ink dark:text-white">
+                            <GraduationCap size={14} className="text-pine" aria-hidden="true" />
+                            Pathways
+                          </h3>
+                          <span className="hidden text-xs text-ink/35 md:inline">·</span>
+                          <p className="min-w-0 text-[11px] leading-4 text-ink/55 md:truncate dark:text-white/45">
+                            Filter by scholarship family, program, or application track.
+                          </p>
+                        </div>
+
+                        {selectedPathwaySlug ? (
+                          <Button
+                            type="button"
+                            className="h-8 px-2.5 text-xs"
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleClearPathway}
+                          >
+                            <X size={14} aria-hidden="true" />
+                            Clear pathway
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      {pathwaysLoading && rootPathways.length === 0 ? (
+                        <p className="text-xs text-ink/55 dark:text-white/45">
+                          Loading pathways...
+                        </p>
+                      ) : null}
+
+                      {sortedRootPathways.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {sortedRootPathways.map((pathway) => {
+                            const selected = selectedPathwaySlug === pathway.slug;
+                            const hasPublished = pathway.published_opportunity_count > 0;
+
+                            return (
+                              <button
+                                key={pathway.slug}
+                                type="button"
+                                onClick={() => handleRootPathwaySelect(pathway)}
+                                className={`min-w-0 rounded-2xl border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
+                                  selected
+                                    ? "border-pine bg-pine text-white"
+                                    : "border-pine/10 bg-white text-ink/75 hover:border-pine/30 hover:bg-mint/35 dark:border-white/10 dark:bg-[#101214] dark:text-white/65 dark:hover:bg-white/10"
+                                } ${hasPublished ? "" : "opacity-75"}`}
+                              >
+                                <span>{pathway.title}</span>
+                                {!hasPublished ? (
+                                  <span
+                                    className={`ml-1.5 text-[11px] font-medium ${
+                                      selected ? "text-white/75" : "text-ink/40 dark:text-white/35"
+                                    }`}
+                                  >
+                                    Coming soon
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
+                      {selectedRootPathwaySlug && sortedChildPathways.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 border-t border-pine/10 pt-2 dark:border-white/10">
+                          {sortedChildPathways.map((pathway) => {
+                            const selected = selectedPathwaySlug === pathway.slug;
+
+                            return (
+                              <button
+                                key={pathway.slug}
+                                type="button"
+                                onClick={() => handlePathwaySelect(pathway)}
+                                className={`rounded-2xl border px-2.5 py-1.5 text-xs font-semibold transition ${
+                                  selected
+                                    ? "border-pine bg-white text-pine shadow-sm dark:bg-white/10"
+                                    : "border-pine/10 bg-white text-ink/65 hover:border-pine/30 hover:bg-mint/35 dark:border-white/10 dark:bg-[#101214] dark:text-white/60 dark:hover:bg-white/10"
+                                }`}
+                              >
+                                {pathway.title}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
+                      {selectedPathwaySlug ? (
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink/65 dark:text-white/55">
+                          <span>Showing pathway:</span>
+                          <Badge tone="mint" className="px-2 py-0.5 text-[11px]">
+                            {selectedPathway?.full_path || selectedPathwaySlug}
+                          </Badge>
+                        </div>
+                      ) : null}
+                    </div>
+
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex flex-wrap gap-1.5">
                         {[
@@ -1059,102 +1123,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                     </div>
                   </div>
                 ) : null}
-
-                {pathwaysOpen ? (
-                  <div className="grid gap-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                      <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-1.5">
-                        <h3 className="shrink-0 text-xs font-bold text-ink">Browse by pathway</h3>
-                        <span className="hidden text-xs text-ink/35 md:inline">·</span>
-                        <p className="min-w-0 text-[11px] leading-4 text-ink/55 md:truncate">
-                          Explore scholarship families, programs, and application tracks.
-                        </p>
-                      </div>
-
-                      {selectedPathway ? (
-                        <Button
-                          type="button"
-                          className="h-8 px-2.5 text-xs"
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleClearPathway}
-                        >
-                          <X size={14} aria-hidden="true" />
-                          Clear pathway
-                        </Button>
-                      ) : null}
-                    </div>
-
-                    {pathwaysLoading && rootPathways.length === 0 ? (
-                      <p className="text-xs text-ink/55">Loading pathways...</p>
-                    ) : null}
-
-                    {sortedRootPathways.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {sortedRootPathways.map((pathway) => {
-                          const selected = selectedPathwaySlug === pathway.slug;
-                          const hasPublished = pathway.published_opportunity_count > 0;
-
-                          return (
-                            <button
-                              key={pathway.slug}
-                              type="button"
-                              onClick={() => handleRootPathwaySelect(pathway)}
-                              className={`min-w-0 rounded-2xl border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
-                                selected
-                                  ? "border-pine bg-pine text-white"
-                                  : "border-pine/10 bg-white text-ink/75 hover:border-pine/30 hover:bg-mint/35"
-                              } ${hasPublished ? "" : "opacity-80"}`}
-                            >
-                              <span>{pathway.title}</span>
-                              {!hasPublished ? (
-                                <span
-                                  className={`ml-1.5 text-[11px] font-medium ${
-                                    selected ? "text-white/75" : "text-ink/40"
-                                  }`}
-                                >
-                                  Coming soon
-                                </span>
-                              ) : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-
-                    {selectedRootPathwaySlug && sortedChildPathways.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5 border-t border-pine/10 pt-2">
-                        {sortedChildPathways.map((pathway) => {
-                          const selected = selectedPathwaySlug === pathway.slug;
-
-                          return (
-                            <button
-                              key={pathway.slug}
-                              type="button"
-                              onClick={() => handlePathwaySelect(pathway)}
-                              className={`rounded-2xl border px-2.5 py-1.5 text-xs font-semibold transition ${
-                                selected
-                                  ? "border-pine bg-white text-pine shadow-sm"
-                                  : "border-pine/10 bg-white text-ink/65 hover:border-pine/30 hover:bg-mint/35"
-                              }`}
-                            >
-                              {pathway.title}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-
-                    {selectedPathway ? (
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink/65">
-                        <span>Showing pathway:</span>
-                        <Badge tone="mint" className="px-2 py-0.5 text-[11px]">
-                          {selectedPathway.full_path}
-                        </Badge>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
               </form>
             </CardContent>
           </Card>
@@ -1185,7 +1153,12 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
           {error ? (
             <div className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
-              {error}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>{error}</span>
+                <Button type="button" size="sm" variant="outline" onClick={() => setFilters({ ...filters })}>
+                  Refresh
+                </Button>
+              </div>
             </div>
           ) : null}
 
@@ -1193,10 +1166,24 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             <div className="mt-2">
               <EmptyState
                 action={
-                  hasActiveFilters ? (
-                    <Button type="button" onClick={handleClearFilters}>
-                      Clear Filters
-                    </Button>
+                  selectedPathwaySlug ? (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button type="button" onClick={handleClearPathway} variant="outline">
+                        Clear pathway
+                      </Button>
+                      <Button type="button" onClick={handleClearFilters}>
+                        Show all scholarships
+                      </Button>
+                    </div>
+                  ) : hasActiveFilters ? (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button type="button" onClick={handleClearFilters} variant="outline">
+                        Clear filters
+                      </Button>
+                      <Button type="button" onClick={handleClearFilters}>
+                        Show all scholarships
+                      </Button>
+                    </div>
                   ) : (
                     <ButtonLink href="/blog" variant="secondary">
                       Read Scholarship Guides
@@ -1204,18 +1191,18 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   )
                 }
                 description={
-                  selectedPathway
-                    ? "Try all scholarships or choose another pathway."
+                  selectedPathwaySlug
+                    ? "Clear the pathway to browse all published scholarships."
                     : hasActiveFilters
-                      ? "Try removing filters or searching a broader country, field, or funding type."
+                      ? "Clear filters to return to the full scholarship list."
                       : "No published scholarships are available yet. Browse the scholarship guides while new verified opportunities are added."
                 }
                 icon={<Search size={22} aria-hidden="true" />}
                 title={
-                  selectedPathway
-                    ? "No published scholarships in this pathway yet"
+                  selectedPathwaySlug
+                    ? "No published scholarships in this pathway yet."
                     : hasActiveFilters
-                      ? "No scholarships match these filters yet"
+                      ? "No scholarships found for these filters."
                       : "No scholarships published yet"
                 }
               />
