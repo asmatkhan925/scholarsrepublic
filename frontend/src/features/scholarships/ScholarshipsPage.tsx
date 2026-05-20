@@ -940,24 +940,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   </div>
                 </div>
 
-                <div className="grid gap-2 md:grid-cols-1">
-                  <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
-                    Field
-                    <select
-                      value={field}
-                      onChange={(event) => setField(event.target.value)}
-                      className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-                    >
-                      <option value="">All fields</option>
-                      {fieldOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
                 {activeFilterSummary.length > 0 ? (
                   <div className="flex flex-col gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-xs text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/60 sm:flex-row sm:items-center sm:justify-between">
                     <p className="min-w-0">
@@ -979,7 +961,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
                 {advancedFiltersOpen ? (
                   <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
-                    <div className="grid gap-2 md:grid-cols-2">
+                    <div className="grid gap-2 md:grid-cols-3">
                       <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
                         Country
                         <select
@@ -989,6 +971,22 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                         >
                           <option value="">All countries</option>
                           {countryOptions.map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
+                        Field
+                        <select
+                          value={field}
+                          onChange={(event) => setField(event.target.value)}
+                          className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                        >
+                          <option value="">All fields</option>
+                          {fieldOptions.map((item) => (
                             <option key={item} value={item}>
                               {item}
                             </option>
