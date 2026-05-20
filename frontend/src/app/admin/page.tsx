@@ -82,7 +82,7 @@ const primaryActions: WorkbenchAction[] = [
   {
     title: "Review imported drafts",
     description: "Validate AI or imported draft data before turning it into a real scholarship record.",
-    href: "/admin/opportunities/opportunitydraft/",
+    href: "/dashboard/admin/scholarships/drafts",
     icon: FileText,
     badge: "Draft queue",
     primary: true,
@@ -90,7 +90,7 @@ const primaryActions: WorkbenchAction[] = [
   {
     title: "Manage scholarships",
     description: "Edit draft, published, archived, featured, and verified scholarship opportunities.",
-    href: "/admin/opportunities/opportunity/",
+    href: "/dashboard/admin/scholarships",
     icon: GraduationCap,
     badge: "Main",
     primary: true,
@@ -100,8 +100,8 @@ const primaryActions: WorkbenchAction[] = [
 const secondaryActions: WorkbenchAction[] = [
   {
     title: "Create draft manually",
-    description: "Use this when GPT extraction is not enough and you want to add a scholarship yourself.",
-    href: "/admin/opportunities/opportunity/add/",
+    description: "Use the custom importer when GPT extraction is ready to become a reviewable draft.",
+    href: "/dashboard/admin/scholarships/import",
     icon: ClipboardCheck,
   },
   {
@@ -119,7 +119,7 @@ const secondaryActions: WorkbenchAction[] = [
   {
     title: "Moderate comments",
     description: "Review and remove inappropriate scholarship comments or replies.",
-    href: "/admin/opportunities/opportunitycomment/",
+    href: "/dashboard/admin/comments",
     icon: MessageSquare,
   },
   {

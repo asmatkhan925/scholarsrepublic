@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminFilterButton, AdminHero, AdminLoading, AdminMetric, AdminNotice } from "@/components/admin/AdminUI";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
@@ -93,6 +94,41 @@ function getTextList(value: unknown) {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function getDraftAttentionItems(draft: OpportunityDraft) {
+  const opportunity = getOpportunityPayload(draft);
+  const items: string[] = [];
+
+  if (draft.validation_errors.length > 0) {
+    items.push("Fix validation errors");
+  }
+
+  if (draft.validation_warnings.length > 0) {
+    items.push("Review warnings");
+  }
+
+  if (!getText(opportunity.country)) {
+    items.push("Add country");
+  }
+
+  if (!getText(opportunity.official_link) && !getText(opportunity.source_url) && !draft.source_url) {
+    items.push("Add official source");
+  }
+
+  if (!getText(opportunity.deadline) && opportunity.is_rolling_deadline !== true) {
+    items.push("Confirm deadline");
+  }
+
+  if (!getText(opportunity.funding_type) && !getText(opportunity.stipend_summary)) {
+    items.push("Confirm funding");
+  }
+
+  if (getTextList(opportunity.fields_of_study).length === 0) {
+    items.push("Add study fields");
+  }
+
+  return items;
+}
+
 function DraftReviewCard({
   draft,
   busyId,
@@ -116,6 +152,7 @@ function DraftReviewCard({
   const fundingType = getText(opportunity.funding_type);
   const degreeLevels = getTextList(opportunity.degree_levels).slice(0, 3);
   const fields = getTextList(opportunity.fields_of_study).slice(0, 3);
+  const attentionItems = getDraftAttentionItems(draft);
   const busy = busyId === draft.id;
   const canImport = draft.status === "validated" && draft.validation_errors.length === 0;
   const needsValidation = draft.status === "new";
@@ -179,6 +216,25 @@ function DraftReviewCard({
               ) : null}
             </div>
 
+            <div className="mt-3 rounded-xl border border-pine/10 bg-[#f7faf8] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-pine">
+                Review checklist
+              </p>
+              {attentionItems.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {attentionItems.slice(0, expanded ? undefined : 5).map((item) => (
+                    <Badge key={item} tone={item.includes("error") ? "danger" : "saffron"}>
+                      {item}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-sm font-semibold text-pine">
+                  Core fields look ready. Validate, import, then do final edit before publishing.
+                </p>
+              )}
+            </div>
+
             {draft.validation_errors.length > 0 ? (
               <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
                 <div className="mb-1 flex items-center gap-2 font-bold">
@@ -228,7 +284,7 @@ function DraftReviewCard({
                 ) : (
                   <RefreshCw size={14} aria-hidden="true" />
                 )}
-                {draft.created_opportunity ? "Revalidate" : "Validate and import"}
+                {draft.created_opportunity ? "Revalidate" : "Validate draft"}
               </Button>
 
               <Button
@@ -241,9 +297,9 @@ function DraftReviewCard({
                 {busy ? (
                   <Loader2 size={14} className="animate-spin" aria-hidden="true" />
                 ) : (
-                  <Import size={14} aria-hidden="true" />
+                <Import size={14} aria-hidden="true" />
                 )}
-                Import as scholarship draft
+                Import clean draft
               </Button>
 
               {needsValidation ? (
@@ -306,7 +362,7 @@ function DraftReviewCard({
                 className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-400/25 dark:text-red-300 dark:hover:bg-red-500/10"
               >
                 <Trash2 size={14} aria-hidden="true" />
-                Delete
+                Reject/delete
               </Button>
             </div>
           </aside>
@@ -365,6 +421,7 @@ function DraftReviewQueueContent() {
       newCount: drafts.filter((draft) => draft.status === "new").length,
       validated: drafts.filter((draft) => draft.status === "validated").length,
       errorCount: drafts.filter((draft) => draft.status === "error").length,
+      warningCount: drafts.reduce((total, draft) => total + draft.validation_warnings.length, 0),
     }),
     [drafts],
   );
@@ -390,21 +447,10 @@ function DraftReviewQueueContent() {
     try {
       const validated = await validateAdminOpportunityDraft(draft.id);
 
-      if (
-        validated.status === "validated" &&
-        validated.validation_errors.length === 0 &&
-        !validated.created_opportunity
-      ) {
-        const imported = await importAdminOpportunityDraft(draft.id);
-        await updateDraftInList(imported.draft);
-        setMessage("Validated and imported as a real scholarship draft. Open Scholarship Manager to edit or publish it.");
-        return;
-      }
-
       await updateDraftInList(validated);
       setMessage(
         validated.status === "validated"
-          ? "Draft validated. You can import it now."
+          ? "Draft validated. Review warnings, then import it as a scholarship draft when ready."
           : "Validation found errors. Click Edit draft to fix them.",
       );
     } catch (requestError) {
@@ -460,83 +506,36 @@ function DraftReviewQueueContent() {
       hideHeader
     >
       <div className="space-y-4">
+        <AdminHero
+          eyebrow="Imported draft review"
+          title="Draft review queue"
+          description="Validate imported drafts, fix issues, then import clean records into Scholarship Manager."
+          backHref="/dashboard/admin"
+          backLabel="Back to admin workbench"
+          icon={FileSearch}
+          actions={
+            <>
+              <ButtonLink href="/dashboard/admin/scholarships/import" size="sm">
+                Import with GPT
+                <ExternalLink size={15} aria-hidden="true" />
+              </ButtonLink>
+
+              <ButtonLink href="/dashboard/admin/scholarships" size="sm" variant="outline">
+                Scholarship manager
+              </ButtonLink>
+            </>
+          }
+          metrics={
+            <>
+              <AdminMetric label="Shown" value={stats.total} />
+              <AdminMetric label="New" value={stats.newCount} tone={stats.newCount > 0 ? "warning" : "normal"} />
+              <AdminMetric label="Validated" value={stats.validated} tone="success" />
+              <AdminMetric label="Errors" value={stats.errorCount} tone={stats.errorCount > 0 ? "danger" : "normal"} />
+            </>
+          }
+        />
+
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="grid gap-0 bg-gradient-to-r from-mint/75 via-white to-skyglass transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 xl:grid-cols-[minmax(0,1fr)_24rem]">
-            <div className="px-4 py-4 md:px-5">
-              <Link
-                href="/dashboard/admin"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-pine transition hover:text-pine/80"
-              >
-                <ArrowLeft size={14} aria-hidden="true" />
-                Back to admin workbench
-              </Link>
-
-              <div className="mt-2 flex flex-col gap-2 xl:flex-row xl:items-baseline xl:gap-3">
-                <h1 className="shrink-0 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
-                  Draft review queue
-                </h1>
-
-                <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Validate imported drafts. Clean drafts are automatically imported into Scholarship Manager.
-                </p>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <a
-                  href="/dashboard/admin/scholarships/import"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2 text-sm font-semibold text-white transition hover:bg-pine/90"
-                >
-                  Import with GPT
-                  <ExternalLink size={15} aria-hidden="true" />
-                </a>
-
-                <Link
-                  href="/dashboard/admin/scholarships"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                >
-                  Real scholarship manager
-                </Link>
-              </div>
-            </div>
-
-            <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
-              <div className="grid grid-cols-2 gap-1.5">
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Shown
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.total}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    New
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.newCount}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Validated
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {stats.validated}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 dark:border-red-400/25 dark:bg-red-500/10">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-red-700/60 dark:text-red-300/70">
-                    Errors
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-red-700 dark:text-red-300">
-                    {stats.errorCount}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_12rem_auto]">
             <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Search
@@ -589,27 +588,51 @@ function DraftReviewQueueContent() {
               </Button>
             </div>
           </div>
+
+          <div className="border-t border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div className="flex flex-wrap gap-2">
+              <AdminFilterButton
+                label="Needs review"
+                active={statusFilter === "needs_review"}
+                onClick={() => setStatusFilter("needs_review")}
+              />
+              <AdminFilterButton
+                label="New"
+                active={statusFilter === "new"}
+                onClick={() => setStatusFilter("new")}
+                count={stats.newCount}
+              />
+              <AdminFilterButton
+                label="Validated"
+                active={statusFilter === "validated"}
+                onClick={() => setStatusFilter("validated")}
+                count={stats.validated}
+              />
+              <AdminFilterButton
+                label="Errors"
+                active={statusFilter === "error"}
+                onClick={() => setStatusFilter("error")}
+                count={stats.errorCount}
+              />
+              <AdminFilterButton
+                label="All"
+                active={statusFilter === "all"}
+                onClick={() => setStatusFilter("all")}
+              />
+            </div>
+          </div>
         </section>
 
         {message ? (
-          <div className="rounded-xl border border-pine/20 bg-pine/5 px-3 py-2 text-sm font-semibold text-pine dark:border-pine/20 dark:bg-pine/10">
-            {message}
-          </div>
+          <AdminNotice>{message}</AdminNotice>
         ) : null}
 
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
-            {error}
-          </div>
+          <AdminNotice tone="danger">{error}</AdminNotice>
         ) : null}
 
         {loading ? (
-          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-            <CardContent className="flex items-center gap-2 p-6 text-sm text-ink/70 dark:text-white/60">
-              <Loader2 size={17} className="animate-spin" aria-hidden="true" />
-              Loading draft queue...
-            </CardContent>
-          </Card>
+          <AdminLoading label="Loading draft queue..." />
         ) : null}
 
         {!loading && drafts.length === 0 ? (

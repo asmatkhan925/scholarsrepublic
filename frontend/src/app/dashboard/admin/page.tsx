@@ -20,6 +20,7 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { AdminHero, AdminMetric, AdminNotice } from "@/components/admin/AdminUI";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui";
 import { getAdminOverview, type AdminOverviewResponse } from "@/lib/api";
@@ -135,35 +136,6 @@ const supportActions: AdminAction[] = [
   },
 ];
 
-function MiniStat({
-  label,
-  value,
-  tone = "normal",
-}: {
-  label: string;
-  value: string | number;
-  tone?: "normal" | "warning" | "danger";
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-2.5 py-2 ${
-        tone === "danger"
-          ? "border-red-200 bg-red-50 dark:border-red-400/25 dark:bg-red-500/10"
-          : tone === "warning"
-            ? "border-saffron/30 bg-saffron/10 dark:border-saffron/25 dark:bg-saffron/10"
-            : "border-pine/10 bg-white dark:border-white/10 dark:bg-white/5"
-      }`}
-    >
-      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-        {label}
-      </p>
-      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function ActionCard({ item }: { item: AdminAction }) {
   const Icon = item.icon;
   const primary = item.tone === "primary";
@@ -268,71 +240,94 @@ function AdminDashboardContent() {
       hideHeader
     >
       <div className="space-y-4">
-        <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="grid gap-0 bg-gradient-to-r from-mint/75 via-white to-skyglass transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="px-4 py-4 md:px-5">
-              <div className="inline-flex items-center gap-2 rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
-                <ShieldCheck size={14} aria-hidden="true" />
-                Scholarship Admin Workbench
-              </div>
+        <AdminHero
+          eyebrow="Scholarship Admin Workbench"
+          title={`Welcome, ${user?.full_name ?? "Admin"}.`}
+          description="Import scholarships, review drafts, publish verified listings, and moderate comments."
+          icon={ShieldCheck}
+          actions={
+            <>
+              <a
+                href="/dashboard/admin/scholarships/import"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2 text-sm font-semibold text-white transition hover:bg-pine/90"
+              >
+                Import scholarship
+                <ArrowRight size={15} aria-hidden="true" />
+              </a>
 
-              <div className="mt-2 flex flex-col gap-2 xl:flex-row xl:items-baseline xl:gap-3">
-                <h1 className="shrink-0 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
-                  Welcome, {user?.full_name ?? "Admin"}.
-                </h1>
+              <a
+                href="/dashboard/admin/scholarships/drafts"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+              >
+                Review queue
+                <ExternalLink size={15} aria-hidden="true" />
+              </a>
+            </>
+          }
+          metrics={
+            <>
+              <AdminMetric
+                label="Pending comments"
+                value={overview?.comments.pending ?? "..."}
+                tone={(overview?.comments.pending ?? 0) > 0 ? "warning" : "normal"}
+              />
+              <AdminMetric
+                label="Needs review"
+                value={overview?.drafts.needs_review ?? "..."}
+                tone={(overview?.drafts.needs_review ?? 0) > 0 ? "warning" : "normal"}
+              />
+              <AdminMetric
+                label="Published"
+                value={overview?.scholarships.published ?? "..."}
+                tone="success"
+              />
+              <AdminMetric
+                label="Unverified"
+                value={overview?.scholarships.unverified ?? "..."}
+                tone={(overview?.scholarships.unverified ?? 0) > 0 ? "warning" : "normal"}
+              />
+            </>
+          }
+        />
 
-                <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Import scholarships, review drafts, publish verified listings, and moderate comments.
-                </p>
-              </div>
+        {overviewError ? <AdminNotice tone="danger">{overviewError}</AdminNotice> : null}
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <a
-                  href="/dashboard/admin/scholarships/import"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-pine px-4 py-2 text-sm font-semibold text-white transition hover:bg-pine/90"
-                >
-                  Import scholarship
-                  <ArrowRight size={15} aria-hidden="true" />
-                </a>
-
-                <a
-                  href="/dashboard/admin/scholarships/drafts"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                >
-                  Review queue
-                  <ExternalLink size={15} aria-hidden="true" />
-                </a>
-              </div>
+        {overview ? (
+          <section className="grid gap-2 rounded-[1.25rem] border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d] md:grid-cols-4">
+            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
+                Draft queue
+              </p>
+              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
+                {overview.drafts.needs_review} need review, {overview.drafts.error} have errors.
+              </p>
             </div>
-
-            <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
-              <div className="grid grid-cols-2 gap-1.5">
-                <MiniStat
-                  label="Pending comments"
-                  value={overview?.comments.pending ?? "..."}
-                  tone={(overview?.comments.pending ?? 0) > 0 ? "warning" : "normal"}
-                />
-                <MiniStat
-                  label="Needs review"
-                  value={overview?.drafts.needs_review ?? "..."}
-                  tone={(overview?.drafts.needs_review ?? 0) > 0 ? "warning" : "normal"}
-                />
-                <MiniStat label="Published" value={overview?.scholarships.published ?? "..."} />
-                <MiniStat
-                  label="Unverified"
-                  value={overview?.scholarships.unverified ?? "..."}
-                  tone={(overview?.scholarships.unverified ?? 0) > 0 ? "warning" : "normal"}
-                />
-              </div>
-
-              {overviewError ? (
-                <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
-                  {overviewError}
-                </p>
-              ) : null}
+            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
+                Publishing
+              </p>
+              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
+                {overview.scholarships.draft} drafts, {overview.scholarships.expiring_soon} expiring soon.
+              </p>
             </div>
-          </div>
-        </section>
+            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
+                Students
+              </p>
+              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
+                {overview.students.total} students, {overview.applications.saved} saved opportunities.
+              </p>
+            </div>
+            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
+                Comments
+              </p>
+              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
+                {overview.comments.pending} pending, {overview.comments.active} approved.
+              </p>
+            </div>
+          </section>
+        ) : null}
 
         <section>
           <div className="mb-3 flex flex-col gap-1">

@@ -17,14 +17,30 @@ import {
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminNotice } from "@/components/admin/AdminUI";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Button, ButtonLink, Card, CardContent } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
   createAdminOpportunityDraft,
   validateAdminOpportunityDraft,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityDraft } from "@/types/opportunity";
+
+type JsonPreview =
+  | {
+      valid: true;
+      title: string;
+      country: string;
+      source: string;
+      deadline: string;
+      warnings: string[];
+      missing: string[];
+    }
+  | {
+      valid: false;
+      message: string;
+    };
 
 function extractJson(input: string): Record<string, unknown> {
   const trimmed = input.trim();
@@ -66,6 +82,14 @@ function normalizeDraftPayload(parsed: Record<string, unknown>) {
     title,
     rawPayload: isRecord(parsed.opportunity) ? parsed : { opportunity },
   };
+}
+
+function getTextList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
 function AdminScholarshipImportContent() {
@@ -141,6 +165,33 @@ Official source text:
 ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
     [sourceText, sourceUrl],
   );
+  const jsonPreview = useMemo<JsonPreview | null>(() => {
+    if (!jsonText.trim()) {
+      return null;
+    }
+
+    try {
+      const parsed = extractJson(jsonText);
+      const opportunity = isRecord(parsed.opportunity) ? parsed.opportunity : parsed;
+
+      return {
+        valid: true,
+        title: getText(opportunity.title) || "Title not detected",
+        country: getText(opportunity.country) || "Country missing",
+        source: getText(opportunity.official_link) || getText(opportunity.source_url) || "Source missing",
+        deadline:
+          getText(opportunity.deadline) ||
+          (opportunity.is_rolling_deadline === true ? "Rolling deadline" : "Deadline missing"),
+        warnings: getTextList(opportunity.warnings),
+        missing: getTextList(opportunity.missing_information),
+      };
+    } catch (previewError) {
+      return {
+        valid: false,
+        message: getErrorMessage(previewError) ?? "Could not parse the pasted JSON.",
+      };
+    }
+  }, [jsonText]);
 
   async function copyPrompt() {
     await navigator.clipboard.writeText(gptPrompt);
@@ -241,9 +292,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         </section>
 
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
-            {error}
-          </div>
+          <AdminNotice tone="danger">{error}</AdminNotice>
         ) : null}
 
         {createdDraft ? (
@@ -259,6 +308,13 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
 
               <ButtonLink href="/dashboard/admin/scholarships/drafts" size="sm" variant="secondary">
                 Review in queue
+              </ButtonLink>
+              <ButtonLink
+                href={`/dashboard/admin/scholarships/drafts/${createdDraft.id}/edit`}
+                size="sm"
+                variant="outline"
+              >
+                Edit draft
               </ButtonLink>
             </div>
           </div>
@@ -319,6 +375,37 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                     placeholder='Paste GPT JSON here. It should include {"opportunity": {...}}'
                   />
                 </label>
+
+                {jsonPreview ? (
+                  <div
+                    className={`mt-3 rounded-xl border px-3 py-2 text-sm leading-6 ${
+                      jsonPreview.valid
+                        ? "border-pine/10 bg-[#f7faf8] text-ink/70 dark:border-white/10 dark:bg-white/5 dark:text-white/65"
+                        : "border-red-200 bg-red-50 text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300"
+                    }`}
+                  >
+                    {jsonPreview.valid ? (
+                      <div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge tone="mint">Valid JSON</Badge>
+                          <Badge tone={jsonPreview.source === "Source missing" ? "saffron" : "neutral"}>
+                            {jsonPreview.source}
+                          </Badge>
+                          <Badge tone={jsonPreview.deadline === "Deadline missing" ? "saffron" : "sky"}>
+                            {jsonPreview.deadline}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 font-bold text-ink dark:text-white">{jsonPreview.title}</p>
+                        <p className="text-xs font-semibold text-ink/50 dark:text-white/45">
+                          {jsonPreview.country} · Warnings: {jsonPreview.warnings.length} · Missing:{" "}
+                          {jsonPreview.missing.length}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="font-semibold">{jsonPreview.message}</p>
+                    )}
+                  </div>
+                ) : null}
 
                 <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-ink/70 dark:text-white/65">
                   <input

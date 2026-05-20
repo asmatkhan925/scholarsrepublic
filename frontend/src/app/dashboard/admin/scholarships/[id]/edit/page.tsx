@@ -16,7 +16,7 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Button, ButtonLink, Card, CardContent } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import { getAdminOpportunity, patchAdminOpportunity } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
@@ -158,6 +158,25 @@ function buildForm(opportunity: OpportunityDetail): ScholarshipEditForm {
   };
 }
 
+function getPublishReadiness(form: ScholarshipEditForm) {
+  const issues: string[] = [];
+
+  if (!form.title.trim()) issues.push("Title missing");
+  if (!form.country.trim()) issues.push("Country missing");
+  if (!form.official_link.trim() && !form.source_url.trim()) issues.push("Official source missing");
+  if (!form.is_rolling_deadline && !form.deadline) issues.push("Deadline missing");
+  if (!form.short_description.trim()) issues.push("Short description missing");
+  if (!form.benefits.trim()) issues.push("Benefits missing");
+  if (!form.eligibility.trim()) issues.push("Eligibility missing");
+  if (!form.how_to_apply.trim()) issues.push("How to apply missing");
+  if (!form.funding_type && !form.stipend_summary.trim()) issues.push("Funding unclear");
+  if (textToList(form.degree_levels).length === 0) issues.push("Degree levels missing");
+  if (textToList(form.fields_of_study).length === 0) issues.push("Fields missing");
+  if (form.status === "published" && !form.verified_status) issues.push("Published but unverified");
+
+  return issues;
+}
+
 function TextInput({
   label,
   value,
@@ -252,6 +271,7 @@ function AdminScholarshipEditContent() {
 
     return `/scholarships/${opportunity.slug}`;
   }, [opportunity]);
+  const publishReadiness = useMemo(() => getPublishReadiness(form), [form]);
 
   function updateField<K extends keyof ScholarshipEditForm>(
     field: K,
@@ -596,6 +616,28 @@ function AdminScholarshipEditContent() {
             </div>
 
             <aside className="grid content-start gap-4">
+              <Card className="dark:border-white/10 dark:bg-[#181b1d]">
+                <CardContent className="grid gap-3 p-3 md:p-4">
+                  <h2 className="text-lg font-bold text-ink dark:text-white">
+                    Publish readiness
+                  </h2>
+
+                  {publishReadiness.length === 0 ? (
+                    <div className="rounded-xl border border-pine/15 bg-pine/5 px-3 py-2 text-sm font-semibold text-pine dark:border-pine/25 dark:bg-pine/10">
+                      Core fields look ready. Verify against the official source before publishing.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {publishReadiness.map((item) => (
+                        <Badge key={item} tone="saffron">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-3 p-3 md:p-4">
                   <h2 className="text-lg font-bold text-ink dark:text-white">

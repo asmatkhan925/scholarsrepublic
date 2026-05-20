@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminFilterButton, AdminHero, AdminLoading, AdminMetric, AdminNotice } from "@/components/admin/AdminUI";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
@@ -66,6 +67,30 @@ function getModerationStatus(comment: AdminOpportunityComment) {
   return "deleted";
 }
 
+function getStatusLabel(status: "pending" | "active" | "deleted") {
+  if (status === "active") {
+    return "Approved";
+  }
+
+  if (status === "deleted") {
+    return "Rejected/deleted";
+  }
+
+  return "Pending review";
+}
+
+function getStatusTone(status: "pending" | "active" | "deleted") {
+  if (status === "active") {
+    return "mint";
+  }
+
+  if (status === "deleted") {
+    return "danger";
+  }
+
+  return "saffron";
+}
+
 function CommentModerationCard({
   comment,
   busyId,
@@ -85,21 +110,7 @@ function CommentModerationCard({
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_16rem]">
           <div className="p-3 md:p-4">
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge
-                tone={
-                  moderationStatus === "active"
-                    ? "mint"
-                    : moderationStatus === "pending"
-                      ? "saffron"
-                      : "danger"
-                }
-              >
-                {moderationStatus === "active"
-                  ? "Active"
-                  : moderationStatus === "pending"
-                    ? "Pending review"
-                    : "Deleted"}
-              </Badge>
+              <Badge tone={getStatusTone(moderationStatus)}>{getStatusLabel(moderationStatus)}</Badge>
               <Badge tone={isReply ? "sky" : "neutral"}>{isReply ? "Reply" : "Top-level"}</Badge>
               {comment.replies_count > 0 ? (
                 <Badge tone="saffron">{comment.replies_count} replies</Badge>
@@ -190,6 +201,84 @@ function CommentModerationCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CommentModerationRow({
+  comment,
+  busyId,
+  onModerate,
+}: {
+  comment: AdminOpportunityComment;
+  busyId: number | null;
+  onModerate: (comment: AdminOpportunityComment, action: "approve" | "hide" | "delete") => Promise<void>;
+}) {
+  const busy = busyId === comment.id;
+  const isReply = comment.parent_id !== null;
+  const moderationStatus = getModerationStatus(comment);
+
+  return (
+    <tr className="border-t border-pine/10 align-top transition hover:bg-mint/20 dark:border-white/10 dark:hover:bg-white/5">
+      <td className="min-w-[24rem] px-3 py-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge tone={getStatusTone(moderationStatus)}>{getStatusLabel(moderationStatus)}</Badge>
+          <Badge tone={isReply ? "sky" : "neutral"}>{isReply ? "Reply" : "Top-level"}</Badge>
+          {comment.replies_count > 0 ? <Badge tone="saffron">{comment.replies_count} replies</Badge> : null}
+        </div>
+        <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm leading-6 text-ink/75 dark:text-white/70">
+          {getCommentPreview(comment)}
+        </p>
+      </td>
+      <td className="px-3 py-3 text-sm">
+        <Link
+          href={`/scholarships/${comment.opportunity_slug}`}
+          className="font-bold text-ink transition hover:text-pine dark:text-white"
+        >
+          {comment.opportunity_title}
+        </Link>
+        <p className="mt-1 text-xs text-ink/45 dark:text-white/45">
+          {comment.opportunity_status}
+        </p>
+      </td>
+      <td className="px-3 py-3 text-xs text-ink/55 dark:text-white/50">
+        <span className="block font-semibold text-ink dark:text-white">{comment.user_name}</span>
+        <span className="block">{comment.user_email}</span>
+        <span className="mt-1 block">{formatDate(comment.created_at)}</span>
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex min-w-[14rem] flex-wrap gap-1.5">
+          {moderationStatus === "pending" ? (
+            <Button type="button" size="sm" variant="primary" disabled={busy} onClick={() => void onModerate(comment, "approve")}>
+              {busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Undo2 size={14} aria-hidden="true" />}
+              Approve
+            </Button>
+          ) : null}
+          {moderationStatus === "active" ? (
+            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void onModerate(comment, "hide")}>
+              {busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Undo2 size={14} aria-hidden="true" />}
+              Hide
+            </Button>
+          ) : null}
+          {moderationStatus !== "deleted" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void onModerate(comment, "delete")}
+              className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-400/25 dark:text-red-300 dark:hover:bg-red-500/10"
+            >
+              {busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Trash2 size={14} aria-hidden="true" />}
+              Reject
+            </Button>
+          ) : null}
+          <ButtonLink href={`/scholarships/${comment.opportunity_slug}`} size="sm" variant="outline">
+            <ExternalLink size={14} aria-hidden="true" />
+            View
+          </ButtonLink>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -295,66 +384,24 @@ function AdminCommentsContent() {
       hideHeader
     >
       <div className="space-y-4">
+        <AdminHero
+          eyebrow="Discussion moderation"
+          title="Comment moderation"
+          description="Review pending comments, approve helpful replies, and reject inappropriate content."
+          backHref="/dashboard/admin"
+          backLabel="Back to admin workbench"
+          icon={MessageSquare}
+          metrics={
+            <>
+              <AdminMetric label="Pending" value={moderationStats.pending} tone={moderationStats.pending > 0 ? "warning" : "normal"} />
+              <AdminMetric label="Approved" value={moderationStats.active} tone="success" />
+              <AdminMetric label="Rejected" value={moderationStats.deleted} tone={moderationStats.deleted > 0 ? "danger" : "normal"} />
+              <AdminMetric label="Replies" value={moderationStats.replies} />
+            </>
+          }
+        />
+
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="grid gap-0 bg-gradient-to-r from-mint/75 via-white to-skyglass transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="px-4 py-4 md:px-5">
-              <Link
-                href="/dashboard/admin"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-pine transition hover:text-pine/80"
-              >
-                <ArrowLeft size={14} aria-hidden="true" />
-                Back to admin workbench
-              </Link>
-
-              <div className="mt-2 flex flex-col gap-2 xl:flex-row xl:items-baseline xl:gap-3">
-                <h1 className="shrink-0 text-2xl font-black tracking-tight text-ink dark:text-white md:text-3xl">
-                  Comment moderation
-                </h1>
-
-                <p className="max-w-none text-sm leading-6 text-ink/65 dark:text-white/60 xl:truncate xl:whitespace-nowrap">
-                  Review scholarship discussions and remove inappropriate comments.
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-pine/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5 xl:border-l xl:border-t-0">
-              <div className="grid grid-cols-2 gap-1.5">
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Pending
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {moderationStats.pending}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Active
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {moderationStats.active}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 dark:border-red-400/25 dark:bg-red-500/10">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-red-700/60 dark:text-red-300/70">
-                    Deleted
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-red-700 dark:text-red-300">
-                    {moderationStats.deleted}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-pine/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                    Replies
-                  </p>
-                  <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                    {moderationStats.replies}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="grid gap-2 border-t border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5 md:grid-cols-[1fr_11rem_11rem_auto]">
             <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
               Search
@@ -418,27 +465,46 @@ function AdminCommentsContent() {
               </Button>
             </div>
           </div>
+
+          <div className="border-t border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div className="flex flex-wrap gap-2">
+              <AdminFilterButton
+                label="Pending"
+                active={statusFilter === "pending"}
+                onClick={() => setStatusFilter("pending")}
+                count={moderationStats.pending}
+              />
+              <AdminFilterButton
+                label="Approved"
+                active={statusFilter === "active"}
+                onClick={() => setStatusFilter("active")}
+                count={moderationStats.active}
+              />
+              <AdminFilterButton
+                label="Rejected"
+                active={statusFilter === "deleted"}
+                onClick={() => setStatusFilter("deleted")}
+                count={moderationStats.deleted}
+              />
+              <AdminFilterButton
+                label="All"
+                active={statusFilter === "all"}
+                onClick={() => setStatusFilter("all")}
+              />
+            </div>
+          </div>
         </section>
 
         {message ? (
-          <div className="rounded-xl border border-pine/20 bg-pine/5 px-3 py-2 text-sm font-semibold text-pine dark:border-pine/20 dark:bg-pine/10">
-            {message}
-          </div>
+          <AdminNotice>{message}</AdminNotice>
         ) : null}
 
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-300">
-            {error}
-          </div>
+          <AdminNotice tone="danger">{error}</AdminNotice>
         ) : null}
 
         {loading ? (
-          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-            <CardContent className="flex items-center gap-2 p-6 text-sm text-ink/70 dark:text-white/60">
-              <Loader2 size={17} className="animate-spin" aria-hidden="true" />
-              Loading comments...
-            </CardContent>
-          </Card>
+          <AdminLoading label="Loading comments..." />
         ) : null}
 
         {!loading && comments.length === 0 ? (
@@ -457,14 +523,41 @@ function AdminCommentsContent() {
 
         {!loading && comments.length > 0 ? (
           <section className="grid gap-3">
-            {comments.map((comment) => (
-              <CommentModerationCard
-                key={comment.id}
-                comment={comment}
-                busyId={busyId}
-                onModerate={handleModerate}
-              />
-            ))}
+            <div className="hidden overflow-hidden rounded-[1.25rem] border border-pine/10 bg-white shadow-sm dark:border-white/10 dark:bg-[#181b1d] lg:block">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[62rem] text-left">
+                  <thead className="bg-[#f7faf8] text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45 dark:bg-white/5 dark:text-white/40">
+                    <tr>
+                      <th className="px-3 py-2">Comment</th>
+                      <th className="px-3 py-2">Scholarship</th>
+                      <th className="px-3 py-2">User</th>
+                      <th className="px-3 py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comments.map((comment) => (
+                      <CommentModerationRow
+                        key={comment.id}
+                        comment={comment}
+                        busyId={busyId}
+                        onModerate={handleModerate}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid gap-3 lg:hidden">
+              {comments.map((comment) => (
+                <CommentModerationCard
+                  key={comment.id}
+                  comment={comment}
+                  busyId={busyId}
+                  onModerate={handleModerate}
+                />
+              ))}
+            </div>
           </section>
         ) : null}
       </div>
