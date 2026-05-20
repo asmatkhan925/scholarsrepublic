@@ -105,7 +105,7 @@ function DetailSection({
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
               {icon}
             </span>
-            <h2 className="text-lg font-black text-ink dark:text-white">{title}</h2>
+            <h2 className="text-base font-black text-ink dark:text-white">{title}</h2>
           </div>
         </div>
         <div className="px-4 py-4 md:px-5">
@@ -128,7 +128,7 @@ function DocumentsSection({ items }: { items: string[] }) {
               <FileText size={20} aria-hidden="true" />
             </span>
             <div>
-              <h2 className="text-lg font-black text-ink dark:text-white">Required documents</h2>
+              <h2 className="text-base font-black text-ink dark:text-white">Required documents</h2>
               <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/58">
                 Required documents are not listed here. Confirm the document checklist on the
                 official scholarship page before applying.
@@ -148,7 +148,7 @@ function DocumentsSection({ items }: { items: string[] }) {
             <FileText size={20} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-ink dark:text-white">Required documents</h2>
+            <h2 className="text-base font-black text-ink dark:text-white">Required documents</h2>
             <ul className="mt-3 grid gap-2 md:grid-cols-2">
               {items.map((item) => (
                 <li
@@ -281,18 +281,6 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
         <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs leading-5 text-ink/65 dark:text-white/60">
           <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
-              Deadline
-            </p>
-            <p
-              className="mt-0.5 truncate font-bold text-ink dark:text-white"
-              title={formatDate(scholarship.deadline)}
-            >
-              {formatDate(scholarship.deadline)}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/35 dark:text-white/35">
               Updated
             </p>
             <p
@@ -375,53 +363,6 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
             ) : null}
           </div>
         ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PathwayContextCard({ scholarship }: { scholarship: OpportunityDetail }) {
-  const pathway = scholarship.pathway_detail;
-
-  if (!pathway) {
-    return null;
-  }
-
-  return (
-    <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-      <CardContent className="p-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-pine">
-          Scholarship pathway
-        </p>
-        <h2 className="mt-1 text-sm font-black leading-5 text-ink dark:text-white">
-          {pathway.full_path}
-        </h2>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge tone="neutral">{humanize(pathway.pathway_type)}</Badge>
-          {pathway.country ? <Badge tone="sky">{pathway.country}</Badge> : null}
-        </div>
-        <div className="mt-3 grid gap-1.5">
-          <ButtonLink
-            href={`/scholarships?pathway=${encodeURIComponent(pathway.slug)}${
-              pathway.parent_id ? "&exact_pathway=true" : ""
-            }`}
-            size="sm"
-            variant="outline"
-          >
-            Browse this pathway
-          </ButtonLink>
-          {pathway.official_link ? (
-            <a
-              href={pathway.official_link}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
-            >
-              Official pathway
-              <ExternalLink size={14} aria-hidden="true" />
-            </a>
-          ) : null}
-        </div>
       </CardContent>
     </Card>
   );
@@ -551,6 +492,30 @@ export default function ScholarshipDetailPage({
     return getProvider(scholarship);
   }, [scholarship]);
 
+  const stipendFact = useMemo(() => {
+    if (!scholarship) {
+      return "Check official source";
+    }
+
+    if (scholarship.stipend_summary) {
+      return scholarship.stipend_summary;
+    }
+
+    if (scholarship.funding_amount && scholarship.funding_currency) {
+      return `${scholarship.funding_amount} ${scholarship.funding_currency}`;
+    }
+
+    if (scholarship.funding_amount) {
+      return String(scholarship.funding_amount);
+    }
+
+    if (scholarship.funding_currency) {
+      return scholarship.funding_currency;
+    }
+
+    return "Check official source";
+  }, [scholarship]);
+
   const facts = useMemo(() => {
     if (!scholarship) {
       return [];
@@ -569,12 +534,12 @@ export default function ScholarshipDetailPage({
           : undefined,
       },
       {
-        label: "Country",
-        value: scholarship.country || "Not listed",
-        helper: scholarship.city || undefined,
+        label: "Stipend",
+        value: stipendFact,
+        helper: scholarship.stipend_summary || undefined,
       },
       {
-        label: "Degree levels",
+        label: "Degree",
         value:
           scholarship.degree_levels.length > 0
             ? scholarship.degree_levels.slice(0, 3).join(", ")
@@ -583,6 +548,11 @@ export default function ScholarshipDetailPage({
           scholarship.degree_levels.length > 3
             ? `+${scholarship.degree_levels.length - 3} more`
             : undefined,
+      },
+      {
+        label: "Country",
+        value: scholarship.country || "Not listed",
+        helper: scholarship.city || undefined,
       },
       {
         label: "Application fee",
@@ -609,8 +579,9 @@ export default function ScholarshipDetailPage({
           : "Not listed",
       },
     ];
-  }, [scholarship]);
+  }, [scholarship, stipendFact]);
   const applyHref = scholarship?.official_link || scholarship?.source_url || "";
+  const applyLabel = scholarship?.official_link ? "Apply on official website" : "Open official source";
   const heroDegreeTags = scholarship?.degree_levels.slice(0, 3) ?? [];
   const heroFieldTags = scholarship?.fields_of_study.slice(0, 3) ?? [];
 
@@ -619,7 +590,7 @@ export default function ScholarshipDetailPage({
       <SiteHeader />
 
       <main className="bg-[#f7faf8] transition-colors dark:bg-[#0e1012]">
-        <section className="mx-auto max-w-7xl px-4 py-1 sm:px-5 md:px-8 md:py-2">
+        <section className="mx-auto max-w-7xl px-4 pb-28 pt-1 sm:px-5 md:px-8 md:py-2">
           <ButtonLink
             href="/scholarships"
             className="mb-3 h-8 px-2 text-xs"
@@ -672,7 +643,7 @@ export default function ScholarshipDetailPage({
                         ))}
                       </div>
 
-                      <h1 className="mt-4 max-w-5xl text-2xl font-bold tracking-tight text-ink dark:text-white md:text-4xl">
+                      <h1 className="mt-4 max-w-5xl text-xl font-bold tracking-tight text-ink dark:text-white md:text-3xl">
                         {scholarship.title}
                       </h1>
 
@@ -691,20 +662,6 @@ export default function ScholarshipDetailPage({
                         <p className="mt-3 max-w-4xl text-sm leading-7 text-ink/70 dark:text-white/62 md:text-base">
                           {scholarship.short_description}
                         </p>
-                      ) : null}
-
-                      {scholarship.stipend_summary ? (
-                        <div className="mt-3 inline-flex max-w-full items-start gap-2 rounded-2xl border border-saffron/35 bg-saffron/20 px-3 py-2 text-sm font-semibold text-ink dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/80">
-                          <Sparkles
-                            size={16}
-                            className="mt-0.5 shrink-0 text-pine"
-                            aria-hidden="true"
-                          />
-                          <span>
-                            Stipend / allowance:{" "}
-                            <span className="font-bold">{scholarship.stipend_summary}</span>
-                          </span>
-                        </div>
                       ) : null}
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -801,9 +758,9 @@ export default function ScholarshipDetailPage({
                             href={scholarship.official_link}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-pine px-3 text-sm font-bold text-white shadow-sm transition hover:bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
                           >
-                            Official source / apply
+                            Apply on official website
                             <ExternalLink size={15} aria-hidden="true" />
                           </a>
                         ) : applyHref ? (
@@ -811,9 +768,9 @@ export default function ScholarshipDetailPage({
                             href={applyHref}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-pine/15 bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:bg-mint/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-pine px-3 text-sm font-bold text-white shadow-sm transition hover:bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
                           >
-                            Source page
+                            Open official source
                             <ExternalLink size={15} aria-hidden="true" />
                           </a>
                         ) : null}
@@ -885,8 +842,6 @@ export default function ScholarshipDetailPage({
                   ) : null}
 
                   <TrustSidebarCard scholarship={scholarship} />
-
-                  <PathwayContextCard scholarship={scholarship} />
 
                   <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                     <CardContent className="p-3">
@@ -967,6 +922,35 @@ export default function ScholarshipDetailPage({
             </div>
           ) : null}
         </section>
+
+        {!loading && !error && scholarship ? (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-pine/10 bg-white/95 px-3 py-2 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+            <div className="mx-auto grid max-w-7xl grid-cols-2 gap-2">
+              <SaveOpportunityButton
+                opportunityType="scholarship"
+                slug={scholarship.slug}
+                initiallySaved={isSaved}
+                onSavedChange={setIsSaved}
+              />
+
+              {applyHref ? (
+                <a
+                  href={applyHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-pine px-3 text-sm font-bold text-white shadow-sm transition hover:bg-ink"
+                >
+                  {applyLabel}
+                  <ExternalLink size={15} aria-hidden="true" />
+                </a>
+              ) : (
+                <span className="inline-flex h-9 items-center justify-center rounded-xl border border-pine/10 bg-[#f7faf8] px-3 text-sm font-semibold text-ink/45">
+                  Source pending
+                </span>
+              )}
+            </div>
+          </div>
+        ) : null}
       </main>
     </>
   );
