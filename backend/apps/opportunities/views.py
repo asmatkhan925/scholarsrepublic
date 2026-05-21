@@ -14,7 +14,13 @@ from rest_framework.views import APIView
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.matching import calculate_opportunity_match
-from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityDraft, OpportunityPathway
+from apps.opportunities.models import (
+    Opportunity,
+    OpportunityComment,
+    OpportunityDraft,
+    OpportunityPathway,
+    OpportunitySocialDraft,
+)
 from apps.opportunities.serializers import (
     AdminOpportunityCommentSerializer,
     OpportunityAdminSerializer,
@@ -339,6 +345,58 @@ class AgentScholarshipCreateDraftView(AgentScholarshipBaseView):
                 "normalized_payload": normalized_payload,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
+    def post(self, request, draft_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            draft = OpportunityDraft.objects.get(pk=draft_id)
+        except OpportunityDraft.DoesNotExist:
+            return Response(
+                {"detail": "Scholarship draft not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        facebook_post_text = request.data.get("facebook_post_text") or ""
+        facebook_image_prompt = request.data.get("facebook_image_prompt") or ""
+
+        try:
+            social_draft, _ = OpportunitySocialDraft.objects.update_or_create(
+                opportunity_draft=draft,
+                defaults={
+                    "facebook_post_text": str(facebook_post_text).strip(),
+                    "facebook_image_prompt": str(facebook_image_prompt).strip(),
+                    "status": OpportunitySocialDraft.Status.DRAFT,
+                },
+            )
+        except Exception:
+            logger.exception("Agent scholarship social draft save failed.")
+            return Response(
+                {"detail": "Agent API request failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "draft_id": draft.pk,
+                "social_draft_id": social_draft.pk,
+                "status": social_draft.status,
+                "facebook_post_text": social_draft.facebook_post_text,
+                "facebook_image_prompt": social_draft.facebook_image_prompt,
+                "admin_edit_url": _agent_admin_edit_url(draft),
+            },
+            status=status.HTTP_200_OK,
         )
 
 

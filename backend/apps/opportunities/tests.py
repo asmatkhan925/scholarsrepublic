@@ -89,6 +89,7 @@ from apps.opportunities.models import (
     OpportunityComment,
     OpportunityDraft,
     OpportunityPathway,
+    OpportunitySocialDraft,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -603,6 +604,167 @@ class OpportunityAPITests(APITestCase):
             Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED).exists()
         )
         self.assertEqual(Opportunity.objects.count(), 0)
+
+    def create_agent_draft(self):
+        return OpportunityDraft.objects.create(
+            title="Agent Social Draft Scholarship",
+            raw_payload=self.draft_payload(slug="agent-social-draft-scholarship"),
+            status=OpportunityDraft.Status.VALIDATED,
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_rejects_missing_token(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {
+                "facebook_post_text": "Apply for this scholarship.",
+                "facebook_image_prompt": "Scholarship announcement design.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_rejects_wrong_token(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {
+                "facebook_post_text": "Apply for this scholarship.",
+                "facebook_image_prompt": "Scholarship announcement design.",
+            },
+            format="json",
+            **self.agent_headers("wrong-token"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_not_found_returns_json_404(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/drafts/999999/social-draft/",
+            {
+                "facebook_post_text": "Apply for this scholarship.",
+                "facebook_image_prompt": "Scholarship announcement design.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Scholarship draft not found."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_valid_token_creates_social_draft(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {
+                "facebook_post_text": "Apply for this scholarship before the deadline.",
+                "facebook_image_prompt": "A clean scholarship announcement for Pakistani students.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        social_draft = OpportunitySocialDraft.objects.get(pk=response.data["social_draft_id"])
+        self.assertEqual(social_draft.opportunity_draft, draft)
+        self.assertEqual(social_draft.status, OpportunitySocialDraft.Status.DRAFT)
+        self.assertEqual(
+            social_draft.facebook_post_text,
+            "Apply for this scholarship before the deadline.",
+        )
+        self.assertEqual(
+            social_draft.facebook_image_prompt,
+            "A clean scholarship announcement for Pakistani students.",
+        )
+        self.assertEqual(response.data["draft_id"], draft.pk)
+        self.assertIn(
+            f"/dashboard/admin/scholarships/drafts/{draft.pk}/edit",
+            response.data["admin_edit_url"],
+        )
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_second_call_updates_existing_record(self):
+        draft = self.create_agent_draft()
+        existing = OpportunitySocialDraft.objects.create(
+            opportunity_draft=draft,
+            facebook_post_text="Old text",
+            facebook_image_prompt="Old prompt",
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {
+                "facebook_post_text": "Updated Facebook draft text.",
+                "facebook_image_prompt": "Updated image prompt.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(OpportunitySocialDraft.objects.filter(opportunity_draft=draft).count(), 1)
+        existing.refresh_from_db()
+        self.assertEqual(response.data["social_draft_id"], existing.pk)
+        self.assertEqual(existing.facebook_post_text, "Updated Facebook draft text.")
+        self.assertEqual(existing.facebook_image_prompt, "Updated image prompt.")
+        self.assertEqual(existing.status, OpportunitySocialDraft.Status.DRAFT)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_does_not_publish_to_facebook_or_opportunity(self):
+        draft = self.create_agent_draft()
+        opportunity_count = Opportunity.objects.count()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {
+                "facebook_post_text": "Draft only.",
+                "facebook_image_prompt": "Draft image prompt only.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], OpportunitySocialDraft.Status.DRAFT)
+        self.assertEqual(Opportunity.objects.count(), opportunity_count)
+        draft.refresh_from_db()
+        self.assertIsNone(draft.created_opportunity)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_returns_json_for_errors_and_success(self):
+        draft = self.create_agent_draft()
+
+        missing_token_response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {},
+            format="json",
+        )
+        success_response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {
+                "facebook_post_text": "JSON response text.",
+                "facebook_image_prompt": "JSON response prompt.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assert_json_response(missing_token_response)
+        self.assert_json_response(success_response)
 
     def test_public_can_list_published_opportunities(self):
         opportunity = self.opportunity(

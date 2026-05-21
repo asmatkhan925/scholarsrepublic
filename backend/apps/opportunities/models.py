@@ -595,6 +595,45 @@ class OpportunityDraft(models.Model):
         super().save(*args, **kwargs)
 
 
+class OpportunitySocialDraft(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        APPROVED = "approved", "Approved"
+        POSTED = "posted", "Posted"
+
+    opportunity_draft = models.ForeignKey(
+        "opportunities.OpportunityDraft",
+        on_delete=models.CASCADE,
+        related_name="social_drafts",
+    )
+    facebook_post_text = models.TextField(blank=True)
+    facebook_image_prompt = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-updated_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["opportunity_draft"],
+                name="unique_social_draft_per_opportunity_draft",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Facebook draft for {self.opportunity_draft}"
+
+
 class OpportunityComment(models.Model):
     class ModerationStatus(models.TextChoices):
         PENDING = "pending", "Pending review"

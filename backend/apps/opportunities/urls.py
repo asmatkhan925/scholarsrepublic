@@ -20,6 +20,7 @@ from apps.opportunities.views import (
     AdminOpportunityPathwayDetailView,
     AdminOpportunityPathwayListCreateView,
     AgentScholarshipCreateDraftView,
+    AgentScholarshipSocialDraftView,
     AgentScholarshipValidateView,
     OpportunityCommentDeleteView,
     OpportunityMatchView,
@@ -134,6 +135,11 @@ urlpatterns = [
         "admin/agent/scholarships/create-draft/",
         AgentScholarshipCreateDraftView.as_view(),
         name="agent-scholarship-create-draft",
+    ),
+    path(
+        "admin/agent/scholarships/drafts/<int:draft_id>/social-draft/",
+        AgentScholarshipSocialDraftView.as_view(),
+        name="agent-scholarship-social-draft",
     ),
     path(
         "admin/opportunity-pathways/",
