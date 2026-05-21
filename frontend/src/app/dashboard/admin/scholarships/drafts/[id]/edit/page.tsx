@@ -83,6 +83,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getText(value: unknown) {
+  if (typeof value === "number") {
+    return String(value).trim();
+  }
+
   return typeof value === "string" ? value.trim() : "";
 }
 
@@ -164,6 +168,8 @@ type QuickFixForm = {
   source_name: string;
   pathway_id: number | null;
   funding_type: string;
+  funding_amount: string;
+  funding_currency: string;
   stipend_summary: string;
   fields_of_study: string;
 };
@@ -176,6 +182,8 @@ const emptyQuickFix: QuickFixForm = {
   source_name: "",
   pathway_id: null,
   funding_type: "",
+  funding_amount: "",
+  funding_currency: "",
   stipend_summary: "",
   fields_of_study: "",
 };
@@ -248,6 +256,8 @@ function buildQuickFixForm(payload: Record<string, unknown>): QuickFixForm {
     source_name: getText(opportunity.source_name),
     pathway_id: typeof opportunity.pathway_id === "number" ? opportunity.pathway_id : null,
     funding_type: getText(opportunity.funding_type),
+    funding_amount: getText(opportunity.funding_amount),
+    funding_currency: getText(opportunity.funding_currency),
     stipend_summary: getText(opportunity.stipend_summary),
     fields_of_study: textListToTextarea(opportunity.fields_of_study),
   };
@@ -264,11 +274,48 @@ function applyQuickFixToPayload(payload: Record<string, unknown>, quickFix: Quic
     source_name: quickFix.source_name.trim(),
     pathway_id: quickFix.pathway_id,
     funding_type: quickFix.funding_type.trim(),
+    funding_amount: quickFix.funding_amount.trim() || null,
+    funding_currency: quickFix.funding_currency.trim(),
     stipend_summary: quickFix.stipend_summary.trim(),
     fields_of_study: textareaToTextList(quickFix.fields_of_study),
   };
 
   return hasWrapper ? { ...payload, opportunity } : { opportunity };
+}
+
+function looksLikeAmountText(value: string) {
+  return /(\$|€|£|USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD)\s?\d|\d[\d,]*(\.\d+)?\s?(USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD|€|£|\$)/i.test(
+    value,
+  );
+}
+
+function getStipendWarnings(quickFix: QuickFixForm) {
+  const warnings: string[] = [];
+  const stipendSummary = quickFix.stipend_summary.trim();
+  const fundingAmount = quickFix.funding_amount.trim();
+  const fundingCurrency = quickFix.funding_currency.trim();
+
+  if (looksLikeAmountText(stipendSummary) && !fundingAmount) {
+    warnings.push(
+      "Stipend amount appears to be in stipend_summary. Move the numeric amount to funding_amount and currency to funding_currency.",
+    );
+  }
+
+  if (fundingAmount && !fundingCurrency) {
+    warnings.push("Funding amount is provided but funding_currency is missing.");
+  }
+
+  if (fundingCurrency && !fundingAmount) {
+    warnings.push("Funding currency is provided but funding_amount is missing.");
+  }
+
+  if (stipendSummary.length > 120) {
+    warnings.push(
+      "stipend_summary should be a short note only. Put full funding explanation in benefits.",
+    );
+  }
+
+  return warnings;
 }
 
 function QuickTextInput({
@@ -313,6 +360,7 @@ function AdminDraftEditContent() {
   const [error, setError] = useState<string | null>(null);
   const [duplicateMatches, setDuplicateMatches] = useState<AdminOpportunityDuplicateMatch[]>([]);
   const hasExactDuplicate = duplicateMatches.some((match) => match.confidence === "exact");
+  const stipendWarnings = useMemo(() => getStipendWarnings(quickFix), [quickFix]);
 
   const canImport = useMemo(
     () => Boolean(draft && draft.status === "validated" && draft.validation_errors.length === 0),
@@ -695,12 +743,39 @@ function AdminDraftEditContent() {
                     </label>
 
                     <QuickTextInput
+                      label="Funding amount"
+                      value={quickFix.funding_amount}
+                      onChange={(value) => updateQuickFixField("funding_amount", value)}
+                      placeholder="1200"
+                      type="number"
+                    />
+                    <QuickTextInput
+                      label="Funding currency"
+                      value={quickFix.funding_currency}
+                      onChange={(value) => updateQuickFixField("funding_currency", value)}
+                      placeholder="EUR"
+                    />
+
+                    <QuickTextInput
                       label="Stipend summary"
                       value={quickFix.stipend_summary}
                       onChange={(value) => updateQuickFixField("stipend_summary", value)}
-                      placeholder="Tuition, monthly stipend, travel allowance..."
+                      placeholder="monthly stipend"
                     />
                   </div>
+                  <p className="mt-2 text-xs font-medium text-ink/55 dark:text-white/45">
+                    Do not put the amount here. Put numeric amount in Funding amount and currency
+                    in Funding currency. Use Stipend summary only for a short note.
+                  </p>
+                  {stipendWarnings.length > 0 ? (
+                    <div className="mt-2 rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
+                      <ul className="list-disc space-y-1 pl-4">
+                        {stipendWarnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
                   <label className="mt-3 grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
                     Fields of study

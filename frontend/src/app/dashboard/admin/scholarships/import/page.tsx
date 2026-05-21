@@ -153,6 +153,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getText(value: unknown) {
+  if (typeof value === "number") {
+    return String(value).trim();
+  }
+
   return typeof value === "string" ? value.trim() : "";
 }
 
@@ -247,6 +251,42 @@ function buildCompletenessChecklist(opportunity: Record<string, unknown>): Check
         getBoolean(opportunity.all_study_fields),
     },
   ];
+}
+
+function looksLikeAmountText(value: string) {
+  return /(\$|€|£|USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD)\s?\d|\d[\d,]*(\.\d+)?\s?(USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD|€|£|\$)/i.test(
+    value,
+  );
+}
+
+function getStipendWarnings(
+  stipendSummary: string,
+  fundingAmount: string,
+  fundingCurrency: string,
+) {
+  const warnings: string[] = [];
+
+  if (looksLikeAmountText(stipendSummary) && !fundingAmount) {
+    warnings.push(
+      "Stipend amount appears to be in stipend_summary. Move the numeric amount to funding_amount and currency to funding_currency.",
+    );
+  }
+
+  if (fundingAmount && !fundingCurrency) {
+    warnings.push("Funding amount is provided but funding_currency is missing.");
+  }
+
+  if (fundingCurrency && !fundingAmount) {
+    warnings.push("Funding currency is provided but funding_amount is missing.");
+  }
+
+  if (stipendSummary.length > 120) {
+    warnings.push(
+      "stipend_summary should be a short note only. Put full funding explanation in benefits.",
+    );
+  }
+
+  return warnings;
 }
 
 function buildPathwayContext(pathways: OpportunityPathwayDetail[]) {
@@ -527,11 +567,13 @@ FUNDING RULES
 - If amount is unclear, use funding_amount null and funding_currency empty.
 
 Stipend and amount rules:
-- \`funding_amount\` must contain only the numeric amount. Do not include words, explanations, ranges with text, or sentences.
+- \`funding_amount\` must contain only the numeric scholarship/stipend amount.
 - \`funding_currency\` must contain only the currency code or symbol, such as USD, EUR, GBP, CNY, PKR, TRY, or €.
 - \`stipend_summary\` is optional and must be very short, for example "monthly stipend", "annual amount", or "amount varies".
+- Do not put the amount only in \`stipend_summary\`.
 - Do not put a long sentence or benefit explanation in \`stipend_summary\`.
 - Put the full funding explanation in \`benefits\`, not in \`stipend_summary\`.
+- If the source gives an exact amount, fill both \`funding_amount\` and \`funding_currency\`.
 - If the source gives no exact amount, set:
   "funding_amount": null,
   "funding_currency": "",
@@ -631,6 +673,14 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
       const sourceUrlValue = getText(opportunity.source_url);
       const deadlineValue = getText(opportunity.deadline);
       const allStudyFields = getBoolean(opportunity.all_study_fields);
+      const fundingAmount = getText(opportunity.funding_amount);
+      const fundingCurrency = getText(opportunity.funding_currency);
+      const stipendSummary = getText(opportunity.stipend_summary);
+      const stipendWarnings = getStipendWarnings(
+        stipendSummary,
+        fundingAmount,
+        fundingCurrency,
+      );
 
       return {
         valid: true,
@@ -645,10 +695,10 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         allStudyFields,
         funding: humanize(getText(opportunity.funding_type)) || "Funding type missing",
         stipendAmount:
-          getText(opportunity.funding_amount) && getText(opportunity.funding_currency)
-            ? `${getText(opportunity.funding_currency)} ${getText(opportunity.funding_amount)}`
-            : getText(opportunity.funding_amount) || "Not listed",
-        stipendSummary: getText(opportunity.stipend_summary),
+          fundingAmount && fundingCurrency
+            ? `${fundingCurrency} ${fundingAmount}`
+            : fundingAmount || "Not listed",
+        stipendSummary,
         source: officialLink || sourceUrlValue || "Source missing",
         pathway:
           typeof opportunity.pathway_id === "number"
@@ -663,7 +713,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         eligibility: getText(opportunity.eligibility),
         howToApply: getText(opportunity.how_to_apply),
         requiredDocuments: getTextList(opportunity.required_documents),
-        warnings: getTextList(opportunity.warnings),
+        warnings: [...getTextList(opportunity.warnings), ...stipendWarnings],
         missing: getTextList(opportunity.missing_information),
         checklist: buildCompletenessChecklist(opportunity),
       };

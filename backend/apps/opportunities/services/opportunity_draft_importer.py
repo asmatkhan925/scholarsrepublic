@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -11,6 +12,11 @@ from apps.opportunities.services.duplicate_detector import find_duplicate_opport
 from apps.reference_data.models import Country, StudyField
 
 ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
+AMOUNT_TEXT_RE = re.compile(
+    r"(\$|€|£|USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD)\s?\d|"
+    r"\d[\d,]*(\.\d+)?\s?(USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD|€|£|\$)",
+    re.IGNORECASE,
+)
 
 CHOICE_ALIASES = {
     "funding_type": {
@@ -207,6 +213,26 @@ def validate_opportunity_draft_payload(payload):
     opportunity["funding_currency"] = clean_text(
         opportunity_payload.get("funding_currency")
     ).upper()[: Opportunity._meta.get_field("funding_currency").max_length]
+
+    if (
+        looks_like_amount_text(opportunity["stipend_summary"])
+        and opportunity["funding_amount"] is None
+    ):
+        warnings.append(
+            "Stipend amount appears to be in stipend_summary. Move the numeric amount to funding_amount and currency to funding_currency."
+        )
+
+    if opportunity["funding_amount"] is not None and not opportunity["funding_currency"]:
+        warnings.append("Funding amount is provided but funding_currency is missing.")
+
+    if opportunity["funding_currency"] and opportunity["funding_amount"] is None:
+        warnings.append("Funding currency is provided but funding_amount is missing.")
+
+    if len(opportunity["stipend_summary"]) > 120:
+        warnings.append(
+            "stipend_summary should be a short note only. Put full funding explanation in benefits."
+        )
+
     opportunity["degree_levels"] = clean_string_list(opportunity_payload.get("degree_levels"))
     opportunity["required_documents"] = clean_string_list(
         opportunity_payload.get("required_documents")
@@ -452,6 +478,13 @@ def clean_funding_amount(value, warnings):
         return None
 
     return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def looks_like_amount_text(value):
+    if not value:
+        return False
+
+    return bool(AMOUNT_TEXT_RE.search(str(value)))
 
 
 def build_duplicate_candidate_data(opportunity_data, pathway=None, exclude_id=None):

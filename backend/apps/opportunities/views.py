@@ -441,7 +441,7 @@ class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        return (
+        queryset = (
             Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
             .select_related(
                 "country_ref",
@@ -455,6 +455,28 @@ class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
                 "study_field_refs",
             )
         )
+
+        params = self.request.query_params
+        today = timezone.localdate()
+        search = (params.get("search") or "").strip()
+        include_expired = parse_bool(params.get("include_expired"))
+        expired = parse_bool(params.get("expired"))
+
+        if expired is True:
+            return queryset.filter(
+                is_rolling_deadline=False,
+                deadline__isnull=False,
+                deadline__lt=today,
+            )
+
+        if include_expired is not True and not search:
+            queryset = queryset.exclude(
+                is_rolling_deadline=False,
+                deadline__isnull=False,
+                deadline__lt=today,
+            )
+
+        return queryset
 
 
 class PublicOpportunityDetailView(generics.RetrieveAPIView):

@@ -48,6 +48,8 @@ type ScholarshipEditForm = {
   deadline: string;
   is_rolling_deadline: boolean;
   funding_type: string;
+  funding_amount: string;
+  funding_currency: string;
   stipend_summary: string;
   degree_levels: string;
   fields_of_study: string;
@@ -83,6 +85,8 @@ const emptyForm: ScholarshipEditForm = {
   deadline: "",
   is_rolling_deadline: false,
   funding_type: "",
+  funding_amount: "",
+  funding_currency: "",
   stipend_summary: "",
   degree_levels: "",
   fields_of_study: "",
@@ -146,6 +150,11 @@ function buildForm(opportunity: OpportunityDetail): ScholarshipEditForm {
     deadline: dateInputValue(opportunity.deadline),
     is_rolling_deadline: Boolean(opportunity.is_rolling_deadline),
     funding_type: opportunity.funding_type || "",
+    funding_amount:
+      opportunity.funding_amount === null || opportunity.funding_amount === undefined
+        ? ""
+        : String(opportunity.funding_amount),
+    funding_currency: opportunity.funding_currency || "",
     stipend_summary: opportunity.stipend_summary || "",
     degree_levels: listToText(opportunity.degree_levels),
     fields_of_study: listToText(opportunity.fields_of_study),
@@ -174,12 +183,47 @@ function getPublishReadiness(form: ScholarshipEditForm) {
   if (!form.benefits.trim()) issues.push("Benefits missing");
   if (!form.eligibility.trim()) issues.push("Eligibility missing");
   if (!form.how_to_apply.trim()) issues.push("How to apply missing");
-  if (!form.funding_type && !form.stipend_summary.trim()) issues.push("Funding unclear");
+  if (!form.funding_type && !form.funding_amount.trim()) issues.push("Funding unclear");
   if (textToList(form.degree_levels).length === 0) issues.push("Degree levels missing");
   if (textToList(form.fields_of_study).length === 0) issues.push("Fields missing");
   if (form.status === "published" && !form.verified_status) issues.push("Published but unverified");
 
   return issues;
+}
+
+function looksLikeAmountText(value: string) {
+  return /(\$|€|£|USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD)\s?\d|\d[\d,]*(\.\d+)?\s?(USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD|€|£|\$)/i.test(
+    value,
+  );
+}
+
+function getStipendWarnings(form: ScholarshipEditForm) {
+  const warnings: string[] = [];
+  const stipendSummary = form.stipend_summary.trim();
+  const fundingAmount = form.funding_amount.trim();
+  const fundingCurrency = form.funding_currency.trim();
+
+  if (looksLikeAmountText(stipendSummary) && !fundingAmount) {
+    warnings.push(
+      "Stipend amount appears to be in stipend_summary. Move the numeric amount to funding_amount and currency to funding_currency.",
+    );
+  }
+
+  if (fundingAmount && !fundingCurrency) {
+    warnings.push("Funding amount is provided but funding_currency is missing.");
+  }
+
+  if (fundingCurrency && !fundingAmount) {
+    warnings.push("Funding currency is provided but funding_amount is missing.");
+  }
+
+  if (stipendSummary.length > 120) {
+    warnings.push(
+      "stipend_summary should be a short note only. Put full funding explanation in benefits.",
+    );
+  }
+
+  return warnings;
 }
 
 function TextInput({
@@ -279,6 +323,7 @@ function AdminScholarshipEditContent() {
     return `/scholarships/${opportunity.slug}`;
   }, [opportunity]);
   const publishReadiness = useMemo(() => getPublishReadiness(form), [form]);
+  const stipendWarnings = useMemo(() => getStipendWarnings(form), [form]);
 
   function updateField<K extends keyof ScholarshipEditForm>(
     field: K,
@@ -419,6 +464,8 @@ function AdminScholarshipEditContent() {
       deadline: form.is_rolling_deadline || !form.deadline ? null : form.deadline,
       is_rolling_deadline: form.is_rolling_deadline,
       funding_type: form.funding_type,
+      funding_amount: form.funding_amount.trim() || null,
+      funding_currency: form.funding_currency.trim(),
       stipend_summary: form.stipend_summary.trim(),
       degree_levels: textToList(form.degree_levels),
       fields_of_study: textToList(form.fields_of_study),
@@ -609,6 +656,19 @@ function AdminScholarshipEditContent() {
                         ))}
                       </select>
                     </label>
+                    <TextInput
+                      label="Funding amount"
+                      value={form.funding_amount}
+                      onChange={(value) => updateField("funding_amount", value)}
+                      placeholder="1200"
+                      type="number"
+                    />
+                    <TextInput
+                      label="Funding currency"
+                      value={form.funding_currency}
+                      onChange={(value) => updateField("funding_currency", value)}
+                      placeholder="EUR"
+                    />
                   </div>
 
                   <TextArea
@@ -622,8 +682,21 @@ function AdminScholarshipEditContent() {
                     label="Stipend summary"
                     value={form.stipend_summary}
                     onChange={(value) => updateField("stipend_summary", value)}
-                    placeholder="Tuition, monthly stipend, travel allowance..."
+                    placeholder="monthly stipend"
                   />
+                  <p className="-mt-1 text-xs font-medium text-ink/55 dark:text-white/45">
+                    Do not put the amount here. Put numeric amount in Funding amount and currency
+                    in Funding currency. Use Stipend summary only for a short note.
+                  </p>
+                  {stipendWarnings.length > 0 ? (
+                    <div className="rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-sm leading-6 text-ink/70 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/60">
+                      <ul className="list-disc space-y-1 pl-4">
+                        {stipendWarnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
 

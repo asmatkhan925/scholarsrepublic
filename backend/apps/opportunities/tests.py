@@ -770,6 +770,77 @@ class OpportunityAPITests(APITestCase):
         self.assertIn(scholarship.slug, slugs)
         self.assertNotIn("sample-job", slugs)
 
+    def test_scholarships_default_excludes_expired(self):
+        future = self.opportunity(slug="future-scholarship")
+        expired = self.opportunity(
+            title="Expired Unique Scholarship",
+            slug="expired-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+        rolling = self.opportunity(
+            title="Rolling Scholarship",
+            slug="rolling-scholarship",
+            deadline=None,
+            is_rolling_deadline=True,
+        )
+        self.opportunity(
+            title="Draft Expired Scholarship",
+            slug="draft-expired-scholarship",
+            status=Opportunity.Status.DRAFT,
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.get("/api/scholarships/")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(future.slug, slugs)
+        self.assertIn(rolling.slug, slugs)
+        self.assertNotIn(expired.slug, slugs)
+        self.assertNotIn("draft-expired-scholarship", slugs)
+
+    def test_scholarships_include_expired_param_includes_expired(self):
+        expired = self.opportunity(
+            title="Expired Unique Scholarship",
+            slug="expired-include-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.get("/api/scholarships/?include_expired=true")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(expired.slug, slugs)
+
+    def test_scholarships_expired_param_returns_only_expired(self):
+        future = self.opportunity(slug="future-not-expired-scholarship")
+        expired = self.opportunity(
+            title="Expired Unique Scholarship",
+            slug="expired-only-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.get("/api/scholarships/?expired=true")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(expired.slug, slugs)
+        self.assertNotIn(future.slug, slugs)
+
+    def test_scholarships_search_includes_expired(self):
+        expired = self.opportunity(
+            title="Expired Unique Scholarship",
+            slug="expired-search-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.get("/api/scholarships/?search=Expired Unique")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(expired.slug, slugs)
+
     def test_filter_by_country(self):
         china = self.opportunity(slug="china-opportunity", country="China")
         self.opportunity(slug="germany-opportunity", country="Germany")
@@ -1549,6 +1620,86 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(draft.status, OpportunityDraft.Status.IMPORTED)
         self.assertIn(
             "Invalid funding_amount cannot be negative; skipped.",
+            draft.validation_warnings,
+        )
+
+    def test_opportunity_draft_validation_warns_when_stipend_summary_contains_amount(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Stipend Summary Amount",
+            slug="draft-import-stipend-summary-amount",
+            raw_payload=self.draft_payload(
+                slug="draft-import-stipend-summary-amount-opportunity",
+                stipend_summary="Full tuition plus EUR 1200 monthly stipend.",
+                funding_amount=None,
+                funding_currency="",
+            ),
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        draft.refresh_from_db()
+        self.assertIn(
+            "Stipend amount appears to be in stipend_summary. Move the numeric amount to funding_amount and currency to funding_currency.",
+            draft.validation_warnings,
+        )
+
+    def test_opportunity_draft_validation_warns_when_amount_or_currency_missing(self):
+        amount_only = OpportunityDraft.objects.create(
+            title="Draft Import Amount Only",
+            slug="draft-import-amount-only",
+            raw_payload=self.draft_payload(
+                slug="draft-import-amount-only-opportunity",
+                funding_amount="1200",
+                funding_currency="",
+            ),
+            created_by=self.admin,
+        )
+        currency_only = OpportunityDraft.objects.create(
+            title="Draft Import Currency Only",
+            slug="draft-import-currency-only",
+            raw_payload=self.draft_payload(
+                slug="draft-import-currency-only-opportunity",
+                funding_amount=None,
+                funding_currency="EUR",
+            ),
+            created_by=self.admin,
+        )
+
+        import_opportunity_draft(amount_only, user=self.admin)
+        import_opportunity_draft(currency_only, user=self.admin)
+
+        amount_only.refresh_from_db()
+        currency_only.refresh_from_db()
+        self.assertIn(
+            "Funding amount is provided but funding_currency is missing.",
+            amount_only.validation_warnings,
+        )
+        self.assertIn(
+            "Funding currency is provided but funding_amount is missing.",
+            currency_only.validation_warnings,
+        )
+
+    def test_opportunity_draft_validation_warns_when_stipend_summary_is_long(self):
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Long Stipend Summary",
+            slug="draft-import-long-stipend-summary",
+            raw_payload=self.draft_payload(
+                slug="draft-import-long-stipend-summary-opportunity",
+                stipend_summary=(
+                    "This scholarship includes tuition support, living allowance, travel support, "
+                    "insurance, research funds, settlement support, and other benefits."
+                ),
+            ),
+            created_by=self.admin,
+        )
+
+        import_opportunity_draft(draft, user=self.admin)
+
+        draft.refresh_from_db()
+        self.assertIn(
+            "stipend_summary should be a short note only. Put full funding explanation in benefits.",
             draft.validation_warnings,
         )
 
