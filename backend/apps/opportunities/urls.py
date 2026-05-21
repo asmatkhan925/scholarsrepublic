@@ -19,6 +19,8 @@ from apps.opportunities.views import (
     AdminOpportunityListCreateView,
     AdminOpportunityPathwayDetailView,
     AdminOpportunityPathwayListCreateView,
+    AgentScholarshipCreateDraftView,
+    AgentScholarshipValidateView,
     OpportunityCommentDeleteView,
     OpportunityMatchView,
     PublicOpportunityDetailView,
@@ -122,6 +124,16 @@ urlpatterns = [
         "admin/overview/",
         AdminOverviewView.as_view(),
         name="admin-overview",
+    ),
+    path(
+        "admin/agent/scholarships/validate/",
+        AgentScholarshipValidateView.as_view(),
+        name="agent-scholarship-validate",
+    ),
+    path(
+        "admin/agent/scholarships/create-draft/",
+        AgentScholarshipCreateDraftView.as_view(),
+        name="agent-scholarship-create-draft",
     ),
     path(
         "admin/opportunity-pathways/",

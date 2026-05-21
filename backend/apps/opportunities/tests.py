@@ -6,7 +6,7 @@ from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -362,6 +362,247 @@ class OpportunityAPITests(APITestCase):
 
     def results(self, response):
         return response.data["results"]
+
+    def agent_headers(self, token="test-token"):
+        return {"HTTP_X_AGENT_TOKEN": token}
+
+    def assert_json_response(self, response):
+        self.assertIn("application/json", response["Content-Type"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_rejects_missing_token_with_json_403(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": self.draft_payload()},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_rejects_wrong_token_with_json_403(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": self.draft_payload()},
+            format="json",
+            **self.agent_headers("wrong-token"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="")
+    def test_agent_validate_returns_json_403_when_token_not_configured(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": self.draft_payload()},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Agent API is not configured."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_accepts_payload_shape(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": self.draft_payload()},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["valid"])
+        self.assertEqual(response.data["errors"], [])
+        self.assertIn("normalized_payload", response.data)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_accepts_raw_payload_fallback(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            self.draft_payload(),
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["valid"])
+        self.assertEqual(response.data["errors"], [])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_returns_400_json_for_invalid_body(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"unexpected": "shape"},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data["valid"])
+        self.assertEqual(
+            response.data["errors"],
+            ["Request body must include a payload object."],
+        )
+        self.assertIsNone(response.data["normalized_payload"])
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_does_not_create_draft_or_opportunity(self):
+        draft_count = OpportunityDraft.objects.count()
+        opportunity_count = Opportunity.objects.count()
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": self.draft_payload()},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(OpportunityDraft.objects.count(), draft_count)
+        self.assertEqual(Opportunity.objects.count(), opportunity_count)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_does_not_create_missing_references(self):
+        payload = self.draft_payload(
+            slug="agent-validation-missing-references",
+            country="Atlantis Testland",
+            country_region="Europe",
+            eligible_countries=["Nowhere Eligible Testland"],
+            fields_of_study=["Quantum Basket Weaving"],
+            all_study_fields=False,
+            pathway="Uncreated Agent Pathway",
+        )
+        payload["create_missing_references"] = True
+        country_count = Country.objects.count()
+        field_count = StudyField.objects.count()
+        pathway_count = OpportunityPathway.objects.count()
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Country.objects.count(), country_count)
+        self.assertEqual(StudyField.objects.count(), field_count)
+        self.assertEqual(OpportunityPathway.objects.count(), pathway_count)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_rejects_missing_token(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {"payload": self.draft_payload()},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_rejects_wrong_token(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {"payload": self.draft_payload()},
+            format="json",
+            **self.agent_headers("wrong-token"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_returns_400_json_for_invalid_body(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {"unexpected": "shape"},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data["valid"])
+        self.assertEqual(
+            response.data["errors"],
+            ["Request body must include a payload object."],
+        )
+        self.assertIsNone(response.data["normalized_payload"])
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_validation_errors_do_not_create_draft(self):
+        payload = self.draft_payload(title="", country="")
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIsNone(response.data["draft_id"])
+        self.assertEqual(response.data["edit_url"], "")
+        self.assertGreater(len(response.data["validation_errors"]), 0)
+        self.assertEqual(OpportunityDraft.objects.count(), 0)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_with_valid_token_creates_draft_only(self):
+        payload = self.draft_payload(slug="agent-created-draft-only")
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {
+                "payload": payload,
+                "source_url": "https://official.example/scholarship",
+                "source_text": "Official source excerpt.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        draft = OpportunityDraft.objects.get(pk=response.data["draft_id"])
+        self.assertEqual(draft.title, payload["opportunity"]["title"])
+        self.assertEqual(draft.raw_payload["opportunity"], payload["opportunity"])
+        self.assertEqual(draft.raw_payload["source_url"], "https://official.example/scholarship")
+        self.assertEqual(draft.raw_payload["source_text"], "Official source excerpt.")
+        self.assertEqual(draft.status, OpportunityDraft.Status.VALIDATED)
+        self.assertEqual(draft.source_url, "https://official.example/scholarship")
+        self.assertIsNone(draft.created_opportunity)
+        self.assertIn(
+            f"/dashboard/admin/scholarships/drafts/{draft.pk}/edit",
+            response.data["edit_url"],
+        )
+        self.assertEqual(Opportunity.objects.count(), 0)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_does_not_publish_opportunity(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {"payload": self.draft_payload(slug="agent-no-publish")},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(
+            Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED).exists()
+        )
+        self.assertEqual(Opportunity.objects.count(), 0)
 
     def test_public_can_list_published_opportunities(self):
         opportunity = self.opportunity(

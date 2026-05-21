@@ -1,7 +1,13 @@
-from datetime import timedelta
+import logging
+import secrets
+from datetime import date, timedelta
+from decimal import Decimal
+
+from django.conf import settings
 from django.db.models import Count, F, Prefetch, Q
 from django.utils import timezone
 from rest_framework import generics, permissions, status
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
@@ -26,6 +32,8 @@ from apps.opportunities.services.opportunity_draft_importer import (
     validate_opportunity_draft_payload,
 )
 from apps.users.models import User
+
+logger = logging.getLogger(__name__)
 
 
 def parse_bool(value):
@@ -68,6 +76,110 @@ def collect_pathway_and_descendant_ids(pathways):
     return list(seen)
 
 
+def _agent_api_configured():
+    return bool(getattr(settings, "SCHOLARS_AGENT_TOKEN", ""))
+
+
+def _agent_token_valid(request):
+    expected = getattr(settings, "SCHOLARS_AGENT_TOKEN", "")
+    provided = request.headers.get("X-Agent-Token", "")
+    return bool(expected) and secrets.compare_digest(provided, expected)
+
+
+def _extract_agent_payload(request):
+    data = request.data
+
+    if not isinstance(data, dict):
+        return None
+
+    payload = data.get("payload")
+    if isinstance(payload, dict):
+        return payload
+
+    if isinstance(data.get("opportunity"), dict):
+        return data
+
+    return None
+
+
+def _invalid_agent_payload_response():
+    return {
+        "valid": False,
+        "errors": ["Request body must include a payload object."],
+        "warnings": [],
+        "missing_information": [],
+        "normalized_payload": None,
+    }
+
+
+def _json_safe_value(value):
+    if isinstance(value, (date, Decimal)):
+        return value
+
+    if hasattr(value, "pk"):
+        return {
+            "id": value.pk,
+            "name": getattr(value, "name", None) or getattr(value, "title", str(value)),
+        }
+
+    if isinstance(value, list):
+        return [_json_safe_value(item) for item in value]
+
+    if isinstance(value, dict):
+        return {key: _json_safe_value(item) for key, item in value.items()}
+
+    return value
+
+
+def _normalize_agent_validation(cleaned):
+    if not isinstance(cleaned, dict):
+        return {}
+
+    normalized = _json_safe_value(cleaned)
+    duplicate_matches = normalized.get("duplicate_matches")
+    if isinstance(duplicate_matches, list):
+        normalized["duplicate_matches"] = [
+            {
+                "id": match.get("id"),
+                "title": match.get("title"),
+                "slug": match.get("slug"),
+                "confidence": match.get("confidence"),
+                "reasons": match.get("reasons", []),
+            }
+            for match in duplicate_matches
+            if isinstance(match, dict)
+        ]
+
+    return normalized
+
+
+def _agent_missing_information(payload):
+    opportunity = payload.get("opportunity", {}) if isinstance(payload, dict) else {}
+    missing_information = opportunity.get("missing_information", [])
+    return missing_information if isinstance(missing_information, list) else []
+
+
+def _agent_source_value(request, payload, field_name):
+    value = request.data.get(field_name) if isinstance(request.data, dict) else ""
+    if value:
+        return value
+
+    if isinstance(payload, dict):
+        if payload.get(field_name):
+            return payload.get(field_name)
+
+        opportunity = payload.get("opportunity")
+        if isinstance(opportunity, dict):
+            return opportunity.get(field_name, "")
+
+    return ""
+
+
+def _agent_admin_edit_url(draft):
+    base_url = getattr(settings, "FRONTEND_URL", "https://scholarsrepublic.org").rstrip("/")
+    return f"{base_url}/dashboard/admin/scholarships/drafts/{draft.pk}/edit"
+
+
 def public_pathway_queryset():
     return (
         OpportunityPathway.objects.filter(is_active=True)
@@ -106,6 +218,127 @@ class IsStudentUser(permissions.BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.role == User.Role.STUDENT
+        )
+
+
+class AgentScholarshipBaseView(APIView):
+    authentication_classes = []
+    permission_classes = []
+    renderer_classes = [JSONRenderer]
+
+    def authorize_agent(self, request):
+        if not _agent_api_configured():
+            return Response(
+                {"detail": "Agent API is not configured."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not _agent_token_valid(request):
+            return Response(
+                {"detail": "Missing or invalid agent token."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return None
+
+
+class AgentScholarshipValidateView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        payload = _extract_agent_payload(request)
+        if payload is None:
+            return Response(
+                _invalid_agent_payload_response(),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            cleaned, warnings, errors = validate_opportunity_draft_payload(payload)
+        except Exception:
+            logger.exception("Agent scholarship validation failed.")
+            return Response(
+                {"detail": "Agent API request failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "valid": not bool(errors),
+                "errors": errors,
+                "warnings": warnings,
+                "missing_information": _agent_missing_information(payload),
+                "normalized_payload": _normalize_agent_validation(cleaned),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AgentScholarshipCreateDraftView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        payload = _extract_agent_payload(request)
+        if payload is None:
+            return Response(
+                _invalid_agent_payload_response(),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            cleaned, warnings, errors = validate_opportunity_draft_payload(payload)
+            normalized_payload = _normalize_agent_validation(cleaned)
+            if errors:
+                return Response(
+                    {
+                        "draft_id": None,
+                        "edit_url": "",
+                        "warnings": warnings,
+                        "validation_errors": errors,
+                        "normalized_payload": normalized_payload,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            opportunity = cleaned.get("opportunity", {})
+            title = opportunity.get("title") or payload.get("opportunity", {}).get("title")
+            draft_payload = dict(payload)
+            source_url = _agent_source_value(request, payload, "source_url")
+            source_text = _agent_source_value(request, payload, "source_text")
+            if source_url:
+                draft_payload["source_url"] = source_url
+            if source_text:
+                draft_payload["source_text"] = source_text
+            draft = OpportunityDraft.objects.create(
+                title=title or "Imported scholarship draft",
+                raw_payload=draft_payload,
+                status=OpportunityDraft.Status.VALIDATED,
+                source_url=source_url or opportunity.get("source_url", ""),
+                source_name=opportunity.get("source_name", ""),
+                confidence=cleaned.get("confidence", ""),
+                validation_warnings=warnings,
+                validation_errors=[],
+            )
+        except Exception:
+            logger.exception("Agent scholarship draft creation failed.")
+            return Response(
+                {"detail": "Agent API request failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "draft_id": draft.pk,
+                "edit_url": _agent_admin_edit_url(draft),
+                "warnings": warnings,
+                "validation_errors": [],
+                "normalized_payload": normalized_payload,
+            },
+            status=status.HTTP_201_CREATED,
         )
 
 
