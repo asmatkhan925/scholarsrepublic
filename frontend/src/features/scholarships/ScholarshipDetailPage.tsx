@@ -47,6 +47,23 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatFundingAmount(
+  amount: string | number | null | undefined,
+  currency?: string | null,
+) {
+  if (amount === null || amount === undefined || amount === "") {
+    return "";
+  }
+
+  const amountText = String(amount).trim();
+  if (!amountText) {
+    return "";
+  }
+
+  const currencyText = currency?.trim();
+  return currencyText ? `${currencyText} ${amountText}` : amountText;
+}
+
 function getDeadlineTone(scholarship: OpportunityDetail): "mint" | "saffron" | "danger" | "sky" {
   if (scholarship.days_until_deadline === null) {
     return "sky";
@@ -494,26 +511,13 @@ export default function ScholarshipDetailPage({
 
   const stipendFact = useMemo(() => {
     if (!scholarship) {
-      return "Check official source";
+      return "Not listed";
     }
 
-    if (scholarship.stipend_summary) {
-      return scholarship.stipend_summary;
-    }
-
-    if (scholarship.funding_amount && scholarship.funding_currency) {
-      return `${scholarship.funding_amount} ${scholarship.funding_currency}`;
-    }
-
-    if (scholarship.funding_amount) {
-      return String(scholarship.funding_amount);
-    }
-
-    if (scholarship.funding_currency) {
-      return scholarship.funding_currency;
-    }
-
-    return "Check official source";
+    return (
+      formatFundingAmount(scholarship.funding_amount, scholarship.funding_currency) ||
+      "Not listed"
+    );
   }, [scholarship]);
 
   const facts = useMemo(() => {
@@ -529,14 +533,11 @@ export default function ScholarshipDetailPage({
       {
         label: "Funding",
         value: humanize(scholarship.funding_type),
-        helper: scholarship.funding_amount
-          ? `${scholarship.funding_amount} ${scholarship.funding_currency}`
-          : undefined,
+        helper: formatFundingAmount(scholarship.funding_amount, scholarship.funding_currency),
       },
       {
         label: "Stipend",
         value: stipendFact,
-        helper: scholarship.stipend_summary || undefined,
       },
       {
         label: "Degree",

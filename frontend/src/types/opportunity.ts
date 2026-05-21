@@ -57,6 +57,8 @@ export type OpportunityListItem = {
   location_type: string;
   short_description: string;
   funding_type: string;
+  funding_amount: string | number | null;
+  funding_currency: string;
   stipend_summary: string;
   degree_levels: string[];
   fields_of_study: string[];
@@ -92,8 +94,6 @@ export type OpportunityDetail = OpportunityListItem & {
   min_cgpa: string | null;
   min_percentage: string | null;
   min_education_level: string;
-  funding_amount: string | null;
-  funding_currency: string;
   application_fee_amount: string | null;
   application_fee_currency: string;
   toefl_required: boolean;

@@ -69,6 +69,23 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatFundingAmount(
+  amount: string | number | null | undefined,
+  currency?: string | null,
+) {
+  if (amount === null || amount === undefined || amount === "") {
+    return "";
+  }
+
+  const amountText = String(amount).trim();
+  if (!amountText) {
+    return "";
+  }
+
+  const currencyText = currency?.trim();
+  return currencyText ? `${currencyText} ${amountText}` : amountText;
+}
+
 function getDeadlineTone(scholarship: OpportunityListItem): "mint" | "saffron" | "danger" | "sky" {
   if (scholarship.days_until_deadline === null) {
     return "sky";
@@ -147,7 +164,8 @@ function ScholarshipCard({
   const deadlineTone = getDeadlineTone(scholarship);
   const fundingLabel = humanize(scholarship.funding_type);
   const pathway = scholarship.pathway_detail;
-  const stipendLabel = scholarship.stipend_summary || "See details";
+  const stipendLabel =
+    formatFundingAmount(scholarship.funding_amount, scholarship.funding_currency) || "Not listed";
 
   return (
     <Card className="self-start overflow-hidden transition hover:-translate-y-0.5 hover:border-pine/20 hover:shadow-lg dark:border-white/10 dark:bg-[#181b1d]">

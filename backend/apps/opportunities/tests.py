@@ -361,13 +361,22 @@ class OpportunityAPITests(APITestCase):
         return response.data["results"]
 
     def test_public_can_list_published_opportunities(self):
-        opportunity = self.opportunity(stipend_summary="Official monthly allowance listed")
+        opportunity = self.opportunity(
+            funding_type=Opportunity.FundingType.STIPEND_ONLY,
+            funding_amount=1200,
+            funding_currency="EUR",
+            stipend_summary="monthly stipend",
+        )
 
-        response = self.client.get("/api/opportunities/")
+        response = self.client.get("/api/scholarships/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         list_item = [item for item in self.results(response) if item["slug"] == opportunity.slug][0]
-        self.assertEqual(list_item["stipend_summary"], "Official monthly allowance listed")
+        self.assertIn("funding_amount", list_item)
+        self.assertIn("funding_currency", list_item)
+        self.assertEqual(str(list_item["funding_amount"]), "1200.00")
+        self.assertEqual(list_item["funding_currency"], "EUR")
+        self.assertEqual(list_item["stipend_summary"], "monthly stipend")
 
     def test_public_cannot_list_draft_opportunities(self):
         draft = self.opportunity(

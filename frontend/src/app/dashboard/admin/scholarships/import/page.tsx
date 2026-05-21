@@ -48,6 +48,7 @@ type JsonPreview =
       fieldsOfStudy: string[];
       allStudyFields: boolean;
       funding: string;
+      stipendAmount: string;
       stipendSummary: string;
       source: string;
       pathway: string;
@@ -236,7 +237,7 @@ function buildCompletenessChecklist(opportunity: Record<string, unknown>): Check
     },
     {
       label: "Funding type or stipend",
-      complete: Boolean(getText(opportunity.funding_type) || getText(opportunity.stipend_summary)),
+      complete: Boolean(getText(opportunity.funding_type) || getText(opportunity.funding_amount)),
     },
     { label: "Degree levels", complete: getTextList(opportunity.degree_levels).length > 0 },
     {
@@ -525,6 +526,17 @@ FUNDING RULES
 - If exact amount is clear, fill funding_amount and funding_currency.
 - If amount is unclear, use funding_amount null and funding_currency empty.
 
+Stipend and amount rules:
+- \`funding_amount\` must contain only the numeric amount. Do not include words, explanations, ranges with text, or sentences.
+- \`funding_currency\` must contain only the currency code or symbol, such as USD, EUR, GBP, CNY, PKR, TRY, or €.
+- \`stipend_summary\` is optional and must be very short, for example "monthly stipend", "annual amount", or "amount varies".
+- Do not put a long sentence or benefit explanation in \`stipend_summary\`.
+- Put the full funding explanation in \`benefits\`, not in \`stipend_summary\`.
+- If the source gives no exact amount, set:
+  "funding_amount": null,
+  "funding_currency": "",
+  "stipend_summary": ""
+
 LANGUAGE AND TEST RULES
 - Set ielts_required, toefl_required, duolingo_required, hsk_required only when clearly stated.
 - Set english_proficiency_certificate_accepted only when clearly stated.
@@ -632,6 +644,10 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         fieldsOfStudy: getTextList(opportunity.fields_of_study),
         allStudyFields,
         funding: humanize(getText(opportunity.funding_type)) || "Funding type missing",
+        stipendAmount:
+          getText(opportunity.funding_amount) && getText(opportunity.funding_currency)
+            ? `${getText(opportunity.funding_currency)} ${getText(opportunity.funding_amount)}`
+            : getText(opportunity.funding_amount) || "Not listed",
         stipendSummary: getText(opportunity.stipend_summary),
         source: officialLink || sourceUrlValue || "Source missing",
         pathway:
@@ -1005,12 +1021,12 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                           />
                           <PreviewField
                             label="Funding"
-                            value={
-                              jsonPreview.stipendSummary
-                                ? `${jsonPreview.funding} · ${jsonPreview.stipendSummary}`
-                                : jsonPreview.funding
-                            }
+                            value={jsonPreview.funding}
                           />
+                          <PreviewField label="Stipend amount" value={jsonPreview.stipendAmount} />
+                          {jsonPreview.stipendSummary ? (
+                            <PreviewField label="Stipend note" value={jsonPreview.stipendSummary} />
+                          ) : null}
                           <PreviewField label="Deadline" value={jsonPreview.deadline} />
                           <PreviewField label="Official link" value={jsonPreview.officialLink} />
                           <PreviewField label="Source URL" value={jsonPreview.sourceUrl} />

@@ -173,6 +173,8 @@ class OpportunityListSerializer(serializers.ModelSerializer):
             "location_type",
             "short_description",
             "funding_type",
+            "funding_amount",
+            "funding_currency",
             "stipend_summary",
             "degree_levels",
             "fields_of_study",
