@@ -24,7 +24,6 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/components/ui";
 import {
   getCountries,
-  getOpportunityPathways,
   getOpportunityPathway,
   getStudyFields,
   getRecommendedScholarships,
@@ -379,11 +378,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
   const [field, setField] = useState("");
   const [fieldOptions, setFieldOptions] = useState<string[]>([]);
-  const [rootPathways, setRootPathways] = useState<OpportunityPathwayDetail[]>([]);
-  const [childPathways, setChildPathways] = useState<OpportunityPathwayDetail[]>([]);
-  const [pathwaysLoading, setPathwaysLoading] = useState(false);
-  const [selectedRootPathwaySlug, setSelectedRootPathwaySlug] = useState("");
   const [selectedPathwaySlug, setSelectedPathwaySlug] = useState("");
+  const [selectedPathwayLabel, setSelectedPathwayLabel] = useState("");
   const [exactPathway, setExactPathway] = useState(false);
   const [pathwayQueryInitialized, setPathwayQueryInitialized] = useState(false);
 
@@ -436,71 +432,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       mounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadRootPathways() {
-      setPathwaysLoading(true);
-
-      try {
-        const response = await getOpportunityPathways({ root_only: true });
-
-        if (mounted) {
-          setRootPathways(response.results);
-        }
-      } catch {
-        if (mounted) {
-          setRootPathways([]);
-        }
-      } finally {
-        if (mounted) {
-          setPathwaysLoading(false);
-        }
-      }
-    }
-
-    void loadRootPathways();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadChildPathways() {
-      if (!selectedRootPathwaySlug) {
-        setChildPathways([]);
-        return;
-      }
-
-      setPathwaysLoading(true);
-
-      try {
-        const response = await getOpportunityPathways({ parent: selectedRootPathwaySlug });
-
-        if (mounted) {
-          setChildPathways(response.results);
-        }
-      } catch {
-        if (mounted) {
-          setChildPathways([]);
-        }
-      } finally {
-        if (mounted) {
-          setPathwaysLoading(false);
-        }
-      }
-    }
-
-    void loadChildPathways();
-
-    return () => {
-      mounted = false;
-    };
-  }, [selectedRootPathwaySlug]);
 
   const [fundingType, setFundingType] = useState("");
   const [noIelts, setNoIelts] = useState(false);
@@ -582,6 +513,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
     async function loadSelectedPathwayContext() {
       if (!selectedPathwaySlug) {
+        setSelectedPathwayLabel("");
         return;
       }
 
@@ -592,10 +524,10 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           return;
         }
 
-        setSelectedRootPathwaySlug(pathway.parent_slug || pathway.slug);
+        setSelectedPathwayLabel(pathway.full_path || pathway.title || pathway.slug);
       } catch {
         if (mounted) {
-          setSelectedRootPathwaySlug("");
+          setSelectedPathwayLabel(selectedPathwaySlug);
         }
       }
     }
@@ -727,29 +659,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     filters.verified,
   );
 
-  const selectedPathway = useMemo(() => {
-    return [...rootPathways, ...childPathways].find((item) => item.slug === selectedPathwaySlug);
-  }, [childPathways, rootPathways, selectedPathwaySlug]);
-
-  const sortedRootPathways = useMemo(() => {
-    return [...rootPathways].sort((first, second) => {
-      const firstHasPublished = first.published_opportunity_count > 0 ? 0 : 1;
-      const secondHasPublished = second.published_opportunity_count > 0 ? 0 : 1;
-
-      if (firstHasPublished !== secondHasPublished) {
-        return firstHasPublished - secondHasPublished;
-      }
-
-      return first.display_order - second.display_order || first.title.localeCompare(second.title);
-    });
-  }, [rootPathways]);
-
-  const sortedChildPathways = useMemo(() => {
-    return [...childPathways].sort((first, second) => {
-      return first.display_order - second.display_order || first.title.localeCompare(second.title);
-    });
-  }, [childPathways]);
-
   const selectedFundingLabel = useMemo(() => {
     return FUNDING_TYPES.find((item) => item.value === fundingType)?.label ?? "";
   }, [fundingType]);
@@ -766,7 +675,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   }, [country, field, noApplicationFee, noIelts, selectedFundingLabel, verified]);
 
   const activeFilterSummary = useMemo(() => {
-    const pathwayName = selectedPathway?.full_path || selectedPathwaySlug;
+    const pathwayName = selectedPathwayLabel || selectedPathwaySlug;
     const pathwayLabel = pathwayName
       ? exactPathway
         ? `Exact pathway: ${pathwayName}`
@@ -774,7 +683,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       : "";
 
     return [...activeAdvancedFilters, pathwayLabel].filter(Boolean);
-  }, [activeAdvancedFilters, exactPathway, selectedPathway?.full_path, selectedPathwaySlug]);
+  }, [activeAdvancedFilters, exactPathway, selectedPathwayLabel, selectedPathwaySlug]);
 
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
@@ -804,8 +713,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     setNoIelts(false);
     setNoApplicationFee(false);
     setVerified(false);
-    setSelectedRootPathwaySlug("");
     setSelectedPathwaySlug("");
+    setSelectedPathwayLabel("");
     setExactPathway(false);
     const nextFilters = { ordering: "deadline" };
     setFilters(nextFilters);
@@ -817,11 +726,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     exact = Boolean(pathway.parent_id),
   ) {
     setSelectedPathwaySlug(pathway.slug);
+    setSelectedPathwayLabel(pathway.full_path || pathway.title || pathway.slug);
     setExactPathway(exact);
-
-    if (!pathway.parent_id) {
-      setSelectedRootPathwaySlug(pathway.slug);
-    }
 
     const nextFilters = {
       ...filters,
@@ -841,14 +747,9 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     updateScholarshipUrl(nextFilters);
   }
 
-  function handleRootPathwaySelect(pathway: OpportunityPathwayDetail) {
-    setSelectedRootPathwaySlug(pathway.slug);
-    handlePathwaySelect(pathway, false);
-  }
-
   function handleClearPathway() {
-    setSelectedRootPathwaySlug("");
     setSelectedPathwaySlug("");
+    setSelectedPathwayLabel("");
     setExactPathway(false);
     const next = { ...filters };
     delete next.pathway;
@@ -1002,105 +903,6 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                           ))}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="grid gap-2 rounded-2xl border border-pine/10 bg-white p-2.5 dark:border-white/10 dark:bg-white/5">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-1.5">
-                          <h3 className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-ink dark:text-white">
-                            <GraduationCap size={14} className="text-pine" aria-hidden="true" />
-                            Pathways
-                          </h3>
-                          <span className="hidden text-xs text-ink/35 md:inline">·</span>
-                          <p className="min-w-0 text-[11px] leading-4 text-ink/55 md:truncate dark:text-white/45">
-                            Filter by scholarship family, program, or application track.
-                          </p>
-                        </div>
-
-                        {selectedPathwaySlug ? (
-                          <Button
-                            type="button"
-                            className="h-8 px-2.5 text-xs"
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleClearPathway}
-                          >
-                            <X size={14} aria-hidden="true" />
-                            Clear pathway
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      {pathwaysLoading && rootPathways.length === 0 ? (
-                        <p className="text-xs text-ink/55 dark:text-white/45">
-                          Loading pathways...
-                        </p>
-                      ) : null}
-
-                      {sortedRootPathways.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {sortedRootPathways.map((pathway) => {
-                            const selected = selectedPathwaySlug === pathway.slug;
-                            const hasPublished = pathway.published_opportunity_count > 0;
-
-                            return (
-                              <button
-                                key={pathway.slug}
-                                type="button"
-                                onClick={() => handleRootPathwaySelect(pathway)}
-                                className={`min-w-0 rounded-2xl border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
-                                  selected
-                                    ? "border-pine bg-pine text-white"
-                                    : "border-pine/10 bg-white text-ink/75 hover:border-pine/30 hover:bg-mint/35 dark:border-white/10 dark:bg-[#101214] dark:text-white/65 dark:hover:bg-white/10"
-                                } ${hasPublished ? "" : "opacity-75"}`}
-                              >
-                                <span>{pathway.title}</span>
-                                {!hasPublished ? (
-                                  <span
-                                    className={`ml-1.5 text-[11px] font-medium ${
-                                      selected ? "text-white/75" : "text-ink/40 dark:text-white/35"
-                                    }`}
-                                  >
-                                    Coming soon
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-
-                      {selectedRootPathwaySlug && sortedChildPathways.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5 border-t border-pine/10 pt-2 dark:border-white/10">
-                          {sortedChildPathways.map((pathway) => {
-                            const selected = selectedPathwaySlug === pathway.slug;
-
-                            return (
-                              <button
-                                key={pathway.slug}
-                                type="button"
-                                onClick={() => handlePathwaySelect(pathway)}
-                                className={`rounded-2xl border px-2.5 py-1.5 text-xs font-semibold transition ${
-                                  selected
-                                    ? "border-pine bg-white text-pine shadow-sm dark:bg-white/10"
-                                    : "border-pine/10 bg-white text-ink/65 hover:border-pine/30 hover:bg-mint/35 dark:border-white/10 dark:bg-[#101214] dark:text-white/60 dark:hover:bg-white/10"
-                                }`}
-                              >
-                                {pathway.title}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-
-                      {selectedPathwaySlug ? (
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink/65 dark:text-white/55">
-                          <span>Showing pathway:</span>
-                          <Badge tone="mint" className="px-2 py-0.5 text-[11px]">
-                            {selectedPathway?.full_path || selectedPathwaySlug}
-                          </Badge>
-                        </div>
-                      ) : null}
                     </div>
 
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
