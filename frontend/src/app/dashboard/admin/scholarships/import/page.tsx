@@ -55,10 +55,12 @@ type JsonPreview =
       officialLink: string;
       sourceUrl: string;
       deadline: string;
+      shortDescription: string;
       benefits: string;
       eligibility: string;
       howToApply: string;
       requiredDocuments: string[];
+      scholarshipDetailUrl: string;
       warnings: string[];
       localWarnings: string[];
       missing: string[];
@@ -182,6 +184,23 @@ function normalizeDraftPayload(parsed: Record<string, unknown>) {
     title,
     rawPayload: isRecord(parsed.opportunity) ? parsed : { opportunity },
   };
+}
+
+function slugifyForScholarshipUrl(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 240);
+}
+
+function buildScholarshipDetailUrl(title: string) {
+  const slug = slugifyForScholarshipUrl(title);
+  return slug
+    ? `https://scholarsrepublic.org/scholarships/${slug}`
+    : "https://scholarsrepublic.org/scholarships";
 }
 
 function getTextList(value: unknown) {
@@ -506,6 +525,8 @@ function AdminScholarshipImportContent() {
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedFixPrompt, setCopiedFixPrompt] = useState(false);
   const [copiedJsonRepairPrompt, setCopiedJsonRepairPrompt] = useState(false);
+  const [copiedFacebookPostPrompt, setCopiedFacebookPostPrompt] = useState(false);
+  const [copiedFacebookImagePrompt, setCopiedFacebookImagePrompt] = useState(false);
   const [createdDraft, setCreatedDraft] = useState<OpportunityDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [duplicateMatches, setDuplicateMatches] = useState<AdminOpportunityDuplicateMatch[]>([]);
@@ -690,6 +711,8 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
       const sourceUrlValue = getText(opportunity.source_url);
       const deadlineValue = getText(opportunity.deadline);
       const allStudyFields = getBoolean(opportunity.all_study_fields);
+      const title = getText(opportunity.title) || "Title not detected";
+      const slug = getText(opportunity.slug);
       const fundingAmount = getText(opportunity.funding_amount);
       const fundingCurrency = getText(opportunity.funding_currency);
       const stipendSummary = getText(opportunity.stipend_summary);
@@ -701,7 +724,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
 
       return {
         valid: true,
-        title: getText(opportunity.title) || "Title not detected",
+        title,
         country: getText(opportunity.country) || "Country missing",
         provider:
           getText(opportunity.provider_name) ||
@@ -726,10 +749,14 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         deadline:
           deadlineValue ||
           (getBoolean(opportunity.is_rolling_deadline) ? "Rolling deadline" : "Deadline missing"),
+        shortDescription: getText(opportunity.short_description),
         benefits: getText(opportunity.benefits),
         eligibility: getText(opportunity.eligibility),
         howToApply: getText(opportunity.how_to_apply),
         requiredDocuments: getTextList(opportunity.required_documents),
+        scholarshipDetailUrl: slug
+          ? `https://scholarsrepublic.org/scholarships/${slug}`
+          : buildScholarshipDetailUrl(title),
         warnings: getTextList(opportunity.warnings),
         localWarnings,
         missing: getTextList(opportunity.missing_information),
@@ -916,6 +943,144 @@ Text to repair:
 ${jsonText}`;
   }, [jsonPreview, jsonText]);
 
+  const facebookPostPrompt = useMemo(() => {
+    if (!jsonPreview?.valid) {
+      return "";
+    }
+
+    const fieldText = jsonPreview.allStudyFields
+      ? "All Fields"
+      : jsonPreview.fieldsOfStudy.length
+        ? jsonPreview.fieldsOfStudy.join(", ")
+        : "Not listed";
+
+    return `You are writing a Facebook post for Scholars Republic.
+
+Write one professional, student-friendly Facebook post about this scholarship.
+
+Use only the scholarship information below.
+Do not invent benefits, eligibility, deadline, IELTS status, funding amount, countries, or documents.
+If a detail is missing, do not mention it.
+Do not overpromise.
+Do not write fake urgency.
+Do not claim “fully funded” unless funding type or benefits clearly support it.
+
+Tone:
+- clear
+- motivational
+- trustworthy
+- suitable for Pakistani and international students
+- not too long
+- no exaggerated marketing
+
+Post requirements:
+- Start with a strong first line.
+- Mention scholarship title.
+- Mention host country if available.
+- Mention university/provider if available.
+- Mention degree level if available.
+- Mention funding/stipend only if available.
+- Mention deadline if available.
+- Mention key eligible fields if available.
+- Add a short call to action.
+- Include the Scholars Republic detail-page link exactly as provided.
+- Add 5 to 8 relevant hashtags.
+- Keep the post readable on Facebook.
+- Use emojis lightly, not in every line.
+- Do not use markdown tables.
+- Do not return JSON.
+
+Scholarship data:
+Title: ${jsonPreview.title}
+Provider/University: ${jsonPreview.provider}
+Country: ${jsonPreview.country}
+Pathway: ${jsonPreview.pathway || "Not listed"}
+Degree levels: ${jsonPreview.degreeLevels.length ? jsonPreview.degreeLevels.join(", ") : "Not listed"}
+Fields of study: ${fieldText}
+Funding type: ${jsonPreview.funding}
+Stipend amount: ${jsonPreview.stipendAmount}
+Stipend note: ${jsonPreview.stipendSummary || "Not listed"}
+Deadline: ${jsonPreview.deadline}
+Short description: ${jsonPreview.shortDescription || "Not listed"}
+Benefits: ${jsonPreview.benefits || "Not listed"}
+Eligibility: ${jsonPreview.eligibility || "Not listed"}
+How to apply: ${jsonPreview.howToApply || "Not listed"}
+Official source: ${jsonPreview.officialLink || jsonPreview.sourceUrl || sourceUrl || "Not listed"}
+
+Scholars Republic detail page:
+${jsonPreview.scholarshipDetailUrl}
+
+Important:
+Use this Scholars Republic link in the post:
+${jsonPreview.scholarshipDetailUrl}
+
+Return only the Facebook post text.`;
+  }, [jsonPreview, sourceUrl]);
+
+  const facebookImagePrompt = useMemo(() => {
+    if (!jsonPreview?.valid) {
+      return "";
+    }
+
+    const fieldText = jsonPreview.allStudyFields
+      ? "All Fields"
+      : jsonPreview.fieldsOfStudy.length
+        ? jsonPreview.fieldsOfStudy.slice(0, 3).join(", ")
+        : "Not listed";
+    const fundingText =
+      jsonPreview.stipendAmount !== "Not listed" ? jsonPreview.stipendAmount : jsonPreview.funding;
+
+    return `Create a clean social media scholarship announcement image for Scholars Republic.
+
+Image format:
+- Primary size: 1080 x 1350 portrait for Facebook/Instagram feed.
+- Also keep the layout safe for 1080 x 1080 square crop.
+- Modern academic style.
+- Clean white/cream background with deep green and gold accents.
+- Use clear hierarchy and enough spacing.
+- Do not clutter the design.
+- No fake university logo.
+- No fake official seal.
+- No copyrighted logos unless provided by the user.
+- Use simple academic icons only, such as graduation cap, calendar, globe, university building, document icon.
+
+Brand text:
+Scholars Republic
+
+Main headline:
+${jsonPreview.title}
+
+Important information blocks:
+- Country: ${jsonPreview.country}
+- Provider: ${jsonPreview.provider}
+- Degree: ${jsonPreview.degreeLevels.length ? jsonPreview.degreeLevels.join(", ") : "Not listed"}
+- Funding: ${fundingText}
+- Deadline: ${jsonPreview.deadline}
+- Fields: ${fieldText}
+
+Call to action:
+Apply / Read details on ScholarsRepublic.org
+
+Footer:
+scholarsrepublic.org
+
+Design structure:
+Top: small Scholars Republic brand label.
+Center: large scholarship title, maximum 2–3 lines.
+Middle: 4 to 5 clean info cards with icons.
+Bottom: call-to-action button style text and website URL.
+Use strong contrast and readable typography.
+Avoid tiny text.
+Avoid long paragraphs.
+Make it look like a professional scholarship announcement poster.
+
+Important:
+If any value is “Not listed”, do not put that value on the image.
+Keep the poster clean and accurate.
+
+Return only the image-generation prompt.`;
+  }, [jsonPreview]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -1055,6 +1220,32 @@ ${jsonText}`;
 
     window.setTimeout(() => {
       setCopiedJsonRepairPrompt(false);
+    }, 1800);
+  }
+
+  async function copyFacebookPostPrompt() {
+    if (!facebookPostPrompt) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(facebookPostPrompt);
+    setCopiedFacebookPostPrompt(true);
+
+    window.setTimeout(() => {
+      setCopiedFacebookPostPrompt(false);
+    }, 1800);
+  }
+
+  async function copyFacebookImagePrompt() {
+    if (!facebookImagePrompt) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(facebookImagePrompt);
+    setCopiedFacebookImagePrompt(true);
+
+    window.setTimeout(() => {
+      setCopiedFacebookImagePrompt(false);
     }, 1800);
   }
 
@@ -1398,6 +1589,70 @@ ${jsonText}`;
                               )}
                               {copiedFixPrompt ? "Fix prompt copied" : "Copy GPT fix prompt"}
                             </Button>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-pine/10 bg-white px-3 py-3 dark:border-white/10 dark:bg-[#101214]">
+                          <div className="flex flex-col gap-3">
+                            <div>
+                              <p className="text-sm font-bold text-ink dark:text-white">
+                                Facebook marketing prompts
+                              </p>
+                              <p className="mt-1 text-xs font-semibold leading-5 text-ink/60 dark:text-white/50">
+                                Create a Facebook post and image design prompt from the parsed
+                                scholarship JSON. Use these after you review the draft information.
+                              </p>
+                            </div>
+
+                            <PreviewField
+                              label="Expected Scholars Republic detail link"
+                              value={jsonPreview.scholarshipDetailUrl}
+                            />
+                            <p className="-mt-1 text-xs font-medium leading-5 text-ink/55 dark:text-white/45">
+                              Verify the final link after publishing, especially if the backend adds
+                              a duplicate slug suffix.
+                            </p>
+
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <Button
+                                type="button"
+                                onClick={() => void copyFacebookPostPrompt()}
+                                size="sm"
+                                variant="outline"
+                              >
+                                {copiedFacebookPostPrompt ? (
+                                  <CheckCircle2 size={15} aria-hidden="true" />
+                                ) : (
+                                  <Clipboard size={15} aria-hidden="true" />
+                                )}
+                                {copiedFacebookPostPrompt
+                                  ? "Facebook post prompt copied"
+                                  : "Copy Facebook post prompt"}
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={() => void copyFacebookImagePrompt()}
+                                size="sm"
+                                variant="outline"
+                              >
+                                {copiedFacebookImagePrompt ? (
+                                  <CheckCircle2 size={15} aria-hidden="true" />
+                                ) : (
+                                  <Clipboard size={15} aria-hidden="true" />
+                                )}
+                                {copiedFacebookImagePrompt
+                                  ? "Image prompt copied"
+                                  : "Copy Facebook image prompt"}
+                              </Button>
+                            </div>
+
+                            <div className="grid gap-1 text-xs font-medium leading-5 text-ink/55 dark:text-white/45">
+                              <p>The post prompt uses only parsed JSON information.</p>
+                              <p>
+                                The image prompt is for Canva/Figma/GPT image tools; it does not
+                                generate or upload an image automatically.
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
