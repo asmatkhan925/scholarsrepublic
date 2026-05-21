@@ -71,7 +71,7 @@ const steps = [
   {
     title: "Open the official scholarship page",
     body: "Never rely only on social media posts. Check the official university or scholarship page and read the language requirement carefully.",
-    href: "/blog",
+    href: "/guides",
     linkText: "Read guides",
   },
   {

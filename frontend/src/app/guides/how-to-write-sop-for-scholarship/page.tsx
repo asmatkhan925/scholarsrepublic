@@ -445,7 +445,7 @@ export default function SOPGuidePage() {
               <Link href="/dashboard" className="hover:text-pine">
                 Student dashboard
               </Link>
-              <Link href="/blog" className="hover:text-pine">
+              <Link href="/guides" className="hover:text-pine">
                 Blog
               </Link>
             </nav>

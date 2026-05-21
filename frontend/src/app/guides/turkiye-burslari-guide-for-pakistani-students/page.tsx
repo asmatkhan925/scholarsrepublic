@@ -78,7 +78,7 @@ const applicationSteps = [
   {
     title: "Choose programs that match your background",
     body: "Select programs that fit your previous education, academic performance, language ability, and future goals. Do not choose only famous universities.",
-    href: "/blog",
+    href: "/guides",
     linkText: "Read guides",
   },
   {

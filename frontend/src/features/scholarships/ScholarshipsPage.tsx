@@ -68,10 +68,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function formatFundingAmount(
-  amount: string | number | null | undefined,
-  currency?: string | null,
-) {
+function formatFundingAmount(amount: string | number | null | undefined, currency?: string | null) {
   if (amount === null || amount === undefined || amount === "") {
     return "";
   }
@@ -220,7 +217,13 @@ function ScholarshipCard({
             </button>
           ) : null}
 
-          <h2 className={pathway ? "mt-2.5 text-base font-bold leading-snug text-ink md:text-lg" : "text-base font-bold leading-snug text-ink md:text-lg"}>
+          <h2
+            className={
+              pathway
+                ? "mt-2.5 text-base font-bold leading-snug text-ink md:text-lg"
+                : "text-base font-bold leading-snug text-ink md:text-lg"
+            }
+          >
             {scholarship.title}
           </h2>
 
@@ -632,9 +635,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     [data?.results, recommendations, recommendedData],
   );
   const shouldShowExpired =
-    Boolean(filters.search?.trim()) ||
-    filters.include_expired === true ||
-    filters.expired === true;
+    Boolean(filters.search?.trim()) || filters.include_expired === true || filters.expired === true;
   const visibleScholarships = useMemo(
     () => (shouldShowExpired ? scholarships : scholarships.filter((item) => !item.is_expired)),
     [scholarships, shouldShowExpired],
@@ -985,7 +986,12 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             <div className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span>{error}</span>
-                <Button type="button" size="sm" variant="outline" onClick={() => setFilters({ ...filters })}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFilters({ ...filters })}
+                >
                   Refresh
                 </Button>
               </div>
@@ -1015,7 +1021,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                       </Button>
                     </div>
                   ) : (
-                    <ButtonLink href="/blog" variant="secondary">
+                    <ButtonLink href="/guides" variant="secondary">
                       Read Scholarship Guides
                     </ButtonLink>
                   )

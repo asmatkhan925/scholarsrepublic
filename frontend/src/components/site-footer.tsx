@@ -4,7 +4,7 @@ import { GraduationCap } from "lucide-react";
 
 const footerLinks = [
   { label: "Scholarships", href: "/scholarships" },
-  { label: "Guides", href: "/blog" },
+  { label: "Guides", href: "/guides" },
   { label: "About Scholars Republic", href: "/about" },
   { label: "Verification Policy", href: "/verification-policy" },
   { label: "Contact", href: "/contact" },
@@ -29,7 +29,7 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
             <Link href="/scholarships" className="font-semibold transition hover:text-emerald-700">
               Scholarships
             </Link>
-            <Link href="/blog" className="font-semibold transition hover:text-emerald-700">
+            <Link href="/guides" className="font-semibold transition hover:text-emerald-700">
               Guides
             </Link>
             <Link href="/about" className="font-semibold transition hover:text-emerald-700">

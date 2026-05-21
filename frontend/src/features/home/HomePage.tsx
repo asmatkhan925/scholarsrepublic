@@ -174,7 +174,7 @@ export function HomePage() {
                         <ArrowRight size={17} aria-hidden="true" />
                       </ButtonLink>
                       <ButtonLink
-                        href="/blog"
+                        href="/guides"
                         className="w-full sm:w-auto"
                         size="md"
                         variant="outline"
@@ -282,7 +282,7 @@ export function HomePage() {
             </p>
           </div>
 
-          <ButtonLink href="/blog" variant="outline">
+          <ButtonLink href="/guides" variant="outline">
             View All Guides
           </ButtonLink>
         </div>
@@ -296,7 +296,9 @@ export function HomePage() {
               <CardContent className="p-5">
                 <Badge tone="sky">Guide</Badge>
                 <h2 className="mt-3 text-base font-bold text-ink dark:text-white">{guide.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">{guide.description}</p>
+                <p className="mt-2 text-sm leading-6 text-ink/65 dark:text-white/60">
+                  {guide.description}
+                </p>
                 <ButtonLink href={guide.href} className="mt-4" variant="ghost">
                   Read guide
                   <ArrowRight size={16} aria-hidden="true" />
@@ -344,7 +346,7 @@ export function HomePage() {
                   Browse Scholarships
                 </ButtonLink>
                 <ButtonLink
-                  href="/blog"
+                  href="/guides"
                   variant="outline"
                   className="w-full border-white/20 bg-white/10 text-white hover:bg-white/15 sm:w-auto"
                 >

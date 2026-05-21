@@ -62,7 +62,7 @@ const steps = [
   {
     title: "Choose the right route",
     body: "Understand whether you are applying through the HEC/CSC route, directly through a university, or through another university-specific scholarship.",
-    href: "/blog",
+    href: "/guides",
     linkText: "Read guides",
   },
   {

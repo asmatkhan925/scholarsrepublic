@@ -77,7 +77,7 @@ const steps = [
   {
     title: "Check official eligibility carefully",
     body: "Always confirm nationality, age limit, degree requirement, language requirement, deadline, and required documents from the official page.",
-    href: "/blog",
+    href: "/guides",
     linkText: "Read guides",
   },
   {

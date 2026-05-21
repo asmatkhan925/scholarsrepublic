@@ -143,7 +143,7 @@ export default function ServicesPage() {
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <ButtonLink href="/scholarships">Explore Scholarships</ButtonLink>
-            <ButtonLink href="/blog" variant="outline">
+            <ButtonLink href="/guides" variant="outline">
               Read Scholarship Guides
             </ButtonLink>
             <ButtonLink href="/contact" variant="ghost">

@@ -24,7 +24,7 @@ type NavLink = {
 
 const publicLinks: NavLink[] = [
   { label: "Scholarships", href: "/scholarships" },
-  { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
+  { label: "Guides", href: "/guides", activePrefixes: ["/guides"] },
   { label: "Services", href: "/services" },
   { label: "About", href: "/about" },
 ];
@@ -41,7 +41,7 @@ const studentToolLinks: NavLink[] = [
   { label: "SOP Generator", href: "/dashboard/ai/sop", badge: "AI" },
   { label: "SOP History", href: "/dashboard/ai/sop/history" },
   { label: "Recommendations", href: "/dashboard/recommendations" },
-  { label: "Guides", href: "/blog", activePrefixes: ["/blog", "/guides"] },
+  { label: "Guides", href: "/guides", activePrefixes: ["/guides"] },
   { label: "CV Builder", href: "/dashboard/tools/cv", badge: "Soon", disabled: true },
   { label: "Study Plan", href: "/dashboard/tools/study-plan", badge: "Soon", disabled: true },
   {
@@ -70,9 +70,7 @@ const adminLinks: NavLink[] = [
 
 function isActiveLink(pathname: string, item: NavLink) {
   if (
-    item.excludePrefixes?.some(
-      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-    )
+    item.excludePrefixes?.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
   ) {
     return false;
   }
@@ -263,7 +261,10 @@ export function Navbar({ variant = "default" }: NavbarProps) {
     return (
       <header className="border-b border-slate-200 bg-white transition-colors dark:border-white/10 dark:bg-[#101214]">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3 md:px-8">
-          <Link href="/" className="group flex items-center gap-3 font-bold text-ink dark:text-white">
+          <Link
+            href="/"
+            className="group flex items-center gap-3 font-bold text-ink dark:text-white"
+          >
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pine text-white shadow-sm transition group-hover:bg-ink dark:group-hover:bg-white/10">
               <GraduationCap size={23} aria-hidden="true" />
             </span>
