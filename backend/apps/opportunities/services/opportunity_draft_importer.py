@@ -9,9 +9,26 @@ from django.utils.text import slugify
 
 from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
-from apps.reference_data.models import Country, StudyField
+from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
 
 ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
+UNSAFE_COUNTRY_VALUES = {
+    "all countries",
+    "any country",
+    "international students",
+    "international applicants",
+    "worldwide",
+}
+UNSAFE_STUDY_FIELD_VALUES = {
+    "all fields",
+    "all",
+    "any",
+    "any discipline",
+    "all programmes",
+    "all programs",
+}
+DEFAULT_REGION_NAME = "Other"
+DEFAULT_STUDY_FIELD_CATEGORY_NAME = "Other"
 AMOUNT_TEXT_RE = re.compile(
     r"(\$|€|£|USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD)\s?\d|"
     r"\d[\d,]*(\.\d+)?\s?(USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD|€|£|\$)",
@@ -102,8 +119,11 @@ def validate_opportunity_draft_payload(payload):
     if not isinstance(opportunity_payload, dict):
         return {}, warnings, ['Payload must contain an "opportunity" object.']
 
+    create_missing_references = parse_bool_flag(payload.get("create_missing_references"), True)
     cleaned = {
         "confidence": clean_text(payload.get("confidence")),
+        "create_missing_references": create_missing_references,
+        "pending_reference_creations": [],
         "opportunity": {},
         "eligible_countries": [],
         "study_fields": [],
@@ -130,19 +150,32 @@ def validate_opportunity_draft_payload(payload):
     if not official_link and not source_url:
         errors.append("Missing required opportunity field: official_link or source_url.")
 
-    country = resolve_country(opportunity["country"])
+    country_region = clean_text(opportunity_payload.get("country_region"))
+    country = resolve_or_create_country(
+        opportunity["country"],
+        region_name=country_region,
+        warnings=warnings,
+        create_missing=create_missing_references,
+        create_records=False,
+    )
     cleaned["country_ref"] = country
 
-    if opportunity["country"] and not country:
+    if opportunity["country"] and not country and not create_missing_references:
         errors.append(f'Unknown country "{opportunity["country"]}".')
 
     eligible_countries = []
     for country_name in clean_string_list(opportunity_payload.get("eligible_countries")):
-        eligible_country = resolve_country(country_name)
+        eligible_country = resolve_or_create_country(
+            country_name,
+            warnings=warnings,
+            create_missing=create_missing_references,
+            create_records=False,
+            warning_label="eligible country",
+        )
 
         if eligible_country:
             eligible_countries.append(eligible_country)
-        else:
+        elif not create_missing_references:
             warnings.append(f'Unknown eligible country "{country_name}" skipped.')
 
     cleaned["eligible_countries"] = dedupe_models(eligible_countries)
@@ -158,29 +191,39 @@ def validate_opportunity_draft_payload(payload):
     else:
         study_fields = []
 
+        study_field_categories = opportunity_payload.get("study_field_categories")
+        if not isinstance(study_field_categories, dict):
+            study_field_categories = {}
+
         for field_name in fields_of_study:
-            study_field = resolve_study_field(field_name)
+            study_field = resolve_or_create_study_field(
+                field_name,
+                category_name=clean_text(study_field_categories.get(field_name)),
+                warnings=warnings,
+                create_missing=create_missing_references,
+                create_records=False,
+            )
 
             if study_field:
                 study_fields.append(study_field)
-            else:
+            elif not create_missing_references:
                 warnings.append(f'Unknown study field "{field_name}" skipped.')
 
         cleaned["study_fields"] = dedupe_models(study_fields)
 
-        if not cleaned["study_fields"]:
+        if not cleaned["study_fields"] and not create_missing_references:
             errors.append(
                 "At least one known study field is required when all_study_fields is false."
             )
 
-    pathway_id = parse_positive_int(opportunity_payload.get("pathway_id"))
-    pathway_value = clean_text(opportunity_payload.get("pathway"))
-    if pathway_id or pathway_value:
-        pathway = resolve_pathway(pathway_id or pathway_value)
-        if pathway:
-            cleaned["pathway"] = pathway
-        else:
-            warnings.append(f"Unknown pathway: {pathway_id or pathway_value}. Please select manually before publishing.")
+    pathway = resolve_or_create_pathway(
+        opportunity_payload,
+        country_ref=country,
+        warnings=warnings,
+        create_missing=create_missing_references,
+        create_records=False,
+    )
+    cleaned["pathway"] = pathway
 
     application_track = clean_text(opportunity_payload.get("application_track"))
     valid_tracks = {choice[0] for choice in Opportunity.ApplicationTrack.choices}
@@ -305,6 +348,14 @@ def import_opportunity_draft(draft, user=None, update_existing=False):
             )
             if duplicate_error not in errors:
                 errors.append(duplicate_error)
+
+    if not errors and cleaned.get("create_missing_references"):
+        reference_errors = create_missing_references_for_import(
+            cleaned,
+            draft.raw_payload.get("opportunity", {}),
+            warnings,
+        )
+        errors.extend(reference_errors)
 
     draft.confidence = cleaned.get("confidence", "")
     draft.source_url = opportunity_data.get("source_url", "")
@@ -457,6 +508,16 @@ def parse_positive_int(value):
     return parsed if parsed > 0 else None
 
 
+def parse_bool_flag(value, default=False):
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().casefold() in {"1", "true", "yes", "on"}
+
+
 def clean_funding_amount(value, warnings):
     if value in (None, ""):
         return None
@@ -485,6 +546,183 @@ def looks_like_amount_text(value):
         return False
 
     return bool(AMOUNT_TEXT_RE.search(str(value)))
+
+
+def is_unsafe_reference_name(value, max_length, blocked_values):
+    value = clean_text(value)
+    normalized = value.casefold()
+
+    if len(value) < 2 or len(value) > max_length:
+        return True
+
+    if "http://" in normalized or "https://" in normalized or "www." in normalized:
+        return True
+
+    if normalized in blocked_values:
+        return True
+
+    return False
+
+
+def is_safe_country_name(value):
+    value = clean_text(value)
+    if is_unsafe_reference_name(value, 120, UNSAFE_COUNTRY_VALUES):
+        return False
+
+    return value.count(",") <= 1
+
+
+def is_safe_study_field_name(value):
+    value = clean_text(value)
+    if is_unsafe_reference_name(value, 150, UNSAFE_STUDY_FIELD_VALUES):
+        return False
+
+    if len(value.split()) > 8 or value.endswith((".", "!", "?")):
+        return False
+
+    return True
+
+
+def is_safe_pathway_title(value):
+    value = clean_text(value)
+    if is_unsafe_reference_name(value, 255, set()):
+        return False
+
+    return len(value.split()) <= 12 and not value.endswith((".", "!", "?"))
+
+
+def get_or_create_region(name=None):
+    region_name = clean_text(name) or DEFAULT_REGION_NAME
+    region = Region.objects.filter(name__iexact=region_name).first()
+    if region:
+        return region
+
+    slug = slugify(region_name) or "other"
+    region = Region.objects.filter(slug=slug).first()
+    if region:
+        return region
+
+    return Region.objects.create(
+        name=region_name,
+        slug=slug,
+        code=slug.replace("-", "_").upper()[:40] or "OTHER",
+        is_active=True,
+    )
+
+
+def get_or_create_study_field_category(name=None):
+    category_name = clean_text(name) or DEFAULT_STUDY_FIELD_CATEGORY_NAME
+    category = StudyFieldCategory.objects.filter(name__iexact=category_name).first()
+    if category:
+        return category
+
+    slug = slugify(category_name) or "other"
+    category = StudyFieldCategory.objects.filter(slug=slug).first()
+    if category:
+        return category
+
+    return StudyFieldCategory.objects.create(name=category_name, slug=slug, is_active=True)
+
+
+def resolve_or_create_country(
+    name,
+    region_name=None,
+    warnings=None,
+    create_missing=False,
+    create_records=False,
+    warning_label="country",
+):
+    country_name = clean_text(name)
+    country = resolve_country(country_name)
+    if country:
+        return country
+
+    if not country_name or not create_missing:
+        return None
+
+    if not is_safe_country_name(country_name):
+        if warnings is not None:
+            warnings.append(f'Unknown {warning_label} "{country_name}" could not be created automatically.')
+        return None
+
+    warning_prefix = "New eligible country" if warning_label == "eligible country" else "New country"
+
+    if not create_records:
+        if warnings is not None:
+            warnings.append(f"{warning_prefix} will be created: {country_name}.")
+        return None
+
+    slug = slugify(country_name)
+    if not slug:
+        return None
+
+    existing = Country.objects.filter(slug=slug).first()
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            existing.save(update_fields=["is_active", "updated_at"])
+        return existing
+
+    country = Country.objects.create(
+        name=country_name,
+        slug=slug,
+        region=get_or_create_region(region_name),
+        is_active=True,
+    )
+    if warnings is not None:
+        created_prefix = "New eligible country" if warning_label == "eligible country" else "New country"
+        warnings.append(f"{created_prefix} created: {country.name}.")
+    return country
+
+
+def resolve_or_create_study_field(
+    name,
+    category_name=None,
+    warnings=None,
+    create_missing=False,
+    create_records=False,
+):
+    field_name = clean_text(name)
+    study_field = resolve_study_field(field_name)
+    if study_field:
+        return study_field
+
+    if not field_name or not create_missing:
+        return None
+
+    if normalize_key(field_name) in {normalize_key(value) for value in UNSAFE_STUDY_FIELD_VALUES}:
+        return None
+
+    if not is_safe_study_field_name(field_name):
+        if warnings is not None:
+            warnings.append(f'Unknown study field "{field_name}" could not be created automatically.')
+        return None
+
+    if not create_records:
+        if warnings is not None:
+            warnings.append(f"New study field will be created: {field_name}.")
+        return None
+
+    slug = slugify(field_name)
+    if not slug:
+        return None
+
+    existing = StudyField.objects.filter(slug=slug).first()
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            existing.save(update_fields=["is_active", "updated_at"])
+        return existing
+
+    study_field = StudyField.objects.create(
+        name=field_name,
+        slug=slug,
+        category=get_or_create_study_field_category(category_name),
+        is_active=True,
+    )
+    if warnings is not None:
+        warnings.append(f"New study field created: {study_field.name}.")
+    return study_field
 
 
 def build_duplicate_candidate_data(opportunity_data, pathway=None, exclude_id=None):
@@ -629,6 +867,215 @@ def resolve_pathway(value):
             return candidate
 
     return None
+
+
+def title_from_pathway_value(value):
+    value = clean_text(value)
+    if not value:
+        return ""
+
+    if ">" in value:
+        value = value.split(">")[-1]
+
+    return value.replace("-", " ").replace("_", " ").strip().title()
+
+
+def get_valid_pathway_type(value, default=OpportunityPathway.PathwayType.OTHER):
+    value = clean_text(value)
+    valid_values = {choice[0] for choice in OpportunityPathway.PathwayType.choices}
+    normalized = normalize_key(value)
+
+    if value in valid_values:
+        return value
+
+    if normalized in valid_values:
+        return normalized
+
+    return default
+
+
+def get_or_create_pathway_record(title, country_ref=None, parent=None, pathway_type=None):
+    pathway_title = clean_text(title)
+    slug = slugify(pathway_title)
+    if not pathway_title or not slug:
+        return None, False
+
+    pathway = OpportunityPathway.objects.filter(slug=slug).first()
+    if pathway:
+        changed = False
+        if not pathway.is_active:
+            pathway.is_active = True
+            changed = True
+        if country_ref and not pathway.country_ref_id:
+            pathway.country_ref = country_ref
+            changed = True
+        if parent and not pathway.parent_id:
+            pathway.parent = parent
+            changed = True
+        if changed:
+            pathway.save(update_fields=["is_active", "country_ref", "parent", "updated_at"])
+        return pathway, False
+
+    pathway = OpportunityPathway.objects.create(
+        title=pathway_title,
+        slug=slug,
+        country_ref=country_ref,
+        parent=parent,
+        pathway_type=pathway_type or OpportunityPathway.PathwayType.OTHER,
+        is_active=True,
+    )
+    return pathway, True
+
+
+def resolve_or_create_pathway(
+    opportunity_payload,
+    country_ref=None,
+    warnings=None,
+    create_missing=False,
+    create_records=False,
+):
+    pathway_id = parse_positive_int(opportunity_payload.get("pathway_id"))
+    pathway_value = clean_text(opportunity_payload.get("pathway"))
+    pathway_title = clean_text(opportunity_payload.get("pathway_title"))
+    pathway_parent = clean_text(opportunity_payload.get("pathway_parent"))
+    pathway_country = clean_text(opportunity_payload.get("pathway_country"))
+
+    for candidate in (pathway_id, pathway_value, pathway_title):
+        if candidate:
+            pathway = resolve_pathway(candidate)
+            if pathway:
+                return pathway
+
+    if not any([pathway_id, pathway_value, pathway_title, pathway_parent]):
+        return None
+
+    if not create_missing:
+        unknown_value = pathway_id or pathway_value or pathway_title
+        if unknown_value and warnings is not None:
+            warnings.append(f"Unknown pathway: {unknown_value}. Please select manually before publishing.")
+        return None
+
+    title = pathway_title or title_from_pathway_value(pathway_value)
+    if not title or not is_safe_pathway_title(title):
+        if warnings is not None:
+            warnings.append("Unknown pathway could not be created automatically. Please select or create manually.")
+        return None
+
+    pathway_country_ref = country_ref
+    if pathway_country:
+        pathway_country_ref = resolve_or_create_country(
+            pathway_country,
+            warnings=warnings,
+            create_missing=True,
+            create_records=create_records,
+        ) or country_ref
+
+    parent = None
+    parent_title = pathway_parent
+    if parent_title:
+        parent = resolve_pathway(parent_title)
+        if not parent:
+            if not is_safe_pathway_title(parent_title):
+                if warnings is not None:
+                    warnings.append("Unknown pathway could not be created automatically. Please select or create manually.")
+                return None
+
+            if create_records:
+                parent, parent_created = get_or_create_pathway_record(
+                    parent_title,
+                    country_ref=pathway_country_ref,
+                    pathway_type=OpportunityPathway.PathwayType.COUNTRY_HUB,
+                )
+                if parent_created and warnings is not None:
+                    warnings.append(f"New pathway created: {parent.full_path}.")
+            elif warnings is not None:
+                warnings.append(f"New pathway will be created: {parent_title}.")
+
+    full_path = f"{parent.full_path} > {title}" if parent else title
+    if not create_records:
+        if warnings is not None:
+            warnings.append(f"New pathway will be created: {full_path}.")
+        return None
+
+    pathway, created = get_or_create_pathway_record(
+        title,
+        country_ref=pathway_country_ref,
+        parent=parent,
+        pathway_type=get_valid_pathway_type(opportunity_payload.get("pathway_type")),
+    )
+    if pathway and created and warnings is not None:
+        warnings.append(f"New pathway created: {pathway.full_path}.")
+    return pathway
+
+
+def create_missing_references_for_import(cleaned, opportunity_payload, warnings):
+    errors = []
+    create_missing = cleaned.get("create_missing_references", False)
+    if not create_missing:
+        return errors
+
+    opportunity_data = cleaned.get("opportunity", {})
+
+    country_ref = resolve_or_create_country(
+        opportunity_data.get("country"),
+        region_name=clean_text(opportunity_payload.get("country_region")),
+        warnings=warnings,
+        create_missing=True,
+        create_records=True,
+    )
+    if opportunity_data.get("country") and not country_ref:
+        errors.append(f'Unknown country "{opportunity_data["country"]}" could not be created.')
+    cleaned["country_ref"] = country_ref
+
+    eligible_countries = []
+    for country_name in clean_string_list(opportunity_payload.get("eligible_countries")):
+        country = resolve_or_create_country(
+            country_name,
+            warnings=warnings,
+            create_missing=True,
+            create_records=True,
+            warning_label="eligible country",
+        )
+        if country:
+            eligible_countries.append(country)
+    cleaned["eligible_countries"] = dedupe_models(eligible_countries)
+
+    fields_of_study = clean_string_list(opportunity_payload.get("fields_of_study"))
+    all_study_fields = bool(opportunity_payload.get("all_study_fields")) or bool(
+        {field.casefold() for field in fields_of_study} & ALL_STUDY_FIELD_MARKERS
+    )
+    cleaned["all_study_fields"] = all_study_fields
+    if all_study_fields:
+        cleaned["study_fields"] = []
+    else:
+        categories = opportunity_payload.get("study_field_categories")
+        if not isinstance(categories, dict):
+            categories = {}
+
+        study_fields = []
+        for field_name in fields_of_study:
+            field = resolve_or_create_study_field(
+                field_name,
+                category_name=clean_text(categories.get(field_name)),
+                warnings=warnings,
+                create_missing=True,
+                create_records=True,
+            )
+            if field:
+                study_fields.append(field)
+        cleaned["study_fields"] = dedupe_models(study_fields)
+        if fields_of_study and not cleaned["study_fields"]:
+            errors.append("At least one known study field is required when all_study_fields is false.")
+
+    cleaned["pathway"] = resolve_or_create_pathway(
+        opportunity_payload,
+        country_ref=cleaned.get("country_ref"),
+        warnings=warnings,
+        create_missing=True,
+        create_records=True,
+    )
+
+    return errors
 
 
 def dedupe_models(records):

@@ -90,7 +90,10 @@ from apps.opportunities.models import (
     OpportunityDraft,
     OpportunityPathway,
 )
-from apps.opportunities.services.opportunity_draft_importer import import_opportunity_draft
+from apps.opportunities.services.opportunity_draft_importer import (
+    import_opportunity_draft,
+    validate_opportunity_draft_payload,
+)
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
@@ -1608,6 +1611,227 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(draft.validation_errors, [])
         self.assertIsNotNone(draft.imported_at)
 
+    def test_opportunity_draft_import_creates_unknown_host_country_when_enabled(self):
+        payload = self.draft_payload(
+            slug="draft-import-new-country-opportunity",
+            country="Netherlands Testland",
+            country_region="Europe",
+        )
+        payload["create_missing_references"] = True
+
+        cleaned, warnings, errors = validate_opportunity_draft_payload(payload)
+
+        self.assertEqual(errors, [])
+        self.assertIn("New country will be created: Netherlands Testland.", warnings)
+        self.assertIsNone(cleaned["country_ref"])
+
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import New Country",
+            slug="draft-import-new-country",
+            raw_payload=payload,
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        country = Country.objects.get(name="Netherlands Testland")
+        self.assertEqual(country.region.name, "Europe")
+        self.assertEqual(opportunity.country_ref, country)
+        draft.refresh_from_db()
+        self.assertIn("New country created: Netherlands Testland.", draft.validation_warnings)
+
+    def test_opportunity_draft_import_rejects_unknown_host_country_when_disabled(self):
+        payload = self.draft_payload(
+            slug="draft-import-disabled-new-country-opportunity",
+            country="Netherlands Testland Disabled",
+        )
+        payload["create_missing_references"] = False
+
+        cleaned, warnings, errors = validate_opportunity_draft_payload(payload)
+
+        self.assertIsNone(cleaned["country_ref"])
+        self.assertIn('Unknown country "Netherlands Testland Disabled".', errors)
+
+    def test_opportunity_draft_import_creates_unknown_eligible_country_when_enabled(self):
+        payload = self.draft_payload(
+            slug="draft-import-new-eligible-country-opportunity",
+            eligible_countries=["Pakistan", "Bangladesh Testland"],
+        )
+        payload["create_missing_references"] = True
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import New Eligible Country",
+            slug="draft-import-new-eligible-country",
+            raw_payload=payload,
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertTrue(Country.objects.filter(name="Bangladesh Testland").exists())
+        self.assertIn(
+            "Bangladesh Testland",
+            list(opportunity.eligible_country_refs.values_list("name", flat=True)),
+        )
+        draft.refresh_from_db()
+        self.assertIn(
+            "New eligible country created: Bangladesh Testland.",
+            draft.validation_warnings,
+        )
+
+    def test_opportunity_draft_import_creates_unknown_study_field_when_enabled(self):
+        payload = self.draft_payload(
+            slug="draft-import-new-study-field-opportunity",
+            fields_of_study=["Quantum Materials Test"],
+            all_study_fields=False,
+            study_field_categories={"Quantum Materials Test": "Natural Sciences Test"},
+        )
+        payload["create_missing_references"] = True
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import New Study Field",
+            slug="draft-import-new-study-field",
+            raw_payload=payload,
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        field = StudyField.objects.get(name="Quantum Materials Test")
+        self.assertEqual(field.category.name, "Natural Sciences Test")
+        self.assertIn(field, opportunity.study_field_refs.all())
+        draft.refresh_from_db()
+        self.assertIn("New study field created: Quantum Materials Test.", draft.validation_warnings)
+
+    def test_opportunity_draft_import_all_study_fields_does_not_create_all_fields(self):
+        payload = self.draft_payload(
+            slug="draft-import-all-fields-no-create-opportunity",
+            fields_of_study=["All Fields"],
+            all_study_fields=True,
+        )
+        payload["create_missing_references"] = True
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import All Fields No Create",
+            slug="draft-import-all-fields-no-create",
+            raw_payload=payload,
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertTrue(opportunity.all_study_fields)
+        self.assertFalse(StudyField.objects.filter(name__iexact="All Fields").exists())
+
+    def test_opportunity_draft_import_creates_unknown_pathway_when_enabled(self):
+        payload = self.draft_payload(
+            slug="draft-import-new-pathway-opportunity",
+            country="Netherlands Pathwayland",
+            country_region="Europe",
+            pathway="netherlands-test-university-scholarships",
+            pathway_title="Netherlands Test University Scholarships",
+            pathway_parent="Netherlands Test Scholarships",
+            pathway_country="Netherlands Pathwayland",
+            pathway_type="university_scholarship",
+        )
+        payload["create_missing_references"] = True
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import New Pathway",
+            slug="draft-import-new-pathway",
+            raw_payload=payload,
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(opportunity.pathway.title, "Netherlands Test University Scholarships")
+        self.assertEqual(opportunity.pathway.parent.title, "Netherlands Test Scholarships")
+        self.assertEqual(
+            opportunity.pathway.pathway_type,
+            OpportunityPathway.PathwayType.UNIVERSITY_SCHOLARSHIP,
+        )
+        draft.refresh_from_db()
+        self.assertIn(
+            "New pathway created: Netherlands Test Scholarships > Netherlands Test University Scholarships.",
+            draft.validation_warnings,
+        )
+
+    def test_opportunity_draft_import_warns_when_pathway_metadata_is_insufficient(self):
+        payload = self.draft_payload(
+            slug="draft-import-insufficient-pathway-opportunity",
+            pathway="This is a long sentence that should not become a pathway automatically.",
+            pathway_title="",
+            pathway_parent="",
+        )
+        payload["create_missing_references"] = True
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Insufficient Pathway",
+            slug="draft-import-insufficient-pathway",
+            raw_payload=payload,
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertIsNone(opportunity.pathway)
+        self.assertFalse(
+            OpportunityPathway.objects.filter(
+                title__icontains="long sentence that should not become"
+            ).exists()
+        )
+        draft.refresh_from_db()
+        self.assertIn(
+            "Unknown pathway could not be created automatically. Please select or create manually.",
+            draft.validation_warnings,
+        )
+
+    def test_opportunity_draft_import_reuses_existing_reference_slugs(self):
+        existing_country = Country.objects.create(
+            name="Reuse Testland",
+            slug="reuse-testland",
+            region=self.europe,
+        )
+        category = StudyFieldCategory.objects.create(name="Reuse Category", slug="reuse-category")
+        existing_field = StudyField.objects.create(
+            name="Reuse Field",
+            slug="reuse-field",
+            category=category,
+        )
+        existing_pathway = OpportunityPathway.objects.create(
+            title="Reuse Pathway",
+            slug="reuse-pathway",
+            country_ref=existing_country,
+            pathway_type=OpportunityPathway.PathwayType.OTHER,
+        )
+        payload = self.draft_payload(
+            slug="draft-import-reuse-references-opportunity",
+            country="Reuse Testland",
+            eligible_countries=["Reuse Testland"],
+            fields_of_study=["Reuse Field"],
+            all_study_fields=False,
+            pathway="reuse-pathway",
+        )
+        payload["create_missing_references"] = True
+        draft = OpportunityDraft.objects.create(
+            title="Draft Import Reuse References",
+            slug="draft-import-reuse-references",
+            raw_payload=payload,
+            created_by=self.admin,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+
+        self.assertIsNotNone(opportunity)
+        self.assertEqual(Country.objects.filter(slug="reuse-testland").count(), 1)
+        self.assertEqual(StudyField.objects.filter(slug="reuse-field").count(), 1)
+        self.assertEqual(OpportunityPathway.objects.filter(slug="reuse-pathway").count(), 1)
+        self.assertEqual(opportunity.country_ref, existing_country)
+        self.assertIn(existing_field, opportunity.study_field_refs.all())
+        self.assertEqual(opportunity.pathway, existing_pathway)
+
     def test_opportunity_draft_import_preserves_stipend_summary(self):
         draft = OpportunityDraft.objects.create(
             title="Draft Import Stipend Summary",
@@ -1789,13 +2013,15 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(opportunity.pathway, pathway)
 
     def test_opportunity_draft_import_warns_for_unknown_pathway_without_failing(self):
+        payload = self.draft_payload(
+            slug="draft-import-unknown-pathway-opportunity",
+            pathway="unknown-pathway-slug",
+        )
+        payload["create_missing_references"] = False
         draft = OpportunityDraft.objects.create(
             title="Draft Import Unknown Pathway",
             slug="draft-import-unknown-pathway",
-            raw_payload=self.draft_payload(
-                slug="draft-import-unknown-pathway-opportunity",
-                pathway="unknown-pathway-slug",
-            ),
+            raw_payload=payload,
             created_by=self.admin,
         )
 
@@ -1963,13 +2189,15 @@ class OpportunityAPITests(APITestCase):
         )
 
     def test_opportunity_draft_import_unknown_fields_error_when_not_all_fields(self):
+        payload = self.draft_payload(
+            all_study_fields=False,
+            fields_of_study=["Fake Field"],
+        )
+        payload["create_missing_references"] = False
         draft = OpportunityDraft.objects.create(
             title="Unknown Fields Import",
             slug="unknown-fields-import",
-            raw_payload=self.draft_payload(
-                all_study_fields=False,
-                fields_of_study=["Fake Field"],
-            ),
+            raw_payload=payload,
         )
 
         opportunity = import_opportunity_draft(draft, user=self.admin)

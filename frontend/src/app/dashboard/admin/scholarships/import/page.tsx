@@ -176,13 +176,16 @@ function humanize(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function normalizeDraftPayload(parsed: Record<string, unknown>) {
+function normalizeDraftPayload(parsed: Record<string, unknown>, createMissingReferences = true) {
   const opportunity = isRecord(parsed.opportunity) ? parsed.opportunity : parsed;
   const title = getText(opportunity.title) || "Imported scholarship draft";
 
   return {
     title,
-    rawPayload: isRecord(parsed.opportunity) ? parsed : { opportunity },
+    rawPayload: {
+      ...(isRecord(parsed.opportunity) ? parsed : { opportunity }),
+      create_missing_references: createMissingReferences,
+    },
   };
 }
 
@@ -321,6 +324,19 @@ function formatPromptList(items: string[], fallback: string) {
   }
 
   return cleaned.map((item) => `- ${item}`).join("\n");
+}
+
+function getReferenceCreationWarnings(items: string[]) {
+  return items.filter((item) => {
+    const value = item.toLowerCase();
+    return (
+      value.includes("will be created") ||
+      value.includes("new country") ||
+      value.includes("new eligible country") ||
+      value.includes("new study field") ||
+      value.includes("new pathway")
+    );
+  });
 }
 
 function buildPathwayContext(pathways: OpportunityPathwayDetail[]) {
@@ -521,6 +537,7 @@ function AdminScholarshipImportContent() {
   const [sourceText, setSourceText] = useState("");
   const [jsonText, setJsonText] = useState("");
   const [validateImmediately, setValidateImmediately] = useState(true);
+  const [createMissingReferences, setCreateMissingReferences] = useState(true);
   const [creating, setCreating] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedFixPrompt, setCopiedFixPrompt] = useState(false);
@@ -583,6 +600,7 @@ COUNTRY RULES
 - country means host country.
 - eligible_countries means applicant eligibility.
 - Use exact country names from the allowed country list when possible.
+- If a country is clearly stated in the source but missing from allowed countries, still include it and set country_region when clear.
 - If the source says "international students" but does not list countries, do not invent countries.
 - Add a warning for unclear eligible countries.
 
@@ -590,6 +608,7 @@ STUDY FIELD RULES
 - Use exact allowed study field names where possible.
 - If source says all fields, all programmes, any discipline, or equivalent, set all_study_fields true and fields_of_study ["All Fields"].
 - If only specific programmes are listed, map them to the closest allowed broader fields.
+- If a study field is clearly stated in the source but missing from allowed study fields, still include it and add study_field_categories when clear.
 - Do not invent narrow fields outside the platform list.
 
 DEADLINE RULES
@@ -616,6 +635,14 @@ Stipend and amount rules:
   "funding_amount": null,
   "funding_currency": "",
   "stipend_summary": ""
+
+REFERENCE DATA RULES
+- create_missing_references should be true for admin imports.
+- If country/pathway/study field is not available in platform context but is clearly present in official source, still include it.
+- Add the needed metadata when the source supports it: country_region, study_field_categories, pathway_title, pathway_parent, pathway_country, pathway_type.
+- Do not invent new reference values.
+- Only include new country, study field, or pathway if clearly stated by the source.
+- If unsure, leave the value blank and add a warning.
 
 LANGUAGE AND TEST RULES
 - Set ielts_required, toefl_required, duolingo_required, hsk_required only when clearly stated.
@@ -649,6 +676,7 @@ Return valid JSON only. No markdown. No commentary. No array. Only one scholarsh
 Return this exact backend-compatible JSON shape:
 {
   "confidence": "low | medium | high",
+  "create_missing_references": true,
   "opportunity": {
     "title": "",
     "opportunity_type": "scholarship",
@@ -660,7 +688,12 @@ Return this exact backend-compatible JSON shape:
     "professor_name": "",
     "pathway_id": null,
     "pathway": "",
+    "pathway_title": "",
+    "pathway_parent": "",
+    "pathway_country": "",
+    "pathway_type": "",
     "country": "",
+    "country_region": "",
     "official_link": "",
     "source_url": "",
     "source_name": "",
@@ -673,6 +706,7 @@ Return this exact backend-compatible JSON shape:
     "is_rolling_deadline": false,
     "degree_levels": [],
     "fields_of_study": [],
+    "study_field_categories": {},
     "all_study_fields": false,
     "eligible_countries": [],
     "funding_type": "",
@@ -820,6 +854,8 @@ Rules:
 - Keep the same backend-compatible JSON shape.
 - Do not change the scholarship into a different opportunity.
 - Preserve correct existing values unless they conflict with warnings or the source.
+- Preserve create_missing_references.
+- Fix missing reference metadata when the source supports it, including country_region, study_field_categories, pathway_title, pathway_parent, pathway_country, and pathway_type.
 
 Warnings to fix:
 ${warningList}
@@ -869,6 +905,7 @@ ${sourceText || "Not provided"}
 Return this exact JSON shape:
 {
   "confidence": "low | medium | high",
+  "create_missing_references": true,
   "opportunity": {
     "title": "",
     "opportunity_type": "scholarship",
@@ -880,7 +917,12 @@ Return this exact JSON shape:
     "professor_name": "",
     "pathway_id": null,
     "pathway": "",
+    "pathway_title": "",
+    "pathway_parent": "",
+    "pathway_country": "",
+    "pathway_type": "",
     "country": "",
+    "country_region": "",
     "official_link": "",
     "source_url": "",
     "source_name": "",
@@ -893,6 +935,7 @@ Return this exact JSON shape:
     "is_rolling_deadline": false,
     "degree_levels": [],
     "fields_of_study": [],
+    "study_field_categories": {},
     "all_study_fields": false,
     "eligible_countries": [],
     "funding_type": "",
@@ -1081,6 +1124,18 @@ Keep the poster clean and accurate.
 Return only the image-generation prompt.`;
   }, [jsonPreview]);
 
+  const referenceCreationWarnings = useMemo(() => {
+    if (!jsonPreview?.valid) {
+      return [];
+    }
+
+    return getReferenceCreationWarnings([
+      ...jsonPreview.warnings,
+      ...jsonPreview.localWarnings,
+      ...(createdDraft?.validation_warnings ?? []),
+    ]);
+  }, [createdDraft?.validation_warnings, jsonPreview]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -1256,7 +1311,7 @@ Return only the image-generation prompt.`;
 
     try {
       const parsed = extractJson(jsonText);
-      const { title, rawPayload } = normalizeDraftPayload(parsed);
+      const { title, rawPayload } = normalizeDraftPayload(parsed, createMissingReferences);
       const draft = await createAdminOpportunityDraft({
         title,
         raw_payload: rawPayload,
@@ -1539,6 +1594,14 @@ Return only the image-generation prompt.`;
                           emptyLabel="No incomplete recommended fields"
                           tone="saffron"
                         />
+                        {referenceCreationWarnings.length > 0 ? (
+                          <PreviewList
+                            label="Reference data to be created"
+                            items={referenceCreationWarnings}
+                            emptyLabel="No reference data will be created"
+                            tone="sky"
+                          />
+                        ) : null}
                         {createdDraft?.validation_warnings.length ? (
                           <PreviewList
                             label="Backend validation warnings"
@@ -1697,6 +1760,23 @@ Return only the image-generation prompt.`;
                     className="h-4 w-4 rounded border-pine/20 text-pine focus:ring-pine"
                   />
                   Validate review draft immediately after creating
+                </label>
+                <label className="mt-3 flex items-start gap-2 text-sm font-semibold text-ink/70 dark:text-white/65">
+                  <input
+                    type="checkbox"
+                    checked={createMissingReferences}
+                    onChange={(event) => setCreateMissingReferences(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-pine/20 text-pine focus:ring-pine"
+                  />
+                  <span>
+                    Create missing reference data during import
+                    <span className="mt-1 block text-xs font-medium leading-5 text-ink/55 dark:text-white/45">
+                      If GPT JSON contains a new country, eligible country, study field, or pathway
+                      that is not in Scholars Republic yet, the importer will create it and show a
+                      warning. Turn this off if you want unknown references to be rejected or
+                      selected manually.
+                    </span>
+                  </span>
                 </label>
 
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
