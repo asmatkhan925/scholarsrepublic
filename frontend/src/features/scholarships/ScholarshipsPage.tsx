@@ -699,12 +699,22 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       recommendedData ? recommendations.map((item) => item.opportunity) : (data?.results ?? []),
     [data?.results, recommendations, recommendedData],
   );
+  const shouldShowExpired =
+    Boolean(filters.search?.trim()) ||
+    filters.include_expired === true ||
+    filters.expired === true;
+  const visibleScholarships = useMemo(
+    () => (shouldShowExpired ? scholarships : scholarships.filter((item) => !item.is_expired)),
+    [scholarships, shouldShowExpired],
+  );
 
   const matchByOpportunityId = useMemo(() => {
     return new Map(recommendations.map((item) => [item.opportunity.id, item.match]));
   }, [recommendations]);
 
-  const resultCount = recommendedData?.count ?? data?.count ?? 0;
+  const resultCount = shouldShowExpired
+    ? (recommendedData?.count ?? data?.count ?? 0)
+    : visibleScholarships.length;
   const hasActiveFilters = Boolean(
     filters.search ||
     filters.country ||
@@ -1180,7 +1190,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             </div>
           ) : null}
 
-          {!loading && !error && scholarships.length === 0 ? (
+          {!loading && !error && visibleScholarships.length === 0 ? (
             <div className="mt-2">
               <EmptyState
                 action={
@@ -1227,13 +1237,13 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
             </div>
           ) : null}
 
-          {!loading && !error && scholarships.length > 0 ? (
+          {!loading && !error && visibleScholarships.length > 0 ? (
             <>
               <p className="mt-2 text-xs font-medium text-ink/55">
                 {resultCount === 1 ? "1 opportunity found" : `${resultCount} opportunities found`}
               </p>
               <section className="mt-1.5 grid gap-4 lg:grid-cols-2">
-                {scholarships.map((scholarship) => (
+                {visibleScholarships.map((scholarship) => (
                   <ScholarshipCard
                     key={scholarship.id}
                     scholarship={scholarship}

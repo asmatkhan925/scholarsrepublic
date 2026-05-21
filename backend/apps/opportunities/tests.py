@@ -771,16 +771,19 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn("sample-job", slugs)
 
     def test_scholarships_default_excludes_expired(self):
-        future = self.opportunity(slug="future-scholarship")
+        future = self.opportunity(
+            title="Future Public Scholarship",
+            slug="future-public-scholarship",
+        )
         expired = self.opportunity(
-            title="Expired Unique Scholarship",
-            slug="expired-scholarship",
+            title="Expired Public Scholarship",
+            slug="expired-public-scholarship",
             deadline=timezone.localdate() - timedelta(days=1),
             is_rolling_deadline=False,
         )
         rolling = self.opportunity(
-            title="Rolling Scholarship",
-            slug="rolling-scholarship",
+            title="Rolling Public Scholarship",
+            slug="rolling-public-scholarship",
             deadline=None,
             is_rolling_deadline=True,
         )
@@ -801,9 +804,26 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn("draft-expired-scholarship", slugs)
 
     def test_scholarships_include_expired_param_includes_expired(self):
+        future = self.opportunity(
+            title="Future Public Scholarship",
+            slug="future-include-public-scholarship",
+        )
         expired = self.opportunity(
-            title="Expired Unique Scholarship",
+            title="Expired Public Scholarship",
             slug="expired-include-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+        rolling = self.opportunity(
+            title="Rolling Public Scholarship",
+            slug="rolling-include-public-scholarship",
+            deadline=None,
+            is_rolling_deadline=True,
+        )
+        self.opportunity(
+            title="Draft Expired Scholarship",
+            slug="draft-include-expired-scholarship",
+            status=Opportunity.Status.DRAFT,
             deadline=timezone.localdate() - timedelta(days=1),
             is_rolling_deadline=False,
         )
@@ -811,13 +831,32 @@ class OpportunityAPITests(APITestCase):
         response = self.client.get("/api/scholarships/?include_expired=true")
 
         slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(future.slug, slugs)
+        self.assertIn(rolling.slug, slugs)
         self.assertIn(expired.slug, slugs)
+        self.assertNotIn("draft-include-expired-scholarship", slugs)
 
     def test_scholarships_expired_param_returns_only_expired(self):
-        future = self.opportunity(slug="future-not-expired-scholarship")
+        future = self.opportunity(
+            title="Future Public Scholarship",
+            slug="future-not-expired-scholarship",
+        )
         expired = self.opportunity(
-            title="Expired Unique Scholarship",
+            title="Expired Public Scholarship",
             slug="expired-only-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+        rolling = self.opportunity(
+            title="Rolling Public Scholarship",
+            slug="rolling-not-expired-scholarship",
+            deadline=None,
+            is_rolling_deadline=True,
+        )
+        self.opportunity(
+            title="Draft Expired Scholarship",
+            slug="draft-expired-only-scholarship",
+            status=Opportunity.Status.DRAFT,
             deadline=timezone.localdate() - timedelta(days=1),
             is_rolling_deadline=False,
         )
@@ -827,19 +866,47 @@ class OpportunityAPITests(APITestCase):
         slugs = [item["slug"] for item in self.results(response)]
         self.assertIn(expired.slug, slugs)
         self.assertNotIn(future.slug, slugs)
+        self.assertNotIn(rolling.slug, slugs)
+        self.assertNotIn("draft-expired-only-scholarship", slugs)
 
     def test_scholarships_search_includes_expired(self):
         expired = self.opportunity(
-            title="Expired Unique Scholarship",
+            title="Expired Public Scholarship",
             slug="expired-search-scholarship",
             deadline=timezone.localdate() - timedelta(days=1),
             is_rolling_deadline=False,
         )
 
-        response = self.client.get("/api/scholarships/?search=Expired Unique")
+        response = self.client.get("/api/scholarships/?search=Expired Public")
 
         slugs = [item["slug"] for item in self.results(response)]
         self.assertIn(expired.slug, slugs)
+
+    def test_scholarships_q_search_includes_expired(self):
+        expired = self.opportunity(
+            title="Expired Public Scholarship",
+            slug="expired-q-search-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.get("/api/scholarships/?q=Expired Public")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertIn(expired.slug, slugs)
+
+    def test_scholarships_empty_search_excludes_expired(self):
+        expired = self.opportunity(
+            title="Expired Public Scholarship",
+            slug="expired-empty-search-scholarship",
+            deadline=timezone.localdate() - timedelta(days=1),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.get("/api/scholarships/?search=")
+
+        slugs = [item["slug"] for item in self.results(response)]
+        self.assertNotIn(expired.slug, slugs)
 
     def test_filter_by_country(self):
         china = self.opportunity(slug="china-opportunity", country="China")

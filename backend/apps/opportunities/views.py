@@ -296,7 +296,7 @@ class OpportunityFilterMixin:
                 )
             )
 
-        search = params.get("search")
+        search = params.get("search") or params.get("q")
         if search:
             queryset = queryset.filter(
                 Q(title__icontains=search)
@@ -440,6 +440,35 @@ class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
     serializer_class = OpportunityListSerializer
     permission_classes = [permissions.AllowAny]
 
+    def _has_public_search_query(self):
+        params = self.request.query_params
+        return bool(
+            (params.get("search") or "").strip()
+            or (params.get("q") or "").strip()
+        )
+
+    def _apply_public_expiration_filter(self, queryset):
+        params = self.request.query_params
+        today = timezone.localdate()
+
+        include_expired = parse_bool(params.get("include_expired"))
+        expired = parse_bool(params.get("expired"))
+        has_search = self._has_public_search_query()
+
+        expired_filter = {
+            "is_rolling_deadline": False,
+            "deadline__isnull": False,
+            "deadline__lt": today,
+        }
+
+        if expired is True:
+            return queryset.filter(**expired_filter)
+
+        if include_expired is True or has_search:
+            return queryset
+
+        return queryset.exclude(**expired_filter)
+
     def get_queryset(self):
         queryset = (
             Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
@@ -456,27 +485,7 @@ class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
             )
         )
 
-        params = self.request.query_params
-        today = timezone.localdate()
-        search = (params.get("search") or "").strip()
-        include_expired = parse_bool(params.get("include_expired"))
-        expired = parse_bool(params.get("expired"))
-
-        if expired is True:
-            return queryset.filter(
-                is_rolling_deadline=False,
-                deadline__isnull=False,
-                deadline__lt=today,
-            )
-
-        if include_expired is not True and not search:
-            queryset = queryset.exclude(
-                is_rolling_deadline=False,
-                deadline__isnull=False,
-                deadline__lt=today,
-            )
-
-        return queryset
+        return self._apply_public_expiration_filter(queryset)
 
 
 class PublicOpportunityDetailView(generics.RetrieveAPIView):
