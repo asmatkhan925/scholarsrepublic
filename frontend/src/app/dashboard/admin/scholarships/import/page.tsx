@@ -60,8 +60,10 @@ type JsonPreview =
       howToApply: string;
       requiredDocuments: string[];
       warnings: string[];
+      localWarnings: string[];
       missing: string[];
       checklist: ChecklistItem[];
+      incompleteItems: string[];
     }
   | {
       valid: false;
@@ -254,19 +256,22 @@ function buildCompletenessChecklist(opportunity: Record<string, unknown>): Check
 }
 
 function looksLikeAmountText(value: string) {
+  if (!value) {
+    return false;
+  }
+
   return /(\$|€|£|USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD)\s?\d|\d[\d,]*(\.\d+)?\s?(USD|EUR|GBP|PKR|CNY|TRY|CAD|AUD|€|£|\$)/i.test(
     value,
   );
 }
 
-function getStipendWarnings(
-  stipendSummary: string,
-  fundingAmount: string,
-  fundingCurrency: string,
-) {
+function buildLocalJsonWarnings(opportunity: Record<string, unknown>): string[] {
   const warnings: string[] = [];
+  const fundingAmount = getText(opportunity.funding_amount);
+  const fundingCurrency = getText(opportunity.funding_currency);
+  const stipendSummary = getText(opportunity.stipend_summary);
 
-  if (looksLikeAmountText(stipendSummary) && !fundingAmount) {
+  if (!fundingAmount && stipendSummary && looksLikeAmountText(stipendSummary)) {
     warnings.push(
       "Stipend amount appears to be in stipend_summary. Move the numeric amount to funding_amount and currency to funding_currency.",
     );
@@ -287,6 +292,16 @@ function getStipendWarnings(
   }
 
   return warnings;
+}
+
+function formatPromptList(items: string[], fallback: string) {
+  const cleaned = [...new Set(items.map((item) => item.trim()).filter(Boolean))];
+
+  if (cleaned.length === 0) {
+    return fallback;
+  }
+
+  return cleaned.map((item) => `- ${item}`).join("\n");
 }
 
 function buildPathwayContext(pathways: OpportunityPathwayDetail[]) {
@@ -489,6 +504,8 @@ function AdminScholarshipImportContent() {
   const [validateImmediately, setValidateImmediately] = useState(true);
   const [creating, setCreating] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copiedFixPrompt, setCopiedFixPrompt] = useState(false);
+  const [copiedJsonRepairPrompt, setCopiedJsonRepairPrompt] = useState(false);
   const [createdDraft, setCreatedDraft] = useState<OpportunityDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [duplicateMatches, setDuplicateMatches] = useState<AdminOpportunityDuplicateMatch[]>([]);
@@ -676,11 +693,11 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
       const fundingAmount = getText(opportunity.funding_amount);
       const fundingCurrency = getText(opportunity.funding_currency);
       const stipendSummary = getText(opportunity.stipend_summary);
-      const stipendWarnings = getStipendWarnings(
-        stipendSummary,
-        fundingAmount,
-        fundingCurrency,
-      );
+      const checklist = buildCompletenessChecklist(opportunity);
+      const localWarnings = buildLocalJsonWarnings(opportunity);
+      const incompleteItems = checklist
+        .filter((item) => !item.complete)
+        .map((item) => item.label);
 
       return {
         valid: true,
@@ -713,9 +730,11 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
         eligibility: getText(opportunity.eligibility),
         howToApply: getText(opportunity.how_to_apply),
         requiredDocuments: getTextList(opportunity.required_documents),
-        warnings: [...getTextList(opportunity.warnings), ...stipendWarnings],
+        warnings: getTextList(opportunity.warnings),
+        localWarnings,
         missing: getTextList(opportunity.missing_information),
-        checklist: buildCompletenessChecklist(opportunity),
+        checklist,
+        incompleteItems,
       };
     } catch (previewError) {
       return {
@@ -724,6 +743,178 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
       };
     }
   }, [jsonText]);
+
+  const gptFixPrompt = useMemo(() => {
+    if (!jsonText.trim() || !jsonPreview?.valid) {
+      return "";
+    }
+
+    const backendValidationWarnings = createdDraft?.validation_warnings ?? [];
+    const warnings = [
+      ...jsonPreview.warnings,
+      ...jsonPreview.localWarnings,
+      ...backendValidationWarnings,
+    ];
+    const missing = [
+      ...jsonPreview.missing,
+      ...jsonPreview.incompleteItems.map((item) => `Incomplete: ${item}`),
+    ];
+    const warningList = formatPromptList(
+      warnings,
+      "No major warnings detected. Improve clarity only if the source supports it.",
+    );
+    const missingList = formatPromptList(
+      missing,
+      "No major missing or incomplete fields detected.",
+    );
+
+    return `You are fixing ONE Scholars Republic scholarship JSON draft.
+
+I will provide:
+1. The current JSON draft.
+2. The warning messages produced by the Scholars Republic admin importer.
+3. Missing or incomplete fields.
+4. The official source URL/text.
+5. Platform context.
+
+Your job:
+Return an improved version of the same JSON object.
+
+Rules:
+- Use only facts from the official source URL/text.
+- Do not invent missing deadlines, benefits, eligibility, countries, IELTS rules, fees, documents, funding amounts, or application steps.
+- Fix only what is supported by the source.
+- If a warning cannot be fixed from the source, keep the value blank/null/false and keep or add a warning.
+- Do not remove true warnings just to make the JSON look clean.
+- Return valid JSON only.
+- No markdown.
+- No commentary.
+- No array.
+- Keep the same backend-compatible JSON shape.
+- Do not change the scholarship into a different opportunity.
+- Preserve correct existing values unless they conflict with warnings or the source.
+
+Warnings to fix:
+${warningList}
+
+Missing or incomplete fields:
+${missingList}
+
+Platform context:
+Available Scholars Republic pathways:
+${pathwayContext}
+
+Allowed countries:
+${countryContext}
+
+Allowed study fields:
+${studyFieldContext}
+
+Allowed funding_type values:
+${FUNDING_TYPE_VALUES.join(", ")}
+
+Allowed application_track values:
+${APPLICATION_TRACK_VALUES.join(", ")}
+
+Important field rules:
+- pathway_id must be selected only from the available pathway list.
+- pathway must match the selected pathway slug.
+- country means host country.
+- eligible_countries means applicant eligibility.
+- funding_amount must be numeric amount only.
+- funding_currency must be currency only, such as USD, EUR, GBP, CNY, PKR, TRY, or €.
+- stipend_summary must be short only, such as "monthly stipend", "annual amount", or "amount varies".
+- Full funding explanation belongs in benefits, not stipend_summary.
+- If no exact amount is in the source, use funding_amount null and funding_currency "".
+- If deadline is unclear, use deadline "" and add a warning.
+- If application fee is not mentioned, use application_fee_required false and add missing_information.
+- If IELTS/test requirement is unclear, do not assume.
+
+Current JSON draft:
+${jsonText}
+
+Official source URL:
+${sourceUrl || "Not provided"}
+
+Official source text:
+${sourceText || "Not provided"}
+
+Return this exact JSON shape:
+{
+  "confidence": "low | medium | high",
+  "opportunity": {
+    "title": "",
+    "opportunity_type": "scholarship",
+    "application_track": "direct",
+    "provider_name": "",
+    "university_name": "",
+    "department_name": "",
+    "lab_name": "",
+    "professor_name": "",
+    "pathway_id": null,
+    "pathway": "",
+    "country": "",
+    "official_link": "",
+    "source_url": "",
+    "source_name": "",
+    "short_description": "",
+    "description": "",
+    "benefits": "",
+    "eligibility": "",
+    "how_to_apply": "",
+    "deadline": "",
+    "is_rolling_deadline": false,
+    "degree_levels": [],
+    "fields_of_study": [],
+    "all_study_fields": false,
+    "eligible_countries": [],
+    "funding_type": "",
+    "funding_amount": null,
+    "funding_currency": "",
+    "stipend_summary": "",
+    "application_fee_required": false,
+    "ielts_required": false,
+    "toefl_required": false,
+    "duolingo_required": false,
+    "hsk_required": false,
+    "english_proficiency_certificate_accepted": false,
+    "required_documents": [],
+    "tags": [],
+    "warnings": [],
+    "missing_information": []
+  }
+}`;
+  }, [
+    countryContext,
+    createdDraft?.validation_warnings,
+    jsonPreview,
+    jsonText,
+    pathwayContext,
+    sourceText,
+    sourceUrl,
+    studyFieldContext,
+  ]);
+
+  const jsonRepairPrompt = useMemo(() => {
+    if (!jsonText.trim() || jsonPreview?.valid !== false) {
+      return "";
+    }
+
+    return `Fix the following text into one valid JSON object only.
+
+Rules:
+- Return JSON only.
+- No markdown.
+- No commentary.
+- No code fence.
+- Do not change facts.
+- Do not add new facts.
+- Preserve the Scholars Republic scholarship JSON shape if present.
+- If multiple objects are present, keep only the scholarship draft object.
+
+Text to repair:
+${jsonText}`;
+  }, [jsonPreview, jsonText]);
 
   useEffect(() => {
     let mounted = true;
@@ -838,6 +1029,32 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
 
     window.setTimeout(() => {
       setCopiedPrompt(false);
+    }, 1800);
+  }
+
+  async function copyFixPrompt() {
+    if (!gptFixPrompt) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(gptFixPrompt);
+    setCopiedFixPrompt(true);
+
+    window.setTimeout(() => {
+      setCopiedFixPrompt(false);
+    }, 1800);
+  }
+
+  async function copyJsonRepairPrompt() {
+    if (!jsonRepairPrompt) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(jsonRepairPrompt);
+    setCopiedJsonRepairPrompt(true);
+
+    window.setTimeout(() => {
+      setCopiedJsonRepairPrompt(false);
     }, 1800);
   }
 
@@ -1108,7 +1325,7 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                           tone="neutral"
                         />
                         <PreviewList
-                          label="Warnings"
+                          label="Warnings from GPT JSON"
                           items={jsonPreview.warnings}
                           emptyLabel="No warnings from GPT"
                           tone="saffron"
@@ -1119,9 +1336,100 @@ ${sourceText || "PASTE_OFFICIAL_SOURCE_TEXT_HERE"}`,
                           emptyLabel="No missing information listed"
                           tone="danger"
                         />
+                        <PreviewList
+                          label="Local importer warnings"
+                          items={jsonPreview.localWarnings}
+                          emptyLabel="No local importer warnings"
+                          tone="saffron"
+                        />
+                        <PreviewList
+                          label="Incomplete recommended fields"
+                          items={jsonPreview.incompleteItems}
+                          emptyLabel="No incomplete recommended fields"
+                          tone="saffron"
+                        />
+                        {createdDraft?.validation_warnings.length ? (
+                          <PreviewList
+                            label="Backend validation warnings"
+                            items={createdDraft.validation_warnings}
+                            emptyLabel="No backend validation warnings"
+                            tone="saffron"
+                          />
+                        ) : null}
+
+                        <div
+                          className={`rounded-2xl border px-3 py-3 ${
+                            jsonPreview.warnings.length +
+                              jsonPreview.localWarnings.length +
+                              jsonPreview.missing.length +
+                              jsonPreview.incompleteItems.length +
+                              (createdDraft?.validation_warnings.length ?? 0) >
+                            0
+                              ? "border-saffron/30 bg-saffron/10 dark:border-saffron/25 dark:bg-saffron/10"
+                              : "border-pine/15 bg-mint/30 dark:border-pine/20 dark:bg-pine/10"
+                          }`}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-bold text-ink dark:text-white">
+                                Fix JSON with GPT
+                              </p>
+                              <p className="mt-1 text-xs font-semibold leading-5 text-ink/60 dark:text-white/50">
+                                {jsonPreview.warnings.length +
+                                  jsonPreview.localWarnings.length +
+                                  jsonPreview.missing.length +
+                                  jsonPreview.incompleteItems.length +
+                                  (createdDraft?.validation_warnings.length ?? 0) >
+                                0
+                                  ? "Copy a repair prompt containing the current JSON, detected warnings, missing fields, and platform context. Paste it into GPT, then paste the corrected JSON back here."
+                                  : "No major issues detected, but you can still ask GPT to polish the JSON while preserving facts."}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={() => void copyFixPrompt()}
+                              size="sm"
+                              variant="outline"
+                            >
+                              {copiedFixPrompt ? (
+                                <CheckCircle2 size={15} aria-hidden="true" />
+                              ) : (
+                                <Clipboard size={15} aria-hidden="true" />
+                              )}
+                              {copiedFixPrompt ? "Fix prompt copied" : "Copy GPT fix prompt"}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     ) : (
-                      <p className="font-semibold">{jsonPreview.message}</p>
+                      <div className="grid gap-3">
+                        <p className="font-semibold">{jsonPreview.message}</p>
+                        <div className="rounded-2xl border border-red-200 bg-white px-3 py-3 dark:border-red-400/25 dark:bg-[#101214]">
+                          <p className="text-sm font-bold text-ink dark:text-white">
+                            Repair invalid JSON
+                          </p>
+                          <p className="mt-1 text-xs font-semibold leading-5 text-ink/60 dark:text-white/50">
+                            GPT returned text that could not be parsed as one JSON object. Copy
+                            this prompt to ask GPT to return valid JSON only.
+                          </p>
+                          <Button
+                            type="button"
+                            onClick={() => void copyJsonRepairPrompt()}
+                            size="sm"
+                            variant="outline"
+                            className="mt-3"
+                          >
+                            {copiedJsonRepairPrompt ? (
+                              <CheckCircle2 size={15} aria-hidden="true" />
+                            ) : (
+                              <Clipboard size={15} aria-hidden="true" />
+                            )}
+                            {copiedJsonRepairPrompt
+                              ? "JSON repair prompt copied"
+                              : "Copy JSON repair prompt"}
+                          </Button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ) : null}
