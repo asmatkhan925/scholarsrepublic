@@ -50,6 +50,13 @@ export default function ContactPage() {
         <LegalList items={contactReasons} />
       </LegalSection>
 
+      <LegalSection title="Report Scholarship Information Issue">
+        <p>
+          Use this page to report wrong deadlines, broken official links, outdated eligibility
+          information, unclear funding details, or missing official source links.
+        </p>
+      </LegalSection>
+
       <LegalSection title="Helpful Details to Include">
         <LegalList
           items={[

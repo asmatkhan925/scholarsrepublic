@@ -47,10 +47,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function formatFundingAmount(
-  amount: string | number | null | undefined,
-  currency?: string | null,
-) {
+function formatFundingAmount(amount: string | number | null | undefined, currency?: string | null) {
   if (amount === null || amount === undefined || amount === "") {
     return "";
   }
@@ -380,6 +377,31 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
             ) : null}
           </div>
         ) : null}
+
+        <div className="mt-2 rounded-xl border border-pine/10 bg-[#f7faf8] p-2.5 text-xs leading-5 text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/58">
+          <p>
+            Found a wrong deadline, broken source link, or outdated eligibility note? Let us know so
+            we can review it.
+          </p>
+          <div className="mt-2 grid gap-1.5">
+            <ButtonLink
+              href="/contact?topic=scholarship-correction"
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-xl px-2 text-[11px]"
+            >
+              Report incorrect information
+            </ButtonLink>
+            <ButtonLink
+              href="/verification-policy"
+              size="sm"
+              variant="ghost"
+              className="h-8 rounded-xl px-2 text-[11px]"
+            >
+              Read verification policy
+            </ButtonLink>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -515,8 +537,7 @@ export default function ScholarshipDetailPage({
     }
 
     return (
-      formatFundingAmount(scholarship.funding_amount, scholarship.funding_currency) ||
-      "Not listed"
+      formatFundingAmount(scholarship.funding_amount, scholarship.funding_currency) || "Not listed"
     );
   }, [scholarship]);
 
@@ -582,7 +603,9 @@ export default function ScholarshipDetailPage({
     ];
   }, [scholarship, stipendFact]);
   const applyHref = scholarship?.official_link || scholarship?.source_url || "";
-  const applyLabel = scholarship?.official_link ? "Apply on official website" : "Open official source";
+  const applyLabel = scholarship?.official_link
+    ? "Apply on official website"
+    : "Open official source";
   const heroDegreeTags = scholarship?.degree_levels.slice(0, 3) ?? [];
   const heroFieldTags = scholarship?.fields_of_study.slice(0, 3) ?? [];
 

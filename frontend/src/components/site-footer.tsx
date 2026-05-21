@@ -5,7 +5,8 @@ import { GraduationCap } from "lucide-react";
 const footerLinks = [
   { label: "Scholarships", href: "/scholarships" },
   { label: "Guides", href: "/blog" },
-  { label: "About", href: "/about" },
+  { label: "About Scholars Republic", href: "/about" },
+  { label: "Verification Policy", href: "/verification-policy" },
   { label: "Contact", href: "/contact" },
   { label: "Privacy Policy", href: "/privacy-policy" },
   { label: "Terms", href: "/terms" },
@@ -21,7 +22,9 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
     return (
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-6 text-sm text-slate-600 md:flex-row md:items-center md:justify-between md:px-8">
-          <p>&copy; Scholars Republic. Helping students find and manage scholarship opportunities.</p>
+          <p>
+            &copy; Scholars Republic. Helping students find and manage scholarship opportunities.
+          </p>
           <nav className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Auth footer navigation">
             <Link href="/scholarships" className="font-semibold transition hover:text-emerald-700">
               Scholarships
