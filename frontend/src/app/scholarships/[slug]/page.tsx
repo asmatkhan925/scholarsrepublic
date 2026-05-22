@@ -5,6 +5,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import ScholarshipDetailPage from "@/features/scholarships/ScholarshipDetailPage";
 import { getPublicScholarshipInitial } from "@/lib/serverApi";
 import { createBreadcrumbJsonLd, createWebPageJsonLd } from "@/lib/seo/jsonLd";
+import { fetchScholarshipForSocialPreview } from "@/lib/seo/scholarshipMetadataFetch";
 import { getScholarshipSocialMetadata } from "@/lib/seo/scholarshipSocial";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +18,10 @@ type ScholarshipRoutePageProps = {
 
 export async function generateMetadata({ params }: ScholarshipRoutePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const scholarship = await getPublicScholarshipInitial(slug).catch(() => ({
-    data: null,
-    notFound: false,
-  }));
-  const social = getScholarshipSocialMetadata(scholarship.data, slug);
+  const scholarship = await fetchScholarshipForSocialPreview(slug);
+  const social = getScholarshipSocialMetadata(scholarship, slug);
 
-  if (!scholarship.data) {
+  if (!scholarship) {
     return {
       title: social.title,
       description: social.description,
@@ -86,13 +84,23 @@ export async function generateMetadata({ params }: ScholarshipRoutePageProps): P
 
 export default async function ScholarshipRoutePage({ params }: ScholarshipRoutePageProps) {
   const { slug } = await params;
-  const initialScholarship = await getPublicScholarshipInitial(slug);
+  const initialScholarship = await getPublicScholarshipInitial(slug).catch((error) => {
+    const message = error instanceof Error ? error.message : "Unknown fetch error";
+    console.warn(
+      `[scholarship-og] Could not load initial scholarship for slug: ${slug}. ${message}`,
+    );
+
+    return {
+      data: null,
+      notFound: false,
+    };
+  });
 
   if (initialScholarship.notFound) {
     notFound();
   }
 
-  const scholarship = initialScholarship.data;
+  const scholarship = initialScholarship.data ?? (await fetchScholarshipForSocialPreview(slug));
   const description =
     scholarship?.short_description ||
     scholarship?.description ||

@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-import { getPublicScholarshipInitial } from "@/lib/serverApi";
+import { fetchScholarshipForSocialPreview } from "@/lib/seo/scholarshipMetadataFetch";
 import {
   getProviderLabel,
   getScholarshipCardFacts,
@@ -81,7 +81,7 @@ function SecondaryFact({ label, value }: { label: string; value: string }) {
 }
 
 function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDetail | null }) {
-  const title = truncateText(getScholarshipTitle(scholarship), 132);
+  const title = truncateText(getScholarshipTitle(scholarship), 118);
   const facts = getScholarshipCardFacts(scholarship);
   const stipend = getStipendLabel(scholarship);
   const provider = getProviderLabel(scholarship);
@@ -180,9 +180,9 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
           <div
             style={{
               color: "#17231b",
-              fontSize: title.length > 92 ? 51 : title.length > 68 ? 58 : 68,
+              fontSize: title.length > 92 ? 46 : title.length > 68 ? 53 : 66,
               fontWeight: 900,
-              lineHeight: 1.01,
+              lineHeight: 1,
               maxWidth: 1060,
             }}
           >
@@ -218,13 +218,13 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
               alignItems: "center",
               justifyContent: "space-between",
               borderTop: "1px solid rgba(20, 83, 45, 0.14)",
-              paddingTop: 14,
+              paddingTop: 12,
             }}
           >
-            <div style={{ color: "#14532d", fontSize: 21, fontWeight: 900 }}>
-              View verified scholarship details on ScholarsRepublic.org
+            <div style={{ color: "#14532d", fontSize: 19, fontWeight: 900 }}>
+              View details on ScholarsRepublic.org
             </div>
-            <div style={{ color: "#52625a", fontSize: 18, fontWeight: 600 }}>
+            <div style={{ color: "#52625a", fontSize: 16, fontWeight: 600 }}>
               Confirm final requirements from the official scholarship source.
             </div>
           </div>
@@ -236,10 +236,7 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
 
 export default async function OpenGraphImage({ params }: OpenGraphImageProps) {
   const { slug } = await params;
-  const scholarship = await getPublicScholarshipInitial(slug).catch(() => ({
-    data: null,
-    notFound: false,
-  }));
+  const scholarship = await fetchScholarshipForSocialPreview(slug);
 
-  return new ImageResponse(<ScholarshipPreviewImage scholarship={scholarship.data} />, size);
+  return new ImageResponse(<ScholarshipPreviewImage scholarship={scholarship} />, size);
 }

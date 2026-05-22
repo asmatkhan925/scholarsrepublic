@@ -28,6 +28,10 @@ function cleanText(value: unknown) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
+function trimTrailingSentencePunctuation(value: string) {
+  return value.replace(/[.!?]+$/g, "").trim();
+}
+
 function formatAmount(amount: string | number, currency?: string | null) {
   const rawAmount = String(amount).trim();
 
@@ -158,8 +162,8 @@ export function getDegreeLabel(opportunity?: ScholarshipValue | null) {
 
 export function getProviderLabel(opportunity?: ScholarshipValue | null) {
   const provider =
-    cleanText(opportunity?.university_name) ||
     cleanText(opportunity?.provider_name) ||
+    cleanText(opportunity?.university_name) ||
     cleanText(opportunity?.company_name) ||
     cleanText(opportunity?.source_name);
 
@@ -170,7 +174,7 @@ export function getStipendLabel(opportunity?: ScholarshipValue | null) {
   const stipendSummary = cleanText(opportunity?.stipend_summary);
 
   if (stipendSummary) {
-    return truncateText(stipendSummary, 82);
+    return trimTrailingSentencePunctuation(truncateText(stipendSummary, 82));
   }
 
   if (opportunity?.funding_amount !== null && opportunity?.funding_amount !== undefined) {
@@ -211,7 +215,7 @@ export function buildScholarshipSocialDescription(opportunity?: ScholarshipValue
     summaryParts.push(`Deadline: ${deadline}`);
   }
 
-  if (stipend && summaryParts.join(" • ").length < 95) {
+  if (stipend && `${summaryParts.join(" • ")} • ${stipend}`.length <= 125) {
     summaryParts.push(stipend);
   }
 
