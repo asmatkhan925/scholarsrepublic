@@ -2,12 +2,10 @@ import { ImageResponse } from "next/og";
 
 import { getPublicScholarshipInitial } from "@/lib/serverApi";
 import {
-  formatDeadline,
-  formatFundingType,
-  getCountryLabel,
-  getDegreeLabel,
   getProviderLabel,
+  getScholarshipCardFacts,
   getScholarshipTitle,
+  getStipendLabel,
   truncateText,
 } from "@/lib/seo/scholarshipSocial";
 import type { OpportunityDetail } from "@/types/opportunity";
@@ -28,22 +26,22 @@ function InfoBadge({ label, value }: { label: string; value: string }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 6,
-        minWidth: 190,
-        maxWidth: 270,
-        border: "1px solid rgba(20, 83, 45, 0.16)",
-        borderRadius: 18,
-        background: "rgba(255, 255, 255, 0.84)",
-        padding: "16px 18px",
+        gap: 5,
+        minWidth: 178,
+        maxWidth: 258,
+        border: "1px solid rgba(20, 83, 45, 0.18)",
+        borderRadius: 16,
+        background: "#ffffff",
+        padding: "13px 15px",
       }}
     >
       <div
         style={{
-          color: "#6b7b70",
-          fontSize: 18,
+          color: "#52625a",
+          fontSize: 15,
           fontWeight: 700,
           textTransform: "uppercase",
-          letterSpacing: 1.4,
+          letterSpacing: 1.1,
         }}
       >
         {label}
@@ -51,9 +49,9 @@ function InfoBadge({ label, value }: { label: string; value: string }) {
       <div
         style={{
           color: "#17231b",
-          fontSize: 27,
+          fontSize: 25,
           fontWeight: 800,
-          lineHeight: 1.18,
+          lineHeight: 1.12,
         }}
       >
         {value}
@@ -62,22 +60,35 @@ function InfoBadge({ label, value }: { label: string; value: string }) {
   );
 }
 
+function SecondaryFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        borderRadius: 14,
+        background: "rgba(20, 83, 45, 0.08)",
+        padding: "12px 15px",
+      }}
+    >
+      <div style={{ color: "#14532d", fontSize: 18, fontWeight: 900 }}>{label}</div>
+      <div style={{ color: "#17231b", fontSize: 20, fontWeight: 700 }}>
+        {truncateText(value, 74)}
+      </div>
+    </div>
+  );
+}
+
 function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDetail | null }) {
-  const title = truncateText(getScholarshipTitle(scholarship), 112);
-  const country = getCountryLabel(scholarship);
-  const funding = formatFundingType(scholarship?.funding_type);
-  const degree = getDegreeLabel(scholarship);
-  const deadline = formatDeadline(scholarship?.deadline);
+  const title = truncateText(getScholarshipTitle(scholarship), 132);
+  const facts = getScholarshipCardFacts(scholarship);
+  const stipend = getStipendLabel(scholarship);
   const provider = getProviderLabel(scholarship);
   const statusLabel = scholarship?.verified_status
     ? "Verified Scholarship"
     : "Scholarship Opportunity";
-  const badges = [
-    country ? { label: "Country", value: country } : null,
-    funding ? { label: "Funding", value: funding } : null,
-    degree ? { label: "Degree", value: degree } : null,
-    deadline ? { label: "Deadline", value: deadline } : null,
-  ].filter((item): item is { label: string; value: string } => Boolean(item));
+  const isFallback = !scholarship;
 
   return (
     <div
@@ -85,10 +96,10 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
         display: "flex",
         height: "100%",
         width: "100%",
-        background: "#fffdf5",
+        background: "#fffdf7",
         color: "#17231b",
         fontFamily: "Arial, sans-serif",
-        padding: 54,
+        padding: 42,
         position: "relative",
       }}
     >
@@ -97,7 +108,7 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 92% 10%, rgba(201, 151, 43, 0.18), transparent 30%), linear-gradient(135deg, rgba(20, 83, 45, 0.08), transparent 42%)",
+            "radial-gradient(circle at 92% 8%, rgba(201, 151, 43, 0.18), transparent 28%), linear-gradient(135deg, rgba(20, 83, 45, 0.10), transparent 46%)",
         }}
       />
       <div
@@ -107,37 +118,37 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
           justifyContent: "space-between",
           position: "relative",
           width: "100%",
-          border: "1px solid rgba(20, 83, 45, 0.18)",
-          borderRadius: 34,
-          background: "rgba(248, 250, 247, 0.9)",
-          padding: "38px 42px",
+          border: "1px solid rgba(20, 83, 45, 0.16)",
+          borderRadius: 30,
+          background: "rgba(248, 250, 247, 0.94)",
+          padding: "28px 34px 30px",
           boxShadow: "0 20px 70px rgba(23, 35, 27, 0.10)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 58,
-                height: 58,
-                borderRadius: 18,
+                width: 44,
+                height: 44,
+                borderRadius: 14,
                 background: "#14532d",
                 color: "#fffdf5",
-                fontSize: 30,
+                fontSize: 21,
                 fontWeight: 900,
               }}
             >
               SR
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <div style={{ color: "#14532d", fontSize: 31, fontWeight: 900 }}>
+              <div style={{ color: "#14532d", fontSize: 24, fontWeight: 900 }}>
                 Scholars Republic
               </div>
-              <div style={{ color: "#5f6f64", fontSize: 19, fontWeight: 600 }}>
-                Scholarship discovery and preparation
+              <div style={{ color: "#52625a", fontSize: 16, fontWeight: 600 }}>
+                Scholarship details and application preparation
               </div>
             </div>
           </div>
@@ -146,10 +157,10 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
             style={{
               display: "flex",
               borderRadius: 999,
-              background: "#f1d18b",
+              background: scholarship?.verified_status ? "#dff7ec" : "#f1d18b",
               color: "#17231b",
-              padding: "13px 22px",
-              fontSize: 20,
+              padding: "10px 18px",
+              fontSize: 18,
               fontWeight: 800,
             }}
           >
@@ -157,11 +168,11 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div
             style={{
-              width: 90,
-              height: 8,
+              width: 104,
+              height: 7,
               borderRadius: 999,
               background: "#c9972b",
             }}
@@ -169,27 +180,35 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
           <div
             style={{
               color: "#17231b",
-              fontSize: title.length > 78 ? 54 : 62,
+              fontSize: title.length > 92 ? 51 : title.length > 68 ? 58 : 68,
               fontWeight: 900,
-              lineHeight: 1.05,
-              maxWidth: 980,
+              lineHeight: 1.01,
+              maxWidth: 1060,
             }}
           >
             {title}
           </div>
-          {provider ? (
-            <div style={{ color: "#5f6f64", fontSize: 25, fontWeight: 700 }}>
-              Provider: {truncateText(provider, 72)}
+
+          {isFallback ? (
+            <div style={{ color: "#52625a", fontSize: 26, fontWeight: 700 }}>
+              View scholarship details on ScholarsRepublic.org
             </div>
           ) : null}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {badges.length ? (
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              {badges.map((badge) => (
-                <InfoBadge key={badge.label} label={badge.label} value={badge.value} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {facts.length ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {facts.map((fact) => (
+                <InfoBadge key={fact.label} label={fact.label} value={fact.value} />
               ))}
+            </div>
+          ) : null}
+
+          {stipend || provider ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {stipend ? <SecondaryFact label="Stipend" value={stipend} /> : null}
+              {provider ? <SecondaryFact label="Provider" value={provider} /> : null}
             </div>
           ) : null}
 
@@ -199,13 +218,13 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
               alignItems: "center",
               justifyContent: "space-between",
               borderTop: "1px solid rgba(20, 83, 45, 0.14)",
-              paddingTop: 18,
+              paddingTop: 14,
             }}
           >
-            <div style={{ color: "#14532d", fontSize: 23, fontWeight: 900 }}>
-              View details on ScholarsRepublic.org
+            <div style={{ color: "#14532d", fontSize: 21, fontWeight: 900 }}>
+              View verified scholarship details on ScholarsRepublic.org
             </div>
-            <div style={{ color: "#5f6f64", fontSize: 19, fontWeight: 600 }}>
+            <div style={{ color: "#52625a", fontSize: 18, fontWeight: 600 }}>
               Confirm final requirements from the official scholarship source.
             </div>
           </div>

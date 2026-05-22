@@ -7,6 +7,13 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://scholarsrepublic.
 
 const FALLBACK_DESCRIPTION =
   "View scholarship details, eligibility, documents, and official source on Scholars Republic.";
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  EUR: "€",
+  GBP: "£",
+  USD: "$",
+};
+
+type ScholarshipValue = Partial<OpportunityDetail> & Record<string, unknown>;
 
 function titleCase(value: string) {
   return value
@@ -17,8 +24,35 @@ function titleCase(value: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function getScholarshipTitle(opportunity?: OpportunityDetail | null) {
-  const title = opportunity?.title?.trim();
+function cleanText(value: unknown) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function formatAmount(amount: string | number, currency?: string | null) {
+  const rawAmount = String(amount).trim();
+
+  if (!rawAmount) {
+    return "";
+  }
+
+  const numericAmount = Number(rawAmount);
+  const amountText = Number.isFinite(numericAmount)
+    ? new Intl.NumberFormat("en", {
+        maximumFractionDigits: 0,
+      }).format(numericAmount)
+    : rawAmount;
+  const currencyText = cleanText(currency);
+  const symbol = CURRENCY_SYMBOLS[currencyText.toUpperCase()];
+
+  if (symbol) {
+    return `${symbol}${amountText}`;
+  }
+
+  return currencyText ? `${currencyText} ${amountText}` : amountText;
+}
+
+export function getScholarshipTitle(opportunity?: ScholarshipValue | null) {
+  const title = cleanText(opportunity?.title);
   return title || "Scholarship Opportunity";
 }
 
@@ -49,11 +83,17 @@ export function formatFundingType(value: string | null | undefined) {
     partially_funded: "Partially Funded",
     tuition_waiver: "Tuition Waiver",
     stipend: "Stipend",
+    stipend_only: "Stipend Only",
     need_based: "Need Based",
     merit_based: "Merit Based",
+    other: "Other Funding",
   };
 
   return labels[normalized] ?? titleCase(normalized);
+}
+
+export function getFundingLabel(opportunity?: ScholarshipValue | null) {
+  return formatFundingType(cleanText(opportunity?.funding_type));
 }
 
 export function formatDeadline(value: string | null | undefined) {
@@ -75,13 +115,38 @@ export function formatDeadline(value: string | null | undefined) {
   }).format(date);
 }
 
-export function getCountryLabel(opportunity?: OpportunityDetail | null) {
-  const country = opportunity?.country?.trim();
-  return country || null;
+export function getDeadlineLabel(opportunity?: ScholarshipValue | null) {
+  return formatDeadline(cleanText(opportunity?.deadline));
 }
 
-export function getDegreeLabel(opportunity?: OpportunityDetail | null) {
-  const degreeLevels = opportunity?.degree_levels?.filter(Boolean).map((degree) => degree.trim());
+export function getCountryLabel(opportunity?: ScholarshipValue | null) {
+  const country = cleanText(opportunity?.country);
+
+  if (country) {
+    return country;
+  }
+
+  const countryRef = opportunity?.country_ref_detail;
+
+  if (countryRef && typeof countryRef === "object" && "name" in countryRef) {
+    const name = cleanText((countryRef as { name?: unknown }).name);
+    return name || null;
+  }
+
+  const pathway = opportunity?.pathway_detail;
+
+  if (pathway && typeof pathway === "object" && "country" in pathway) {
+    const pathwayCountry = cleanText((pathway as { country?: unknown }).country);
+    return pathwayCountry || null;
+  }
+
+  return null;
+}
+
+export function getDegreeLabel(opportunity?: ScholarshipValue | null) {
+  const degreeLevels = Array.isArray(opportunity?.degree_levels)
+    ? opportunity.degree_levels.map(cleanText).filter(Boolean)
+    : [];
 
   if (!degreeLevels?.length) {
     return null;
@@ -91,26 +156,63 @@ export function getDegreeLabel(opportunity?: OpportunityDetail | null) {
   return degreeLevels.length > 2 ? `${visibleDegrees} + more` : visibleDegrees;
 }
 
-export function getProviderLabel(opportunity?: OpportunityDetail | null) {
+export function getProviderLabel(opportunity?: ScholarshipValue | null) {
   const provider =
-    opportunity?.university_name?.trim() ||
-    opportunity?.provider_name?.trim() ||
-    opportunity?.company_name?.trim();
+    cleanText(opportunity?.university_name) ||
+    cleanText(opportunity?.provider_name) ||
+    cleanText(opportunity?.company_name) ||
+    cleanText(opportunity?.source_name);
 
   return provider || null;
 }
 
-export function buildScholarshipSocialDescription(opportunity?: OpportunityDetail | null) {
+export function getStipendLabel(opportunity?: ScholarshipValue | null) {
+  const stipendSummary = cleanText(opportunity?.stipend_summary);
+
+  if (stipendSummary) {
+    return truncateText(stipendSummary, 82);
+  }
+
+  if (opportunity?.funding_amount !== null && opportunity?.funding_amount !== undefined) {
+    const amount = formatAmount(
+      opportunity.funding_amount as string | number,
+      cleanText(opportunity.funding_currency),
+    );
+
+    if (amount) {
+      const funding = getFundingLabel(opportunity);
+      return funding ? `${amount} ${funding.toLowerCase()}` : amount;
+    }
+  }
+
+  return null;
+}
+
+export function getScholarshipCardFacts(opportunity?: ScholarshipValue | null) {
+  return [
+    { label: "Country", value: getCountryLabel(opportunity) },
+    { label: "Funding", value: getFundingLabel(opportunity) },
+    { label: "Degree", value: getDegreeLabel(opportunity) },
+    { label: "Deadline", value: getDeadlineLabel(opportunity) },
+  ].filter((fact): fact is { label: string; value: string } => Boolean(fact.value));
+}
+
+export function buildScholarshipSocialDescription(opportunity?: ScholarshipValue | null) {
   const fields = [
     getCountryLabel(opportunity),
-    formatFundingType(opportunity?.funding_type),
+    getFundingLabel(opportunity),
     getDegreeLabel(opportunity),
   ];
-  const deadline = formatDeadline(opportunity?.deadline);
+  const deadline = getDeadlineLabel(opportunity);
+  const stipend = getStipendLabel(opportunity);
   const summaryParts = fields.filter(Boolean);
 
   if (deadline) {
     summaryParts.push(`Deadline: ${deadline}`);
+  }
+
+  if (stipend && summaryParts.join(" • ").length < 95) {
+    summaryParts.push(stipend);
   }
 
   const prefix = summaryParts.length ? `${summaryParts.join(" • ")}. ` : "";
@@ -137,6 +239,8 @@ export function getScholarshipSocialMetadata(
     description: buildScholarshipSocialDescription(opportunity),
     canonicalUrl: getScholarshipCanonicalUrl(slug),
     ogImageUrl: getScholarshipOgImageUrl(slug),
-    imageAlt: rawTitle,
+    imageAlt: opportunity?.title
+      ? `Open Graph preview image for ${rawTitle}`
+      : "Scholars Republic scholarship preview",
   };
 }
