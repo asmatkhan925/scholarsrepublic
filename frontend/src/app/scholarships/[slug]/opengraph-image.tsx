@@ -13,6 +13,8 @@ import type { OpportunityDetail } from "@/types/opportunity";
 export const alt = "Scholars Republic scholarship preview";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type OpenGraphImageProps = {
   params: Promise<{
@@ -81,14 +83,16 @@ function SecondaryFact({ label, value }: { label: string; value: string }) {
 }
 
 function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDetail | null }) {
-  const title = truncateText(getScholarshipTitle(scholarship), 118);
+  const rawTitle = typeof scholarship?.title === "string" ? scholarship.title.trim() : "";
+  const hasRealTitle = Boolean(rawTitle);
+  const title = truncateText(rawTitle || getScholarshipTitle(null), 118);
   const facts = getScholarshipCardFacts(scholarship);
   const stipend = getStipendLabel(scholarship);
   const provider = getProviderLabel(scholarship);
   const statusLabel = scholarship?.verified_status
     ? "Verified Scholarship"
     : "Scholarship Opportunity";
-  const isFallback = !scholarship;
+  const isFallback = !scholarship || !hasRealTitle;
 
   return (
     <div
@@ -237,6 +241,10 @@ function ScholarshipPreviewImage({ scholarship }: { scholarship?: OpportunityDet
 export default async function OpenGraphImage({ params }: OpenGraphImageProps) {
   const { slug } = await params;
   const scholarship = await fetchScholarshipForSocialPreview(slug);
+
+  if (!scholarship || !scholarship.title?.trim()) {
+    console.warn(`[scholarship-og-image] Missing scholarship data for slug: ${slug}`);
+  }
 
   return new ImageResponse(<ScholarshipPreviewImage scholarship={scholarship} />, size);
 }

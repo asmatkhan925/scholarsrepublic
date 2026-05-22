@@ -223,8 +223,20 @@ export function buildScholarshipSocialDescription(opportunity?: ScholarshipValue
   return truncateText(`${prefix}${FALLBACK_DESCRIPTION}`, 180);
 }
 
-export function getScholarshipOgImageUrl(slug: string) {
-  return `${SITE_URL}/scholarships/${encodeURIComponent(slug)}/opengraph-image`;
+function getScholarshipOgImageVersion(opportunity?: ScholarshipValue | null) {
+  return (
+    cleanText(opportunity?.updated_at) ||
+    cleanText(opportunity?.last_verified_at) ||
+    cleanText(opportunity?.published_at) ||
+    cleanText(opportunity?.created_at)
+  );
+}
+
+export function getScholarshipOgImageUrl(slug: string, opportunity?: ScholarshipValue | null) {
+  const url = `${SITE_URL}/scholarships/${encodeURIComponent(slug)}/opengraph-image`;
+  const version = getScholarshipOgImageVersion(opportunity);
+
+  return version ? `${url}?v=${encodeURIComponent(version)}` : url;
 }
 
 export function getScholarshipCanonicalUrl(slug: string) {
@@ -242,7 +254,7 @@ export function getScholarshipSocialMetadata(
     title,
     description: buildScholarshipSocialDescription(opportunity),
     canonicalUrl: getScholarshipCanonicalUrl(slug),
-    ogImageUrl: getScholarshipOgImageUrl(slug),
+    ogImageUrl: getScholarshipOgImageUrl(slug, opportunity),
     imageAlt: opportunity?.title
       ? `Open Graph preview image for ${rawTitle}`
       : "Scholars Republic scholarship preview",
