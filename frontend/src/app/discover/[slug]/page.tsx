@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { JsonLd } from "@/components/seo/JsonLd";
 import DiscoveryLandingPage from "@/features/discover/DiscoveryLandingPage";
 import {
   discoveryLandingPageSlugs,
   getDiscoveryLandingPage,
 } from "@/features/discover/discoveryLandingPages";
+import { createBreadcrumbJsonLd, createWebPageJsonLd } from "@/lib/seo/jsonLd";
 
 type DiscoveryRoutePageProps = {
   params: Promise<{
@@ -52,5 +54,23 @@ export default async function DiscoveryRoutePage({ params }: DiscoveryRoutePageP
     notFound();
   }
 
-  return <DiscoveryLandingPage page={page} />;
+  return (
+    <>
+      <JsonLd
+        data={[
+          createWebPageJsonLd({
+            name: page.title,
+            description: page.description,
+            path: `/discover/${page.slug}`,
+          }),
+          createBreadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Discover", path: "/discover" },
+            { name: page.title, path: `/discover/${page.slug}` },
+          ]),
+        ]}
+      />
+      <DiscoveryLandingPage page={page} />
+    </>
+  );
 }

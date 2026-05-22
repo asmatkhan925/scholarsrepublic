@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { JsonLd } from "@/components/seo/JsonLd";
 import ScholarshipDetailPage from "@/features/scholarships/ScholarshipDetailPage";
 import { getPublicScholarshipInitial } from "@/lib/serverApi";
+import { createBreadcrumbJsonLd, createWebPageJsonLd } from "@/lib/seo/jsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +14,7 @@ type ScholarshipRoutePageProps = {
   }>;
 };
 
-export async function generateMetadata({
-  params,
-}: ScholarshipRoutePageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: ScholarshipRoutePageProps): Promise<Metadata> {
   const { slug } = await params;
   const scholarship = await getPublicScholarshipInitial(slug);
 
@@ -50,5 +50,31 @@ export default async function ScholarshipRoutePage({ params }: ScholarshipRouteP
     notFound();
   }
 
-  return <ScholarshipDetailPage initialScholarship={initialScholarship.data} slug={slug} />;
+  const scholarship = initialScholarship.data;
+  const description =
+    scholarship?.short_description ||
+    scholarship?.description ||
+    "Review scholarship details, deadlines, source information, and application guidance on Scholars Republic.";
+
+  return (
+    <>
+      {scholarship ? (
+        <JsonLd
+          data={[
+            createWebPageJsonLd({
+              name: scholarship.title,
+              description,
+              path: `/scholarships/${slug}`,
+            }),
+            createBreadcrumbJsonLd([
+              { name: "Home", path: "/" },
+              { name: "Scholarships", path: "/scholarships" },
+              { name: scholarship.title, path: `/scholarships/${slug}` },
+            ]),
+          ]}
+        />
+      ) : null}
+      <ScholarshipDetailPage initialScholarship={scholarship} slug={slug} />
+    </>
+  );
 }
