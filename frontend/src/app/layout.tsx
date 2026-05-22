@@ -6,10 +6,26 @@ import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://scholarsrepublic.org";
+const siteDescription =
+  "Find verified scholarships, save opportunities, track applications, and prepare stronger scholarship documents.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Scholars Republic",
-  description:
-    "Scholarship search, student profiles, application tracking, and document preparation tools for students.",
+  description: siteDescription,
+  openGraph: {
+    siteName: "Scholars Republic",
+    type: "website",
+    url: siteUrl,
+    title: "Scholars Republic",
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Scholars Republic",
+    description: siteDescription,
+  },
 };
 
 export default function RootLayout({
