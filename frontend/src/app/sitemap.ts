@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
 
+import { discoveryLandingPageSlugs } from "@/features/discover/discoveryLandingPages";
+
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://scholarsrepublic.org";
 
 const coreRoutes = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/scholarships", changeFrequency: "daily", priority: 0.9 },
   { path: "/guides", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/discover", changeFrequency: "weekly", priority: 0.75 },
   { path: "/about", changeFrequency: "monthly", priority: 0.7 },
   { path: "/services", changeFrequency: "monthly", priority: 0.65 },
   { path: "/verification-policy", changeFrequency: "monthly", priority: 0.65 },
@@ -30,6 +33,8 @@ const guideRoutes = [
   "/guides/scholarship-application-checklist",
 ] as const;
 
+const discoveryRoutes = discoveryLandingPageSlugs.map((slug) => `/discover/${slug}`);
+
 function absoluteUrl(path: string) {
   return new URL(path, baseUrl).toString();
 }
@@ -49,6 +54,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: 0.75,
+    })),
+    ...discoveryRoutes.map((path) => ({
+      url: absoluteUrl(path),
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
     })),
   ];
 }

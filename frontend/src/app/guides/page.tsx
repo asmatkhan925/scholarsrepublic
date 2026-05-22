@@ -15,6 +15,7 @@ import {
 
 import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
+import { discoveryLandingPages } from "@/features/discover/discoveryLandingPages";
 
 export const metadata: Metadata = {
   title: "Scholarship Guides for Pakistani Students - Scholars Republic",
@@ -209,6 +210,11 @@ const intentCards = [
   },
 ];
 
+const popularSearchPages = discoveryLandingPages.map((page) => ({
+  title: page.title,
+  href: `/discover/${page.slug}`,
+}));
+
 function getGuide(href: string) {
   return guides.find((guide) => guide.href === href);
 }
@@ -370,6 +376,39 @@ export default function GuidesPage() {
               </section>
             );
           })}
+        </div>
+      </section>
+
+      <section className="border-y border-pine/10 bg-white py-10 dark:border-white/10 dark:bg-[#151719]">
+        <div className="mx-auto max-w-7xl px-5 md:px-8">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
+                Popular searches
+              </p>
+              <h2 className="mt-3 text-2xl font-bold text-ink dark:text-white">
+                Popular scholarship searches
+              </h2>
+            </div>
+            <p className="max-w-2xl text-sm leading-7 text-ink/62 dark:text-white/52">
+              Start from common scholarship search paths, then use filters to refine opportunities
+              by country, degree level, funding, and application requirements.
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {popularSearchPages.map((page) => (
+              <ButtonLink
+                key={page.href}
+                href={page.href}
+                variant="outline"
+                className="h-auto justify-between rounded-2xl px-4 py-3 text-left"
+              >
+                <span>{page.title}</span>
+                <ArrowRight size={15} aria-hidden="true" />
+              </ButtonLink>
+            ))}
+          </div>
         </div>
       </section>
 
