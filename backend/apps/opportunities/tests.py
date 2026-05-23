@@ -499,6 +499,58 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(OpportunityPathway.objects.count(), pathway_count)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_turin_all_fields_payload_returns_json_200(self):
+        payload = self.draft_payload(
+            title="University of Turin PhD Programmes 2026",
+            slug="university-of-turin-phd-programmes-2026",
+            pathway="University of Turin PhD programmes",
+            country="Italy",
+            country_region="Europe",
+            university_name="University of Turin",
+            provider_name="University of Turin",
+            source_name="University of Turin official website",
+            official_link="https://www.unito.it/research/doctoral-programmes",
+            source_url="https://www.unito.it/research/doctoral-programmes",
+            funding_type="stipend_only",
+            funding_amount="16947.00",
+            funding_currency="EUR",
+            stipend_summary="Indicative annual PhD scholarship amount is about EUR 16,947.",
+            degree_levels=["PhD"],
+            fields_of_study=["All Fields"],
+            all_study_fields=True,
+            deadline="2026-06-09",
+            short_description="University of Turin PhD call covering multiple doctoral programmes.",
+            description=(
+                "A broad University of Turin doctoral call covering multiple PhD programmes "
+                "and research areas."
+            ),
+            benefits="Selected PhD candidates may receive an annual scholarship stipend.",
+            eligibility="Applicants must meet the doctoral programme admission requirements.",
+            how_to_apply=(
+                "Apply through the University of Turin official call portal before the deadline."
+            ),
+            tags=["Italy", "University of Turin", "PhD"],
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assert_json_response(response)
+        self.assertTrue(response.data["valid"])
+        self.assertEqual(response.data["errors"], [])
+        self.assertTrue(response.data["normalized_payload"]["all_study_fields"])
+        self.assertEqual(response.data["normalized_payload"]["study_fields"], [])
+        self.assertEqual(
+            response.data["normalized_payload"]["opportunity"]["country"],
+            "Italy",
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_create_draft_rejects_missing_token(self):
         response = self.client.post(
             "/api/admin/agent/scholarships/create-draft/",

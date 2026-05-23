@@ -263,6 +263,13 @@ class AgentScholarshipValidateView(AgentScholarshipBaseView):
 
         try:
             cleaned, warnings, errors = validate_opportunity_draft_payload(payload)
+            response_data = {
+                "valid": not bool(errors),
+                "errors": errors,
+                "warnings": warnings,
+                "missing_information": _agent_missing_information(payload),
+                "normalized_payload": _normalize_agent_validation(cleaned),
+            }
         except Exception:
             logger.exception("Agent scholarship validation failed.")
             return Response(
@@ -270,16 +277,7 @@ class AgentScholarshipValidateView(AgentScholarshipBaseView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        return Response(
-            {
-                "valid": not bool(errors),
-                "errors": errors,
-                "warnings": warnings,
-                "missing_information": _agent_missing_information(payload),
-                "normalized_payload": _normalize_agent_validation(cleaned),
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class AgentScholarshipCreateDraftView(AgentScholarshipBaseView):
@@ -919,6 +917,7 @@ class AdminOpportunityDraftDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class AdminOpportunityDraftValidateView(APIView):
     permission_classes = [IsPlatformAdmin]
+    renderer_classes = [JSONRenderer]
 
     def post(self, request, pk):
         try:
@@ -926,31 +925,40 @@ class AdminOpportunityDraftValidateView(APIView):
         except OpportunityDraft.DoesNotExist:
             return Response({"detail": "Draft not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        cleaned, warnings, errors = validate_opportunity_draft_payload(draft.raw_payload)
-        opportunity = cleaned.get("opportunity", {})
+        try:
+            cleaned, warnings, errors = validate_opportunity_draft_payload(draft.raw_payload)
+            opportunity = cleaned.get("opportunity", {})
 
-        draft.confidence = cleaned.get("confidence", "")
-        draft.source_url = opportunity.get("source_url", "")
-        draft.source_name = opportunity.get("source_name", "")
-        draft.validation_warnings = warnings
-        draft.validation_errors = errors
-        draft.status = OpportunityDraft.Status.ERROR if errors else OpportunityDraft.Status.VALIDATED
+            draft.confidence = cleaned.get("confidence", "")
+            draft.source_url = opportunity.get("source_url", "")
+            draft.source_name = opportunity.get("source_name", "")
+            draft.validation_warnings = warnings
+            draft.validation_errors = errors
+            draft.status = (
+                OpportunityDraft.Status.ERROR if errors else OpportunityDraft.Status.VALIDATED
+            )
 
-        if not draft.created_by_id:
-            draft.created_by = request.user
+            if not draft.created_by_id:
+                draft.created_by = request.user
 
-        draft.save(
-            update_fields=[
-                "created_by",
-                "confidence",
-                "source_url",
-                "source_name",
-                "validation_warnings",
-                "validation_errors",
-                "status",
-                "updated_at",
-            ]
-        )
+            draft.save(
+                update_fields=[
+                    "created_by",
+                    "confidence",
+                    "source_url",
+                    "source_name",
+                    "validation_warnings",
+                    "validation_errors",
+                    "status",
+                    "updated_at",
+                ]
+            )
+        except Exception:
+            logger.exception("Admin opportunity draft validation failed.")
+            return Response(
+                {"detail": "Agent API request failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(OpportunityDraftSerializer(draft, context={"request": request}).data)
 

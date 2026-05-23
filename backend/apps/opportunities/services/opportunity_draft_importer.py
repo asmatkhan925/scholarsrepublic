@@ -11,7 +11,14 @@ from apps.opportunities.models import Opportunity, OpportunityDraft, Opportunity
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
 
-ALL_STUDY_FIELD_MARKERS = {"all fields", "all", "any"}
+ALL_STUDY_FIELD_MARKERS = {
+    "all fields",
+    "all",
+    "any",
+    "any discipline",
+    "all programmes",
+    "all programs",
+}
 UNSAFE_COUNTRY_VALUES = {
     "all countries",
     "any country",
@@ -181,35 +188,24 @@ def validate_opportunity_draft_payload(payload):
     cleaned["eligible_countries"] = dedupe_models(eligible_countries)
 
     fields_of_study = clean_string_list(opportunity_payload.get("fields_of_study"))
-    all_study_fields = bool(opportunity_payload.get("all_study_fields")) or bool(
-        {field.casefold() for field in fields_of_study} & ALL_STUDY_FIELD_MARKERS
-    )
+    all_study_fields = get_all_study_fields_flag(payload, opportunity_payload, fields_of_study)
     cleaned["all_study_fields"] = all_study_fields
 
     if all_study_fields:
+        warn_ignored_study_fields_for_all_fields(fields_of_study, warnings)
         cleaned["study_fields"] = []
     else:
-        study_fields = []
-
         study_field_categories = opportunity_payload.get("study_field_categories")
         if not isinstance(study_field_categories, dict):
             study_field_categories = {}
 
-        for field_name in fields_of_study:
-            study_field = resolve_or_create_study_field(
-                field_name,
-                category_name=clean_text(study_field_categories.get(field_name)),
-                warnings=warnings,
-                create_missing=create_missing_references,
-                create_records=False,
-            )
-
-            if study_field:
-                study_fields.append(study_field)
-            elif not create_missing_references:
-                warnings.append(f'Unknown study field "{field_name}" skipped.')
-
-        cleaned["study_fields"] = dedupe_models(study_fields)
+        cleaned["study_fields"] = resolve_study_fields_for_draft(
+            fields_of_study,
+            study_field_categories,
+            warnings,
+            create_missing=create_missing_references,
+            create_records=False,
+        )
 
         if not cleaned["study_fields"] and not create_missing_references:
             errors.append(
@@ -493,6 +489,73 @@ def clean_string_list(value):
             seen.add(key)
 
     return cleaned
+
+
+def is_all_study_fields_marker(value):
+    normalized = clean_text(value).casefold()
+    return normalized in ALL_STUDY_FIELD_MARKERS or normalize_key(normalized) in {
+        normalize_key(marker) for marker in ALL_STUDY_FIELD_MARKERS
+    }
+
+
+def get_all_study_fields_flag(payload, opportunity_payload, fields_of_study):
+    return (
+        parse_bool_flag(opportunity_payload.get("all_study_fields"), False)
+        or parse_bool_flag(payload.get("all_study_fields"), False)
+        or any(is_all_study_fields_marker(field) for field in fields_of_study)
+    )
+
+
+def warn_ignored_study_fields_for_all_fields(fields_of_study, warnings):
+    ignored_fields = [
+        field_name
+        for field_name in fields_of_study
+        if field_name and not is_all_study_fields_marker(field_name)
+    ]
+
+    if ignored_fields and warnings is not None:
+        preview = ", ".join(ignored_fields[:5])
+        suffix = f", and {len(ignored_fields) - 5} more" if len(ignored_fields) > 5 else ""
+        warnings.append(
+            "Specific fields_of_study values were ignored because all_study_fields is true: "
+            f"{preview}{suffix}."
+        )
+
+
+def resolve_study_fields_for_draft(
+    fields_of_study,
+    study_field_categories,
+    warnings,
+    create_missing=False,
+    create_records=False,
+):
+    study_fields = []
+
+    for field_name in fields_of_study:
+        if is_all_study_fields_marker(field_name):
+            continue
+
+        try:
+            study_field = resolve_or_create_study_field(
+                field_name,
+                category_name=clean_text(study_field_categories.get(field_name)),
+                warnings=warnings,
+                create_missing=create_missing,
+                create_records=create_records,
+            )
+        except Exception:
+            if warnings is not None:
+                warnings.append(
+                    f'Unknown study field "{field_name}" skipped during validation.'
+                )
+            continue
+
+        if study_field:
+            study_fields.append(study_field)
+        elif not create_missing and warnings is not None:
+            warnings.append(f'Unknown study field "{field_name}" skipped.')
+
+    return dedupe_models(study_fields)
 
 
 def normalize_key(value):
@@ -1041,29 +1104,23 @@ def create_missing_references_for_import(cleaned, opportunity_payload, warnings)
     cleaned["eligible_countries"] = dedupe_models(eligible_countries)
 
     fields_of_study = clean_string_list(opportunity_payload.get("fields_of_study"))
-    all_study_fields = bool(opportunity_payload.get("all_study_fields")) or bool(
-        {field.casefold() for field in fields_of_study} & ALL_STUDY_FIELD_MARKERS
-    )
+    all_study_fields = get_all_study_fields_flag(cleaned, opportunity_payload, fields_of_study)
     cleaned["all_study_fields"] = all_study_fields
     if all_study_fields:
+        warn_ignored_study_fields_for_all_fields(fields_of_study, warnings)
         cleaned["study_fields"] = []
     else:
         categories = opportunity_payload.get("study_field_categories")
         if not isinstance(categories, dict):
             categories = {}
 
-        study_fields = []
-        for field_name in fields_of_study:
-            field = resolve_or_create_study_field(
-                field_name,
-                category_name=clean_text(categories.get(field_name)),
-                warnings=warnings,
-                create_missing=True,
-                create_records=True,
-            )
-            if field:
-                study_fields.append(field)
-        cleaned["study_fields"] = dedupe_models(study_fields)
+        cleaned["study_fields"] = resolve_study_fields_for_draft(
+            fields_of_study,
+            categories,
+            warnings,
+            create_missing=True,
+            create_records=True,
+        )
         if fields_of_study and not cleaned["study_fields"]:
             errors.append("At least one known study field is required when all_study_fields is false.")
 
