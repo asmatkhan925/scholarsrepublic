@@ -248,6 +248,26 @@ class AgentScholarshipBaseView(APIView):
         return None
 
 
+class AgentDebugAuthView(AgentScholarshipBaseView):
+    def get(self, request):
+        configured_token = getattr(settings, "SCHOLARS_AGENT_TOKEN", "") or ""
+        header_token = request.headers.get("X-Agent-Token", "") or ""
+        configured = bool(configured_token)
+        header_present = bool(header_token)
+
+        return Response(
+            {
+                "configured": configured,
+                "configured_token_length": len(configured_token),
+                "header_present": header_present,
+                "header_length": len(header_token),
+                "valid": configured
+                and header_present
+                and secrets.compare_digest(header_token, configured_token),
+            }
+        )
+
+
 class AgentScholarshipValidateView(AgentScholarshipBaseView):
     def post(self, request):
         auth_response = self.authorize_agent(request)
