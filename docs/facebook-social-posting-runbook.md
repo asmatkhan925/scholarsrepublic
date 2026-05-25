@@ -95,7 +95,7 @@ Worker cron:
 
 This runs daily at `09:00 UTC`.
 
-The backend still decides whether any scholarship is actually due. The Worker can run safely when no posts are due.
+The scheduled Worker requests a batch of up to `10` due posts by default. The backend still decides whether any scholarship is actually due. The Worker can run safely when no posts are due.
 
 ## 7. Backend Posting Rules
 
@@ -109,10 +109,13 @@ Only Facebook social plans are eligible when:
 Scheduling rules:
 
 - Expired scholarships are skipped.
+- Never-posted ready plans for active scholarships are due immediately unless `next_post_at` is in the future.
+- Future `next_post_at` values are respected.
 - Missing or rolling deadline: post weekly.
 - Deadline more than 7 days away: post weekly.
 - Deadline within 7 days: post daily.
 - If a scholarship was already posted today and the deadline is within 7 days, it is skipped.
+- Due posts are ordered by deadline urgency: today and soonest deadlines first, then no-deadline or rolling opportunities, then later deadlines.
 
 ## 8. Important Models
 
@@ -201,6 +204,10 @@ Use the backfill command to create Facebook social post plans for existing publi
 
 The command is idempotent. Running it more than once will not duplicate plans.
 
+Backfill does not mean one post per day. Backfilled active scholarships become eligible immediately by setting `next_post_at` to the current time. The backend frequency rules prevent repeated posting after the first post.
+
+The Worker posts a limited batch each day. The default scheduled batch size is `10`. To post more per day, increase the Worker limit carefully and monitor Facebook errors and backend post logs.
+
 ### Dry run
 
 ```bash
@@ -215,7 +222,7 @@ cd /path/to/scholarsrepublic/backend
 python manage.py backfill_facebook_social_plans
 ```
 
-By default, plans start tomorrow at `09:00 UTC` and are staggered one per day.
+By default, created plans are ready immediately.
 
 ### Limit example
 
@@ -223,18 +230,22 @@ By default, plans start tomorrow at `09:00 UTC` and are staggered one per day.
 python manage.py backfill_facebook_social_plans --limit 10
 ```
 
-### Per-day example
+### Optional stagger example
 
 ```bash
-python manage.py backfill_facebook_social_plans --per-day 3
+python manage.py backfill_facebook_social_plans --stagger --per-day 3 --start-date 2026-06-01
 ```
 
-This schedules up to three backfilled plans per day.
+This schedules up to three backfilled plans per day. Use this only when deliberately pacing a manual backfill.
 
-### Custom first posting date
+### Manual one-post Worker test
 
 ```bash
-python manage.py backfill_facebook_social_plans --start-date 2026-06-01
+printf '{"limit":1}\n' > test-run-due-posts.json
+curl -sS -X POST "https://<facebook-poster-worker-url>/run-due-posts" \
+  -H "Content-Type: application/json" \
+  -H "X-GPT-Facebook-Token: $GPT_FACEBOOK_POST_TOKEN" \
+  --data @test-run-due-posts.json
 ```
 
 ### Verification shell query
@@ -271,7 +282,7 @@ curl -sS -X POST "https://scholarsrepublic.org/api/admin/agent/social/facebook/d
 curl.exe -sS -X POST "https://<facebook-poster-worker-url>/run-due-posts" ^
   -H "Content-Type: application/json" ^
   -H "X-GPT-Facebook-Token: <GPT_FACEBOOK_POST_TOKEN>" ^
-  --data "{\"limit\":1}"
+  --data "{\"limit\":10}"
 ```
 
 ### Test manual Worker Facebook post

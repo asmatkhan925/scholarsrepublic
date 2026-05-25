@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.conf import settings
 from django.db.models import F
@@ -119,7 +119,7 @@ def promote_published_opportunity_social_draft(opportunity):
 
 def is_plan_due(plan, now=None):
     now = now or timezone.now()
-    today = timezone.localdate()
+    today = timezone.localtime(now).date()
     opportunity = plan.opportunity
 
     if opportunity.status != Opportunity.Status.PUBLISHED:
@@ -137,9 +137,7 @@ def is_plan_due(plan, now=None):
     if opportunity.deadline and not opportunity.is_rolling_deadline:
         days_left = (opportunity.deadline - today).days
         if days_left <= 7:
-            if plan.last_posted_at.date() == today:
-                return False
-            return plan.last_posted_at <= now - timedelta(hours=24)
+            return timezone.localtime(plan.last_posted_at).date() < today
 
     return plan.last_posted_at <= now - timedelta(days=7)
 
@@ -185,11 +183,23 @@ def serialize_due_plan(plan):
     }
 
 
-def get_due_facebook_post_plans(limit=5, now=None):
+def due_plan_sort_key(plan, today):
+    opportunity = plan.opportunity
+
+    if opportunity.deadline and not opportunity.is_rolling_deadline:
+        days_left = (opportunity.deadline - today).days
+        if days_left <= 7:
+            return (0, opportunity.deadline, plan.pk)
+        return (2, opportunity.deadline, plan.pk)
+
+    return (1, date.max, plan.pk)
+
+
+def get_due_facebook_post_plans(limit=10, now=None):
     try:
         limit = int(limit)
     except (TypeError, ValueError):
-        limit = 5
+        limit = 10
 
     limit = max(1, min(limit, 50))
     plans = (
@@ -200,16 +210,18 @@ def get_due_facebook_post_plans(limit=5, now=None):
             status=OpportunitySocialPostPlan.Status.READY,
             opportunity__status=Opportunity.Status.PUBLISHED,
         )
-        .order_by("next_post_at", "last_posted_at", "id")
+        .order_by("id")
     )
 
-    items = []
+    now = now or timezone.now()
+    today = timezone.localtime(now).date()
+    due_plans = []
     for plan in plans:
         if is_plan_due(plan, now=now):
-            items.append(serialize_due_plan(plan))
-        if len(items) >= limit:
-            break
+            due_plans.append(plan)
 
+    due_plans.sort(key=lambda plan: due_plan_sort_key(plan, today))
+    items = [serialize_due_plan(plan) for plan in due_plans[:limit]]
     return items
 
 

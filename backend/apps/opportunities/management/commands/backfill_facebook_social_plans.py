@@ -13,7 +13,7 @@ POST_TIME = time(hour=9, minute=0, tzinfo=dt_timezone.utc)
 
 
 class Command(BaseCommand):
-    help = "Backfill Facebook social post plans for published active opportunities."
+    help = "Backfill ready Facebook social post plans for published active opportunities."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -31,20 +31,33 @@ class Command(BaseCommand):
             "--start-date",
             type=str,
             default=None,
-            help="First posting date in YYYY-MM-DD format. Defaults to tomorrow UTC.",
+            help=(
+                "Optional first posting date in YYYY-MM-DD format when --stagger "
+                "is used. Ignored by default."
+            ),
         )
         parser.add_argument(
             "--per-day",
             type=int,
             default=1,
-            help="Number of plans scheduled per day. Defaults to 1.",
+            help="Number of plans scheduled per day when --stagger is used. Defaults to 1.",
+        )
+        parser.add_argument(
+            "--stagger",
+            action="store_true",
+            help=(
+                "Optionally stagger next_post_at over future days. Production "
+                "default is immediate eligibility."
+            ),
         )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
         limit = options["limit"]
         per_day = options["per_day"]
-        start_date = self.parse_start_date(options["start_date"])
+        stagger = options["stagger"]
+        start_date = self.parse_start_date(options["start_date"]) if stagger else None
+        immediate_next_post_at = timezone.now()
 
         if limit is not None and limit < 1:
             raise CommandError("--limit must be greater than 0.")
@@ -74,15 +87,25 @@ class Command(BaseCommand):
         self.stdout.write(f"Eligible opportunities found: {eligible_count}")
         self.stdout.write(f"Skipped because existing plan: {existing_count}")
         self.stdout.write(f"Skipped because expired: {expired_count}")
-        self.stdout.write(f"Start date: {start_date.isoformat()}")
-        self.stdout.write(f"Plans per day: {per_day}")
+        self.stdout.write(
+            "Scheduling: "
+            + (
+                f"staggered from {start_date.isoformat()} at {per_day} per day"
+                if stagger
+                else "immediate eligibility"
+            )
+        )
         if limit:
             self.stdout.write(f"Limit: {limit}")
         self.stdout.write("")
 
         plans_to_create = []
         for index, opportunity in enumerate(opportunities):
-            next_post_at = self.next_post_at(start_date, index, per_day)
+            next_post_at = (
+                self.next_post_at(start_date, index, per_day)
+                if stagger
+                else immediate_next_post_at
+            )
             plans_to_create.append(
                 OpportunitySocialPostPlan(
                     opportunity=opportunity,

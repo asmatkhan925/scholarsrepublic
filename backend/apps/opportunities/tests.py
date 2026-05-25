@@ -959,6 +959,192 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_returns_never_posted_active_plans_immediately(self):
+        opportunity = self.opportunity(
+            slug="never-posted-social-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=None,
+            next_post_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_weekly_rule_for_no_deadline_and_far_deadline(self):
+        no_deadline_recent = self.opportunity(
+            slug="no-deadline-recent-social-skip",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=None,
+        )
+        no_deadline_due = self.opportunity(
+            slug="no-deadline-weekly-social-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=None,
+        )
+        far_recent = self.opportunity(
+            slug="far-deadline-recent-social-skip",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+        far_due = self.opportunity(
+            slug="far-deadline-weekly-social-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=no_deadline_recent,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(days=6),
+        )
+        no_deadline_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=no_deadline_due,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(days=8),
+        )
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=far_recent,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(days=6),
+        )
+        far_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=far_due,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(days=8),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 10},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        plan_ids = [item["plan_id"] for item in response.data["items"]]
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(no_deadline_plan.pk, plan_ids)
+        self.assertIn(far_plan.pk, plan_ids)
+        self.assertEqual(len(plan_ids), 2)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_daily_rule_for_deadline_within_7_days(self):
+        recent = self.opportunity(
+            slug="near-deadline-posted-today-skip",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=2),
+        )
+        due = self.opportunity(
+            slug="near-deadline-posted-yesterday-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=2),
+        )
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=recent,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now(),
+        )
+        due_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=due,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=datetime.combine(
+                timezone.localdate() - timedelta(days=1),
+                datetime.min.time(),
+                tzinfo=dt_timezone.utc,
+            ),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 10},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["plan_id"] for item in response.data["items"]], [due_plan.pk])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_due_posts_respects_limit(self):
+        for index in range(3):
+            opportunity = self.opportunity(
+                slug=f"limited-social-due-{index}",
+                status=Opportunity.Status.PUBLISHED,
+                deadline=timezone.localdate() + timedelta(days=index + 1),
+            )
+            OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+            )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 2},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["items"]), 2)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_due_posts_orders_by_deadline_urgency(self):
+        far = self.opportunity(
+            slug="ordering-far-deadline",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+        no_deadline = self.opportunity(
+            slug="ordering-no-deadline",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=None,
+        )
+        soon = self.opportunity(
+            slug="ordering-soon-deadline",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=2),
+        )
+        today = self.opportunity(
+            slug="ordering-today-deadline",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate(),
+        )
+        for opportunity in [far, no_deadline, soon, today]:
+            OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+            )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 10},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["slug"] for item in response.data["items"]],
+            [
+                "ordering-today-deadline",
+                "ordering-soon-deadline",
+                "ordering-no-deadline",
+                "ordering-far-deadline",
+            ],
+        )
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_skips_expired_and_non_ready_plans(self):
         expired = self.opportunity(
             slug="expired-social-skip",
@@ -1076,8 +1262,6 @@ class OpportunityAPITests(APITestCase):
         call_command(
             "backfill_facebook_social_plans",
             "--dry-run",
-            "--start-date",
-            "2026-06-01",
             stdout=output,
         )
 
@@ -1091,13 +1275,13 @@ class OpportunityAPITests(APITestCase):
             status=Opportunity.Status.PUBLISHED,
             deadline=timezone.localdate() + timedelta(days=30),
         )
+        before = timezone.now()
 
         call_command(
             "backfill_facebook_social_plans",
-            "--start-date",
-            "2026-06-01",
             stdout=StringIO(),
         )
+        after = timezone.now()
 
         plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
         self.assertEqual(plan.platform, "facebook")
@@ -1109,6 +1293,8 @@ class OpportunityAPITests(APITestCase):
             plan.link_url,
             "https://scholarsrepublic.org/scholarships/backfill-active-published/",
         )
+        self.assertGreaterEqual(plan.next_post_at, before)
+        self.assertLessEqual(plan.next_post_at, after)
 
     def test_backfill_facebook_social_plans_skips_expired_opportunities(self):
         expired = self.opportunity(
@@ -1124,8 +1310,6 @@ class OpportunityAPITests(APITestCase):
 
         call_command(
             "backfill_facebook_social_plans",
-            "--start-date",
-            "2026-06-01",
             stdout=StringIO(),
         )
 
@@ -1146,8 +1330,6 @@ class OpportunityAPITests(APITestCase):
 
         call_command(
             "backfill_facebook_social_plans",
-            "--start-date",
-            "2026-06-01",
             stdout=StringIO(),
         )
 
@@ -1159,20 +1341,20 @@ class OpportunityAPITests(APITestCase):
             1,
         )
 
-    def test_backfill_facebook_social_plans_staggers_next_post_at(self):
+    def test_backfill_facebook_social_plans_makes_active_opportunities_immediately_eligible(self):
         for index in range(3):
             self.opportunity(
-                slug=f"backfill-staggered-{index}",
+                slug=f"backfill-immediate-{index}",
                 status=Opportunity.Status.PUBLISHED,
                 deadline=timezone.localdate() + timedelta(days=30),
             )
+        before = timezone.now()
 
         call_command(
             "backfill_facebook_social_plans",
-            "--start-date",
-            "2026-06-01",
             stdout=StringIO(),
         )
+        after = timezone.now()
 
         next_post_times = list(
             OpportunitySocialPostPlan.objects.order_by("opportunity_id").values_list(
@@ -1180,14 +1362,10 @@ class OpportunityAPITests(APITestCase):
                 flat=True,
             )
         )
-        self.assertEqual(
-            next_post_times,
-            [
-                datetime(2026, 6, 1, 9, 0, tzinfo=dt_timezone.utc),
-                datetime(2026, 6, 2, 9, 0, tzinfo=dt_timezone.utc),
-                datetime(2026, 6, 3, 9, 0, tzinfo=dt_timezone.utc),
-            ],
-        )
+        self.assertEqual(len(next_post_times), 3)
+        for next_post_at in next_post_times:
+            self.assertGreaterEqual(next_post_at, before)
+            self.assertLessEqual(next_post_at, after)
 
     def test_backfill_facebook_social_plans_limit_works(self):
         for index in range(3):
@@ -1201,8 +1379,6 @@ class OpportunityAPITests(APITestCase):
             "backfill_facebook_social_plans",
             "--limit",
             "2",
-            "--start-date",
-            "2026-06-01",
             stdout=StringIO(),
         )
 
@@ -1218,6 +1394,7 @@ class OpportunityAPITests(APITestCase):
 
         call_command(
             "backfill_facebook_social_plans",
+            "--stagger",
             "--per-day",
             "2",
             "--start-date",

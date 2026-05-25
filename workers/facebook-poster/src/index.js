@@ -165,7 +165,7 @@ function resultPayloadForPost(duePost, status, facebookResult = {}, errorMessage
   };
 }
 
-async function runDuePosts(env, limit = 5) {
+async function runDuePosts(env, limit = 10) {
   requireEnv(env, [
     "FACEBOOK_PAGE_ID",
     "FACEBOOK_PAGE_ACCESS_TOKEN",
@@ -272,7 +272,7 @@ async function handleRunDuePosts(request, env) {
     return jsonResponse({ error: "Invalid JSON body." }, 400);
   }
 
-  const limit = Math.max(1, Math.min(Number(payload.limit || 1), 5));
+  const limit = Math.max(1, Math.min(Number(payload.limit || 10), 30));
 
   try {
     return jsonResponse({
@@ -306,6 +306,6 @@ export default {
   },
 
   async scheduled(_controller, env, ctx) {
-    ctx.waitUntil(runDuePosts(env, 5));
+    ctx.waitUntil(runDuePosts(env, 10));
   },
 };
