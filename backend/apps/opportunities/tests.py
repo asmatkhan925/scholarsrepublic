@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from io import StringIO
 import base64
@@ -1064,6 +1064,181 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data, {"detail": "Missing or invalid social worker token."})
         self.assert_json_response(response)
+
+    def test_backfill_facebook_social_plans_dry_run_creates_nothing(self):
+        self.opportunity(
+            slug="backfill-dry-run",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+        output = StringIO()
+
+        call_command(
+            "backfill_facebook_social_plans",
+            "--dry-run",
+            "--start-date",
+            "2026-06-01",
+            stdout=output,
+        )
+
+        self.assertEqual(OpportunitySocialPostPlan.objects.count(), 0)
+        self.assertIn("Dry run: yes", output.getvalue())
+        self.assertIn("Plans created: 0", output.getvalue())
+
+    def test_backfill_facebook_social_plans_creates_active_published_plans(self):
+        opportunity = self.opportunity(
+            slug="backfill-active-published",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+
+        call_command(
+            "backfill_facebook_social_plans",
+            "--start-date",
+            "2026-06-01",
+            stdout=StringIO(),
+        )
+
+        plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
+        self.assertEqual(plan.platform, "facebook")
+        self.assertTrue(plan.enabled)
+        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
+        self.assertEqual(plan.post_text, "")
+        self.assertEqual(plan.image_url, "")
+        self.assertEqual(
+            plan.link_url,
+            "https://scholarsrepublic.org/scholarships/backfill-active-published/",
+        )
+
+    def test_backfill_facebook_social_plans_skips_expired_opportunities(self):
+        expired = self.opportunity(
+            slug="backfill-expired",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        active = self.opportunity(
+            slug="backfill-active-not-expired",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=1),
+        )
+
+        call_command(
+            "backfill_facebook_social_plans",
+            "--start-date",
+            "2026-06-01",
+            stdout=StringIO(),
+        )
+
+        self.assertFalse(OpportunitySocialPostPlan.objects.filter(opportunity=expired).exists())
+        self.assertTrue(OpportunitySocialPostPlan.objects.filter(opportunity=active).exists())
+
+    def test_backfill_facebook_social_plans_does_not_duplicate_existing_plans(self):
+        opportunity = self.opportunity(
+            slug="backfill-existing-plan",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=30),
+        )
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        call_command(
+            "backfill_facebook_social_plans",
+            "--start-date",
+            "2026-06-01",
+            stdout=StringIO(),
+        )
+
+        self.assertEqual(
+            OpportunitySocialPostPlan.objects.filter(
+                opportunity=opportunity,
+                platform="facebook",
+            ).count(),
+            1,
+        )
+
+    def test_backfill_facebook_social_plans_staggers_next_post_at(self):
+        for index in range(3):
+            self.opportunity(
+                slug=f"backfill-staggered-{index}",
+                status=Opportunity.Status.PUBLISHED,
+                deadline=timezone.localdate() + timedelta(days=30),
+            )
+
+        call_command(
+            "backfill_facebook_social_plans",
+            "--start-date",
+            "2026-06-01",
+            stdout=StringIO(),
+        )
+
+        next_post_times = list(
+            OpportunitySocialPostPlan.objects.order_by("opportunity_id").values_list(
+                "next_post_at",
+                flat=True,
+            )
+        )
+        self.assertEqual(
+            next_post_times,
+            [
+                datetime(2026, 6, 1, 9, 0, tzinfo=dt_timezone.utc),
+                datetime(2026, 6, 2, 9, 0, tzinfo=dt_timezone.utc),
+                datetime(2026, 6, 3, 9, 0, tzinfo=dt_timezone.utc),
+            ],
+        )
+
+    def test_backfill_facebook_social_plans_limit_works(self):
+        for index in range(3):
+            self.opportunity(
+                slug=f"backfill-limit-{index}",
+                status=Opportunity.Status.PUBLISHED,
+                deadline=timezone.localdate() + timedelta(days=30),
+            )
+
+        call_command(
+            "backfill_facebook_social_plans",
+            "--limit",
+            "2",
+            "--start-date",
+            "2026-06-01",
+            stdout=StringIO(),
+        )
+
+        self.assertEqual(OpportunitySocialPostPlan.objects.count(), 2)
+
+    def test_backfill_facebook_social_plans_per_day_works(self):
+        for index in range(3):
+            self.opportunity(
+                slug=f"backfill-per-day-{index}",
+                status=Opportunity.Status.PUBLISHED,
+                deadline=timezone.localdate() + timedelta(days=30),
+            )
+
+        call_command(
+            "backfill_facebook_social_plans",
+            "--per-day",
+            "2",
+            "--start-date",
+            "2026-06-01",
+            stdout=StringIO(),
+        )
+
+        next_post_times = list(
+            OpportunitySocialPostPlan.objects.order_by("opportunity_id").values_list(
+                "next_post_at",
+                flat=True,
+            )
+        )
+        self.assertEqual(
+            next_post_times,
+            [
+                datetime(2026, 6, 1, 9, 0, tzinfo=dt_timezone.utc),
+                datetime(2026, 6, 1, 9, 0, tzinfo=dt_timezone.utc),
+                datetime(2026, 6, 2, 9, 0, tzinfo=dt_timezone.utc),
+            ],
+        )
 
     def test_public_can_list_published_opportunities(self):
         opportunity = self.opportunity(

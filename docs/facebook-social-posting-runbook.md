@@ -195,7 +195,55 @@ Header: X-Social-Worker-Token: <SCHOLARS_SOCIAL_WORKER_TOKEN>
 
 Used by the Worker after each Facebook posting attempt.
 
-## 10. Manual Testing Commands
+## 10. Backfill Existing Scholarships
+
+Use the backfill command to create Facebook social post plans for existing published scholarships that do not already have a Facebook plan.
+
+The command is idempotent. Running it more than once will not duplicate plans.
+
+### Dry run
+
+```bash
+cd /path/to/scholarsrepublic/backend
+python manage.py backfill_facebook_social_plans --dry-run
+```
+
+### Real backfill
+
+```bash
+cd /path/to/scholarsrepublic/backend
+python manage.py backfill_facebook_social_plans
+```
+
+By default, plans start tomorrow at `09:00 UTC` and are staggered one per day.
+
+### Limit example
+
+```bash
+python manage.py backfill_facebook_social_plans --limit 10
+```
+
+### Per-day example
+
+```bash
+python manage.py backfill_facebook_social_plans --per-day 3
+```
+
+This schedules up to three backfilled plans per day.
+
+### Custom first posting date
+
+```bash
+python manage.py backfill_facebook_social_plans --start-date 2026-06-01
+```
+
+### Verification shell query
+
+```bash
+python manage.py shell -c "from apps.opportunities.models import OpportunitySocialPostPlan; print(OpportunitySocialPostPlan.objects.filter(platform='facebook').count()); print(list(OpportunitySocialPostPlan.objects.filter(platform='facebook').order_by('next_post_at').values_list('opportunity__slug','status','enabled','next_post_at')[:10]))"
+```
+
+## 11. Manual Testing Commands
 
 Use `curl.exe` in PowerShell. PowerShell aliases `curl` to `Invoke-WebRequest`, which handles arguments differently.
 
@@ -235,7 +283,7 @@ curl.exe -sS -X POST "https://<facebook-poster-worker-url>/" ^
   --data "{\"message\":\"Manual Facebook Worker test from Scholars Republic.\",\"link_url\":\"https://scholarsrepublic.org\"}"
 ```
 
-## 11. Facebook Token Refresh Procedure
+## 12. Facebook Token Refresh Procedure
 
 1. Open Meta Graph API Explorer.
 2. Generate a User token with these permissions:
@@ -260,7 +308,7 @@ GET /me/accounts
 
 Do not use the User token as `FACEBOOK_PAGE_ACCESS_TOKEN`.
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### `401 Unauthorized` from Worker
 
@@ -310,7 +358,7 @@ Check:
 
 Use `curl.exe`, not `curl`, in PowerShell.
 
-## 13. Deployment Commands
+## 14. Deployment Commands
 
 ### Backend
 
@@ -340,7 +388,7 @@ node --check src/index.js
 npx wrangler deploy
 ```
 
-## 14. Security Notes
+## 15. Security Notes
 
 - Never paste tokens in chat, GitHub issues, logs, screenshots, or support tickets.
 - Rotate any token that may have been exposed.
