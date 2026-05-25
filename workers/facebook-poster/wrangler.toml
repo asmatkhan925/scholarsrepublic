@@ -3,4 +3,8 @@ main = "src/index.js"
 compatibility_date = "2026-05-25"
 
 [triggers]
-crons = ["*/30 * * * *"]
+crons = ["0 9 * * *"]
+
+[[routes]]
+pattern = "facebook-poster.scholarsrepublic.org"
+custom_domain = true
