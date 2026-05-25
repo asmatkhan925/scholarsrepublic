@@ -233,6 +233,7 @@ AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "")
 AI_SERVICE_TOKEN = os.getenv("AI_SERVICE_TOKEN", "")
 AI_SOP_MONTHLY_LIMIT = env_int("AI_SOP_MONTHLY_LIMIT", 5)
 SCHOLARS_AGENT_TOKEN = os.getenv("SCHOLARS_AGENT_TOKEN", "")
+SCHOLARS_SOCIAL_WORKER_TOKEN = os.getenv("SCHOLARS_SOCIAL_WORKER_TOKEN", "")
 
 
 # Authentication and email verification

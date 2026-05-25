@@ -20,6 +20,8 @@ from apps.opportunities.views import (
     AdminOpportunityPathwayDetailView,
     AdminOpportunityPathwayListCreateView,
     AgentDebugAuthView,
+    AgentFacebookDuePostsView,
+    AgentFacebookPostResultView,
     AgentScholarshipCreateDraftView,
     AgentScholarshipSocialDraftView,
     AgentScholarshipValidateView,
@@ -146,6 +148,16 @@ urlpatterns = [
         "admin/agent/scholarships/drafts/<int:draft_id>/social-draft/",
         AgentScholarshipSocialDraftView.as_view(),
         name="agent-scholarship-social-draft",
+    ),
+    path(
+        "admin/agent/social/facebook/due-posts/",
+        AgentFacebookDuePostsView.as_view(),
+        name="agent-facebook-due-posts",
+    ),
+    path(
+        "admin/agent/social/facebook/post-result/",
+        AgentFacebookPostResultView.as_view(),
+        name="agent-facebook-post-result",
     ),
     path(
         "admin/opportunity-pathways/",

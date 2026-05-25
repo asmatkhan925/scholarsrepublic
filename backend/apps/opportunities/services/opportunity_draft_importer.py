@@ -9,6 +9,7 @@ from django.utils.text import slugify
 
 from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
+from apps.opportunities.services.social_posting import promote_social_draft_to_plan
 from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
 
 ALL_STUDY_FIELD_MARKERS = {
@@ -459,6 +460,7 @@ def import_opportunity_draft(draft, user=None, update_existing=False):
             "updated_at",
         ]
     )
+    promote_social_draft_to_plan(draft)
 
     return opportunity
 

@@ -2,6 +2,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from apps.opportunities.models import Opportunity
+from apps.opportunities.services.social_posting import promote_published_opportunity_social_draft
 from apps.reference_data.models import Country, Region, StudyField
 
 
@@ -67,3 +68,8 @@ def apply_pending_opportunity_reference_lists(sender, instance, **kwargs):
                 instance.all_study_fields = False
 
         delattr(instance, "_pending_fields_of_study")
+
+
+@receiver(post_save, sender=Opportunity)
+def promote_social_draft_when_opportunity_is_published(sender, instance, **kwargs):
+    promote_published_opportunity_social_draft(instance)

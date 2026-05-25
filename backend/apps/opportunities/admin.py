@@ -6,6 +6,9 @@ from apps.opportunities.models import (
     OpportunityComment,
     OpportunityDraft,
     OpportunityPathway,
+    OpportunitySocialDraft,
+    OpportunitySocialPostLog,
+    OpportunitySocialPostPlan,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -417,6 +420,75 @@ class OpportunityAdmin(admin.ModelAdmin):
 
     def is_blank(self, value):
         return not (value or "").strip()
+
+
+@admin.register(OpportunitySocialDraft)
+class OpportunitySocialDraftAdmin(admin.ModelAdmin):
+    list_display = (
+        "opportunity_draft",
+        "status",
+        "has_facebook_image",
+        "updated_at",
+    )
+    list_filter = ("status", "updated_at")
+    search_fields = (
+        "opportunity_draft__title",
+        "facebook_post_text",
+        "facebook_image_prompt",
+        "facebook_image_url",
+    )
+    readonly_fields = ("created_at", "updated_at")
+
+    @admin.display(description="Image")
+    def has_facebook_image(self, obj):
+        return bool(obj.facebook_image or obj.facebook_image_url)
+
+
+@admin.register(OpportunitySocialPostPlan)
+class OpportunitySocialPostPlanAdmin(admin.ModelAdmin):
+    list_display = (
+        "opportunity",
+        "platform",
+        "status",
+        "enabled",
+        "next_post_at",
+        "last_posted_at",
+        "post_count",
+        "updated_at",
+    )
+    list_filter = ("platform", "status", "enabled", "last_posted_at", "next_post_at")
+    search_fields = (
+        "opportunity__title",
+        "opportunity__slug",
+        "post_text",
+        "image_prompt",
+        "image_url",
+        "last_error",
+    )
+    raw_id_fields = ("opportunity",)
+    readonly_fields = ("created_at", "updated_at", "last_posted_at", "post_count")
+
+
+@admin.register(OpportunitySocialPostLog)
+class OpportunitySocialPostLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "opportunity",
+        "platform",
+        "status",
+        "facebook_post_id",
+        "posted_at",
+        "created_at",
+    )
+    list_filter = ("platform", "status", "posted_at", "created_at")
+    search_fields = (
+        "opportunity__title",
+        "opportunity__slug",
+        "facebook_post_id",
+        "facebook_post_url",
+        "error_message",
+    )
+    raw_id_fields = ("opportunity", "plan")
+    readonly_fields = ("created_at",)
 
 
 @admin.register(OpportunityComment)

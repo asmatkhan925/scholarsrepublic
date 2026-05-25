@@ -1,9 +1,13 @@
 import logging
 import secrets
+import base64
+import binascii
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db.models import Count, F, Prefetch, Q
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -36,6 +40,10 @@ from apps.opportunities.services.duplicate_detector import find_duplicate_opport
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
+)
+from apps.opportunities.services.social_posting import (
+    get_due_facebook_post_plans,
+    record_facebook_post_result,
 )
 from apps.users.models import User
 
@@ -89,6 +97,12 @@ def _agent_api_configured():
 def _agent_token_valid(request):
     expected = getattr(settings, "SCHOLARS_AGENT_TOKEN", "")
     provided = request.headers.get("X-Agent-Token", "")
+    return bool(expected) and secrets.compare_digest(provided, expected)
+
+
+def _social_worker_token_valid(request):
+    expected = getattr(settings, "SCHOLARS_SOCIAL_WORKER_TOKEN", "")
+    provided = request.headers.get("X-Social-Worker-Token", "")
     return bool(expected) and secrets.compare_digest(provided, expected)
 
 
@@ -184,6 +198,54 @@ def _agent_source_value(request, payload, field_name):
 def _agent_admin_edit_url(draft):
     base_url = getattr(settings, "FRONTEND_URL", "https://scholarsrepublic.org").rstrip("/")
     return f"{base_url}/dashboard/admin/scholarships/drafts/{draft.pk}/edit"
+
+
+MAX_SOCIAL_IMAGE_BYTES = 8 * 1024 * 1024
+
+
+def _social_image_extension(image_bytes):
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+
+    if image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+        return "webp"
+
+    return ""
+
+
+def _decode_social_image_base64(value):
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None, None
+
+    if "," in raw_value and raw_value.split(",", 1)[0].startswith("data:"):
+        raw_value = raw_value.split(",", 1)[1]
+
+    try:
+        image_bytes = base64.b64decode(raw_value, validate=True)
+    except (binascii.Error, ValueError):
+        return None, "facebook_image_base64 must be valid base64."
+
+    if len(image_bytes) > MAX_SOCIAL_IMAGE_BYTES:
+        return None, "facebook_image_base64 exceeds the 8 MB limit."
+
+    extension = _social_image_extension(image_bytes)
+    if not extension:
+        return None, "facebook_image_base64 must be a png, jpg, jpeg, or webp image."
+
+    return (image_bytes, extension), None
+
+
+def _social_image_filename(filename, extension):
+    cleaned = str(filename or "").strip().replace("\\", "/").split("/")[-1]
+    if not cleaned:
+        return f"{uuid.uuid4().hex}.{extension}"
+
+    base = cleaned.rsplit(".", 1)[0][:90] or uuid.uuid4().hex
+    return f"{base}.{extension}"
 
 
 def public_pathway_queryset():
@@ -388,6 +450,26 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
 
         facebook_post_text = request.data.get("facebook_post_text") or ""
         facebook_image_prompt = request.data.get("facebook_image_prompt") or ""
+        facebook_image_url = request.data.get("facebook_image_url") or ""
+        requested_status = request.data.get("status") or OpportunitySocialDraft.Status.DRAFT
+        valid_statuses = {
+            OpportunitySocialDraft.Status.DRAFT,
+            OpportunitySocialDraft.Status.READY,
+        }
+
+        if requested_status not in valid_statuses:
+            return Response(
+                {"detail": 'status must be "draft" or "ready".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        decoded_image = None
+        if request.data.get("facebook_image_base64"):
+            decoded_image, image_error = _decode_social_image_base64(
+                request.data.get("facebook_image_base64")
+            )
+            if image_error:
+                return Response({"detail": image_error}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             social_draft, _ = OpportunitySocialDraft.objects.update_or_create(
@@ -395,9 +477,21 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
                 defaults={
                     "facebook_post_text": str(facebook_post_text).strip(),
                     "facebook_image_prompt": str(facebook_image_prompt).strip(),
-                    "status": OpportunitySocialDraft.Status.DRAFT,
+                    "facebook_image_url": str(facebook_image_url).strip(),
+                    "status": requested_status,
                 },
             )
+            if decoded_image:
+                image_bytes, extension = decoded_image
+                filename = _social_image_filename(
+                    request.data.get("facebook_image_filename"),
+                    extension,
+                )
+                social_draft.facebook_image.save(
+                    filename,
+                    ContentFile(image_bytes),
+                    save=True,
+                )
         except Exception:
             logger.exception("Agent scholarship social draft save failed.")
             return Response(
@@ -410,11 +504,78 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
                 "draft_id": draft.pk,
                 "social_draft_id": social_draft.pk,
                 "status": social_draft.status,
+                "has_image_file": bool(social_draft.facebook_image),
+                "facebook_image_url": social_draft.facebook_image.url
+                if social_draft.facebook_image
+                else social_draft.facebook_image_url,
+                "edit_url": _agent_admin_edit_url(draft),
+                "admin_edit_url": _agent_admin_edit_url(draft),
                 "facebook_post_text": social_draft.facebook_post_text,
                 "facebook_image_prompt": social_draft.facebook_image_prompt,
-                "admin_edit_url": _agent_admin_edit_url(draft),
             },
             status=status.HTTP_200_OK,
+        )
+
+
+class SocialWorkerBaseView(APIView):
+    authentication_classes = []
+    permission_classes = []
+    renderer_classes = [JSONRenderer]
+
+    def authorize_worker(self, request):
+        if not _social_worker_token_valid(request):
+            return Response(
+                {"detail": "Missing or invalid social worker token."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return None
+
+
+class AgentFacebookDuePostsView(SocialWorkerBaseView):
+    def post(self, request):
+        auth_response = self.authorize_worker(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "items": get_due_facebook_post_plans(
+                    limit=request.data.get("limit", 5),
+                )
+            }
+        )
+
+
+class AgentFacebookPostResultView(SocialWorkerBaseView):
+    def post(self, request):
+        auth_response = self.authorize_worker(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        log, error = record_facebook_post_result(request.data)
+        if error:
+            return Response(error, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "log_id": log.pk,
+                "plan_id": log.plan_id,
+                "opportunity_id": log.opportunity_id,
+                "status": log.status,
+            }
         )
 
 

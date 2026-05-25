@@ -598,7 +598,7 @@ class OpportunityDraft(models.Model):
 class OpportunitySocialDraft(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
-        APPROVED = "approved", "Approved"
+        READY = "ready", "Ready"
         POSTED = "posted", "Posted"
 
     opportunity_draft = models.ForeignKey(
@@ -608,6 +608,12 @@ class OpportunitySocialDraft(models.Model):
     )
     facebook_post_text = models.TextField(blank=True)
     facebook_image_prompt = models.TextField(blank=True)
+    facebook_image = models.ImageField(
+        upload_to="opportunity_social_drafts/facebook/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    facebook_image_url = models.TextField(blank=True)
     status = models.CharField(
         max_length=30,
         choices=Status.choices,
@@ -632,6 +638,108 @@ class OpportunitySocialDraft(models.Model):
 
     def __str__(self) -> str:
         return f"Facebook draft for {self.opportunity_draft}"
+
+
+class OpportunitySocialPostPlan(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        READY = "ready", "Ready"
+        PAUSED = "paused", "Paused"
+        ARCHIVED = "archived", "Archived"
+
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.CASCADE,
+        related_name="social_post_plans",
+    )
+    platform = models.CharField(max_length=50, default="facebook", db_index=True)
+    enabled = models.BooleanField(default=True, db_index=True)
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    post_text = models.TextField(blank=True)
+    image_prompt = models.TextField(blank=True)
+    image = models.ImageField(
+        upload_to="opportunity_social/facebook/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    image_url = models.TextField(blank=True)
+    link_url = models.TextField(blank=True)
+    last_posted_at = models.DateTimeField(null=True, blank=True)
+    next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    post_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("next_post_at", "-updated_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["opportunity", "platform"],
+                name="unique_social_post_plan_per_opportunity_platform",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["platform", "enabled", "status"]),
+            models.Index(fields=["last_posted_at"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    @property
+    def resolved_image_url(self):
+        if self.image:
+            return self.image.url
+
+        return self.image_url or ""
+
+    def __str__(self) -> str:
+        return f"{self.platform} plan for {self.opportunity}"
+
+
+class OpportunitySocialPostLog(models.Model):
+    class Status(models.TextChoices):
+        POSTED = "posted", "Posted"
+        FAILED = "failed", "Failed"
+        SKIPPED = "skipped", "Skipped"
+
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.CASCADE,
+        related_name="social_post_logs",
+    )
+    plan = models.ForeignKey(
+        "opportunities.OpportunitySocialPostPlan",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="logs",
+    )
+    platform = models.CharField(max_length=50, default="facebook", db_index=True)
+    message = models.TextField(blank=True)
+    image_url = models.TextField(blank=True)
+    link_url = models.TextField(blank=True)
+    facebook_post_id = models.CharField(max_length=255, blank=True)
+    facebook_post_url = models.TextField(blank=True)
+    status = models.CharField(max_length=30, choices=Status.choices, db_index=True)
+    error_message = models.TextField(blank=True)
+    posted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["platform", "status"]),
+            models.Index(fields=["posted_at"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.platform} {self.status} log for {self.opportunity}"
 
 
 class OpportunityComment(models.Model):

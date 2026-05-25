@@ -1,6 +1,8 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
+import base64
+import tempfile
 
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
@@ -90,6 +92,8 @@ from apps.opportunities.models import (
     OpportunityDraft,
     OpportunityPathway,
     OpportunitySocialDraft,
+    OpportunitySocialPostLog,
+    OpportunitySocialPostPlan,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -817,6 +821,249 @@ class OpportunityAPITests(APITestCase):
 
         self.assert_json_response(missing_token_response)
         self.assert_json_response(success_response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_saves_base64_image(self):
+        draft = self.create_agent_draft()
+        png_base64 = base64.b64encode(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+        ).decode()
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+                {
+                    "facebook_post_text": "Image draft.",
+                    "facebook_image_prompt": "Image prompt.",
+                    "facebook_image_base64": png_base64,
+                    "facebook_image_filename": "turin-phd.png",
+                    "facebook_image_url": "https://cdn.example/social.png",
+                    "status": "ready",
+                },
+                format="json",
+                **self.agent_headers(),
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertTrue(response.data["has_image_file"])
+            social_draft = OpportunitySocialDraft.objects.get(pk=response.data["social_draft_id"])
+            self.assertTrue(social_draft.facebook_image.name.endswith(".png"))
+            self.assertEqual(social_draft.facebook_image_url, "https://cdn.example/social.png")
+            self.assertEqual(social_draft.status, OpportunitySocialDraft.Status.READY)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_rejects_invalid_base64(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {"facebook_image_base64": "not-base64"},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "facebook_image_base64 must be valid base64.")
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_social_draft_rejects_oversized_image(self):
+        draft = self.create_agent_draft()
+        oversized = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * (8 * 1024 * 1024 + 1)).decode()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {"facebook_image_base64": oversized},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "facebook_image_base64 exceeds the 8 MB limit.")
+
+    def test_social_draft_promotes_to_ready_plan_when_imported_opportunity_is_published(self):
+        draft = OpportunityDraft.objects.create(
+            title="Social Promotion Draft",
+            slug="social-promotion-draft",
+            raw_payload=self.draft_payload(slug="social-promotion-opportunity"),
+            status=OpportunityDraft.Status.VALIDATED,
+        )
+        OpportunitySocialDraft.objects.create(
+            opportunity_draft=draft,
+            facebook_post_text="Saved social post text.",
+            facebook_image_prompt="Saved image prompt.",
+            facebook_image_url="https://cdn.example/social.png",
+            status=OpportunitySocialDraft.Status.READY,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+        self.assertIsNotNone(opportunity)
+        plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity, platform="facebook")
+        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.DRAFT)
+
+        opportunity.status = Opportunity.Status.PUBLISHED
+        opportunity.save()
+
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
+        self.assertEqual(plan.post_text, "Saved social post text.")
+        self.assertEqual(plan.image_prompt, "Saved image prompt.")
+        self.assertEqual(plan.image_url, "https://cdn.example/social.png")
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_due_posts_weekly_for_deadline_more_than_7_days(self):
+        opportunity = self.opportunity(
+            slug="weekly-social-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=20),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(days=8),
+            post_text="Weekly due post.",
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_due_posts_daily_within_7_days(self):
+        opportunity = self.opportunity(
+            slug="daily-social-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=3),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(hours=25),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_skips_expired_and_non_ready_plans(self):
+        expired = self.opportunity(
+            slug="expired-social-skip",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        draft_status = self.opportunity(
+            slug="draft-status-social-skip",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=10),
+        )
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=expired,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=draft_status,
+            status=OpportunitySocialPostPlan.Status.DRAFT,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_post_result_updates_successful_plan(self):
+        opportunity = self.opportunity(
+            slug="social-result-success",
+            status=Opportunity.Status.PUBLISHED,
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/post-result/",
+            {
+                "plan_id": plan.pk,
+                "opportunity_id": opportunity.pk,
+                "status": "posted",
+                "facebook_post_id": "fb_123",
+                "facebook_post_url": "https://facebook.com/fb_123",
+                "message": "Posted message.",
+                "image_url": "https://cdn.example/image.png",
+                "link_url": "https://scholarsrepublic.org/scholarships/social-result-success",
+            },
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plan.refresh_from_db()
+        self.assertIsNotNone(plan.last_posted_at)
+        self.assertEqual(plan.post_count, 1)
+        self.assertEqual(plan.last_error, "")
+        self.assertTrue(OpportunitySocialPostLog.objects.filter(plan=plan, status="posted").exists())
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_post_result_logs_failure(self):
+        opportunity = self.opportunity(
+            slug="social-result-failed",
+            status=Opportunity.Status.PUBLISHED,
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/post-result/",
+            {
+                "plan_id": plan.pk,
+                "opportunity_id": opportunity.pk,
+                "status": "failed",
+                "error_message": "Facebook API failed.",
+            },
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plan.refresh_from_db()
+        self.assertIsNone(plan.last_posted_at)
+        self.assertEqual(plan.last_error, "Facebook API failed.")
+        self.assertTrue(OpportunitySocialPostLog.objects.filter(plan=plan, status="failed").exists())
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_invalid_token_returns_json_403(self):
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="wrong-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid social worker token."})
+        self.assert_json_response(response)
 
     def test_public_can_list_published_opportunities(self):
         opportunity = self.opportunity(
