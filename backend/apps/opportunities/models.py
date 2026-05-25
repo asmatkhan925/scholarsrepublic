@@ -108,6 +108,14 @@ class Opportunity(models.Model):
         PUBLISHED = "published", "Published"
         ARCHIVED = "archived", "Archived"
 
+    class DeadlineCheckStatus(models.TextChoices):
+        UNCHECKED = "unchecked", "Unchecked"
+        VERIFIED_ACTIVE = "verified_active", "Verified active"
+        VERIFIED_EXPIRED = "verified_expired", "Verified expired"
+        DEADLINE_CHANGED = "deadline_changed", "Deadline changed"
+        UNCLEAR = "unclear", "Unclear"
+        SOURCE_UNREACHABLE = "source_unreachable", "Source unreachable"
+
     class OrganizationType(models.TextChoices):
         UNIVERSITY = "university", "University"
         GOVERNMENT = "government", "Government"
@@ -295,6 +303,16 @@ class Opportunity(models.Model):
 
     deadline = models.DateField(null=True, blank=True, db_index=True)
     is_rolling_deadline = models.BooleanField(default=False)
+    deadline_last_checked_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    deadline_check_status = models.CharField(
+        max_length=40,
+        choices=DeadlineCheckStatus.choices,
+        default=DeadlineCheckStatus.UNCHECKED,
+        db_index=True,
+    )
+    deadline_check_note = models.TextField(blank=True)
+    deadline_check_source_url = models.URLField(blank=True)
+    deadline_check_evidence = models.TextField(blank=True)
     application_open_date = models.DateField(null=True, blank=True)
     application_method = models.CharField(
         max_length=80, choices=ApplicationMethod.choices, blank=True
@@ -315,6 +333,8 @@ class Opportunity(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["country_ref"]),
             models.Index(fields=["deadline"]),
+            models.Index(fields=["deadline_last_checked_at"]),
+            models.Index(fields=["deadline_check_status"]),
             models.Index(fields=["featured"]),
             models.Index(fields=["verified_status"]),
             models.Index(fields=["funding_type"]),
@@ -740,6 +760,38 @@ class OpportunitySocialPostLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.platform} {self.status} log for {self.opportunity}"
+
+
+class OpportunityDeadlineCheckLog(models.Model):
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.CASCADE,
+        related_name="deadline_check_logs",
+    )
+    old_deadline = models.DateField(null=True, blank=True)
+    new_deadline = models.DateField(null=True, blank=True)
+    old_status = models.CharField(max_length=30, blank=True)
+    new_status = models.CharField(max_length=30, blank=True)
+    check_status = models.CharField(
+        max_length=40,
+        choices=Opportunity.DeadlineCheckStatus.choices,
+        db_index=True,
+    )
+    source_url = models.URLField(blank=True)
+    evidence = models.TextField(blank=True)
+    note = models.TextField(blank=True)
+    checked_by = models.CharField(max_length=120, default="agent")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["check_status"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.check_status} deadline check for {self.opportunity}"
 
 
 class OpportunityComment(models.Model):

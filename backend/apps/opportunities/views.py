@@ -3,7 +3,7 @@ import secrets
 import base64
 import binascii
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 
 from django.conf import settings
@@ -21,6 +21,7 @@ from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import (
     Opportunity,
     OpportunityComment,
+    OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
     OpportunitySocialDraft,
@@ -198,6 +199,49 @@ def _agent_source_value(request, payload, field_name):
 def _agent_admin_edit_url(draft):
     base_url = getattr(settings, "FRONTEND_URL", "https://scholarsrepublic.org").rstrip("/")
     return f"{base_url}/dashboard/admin/scholarships/drafts/{draft.pk}/edit"
+
+
+def _frontend_base_url():
+    return getattr(settings, "FRONTEND_URL", "https://scholarsrepublic.org").rstrip("/")
+
+
+def _opportunity_detail_url(opportunity):
+    return f"{_frontend_base_url()}/scholarships/{opportunity.slug}"
+
+
+def _opportunity_admin_url(opportunity):
+    return f"{_frontend_base_url()}/dashboard/admin/scholarships/{opportunity.pk}/edit"
+
+
+def _parse_iso_date_or_none(value):
+    if value in (None, ""):
+        return None, None
+
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return None, "verified_deadline must be YYYY-MM-DD or null."
+
+
+def _deadline_check_summary(opportunity):
+    return {
+        "id": opportunity.pk,
+        "title": opportunity.title,
+        "slug": opportunity.slug,
+        "provider_name": opportunity.provider_name,
+        "country": opportunity.country,
+        "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
+        "status": opportunity.status,
+        "official_url": opportunity.official_link,
+        "source_url": opportunity.source_url,
+        "application_url": opportunity.official_link or opportunity.source_url,
+        "deadline_last_checked_at": opportunity.deadline_last_checked_at.isoformat()
+        if opportunity.deadline_last_checked_at
+        else None,
+        "deadline_check_status": opportunity.deadline_check_status,
+        "detail_url": _opportunity_detail_url(opportunity),
+        "admin_url": _opportunity_admin_url(opportunity),
+    }
 
 
 MAX_SOCIAL_IMAGE_BYTES = 8 * 1024 * 1024
@@ -514,6 +558,184 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
                 "facebook_image_prompt": social_draft.facebook_image_prompt,
             },
             status=status.HTTP_200_OK,
+        )
+
+
+class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):
+    def get(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        limit = parse_positive_int(request.query_params.get("limit")) or 10
+        limit = min(limit, 50)
+        days_ahead = parse_positive_int(request.query_params.get("days_ahead"))
+        if days_ahead is None:
+            days_ahead = 14
+        include_missing_deadline = parse_bool(
+            request.query_params.get("include_missing_deadline")
+        )
+        if include_missing_deadline is None:
+            include_missing_deadline = True
+
+        today = timezone.localdate()
+        horizon = today + timedelta(days=days_ahead)
+        stale_before = timezone.now() - timedelta(days=14)
+
+        needs_check = (
+            Q(deadline__lte=horizon)
+            | Q(deadline_last_checked_at__isnull=True)
+            | Q(deadline_last_checked_at__lt=stale_before)
+        )
+        if include_missing_deadline:
+            needs_check |= Q(deadline__isnull=True)
+
+        queryset = (
+            Opportunity.objects.select_related("country_ref")
+            .filter(
+                status=Opportunity.Status.PUBLISHED,
+            )
+            .filter(Q(official_link__gt="") | Q(source_url__gt=""))
+            .filter(needs_check)
+        )
+        if not include_missing_deadline:
+            queryset = queryset.filter(deadline__isnull=False)
+
+        opportunities = list(queryset.distinct())
+        opportunities.sort(key=lambda opportunity: self.queue_sort_key(opportunity, today))
+
+        return Response(
+            {
+                "items": [
+                    _deadline_check_summary(opportunity)
+                    for opportunity in opportunities[:limit]
+                ]
+            }
+        )
+
+    def queue_sort_key(self, opportunity, today):
+        if opportunity.deadline is None:
+            deadline_group = 0
+            deadline_value = date.min
+        elif opportunity.deadline < today:
+            deadline_group = 1
+            deadline_value = opportunity.deadline
+        else:
+            deadline_group = 2
+            deadline_value = opportunity.deadline
+
+        checked_at = opportunity.deadline_last_checked_at or datetime.min.replace(
+            tzinfo=dt_timezone.utc
+        )
+        return (deadline_group, deadline_value, checked_at, opportunity.pk)
+
+
+class AgentScholarshipDeadlineCheckResultView(AgentScholarshipBaseView):
+    def post(self, request, opportunity_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        opportunity = (
+            Opportunity.objects.select_related("country_ref")
+            .filter(pk=opportunity_id)
+            .first()
+        )
+        if not opportunity:
+            return Response(
+                {"detail": "Scholarship not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        check_status = request.data.get("check_status")
+        allowed_statuses = {
+            Opportunity.DeadlineCheckStatus.VERIFIED_ACTIVE,
+            Opportunity.DeadlineCheckStatus.VERIFIED_EXPIRED,
+            Opportunity.DeadlineCheckStatus.DEADLINE_CHANGED,
+            Opportunity.DeadlineCheckStatus.UNCLEAR,
+            Opportunity.DeadlineCheckStatus.SOURCE_UNREACHABLE,
+        }
+        if check_status not in allowed_statuses:
+            return Response(
+                {"detail": "Invalid check_status."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        verified_deadline, date_error = _parse_iso_date_or_none(
+            request.data.get("verified_deadline")
+        )
+        if date_error:
+            return Response({"detail": date_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_deadline = opportunity.deadline
+        old_status = opportunity.status
+        source_url = str(request.data.get("source_url") or "").strip()
+        evidence = str(request.data.get("evidence") or "").strip()
+        note = str(request.data.get("note") or "").strip()
+        should_unpublish = bool(request.data.get("should_unpublish_if_expired"))
+
+        opportunity.deadline_last_checked_at = timezone.now()
+        opportunity.deadline_check_status = check_status
+        opportunity.deadline_check_source_url = source_url
+        opportunity.deadline_check_evidence = evidence
+        opportunity.deadline_check_note = note
+
+        if (
+            check_status == Opportunity.DeadlineCheckStatus.DEADLINE_CHANGED
+            and verified_deadline is not None
+        ):
+            opportunity.deadline = verified_deadline
+
+        if (
+            check_status == Opportunity.DeadlineCheckStatus.VERIFIED_EXPIRED
+            and should_unpublish
+        ):
+            opportunity.status = Opportunity.Status.ARCHIVED
+
+        opportunity.save(
+            update_fields=[
+                "deadline",
+                "status",
+                "deadline_last_checked_at",
+                "deadline_check_status",
+                "deadline_check_source_url",
+                "deadline_check_evidence",
+                "deadline_check_note",
+                "published_at",
+                "updated_at",
+            ]
+        )
+
+        log = OpportunityDeadlineCheckLog.objects.create(
+            opportunity=opportunity,
+            old_deadline=old_deadline,
+            new_deadline=opportunity.deadline,
+            old_status=old_status,
+            new_status=opportunity.status,
+            check_status=check_status,
+            source_url=source_url,
+            evidence=evidence,
+            note=note,
+            checked_by="agent",
+        )
+
+        return Response(
+            {
+                "opportunity": _deadline_check_summary(opportunity),
+                "log_id": log.pk,
+                "old_deadline": old_deadline.isoformat() if old_deadline else None,
+                "new_deadline": opportunity.deadline.isoformat()
+                if opportunity.deadline
+                else None,
+                "old_status": old_status,
+                "new_status": opportunity.status,
+            }
         )
 
 

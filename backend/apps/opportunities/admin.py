@@ -4,6 +4,7 @@ from django.utils import timezone
 from apps.opportunities.models import (
     Opportunity,
     OpportunityComment,
+    OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
     OpportunitySocialDraft,
@@ -149,6 +150,8 @@ class OpportunityAdmin(admin.ModelAdmin):
         "display_study_fields",
         "funding_type",
         "deadline",
+        "deadline_check_status",
+        "deadline_last_checked_at",
         "status",
         "featured",
         "display_content_quality",
@@ -171,6 +174,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "all_study_fields",
         "study_field_refs",
         "deadline",
+        "deadline_check_status",
     )
     search_fields = (
         "title",
@@ -198,6 +202,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "updated_at",
         "published_at",
         "last_verified_at",
+        "deadline_last_checked_at",
         "display_content_quality",
         "display_country",
         "display_eligible_countries",
@@ -330,6 +335,11 @@ class OpportunityAdmin(admin.ModelAdmin):
                 "fields": (
                     "deadline",
                     "is_rolling_deadline",
+                    "deadline_last_checked_at",
+                    "deadline_check_status",
+                    "deadline_check_source_url",
+                    "deadline_check_evidence",
+                    "deadline_check_note",
                     "application_open_date",
                     "application_method",
                     "required_documents",
@@ -549,3 +559,28 @@ class OpportunityCommentAdmin(admin.ModelAdmin):
             f"Removed {removed_count} comment(s) and cleared their text.",
             messages.WARNING,
         )
+
+
+@admin.register(OpportunityDeadlineCheckLog)
+class OpportunityDeadlineCheckLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "opportunity",
+        "check_status",
+        "old_deadline",
+        "new_deadline",
+        "old_status",
+        "new_status",
+        "checked_by",
+        "created_at",
+    )
+    list_filter = ("check_status", "checked_by", "created_at")
+    search_fields = (
+        "opportunity__title",
+        "opportunity__slug",
+        "source_url",
+        "evidence",
+        "note",
+    )
+    raw_id_fields = ("opportunity",)
+    readonly_fields = ("created_at",)
+    ordering = ("-created_at",)

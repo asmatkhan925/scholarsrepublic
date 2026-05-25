@@ -89,6 +89,7 @@ from apps.opportunities.admin import OpportunityAdmin, OpportunityDraftAdmin
 from apps.opportunities.models import (
     Opportunity,
     OpportunityComment,
+    OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
     OpportunitySocialDraft,
@@ -1250,6 +1251,214 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data, {"detail": "Missing or invalid social worker token."})
         self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_requires_agent_token(self):
+        response = self.client.get("/api/admin/agent/scholarships/deadline-check-queue/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_includes_missing_near_and_past_deadlines(self):
+        missing = self.opportunity(
+            slug="deadline-check-missing",
+            deadline=None,
+            official_link="https://example.edu/missing",
+        )
+        past = self.opportunity(
+            slug="deadline-check-past",
+            deadline=timezone.localdate() - timedelta(days=2),
+            official_link="https://example.edu/past",
+        )
+        near = self.opportunity(
+            slug="deadline-check-near",
+            deadline=timezone.localdate() + timedelta(days=4),
+            source_url="https://example.edu/near",
+        )
+
+        response = self.client.get(
+            "/api/admin/agent/scholarships/deadline-check-queue/",
+            {"limit": 10, "days_ahead": 14},
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        slugs = [item["slug"] for item in response.data["items"]]
+        self.assertIn(missing.slug, slugs)
+        self.assertIn(past.slug, slugs)
+        self.assertIn(near.slug, slugs)
+        self.assertLess(slugs.index(missing.slug), slugs.index(past.slug))
+        self.assertLess(slugs.index(past.slug), slugs.index(near.slug))
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_excludes_draft_and_archived(self):
+        draft = self.opportunity(
+            slug="deadline-check-draft",
+            status=Opportunity.Status.DRAFT,
+            deadline=timezone.localdate() + timedelta(days=1),
+            official_link="https://example.edu/draft",
+        )
+        archived = self.opportunity(
+            slug="deadline-check-archived",
+            status=Opportunity.Status.ARCHIVED,
+            deadline=timezone.localdate() + timedelta(days=1),
+            official_link="https://example.edu/archived",
+        )
+
+        response = self.client.get(
+            "/api/admin/agent/scholarships/deadline-check-queue/",
+            **self.agent_headers(),
+        )
+
+        slugs = [item["slug"] for item in response.data["items"]]
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn(draft.slug, slugs)
+        self.assertNotIn(archived.slug, slugs)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_respects_limit(self):
+        for index in range(3):
+            self.opportunity(
+                slug=f"deadline-check-limit-{index}",
+                deadline=timezone.localdate() + timedelta(days=index + 1),
+                official_link=f"https://example.edu/limit-{index}",
+            )
+
+        response = self.client.get(
+            "/api/admin/agent/scholarships/deadline-check-queue/",
+            {"limit": 2},
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["items"]), 2)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_result_updates_check_fields(self):
+        opportunity = self.opportunity(
+            slug="deadline-result-active",
+            official_link="https://example.edu/active",
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-check-result/",
+            {
+                "check_status": "verified_active",
+                "verified_deadline": opportunity.deadline.isoformat(),
+                "source_url": "https://example.edu/active",
+                "evidence": "Official page lists the current deadline.",
+                "note": "Looks active.",
+                "should_unpublish_if_expired": False,
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertIsNotNone(opportunity.deadline_last_checked_at)
+        self.assertEqual(
+            opportunity.deadline_check_status,
+            Opportunity.DeadlineCheckStatus.VERIFIED_ACTIVE,
+        )
+        self.assertEqual(opportunity.deadline_check_source_url, "https://example.edu/active")
+        self.assertEqual(
+            opportunity.deadline_check_evidence,
+            "Official page lists the current deadline.",
+        )
+        self.assertEqual(opportunity.deadline_check_note, "Looks active.")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_changed_updates_deadline_and_creates_log(self):
+        opportunity = self.opportunity(
+            slug="deadline-result-changed",
+            deadline=timezone.localdate() + timedelta(days=5),
+            official_link="https://example.edu/changed",
+        )
+        new_deadline = timezone.localdate() + timedelta(days=20)
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-check-result/",
+            {
+                "check_status": "deadline_changed",
+                "verified_deadline": new_deadline.isoformat(),
+                "source_url": "https://example.edu/changed",
+                "evidence": "Official page now lists a later deadline.",
+                "note": "Updated from official source.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, new_deadline)
+        log = OpportunityDeadlineCheckLog.objects.get(opportunity=opportunity)
+        self.assertEqual(log.old_deadline, timezone.localdate() + timedelta(days=5))
+        self.assertEqual(log.new_deadline, new_deadline)
+        self.assertEqual(log.check_status, Opportunity.DeadlineCheckStatus.DEADLINE_CHANGED)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_verified_expired_archives_opportunity_and_creates_log(self):
+        opportunity = self.opportunity(
+            slug="deadline-result-expired",
+            deadline=timezone.localdate() - timedelta(days=1),
+            official_link="https://example.edu/expired",
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-check-result/",
+            {
+                "check_status": "verified_expired",
+                "verified_deadline": opportunity.deadline.isoformat(),
+                "source_url": "https://example.edu/expired",
+                "evidence": "Official page says applications are closed.",
+                "note": "Archive because no expired status exists.",
+                "should_unpublish_if_expired": True,
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.status, Opportunity.Status.ARCHIVED)
+        log = OpportunityDeadlineCheckLog.objects.get(opportunity=opportunity)
+        self.assertEqual(log.old_status, Opportunity.Status.PUBLISHED)
+        self.assertEqual(log.new_status, Opportunity.Status.ARCHIVED)
+        self.assertEqual(log.check_status, Opportunity.DeadlineCheckStatus.VERIFIED_EXPIRED)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_unclear_logs_result_without_changing_deadline_or_status(self):
+        original_deadline = timezone.localdate() + timedelta(days=10)
+        opportunity = self.opportunity(
+            slug="deadline-result-unclear",
+            deadline=original_deadline,
+            official_link="https://example.edu/unclear",
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-check-result/",
+            {
+                "check_status": "unclear",
+                "verified_deadline": None,
+                "source_url": "https://example.edu/unclear",
+                "evidence": "Page has conflicting dates.",
+                "note": "Needs human review.",
+                "should_unpublish_if_expired": True,
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, original_deadline)
+        self.assertEqual(opportunity.status, Opportunity.Status.PUBLISHED)
+        log = OpportunityDeadlineCheckLog.objects.get(opportunity=opportunity)
+        self.assertEqual(log.check_status, Opportunity.DeadlineCheckStatus.UNCLEAR)
 
     def test_backfill_facebook_social_plans_dry_run_creates_nothing(self):
         self.opportunity(
