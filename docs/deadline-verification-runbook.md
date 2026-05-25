@@ -6,6 +6,8 @@ This system lets the Scholars Republic Custom GPT/admin agent find published sch
 
 The goal is to keep scholarship deadlines accurate without letting the agent directly edit broad scholarship content. The agent should only report deadline verification facts and evidence.
 
+Scholarships with existing deadlines still need verification. Official deadlines can be extended, shortened, closed early, moved to rolling admission, or corrected after publication.
+
 ## Architecture
 
 ```text
@@ -32,21 +34,27 @@ Query parameters:
 
 - `limit`: default `10`, max `50`
 - `days_ahead`: default `14`
+- `check_stale_days`: default `14`, max `90`
 - `include_missing_deadline`: default `true`
 
-Returns published scholarships with an official or source URL when one of these is true:
+Returns published scholarships with an official or source/application URL when one of these is true:
 
 - deadline is missing
-- deadline is within `days_ahead`
-- deadline has never been checked
-- deadline was last checked more than 14 days ago
+- deadline is in the past but the opportunity is still published
+- deadline is today
+- deadline is within the next `days_ahead` days
+- deadline has never been checked, even if it is far in the future
+- deadline was last checked more than `check_stale_days` ago
 
 Queue ordering:
 
-1. Missing deadline first
-2. Past deadline
-3. Nearest upcoming deadline
-4. Oldest checked first
+1. Published opportunities with past deadline first
+2. Deadline today
+3. Deadline within 7 days
+4. Missing deadline
+5. Existing deadline but never checked
+6. Oldest `deadline_last_checked_at`
+7. Nearest future deadline
 
 ### Submit Result
 
@@ -92,7 +100,7 @@ When `verified_expired` is submitted with `should_unpublish_if_expired=true`, Dj
 
 ## Payload Examples
 
-### Verified Active
+### Existing Deadline Unchanged: Verified Active
 
 ```json
 {
@@ -105,7 +113,7 @@ When `verified_expired` is submitted with `should_unpublish_if_expired=true`, Dj
 }
 ```
 
-### Deadline Changed
+### Existing Deadline Changed
 
 ```json
 {
@@ -118,7 +126,7 @@ When `verified_expired` is submitted with `should_unpublish_if_expired=true`, Dj
 }
 ```
 
-### Verified Expired
+### Existing Deadline Passed and Official Source Says Closed
 
 ```json
 {
@@ -128,6 +136,45 @@ When `verified_expired` is submitted with `should_unpublish_if_expired=true`, Dj
   "evidence": "The official page says applications are closed.",
   "note": "Archive because official source shows closed applications.",
   "should_unpublish_if_expired": true
+}
+```
+
+### Existing Deadline Passed but Source Shows Extension
+
+```json
+{
+  "check_status": "deadline_changed",
+  "verified_deadline": "2026-07-31",
+  "source_url": "https://example.edu/call",
+  "evidence": "The official page now says applications close on 31 July 2026.",
+  "note": "Previous deadline passed, but official source shows an extension.",
+  "should_unpublish_if_expired": false
+}
+```
+
+### Missing Deadline Found
+
+```json
+{
+  "check_status": "deadline_changed",
+  "verified_deadline": "2026-08-15",
+  "source_url": "https://example.edu/call",
+  "evidence": "The official page lists 15 August 2026 as the application deadline.",
+  "note": "Added missing deadline from official source.",
+  "should_unpublish_if_expired": false
+}
+```
+
+### Missing or Unclear Deadline
+
+```json
+{
+  "check_status": "unclear",
+  "verified_deadline": null,
+  "source_url": "https://example.edu/call",
+  "evidence": "The page describes the programme but does not clearly list a deadline.",
+  "note": "Needs human review.",
+  "should_unpublish_if_expired": false
 }
 ```
 
@@ -151,14 +198,14 @@ Use `curl.exe` in PowerShell.
 ### Fetch Queue
 
 ```bash
-curl.exe -sS "https://scholarsrepublic.org/api/admin/agent/scholarships/deadline-check-queue/?limit=5&days_ahead=14" ^
+curl.exe -sS "https://scholarsrepublic.org/api/admin/agent/scholarships/deadline-check-queue/?limit=5&days_ahead=14&check_stale_days=14" ^
   -H "X-Agent-Token: <SCHOLARS_AGENT_TOKEN>"
 ```
 
 Linux form:
 
 ```bash
-curl -sS "https://scholarsrepublic.org/api/admin/agent/scholarships/deadline-check-queue/?limit=5&days_ahead=14" \
+curl -sS "https://scholarsrepublic.org/api/admin/agent/scholarships/deadline-check-queue/?limit=5&days_ahead=14&check_stale_days=14" \
   -H "X-Agent-Token: $SCHOLARS_AGENT_TOKEN"
 ```
 

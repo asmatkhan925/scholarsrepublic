@@ -572,6 +572,10 @@ class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):
         days_ahead = parse_positive_int(request.query_params.get("days_ahead"))
         if days_ahead is None:
             days_ahead = 14
+        check_stale_days = (
+            parse_positive_int(request.query_params.get("check_stale_days")) or 14
+        )
+        check_stale_days = min(check_stale_days, 90)
         include_missing_deadline = parse_bool(
             request.query_params.get("include_missing_deadline")
         )
@@ -580,10 +584,11 @@ class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):
 
         today = timezone.localdate()
         horizon = today + timedelta(days=days_ahead)
-        stale_before = timezone.now() - timedelta(days=14)
+        stale_before = timezone.now() - timedelta(days=check_stale_days)
 
         needs_check = (
-            Q(deadline__lte=horizon)
+            Q(deadline__lt=today)
+            | Q(deadline__lte=horizon)
             | Q(deadline_last_checked_at__isnull=True)
             | Q(deadline_last_checked_at__lt=stale_before)
         )
@@ -602,7 +607,9 @@ class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):
             queryset = queryset.filter(deadline__isnull=False)
 
         opportunities = list(queryset.distinct())
-        opportunities.sort(key=lambda opportunity: self.queue_sort_key(opportunity, today))
+        opportunities.sort(
+            key=lambda opportunity: self.queue_sort_key(opportunity, today, horizon)
+        )
 
         return Response(
             {
@@ -613,21 +620,42 @@ class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):
             }
         )
 
-    def queue_sort_key(self, opportunity, today):
-        if opportunity.deadline is None:
-            deadline_group = 0
+    def queue_sort_key(self, opportunity, today, horizon):
+        checked_at = opportunity.deadline_last_checked_at
+        never_checked = checked_at is None
+
+        if opportunity.deadline and opportunity.deadline < today:
+            priority = 0
+            deadline_value = opportunity.deadline
+        elif opportunity.deadline == today:
+            priority = 1
+            deadline_value = opportunity.deadline
+        elif opportunity.deadline and opportunity.deadline <= today + timedelta(days=7):
+            priority = 2
+            deadline_value = opportunity.deadline
+        elif opportunity.deadline is None:
+            priority = 3
             deadline_value = date.min
-        elif opportunity.deadline < today:
-            deadline_group = 1
+        elif never_checked:
+            priority = 4
+            deadline_value = opportunity.deadline
+        elif checked_at:
+            priority = 5
             deadline_value = opportunity.deadline
         else:
-            deadline_group = 2
+            priority = 6
             deadline_value = opportunity.deadline
 
-        checked_at = opportunity.deadline_last_checked_at or datetime.min.replace(
+        normalized_checked_at = checked_at or datetime.min.replace(
             tzinfo=dt_timezone.utc
         )
-        return (deadline_group, deadline_value, checked_at, opportunity.pk)
+        if priority == 5 and opportunity.deadline and opportunity.deadline <= horizon:
+            priority = 6
+
+        if priority == 5:
+            return (priority, normalized_checked_at, deadline_value, opportunity.pk)
+
+        return (priority, deadline_value, normalized_checked_at, opportunity.pk)
 
 
 class AgentScholarshipDeadlineCheckResultView(AgentScholarshipBaseView):

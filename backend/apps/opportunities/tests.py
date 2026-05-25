@@ -1289,8 +1289,8 @@ class OpportunityAPITests(APITestCase):
         self.assertIn(missing.slug, slugs)
         self.assertIn(past.slug, slugs)
         self.assertIn(near.slug, slugs)
-        self.assertLess(slugs.index(missing.slug), slugs.index(past.slug))
         self.assertLess(slugs.index(past.slug), slugs.index(near.slug))
+        self.assertLess(slugs.index(near.slug), slugs.index(missing.slug))
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_deadline_check_queue_excludes_draft_and_archived(self):
@@ -1336,9 +1336,111 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(len(response.data["items"]), 2)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_includes_far_future_never_checked_deadline(self):
+        opportunity = self.opportunity(
+            slug="deadline-check-far-never-checked",
+            deadline=timezone.localdate() + timedelta(days=120),
+            official_link="https://example.edu/far-never-checked",
+        )
+
+        response = self.client.get(
+            "/api/admin/agent/scholarships/deadline-check-queue/",
+            {"days_ahead": 7},
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(opportunity.slug, [item["slug"] for item in response.data["items"]])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_includes_old_checked_deadline(self):
+        opportunity = self.opportunity(
+            slug="deadline-check-old-checked",
+            deadline=timezone.localdate() + timedelta(days=120),
+            official_link="https://example.edu/old-checked",
+            deadline_last_checked_at=timezone.now() - timedelta(days=31),
+        )
+
+        response = self.client.get(
+            "/api/admin/agent/scholarships/deadline-check-queue/",
+            {"days_ahead": 7, "check_stale_days": 30},
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(opportunity.slug, [item["slug"] for item in response.data["items"]])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_excludes_recently_checked_far_future_deadline(self):
+        opportunity = self.opportunity(
+            slug="deadline-check-recent-far",
+            deadline=timezone.localdate() + timedelta(days=120),
+            official_link="https://example.edu/recent-far",
+            deadline_last_checked_at=timezone.now() - timedelta(days=2),
+        )
+
+        response = self.client.get(
+            "/api/admin/agent/scholarships/deadline-check-queue/",
+            {"days_ahead": 7, "check_stale_days": 30},
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn(opportunity.slug, [item["slug"] for item in response.data["items"]])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_check_queue_prioritizes_deadline_urgency(self):
+        far_unchecked = self.opportunity(
+            slug="deadline-priority-far-unchecked",
+            deadline=timezone.localdate() + timedelta(days=120),
+            official_link="https://example.edu/far-unchecked",
+        )
+        missing = self.opportunity(
+            slug="deadline-priority-missing",
+            deadline=None,
+            official_link="https://example.edu/missing",
+        )
+        near = self.opportunity(
+            slug="deadline-priority-near",
+            deadline=timezone.localdate() + timedelta(days=3),
+            official_link="https://example.edu/near",
+        )
+        today = self.opportunity(
+            slug="deadline-priority-today",
+            deadline=timezone.localdate(),
+            official_link="https://example.edu/today",
+        )
+        past = self.opportunity(
+            slug="deadline-priority-past",
+            deadline=timezone.localdate() - timedelta(days=1),
+            official_link="https://example.edu/past",
+        )
+
+        response = self.client.get(
+            "/api/admin/agent/scholarships/deadline-check-queue/",
+            {"limit": 10, "days_ahead": 7},
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        slugs = [item["slug"] for item in response.data["items"]]
+        self.assertEqual(
+            slugs[:5],
+            [
+                past.slug,
+                today.slug,
+                near.slug,
+                missing.slug,
+                far_unchecked.slug,
+            ],
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_deadline_check_result_updates_check_fields(self):
+        original_deadline = timezone.localdate() + timedelta(days=30)
         opportunity = self.opportunity(
             slug="deadline-result-active",
+            deadline=original_deadline,
             official_link="https://example.edu/active",
         )
 
@@ -1358,6 +1460,8 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, original_deadline)
+        self.assertEqual(opportunity.status, Opportunity.Status.PUBLISHED)
         self.assertIsNotNone(opportunity.deadline_last_checked_at)
         self.assertEqual(
             opportunity.deadline_check_status,
