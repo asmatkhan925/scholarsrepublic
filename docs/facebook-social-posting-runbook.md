@@ -28,7 +28,35 @@ Responsibilities:
 - Cloudflare Worker owns Facebook Graph API calls.
 - Facebook Graph API publishes posts to the Scholars Republic Page.
 
-## 3. Tokens and Secrets
+## 3. Quick Commands
+
+Run Windows PowerShell commands from the repository root:
+
+```powershell
+# Set or replace the Facebook Page token from clipboard
+.\scripts\facebook\set-page-token.ps1
+
+# Deploy Worker
+.\scripts\facebook\deploy-worker.ps1
+
+# Test one due post
+.\scripts\facebook\test-one-post.ps1
+```
+
+Run server-side Bash commands from the repository root:
+
+```bash
+# Check backend status without posting to Facebook
+./scripts/facebook/test-due-posts-no-post.sh
+
+# Backfill plans safely
+./scripts/facebook/backfill-social-plans.sh
+
+# Clear a failed plan error
+./scripts/facebook/clear-plan-error.sh 2
+```
+
+## 4. Tokens and Secrets
 
 ### `SCHOLARS_AGENT_TOKEN`
 
@@ -62,7 +90,7 @@ Responsibilities:
 - Must be a Page token from `/me/accounts`, not a User token.
 - Used by the Worker when calling the Facebook Graph API.
 
-## 4. Required Cloudflare Worker Secrets
+## 5. Required Cloudflare Worker Secrets
 
 - `GPT_FACEBOOK_POST_TOKEN`
 - `FACEBOOK_PAGE_ID`
@@ -78,14 +106,14 @@ npx wrangler secret put FACEBOOK_PAGE_ACCESS_TOKEN
 npx wrangler secret put SCHOLARS_SOCIAL_WORKER_TOKEN
 ```
 
-## 5. Required Django Environment Variables
+## 6. Required Django Environment Variables
 
 - `SCHOLARS_AGENT_TOKEN`
 - `SCHOLARS_SOCIAL_WORKER_TOKEN`
 
 These must be present in the backend runtime environment before restarting Django.
 
-## 6. Cron Schedule
+## 7. Cron Schedule
 
 Worker cron:
 
@@ -97,7 +125,7 @@ This runs daily at `09:00 UTC`.
 
 The scheduled Worker requests a batch of up to `10` due posts by default. The backend still decides whether any scholarship is actually due. The Worker can run safely when no posts are due.
 
-## 7. Backend Posting Rules
+## 8. Backend Posting Rules
 
 Only Facebook social plans are eligible when:
 
@@ -117,7 +145,7 @@ Scheduling rules:
 - If a scholarship was already posted today and the deadline is within 7 days, it is skipped.
 - Due posts are ordered by deadline urgency: today and soonest deadlines first, then no-deadline or rolling opportunities, then later deadlines.
 
-## 8. Important Models
+## 9. Important Models
 
 ### `OpportunitySocialDraft`
 
@@ -169,7 +197,7 @@ Important fields include:
 - `error_message`
 - `posted_at`
 
-## 9. Important Endpoints
+## 10. Important Endpoints
 
 ### Save social draft content
 
@@ -198,7 +226,7 @@ Header: X-Social-Worker-Token: <SCHOLARS_SOCIAL_WORKER_TOKEN>
 
 Used by the Worker after each Facebook posting attempt.
 
-## 10. Backfill Existing Scholarships
+## 11. Backfill Existing Scholarships
 
 Use the backfill command to create Facebook social post plans for existing published scholarships that do not already have a Facebook plan.
 
@@ -254,7 +282,7 @@ curl -sS -X POST "https://<facebook-poster-worker-url>/run-due-posts" \
 python manage.py shell -c "from apps.opportunities.models import OpportunitySocialPostPlan; print(OpportunitySocialPostPlan.objects.filter(platform='facebook').count()); print(list(OpportunitySocialPostPlan.objects.filter(platform='facebook').order_by('next_post_at').values_list('opportunity__slug','status','enabled','next_post_at')[:10]))"
 ```
 
-## 11. Manual Testing Commands
+## 12. Manual Testing Commands
 
 Use `curl.exe` in PowerShell. PowerShell aliases `curl` to `Invoke-WebRequest`, which handles arguments differently.
 
@@ -294,7 +322,7 @@ curl.exe -sS -X POST "https://<facebook-poster-worker-url>/" ^
   --data "{\"message\":\"Manual Facebook Worker test from Scholars Republic.\",\"link_url\":\"https://scholarsrepublic.org\"}"
 ```
 
-## 12. Facebook Token Refresh Procedure
+## 13. Facebook Token Refresh Procedure
 
 1. Open Meta Graph API Explorer.
 2. Generate a User token with these permissions:
@@ -319,7 +347,7 @@ GET /me/accounts
 
 Do not use the User token as `FACEBOOK_PAGE_ACCESS_TOKEN`.
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 ### `401 Unauthorized` from Worker
 
@@ -369,7 +397,7 @@ Check:
 
 Use `curl.exe`, not `curl`, in PowerShell.
 
-## 14. Deployment Commands
+## 15. Deployment Commands
 
 ### Backend
 
@@ -399,7 +427,7 @@ node --check src/index.js
 npx wrangler deploy
 ```
 
-## 15. Security Notes
+## 16. Security Notes
 
 - Never paste tokens in chat, GitHub issues, logs, screenshots, or support tickets.
 - Rotate any token that may have been exposed.
