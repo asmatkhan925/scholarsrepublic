@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.utils.html import format_html
 from django.utils import timezone
 
 from apps.opportunities.models import (
@@ -438,20 +439,57 @@ class OpportunitySocialDraftAdmin(admin.ModelAdmin):
         "opportunity_draft",
         "status",
         "has_facebook_image",
+        "social_image_source",
+        "social_image_status",
         "updated_at",
     )
-    list_filter = ("status", "updated_at")
+    list_filter = ("status", "social_image_source", "social_image_status", "updated_at")
     search_fields = (
         "opportunity_draft__title",
         "facebook_post_text",
         "facebook_image_prompt",
         "facebook_image_url",
     )
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("social_image_preview", "created_at", "updated_at")
+    actions = ("clear_social_image",)
 
     @admin.display(description="Image")
     def has_facebook_image(self, obj):
         return bool(obj.facebook_image or obj.facebook_image_url)
+
+    @admin.display(description="Social image preview")
+    def social_image_preview(self, obj):
+        if obj.facebook_image:
+            return format_html(
+                '<img src="{}" style="max-width: 260px; height: auto;" />',
+                obj.facebook_image.url,
+            )
+        return "-"
+
+    @admin.action(description="Clear social image")
+    def clear_social_image(self, request, queryset):
+        updated = 0
+        for obj in queryset:
+            if obj.facebook_image:
+                obj.facebook_image.delete(save=False)
+            obj.facebook_image_url = ""
+            obj.social_image_source = ""
+            obj.social_image_status = obj.SocialImageStatus.MISSING
+            obj.social_image_error = ""
+            obj.social_image_saved_at = None
+            obj.save(
+                update_fields=[
+                    "facebook_image",
+                    "facebook_image_url",
+                    "social_image_source",
+                    "social_image_status",
+                    "social_image_error",
+                    "social_image_saved_at",
+                    "updated_at",
+                ]
+            )
+            updated += 1
+        self.message_user(request, f"Cleared {updated} social image(s).", messages.INFO)
 
 
 @admin.register(OpportunitySocialPostPlan)
@@ -464,9 +502,19 @@ class OpportunitySocialPostPlanAdmin(admin.ModelAdmin):
         "next_post_at",
         "last_posted_at",
         "post_count",
+        "social_image_source",
+        "social_image_status",
         "updated_at",
     )
-    list_filter = ("platform", "status", "enabled", "last_posted_at", "next_post_at")
+    list_filter = (
+        "platform",
+        "status",
+        "enabled",
+        "social_image_source",
+        "social_image_status",
+        "last_posted_at",
+        "next_post_at",
+    )
     search_fields = (
         "opportunity__title",
         "opportunity__slug",
@@ -476,7 +524,68 @@ class OpportunitySocialPostPlanAdmin(admin.ModelAdmin):
         "last_error",
     )
     raw_id_fields = ("opportunity",)
-    readonly_fields = ("created_at", "updated_at", "last_posted_at", "post_count")
+    readonly_fields = (
+        "social_image_preview",
+        "created_at",
+        "updated_at",
+        "last_posted_at",
+        "post_count",
+    )
+    actions = ("clear_social_image", "regenerate_fallback_image")
+
+    @admin.display(description="Social image preview")
+    def social_image_preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 260px; height: auto;" />',
+                obj.image.url,
+            )
+        if obj.image_url:
+            return format_html(
+                '<a href="{}" target="_blank" rel="noreferrer">{}</a>',
+                obj.image_url,
+                obj.image_url,
+            )
+        return "-"
+
+    @admin.action(description="Clear social image")
+    def clear_social_image(self, request, queryset):
+        updated = 0
+        for obj in queryset:
+            if obj.image:
+                obj.image.delete(save=False)
+            obj.image_url = ""
+            obj.social_image_source = ""
+            obj.social_image_status = obj.SocialImageStatus.MISSING
+            obj.social_image_error = ""
+            obj.social_image_saved_at = None
+            obj.save(
+                update_fields=[
+                    "image",
+                    "image_url",
+                    "social_image_source",
+                    "social_image_status",
+                    "social_image_error",
+                    "social_image_saved_at",
+                    "updated_at",
+                ]
+            )
+            updated += 1
+        self.message_user(request, f"Cleared {updated} social image(s).", messages.INFO)
+
+    @admin.action(description="Regenerate fallback image metadata")
+    def regenerate_fallback_image(self, request, queryset):
+        updated = queryset.update(
+            social_image_source=OpportunitySocialPostPlan.SocialImageSource.OG_FALLBACK,
+            social_image_status=OpportunitySocialPostPlan.SocialImageStatus.FALLBACK,
+            social_image_error="",
+            updated_at=timezone.now(),
+        )
+        self.message_user(
+            request,
+            f"Marked {updated} plan(s) to use OG image fallback.",
+            messages.INFO,
+        )
 
 
 @admin.register(OpportunitySocialPostLog)
@@ -486,6 +595,7 @@ class OpportunitySocialPostLogAdmin(admin.ModelAdmin):
         "platform",
         "status",
         "facebook_post_id",
+        "image_source",
         "posted_at",
         "created_at",
     )

@@ -621,6 +621,19 @@ class OpportunitySocialDraft(models.Model):
         READY = "ready", "Ready"
         POSTED = "posted", "Posted"
 
+    class SocialImageSource(models.TextChoices):
+        GPT_UPLOADED = "gpt_uploaded", "GPT uploaded"
+        GPT_IMAGE_URL = "gpt_image_url", "GPT image URL"
+        GPT_BASE64 = "gpt_base64", "GPT base64"
+        BACKEND_GENERATED = "backend_generated", "Backend generated"
+        OG_FALLBACK = "og_fallback", "Open Graph fallback"
+
+    class SocialImageStatus(models.TextChoices):
+        MISSING = "missing", "Missing"
+        SAVED = "saved", "Saved"
+        FAILED = "failed", "Failed"
+        FALLBACK = "fallback", "Fallback"
+
     opportunity_draft = models.ForeignKey(
         "opportunities.OpportunityDraft",
         on_delete=models.CASCADE,
@@ -634,6 +647,20 @@ class OpportunitySocialDraft(models.Model):
         blank=True,
     )
     facebook_image_url = models.TextField(blank=True)
+    social_image_source = models.CharField(
+        max_length=40,
+        choices=SocialImageSource.choices,
+        blank=True,
+        db_index=True,
+    )
+    social_image_status = models.CharField(
+        max_length=30,
+        choices=SocialImageStatus.choices,
+        default=SocialImageStatus.MISSING,
+        db_index=True,
+    )
+    social_image_error = models.TextField(blank=True)
+    social_image_saved_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
         max_length=30,
         choices=Status.choices,
@@ -667,6 +694,19 @@ class OpportunitySocialPostPlan(models.Model):
         PAUSED = "paused", "Paused"
         ARCHIVED = "archived", "Archived"
 
+    class SocialImageSource(models.TextChoices):
+        GPT_UPLOADED = "gpt_uploaded", "GPT uploaded"
+        GPT_IMAGE_URL = "gpt_image_url", "GPT image URL"
+        GPT_BASE64 = "gpt_base64", "GPT base64"
+        BACKEND_GENERATED = "backend_generated", "Backend generated"
+        OG_FALLBACK = "og_fallback", "Open Graph fallback"
+
+    class SocialImageStatus(models.TextChoices):
+        MISSING = "missing", "Missing"
+        SAVED = "saved", "Saved"
+        FAILED = "failed", "Failed"
+        FALLBACK = "fallback", "Fallback"
+
     opportunity = models.ForeignKey(
         "opportunities.Opportunity",
         on_delete=models.CASCADE,
@@ -688,6 +728,20 @@ class OpportunitySocialPostPlan(models.Model):
         blank=True,
     )
     image_url = models.TextField(blank=True)
+    social_image_source = models.CharField(
+        max_length=40,
+        choices=SocialImageSource.choices,
+        blank=True,
+        db_index=True,
+    )
+    social_image_status = models.CharField(
+        max_length=30,
+        choices=SocialImageStatus.choices,
+        default=SocialImageStatus.MISSING,
+        db_index=True,
+    )
+    social_image_error = models.TextField(blank=True)
+    social_image_saved_at = models.DateTimeField(null=True, blank=True)
     link_url = models.TextField(blank=True)
     last_posted_at = models.DateTimeField(null=True, blank=True)
     next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -742,6 +796,7 @@ class OpportunitySocialPostLog(models.Model):
     platform = models.CharField(max_length=50, default="facebook", db_index=True)
     message = models.TextField(blank=True)
     image_url = models.TextField(blank=True)
+    image_source = models.CharField(max_length=40, blank=True)
     link_url = models.TextField(blank=True)
     facebook_post_id = models.CharField(max_length=255, blank=True)
     facebook_post_url = models.TextField(blank=True)

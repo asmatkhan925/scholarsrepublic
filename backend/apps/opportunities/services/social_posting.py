@@ -11,6 +11,10 @@ from apps.opportunities.models import (
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
 )
+from apps.opportunities.services.social_image_uploads import (
+    get_preferred_social_image_source,
+    get_preferred_social_image_url,
+)
 
 
 DEFAULT_PLATFORM = "facebook"
@@ -95,6 +99,10 @@ def promote_social_draft_to_plan(draft):
             "image_prompt": social_draft.facebook_image_prompt,
             "image": social_draft.facebook_image,
             "image_url": social_draft.facebook_image_url,
+            "social_image_source": social_draft.social_image_source,
+            "social_image_status": social_draft.social_image_status,
+            "social_image_error": social_draft.social_image_error,
+            "social_image_saved_at": social_draft.social_image_saved_at,
             "link_url": scholarship_detail_url(opportunity),
         },
     )
@@ -155,13 +163,7 @@ def next_post_time_for_plan(plan, now=None):
 
 
 def plan_image_url(plan):
-    if plan.image:
-        return absolute_url(plan.image.url)
-
-    if plan.image_url:
-        return plan.image_url
-
-    return ""
+    return get_preferred_social_image_url(plan)
 
 
 def serialize_due_plan(plan):
@@ -169,6 +171,7 @@ def serialize_due_plan(plan):
     link_url = plan.link_url or scholarship_detail_url(opportunity)
     message = plan.post_text.strip() or fallback_social_post_text(opportunity, link_url)
     days_left = opportunity.days_until_deadline
+    image_url = plan_image_url(plan)
 
     return {
         "plan_id": plan.pk,
@@ -176,7 +179,9 @@ def serialize_due_plan(plan):
         "slug": opportunity.slug,
         "title": opportunity.title,
         "message": message,
-        "image_url": plan_image_url(plan),
+        "image_url": image_url,
+        "image_source": get_preferred_social_image_source(plan),
+        "has_image": bool(image_url),
         "link_url": link_url,
         "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
         "days_left": days_left,
@@ -260,6 +265,7 @@ def record_facebook_post_result(payload):
         platform=DEFAULT_PLATFORM,
         message=str(payload.get("message") or ""),
         image_url=str(payload.get("image_url") or ""),
+        image_source=str(payload.get("image_source") or ""),
         link_url=str(payload.get("link_url") or ""),
         facebook_post_id=str(payload.get("facebook_post_id") or ""),
         facebook_post_url=str(payload.get("facebook_post_url") or ""),

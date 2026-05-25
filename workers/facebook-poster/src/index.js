@@ -160,6 +160,7 @@ function resultPayloadForPost(duePost, status, facebookResult = {}, errorMessage
     facebook_post_url: facebookResult.facebook_post_url || "",
     message: duePost.message || "",
     image_url: duePost.image_url || "",
+    image_source: duePost.image_source || "",
     link_url: duePost.link_url || "",
     error_message: errorMessage,
   };

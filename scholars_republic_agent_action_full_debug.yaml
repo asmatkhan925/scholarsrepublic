@@ -139,6 +139,100 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/agent/scholarships/drafts/{draft_id}/social-image/:
+    post:
+      operationId: uploadDraftSocialImage
+      summary: Upload exact GPT-generated social image for a draft
+      description: Saves the actual GPT-generated scholarship announcement image into backend media for a private scholarship draft. Use this after generating an image; a prompt alone does not save an image.
+      x-openai-isConsequential: true
+      security:
+        - AgentTokenAuth: []
+      parameters:
+        - name: draft_id
+          in: path
+          required: true
+          description: Private scholarship draft ID.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialImageUploadRequest"
+      responses:
+        "200":
+          description: Social image saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialImageUploadResponse"
+        "400":
+          description: Invalid image upload request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Draft not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarships/{id}/social-image/:
+    post:
+      operationId: uploadOpportunitySocialImage
+      summary: Upload exact GPT-generated social image for a published scholarship
+      description: Saves the actual GPT-generated scholarship announcement image into backend media and attaches it to the Facebook social post plan for a published scholarship.
+      x-openai-isConsequential: true
+      security:
+        - AgentTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Scholarship opportunity ID.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialImageUploadRequest"
+      responses:
+        "200":
+          description: Social image saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialImageUploadResponse"
+        "400":
+          description: Invalid image upload request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/agent/scholarships/deadline-check-queue/:
     get:
       operationId: getDeadlineCheckQueue
@@ -527,6 +621,18 @@ components:
           type: string
         facebook_image_prompt:
           type: string
+        image_prompt:
+          type: string
+          description: Optional alias for facebook_image_prompt.
+        facebook_image_base64:
+          type: string
+          description: Optional base64 PNG/JPG/WebP image data to save in backend media.
+        facebook_image_url:
+          type: string
+          description: Optional image URL to download and save in backend media.
+        facebook_image_filename:
+          type: string
+          description: Optional filename for the saved image.
         status:
           type: string
           description: Use draft unless explicitly changed by backend workflow.
@@ -546,6 +652,16 @@ components:
           type: string
         facebook_image_prompt:
           type: string
+        facebook_image_url:
+          type: string
+        image_url:
+          type: string
+        image_source:
+          type: string
+        image_status:
+          type: string
+        image_error:
+          type: string
         status:
           type: string
         created_at:
@@ -558,6 +674,61 @@ components:
         - facebook_post_text
         - facebook_image_prompt
         - status
+
+    SocialImageUploadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        image_base64:
+          type: string
+          description: Base64 PNG/JPG/WebP image data for the exact GPT-generated image.
+        image_url:
+          type: string
+          description: URL of the exact generated image. Backend downloads and saves it locally.
+        filename:
+          type: string
+          example: scholarship-poster.png
+        image_prompt:
+          type: string
+          description: Prompt used to generate the image. Prompt alone is not enough to save an image.
+      required: []
+
+    SocialImageUploadResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+        draft_id:
+          type: integer
+        opportunity_id:
+          type: integer
+        plan_id:
+          type: integer
+        image_url:
+          type: string
+        image_source:
+          type: string
+          enum:
+            - gpt_uploaded
+            - gpt_image_url
+            - gpt_base64
+            - backend_generated
+            - og_fallback
+        image_status:
+          type: string
+          enum:
+            - missing
+            - saved
+            - failed
+            - fallback
+        image_error:
+          type: string
+      required:
+        - ok
+        - image_url
+        - image_source
+        - image_status
 
     DeadlineCheckQueueResponse:
       type: object

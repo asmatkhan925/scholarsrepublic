@@ -1,13 +1,9 @@
 import logging
 import secrets
-import base64
-import binascii
-import uuid
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.files.base import ContentFile
 from django.db.models import Count, F, Prefetch, Q
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -25,6 +21,7 @@ from apps.opportunities.models import (
     OpportunityDraft,
     OpportunityPathway,
     OpportunitySocialDraft,
+    OpportunitySocialPostPlan,
 )
 from apps.opportunities.serializers import (
     AdminOpportunityCommentSerializer,
@@ -43,8 +40,17 @@ from apps.opportunities.services.opportunity_draft_importer import (
     validate_opportunity_draft_payload,
 )
 from apps.opportunities.services.social_posting import (
+    DEFAULT_PLATFORM,
     get_due_facebook_post_plans,
     record_facebook_post_result,
+    scholarship_detail_url,
+)
+from apps.opportunities.services.social_image_uploads import (
+    SocialImageError,
+    get_preferred_social_image_source,
+    get_preferred_social_image_url,
+    save_social_image_from_base64,
+    save_social_image_from_url,
 )
 from apps.users.models import User
 
@@ -244,52 +250,15 @@ def _deadline_check_summary(opportunity):
     }
 
 
-MAX_SOCIAL_IMAGE_BYTES = 8 * 1024 * 1024
-
-
-def _social_image_extension(image_bytes):
-    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "png"
-
-    if image_bytes.startswith(b"\xff\xd8\xff"):
-        return "jpg"
-
-    if image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
-        return "webp"
-
-    return ""
-
-
-def _decode_social_image_base64(value):
-    raw_value = str(value or "").strip()
-    if not raw_value:
-        return None, None
-
-    if "," in raw_value and raw_value.split(",", 1)[0].startswith("data:"):
-        raw_value = raw_value.split(",", 1)[1]
-
-    try:
-        image_bytes = base64.b64decode(raw_value, validate=True)
-    except (binascii.Error, ValueError):
-        return None, "facebook_image_base64 must be valid base64."
-
-    if len(image_bytes) > MAX_SOCIAL_IMAGE_BYTES:
-        return None, "facebook_image_base64 exceeds the 8 MB limit."
-
-    extension = _social_image_extension(image_bytes)
-    if not extension:
-        return None, "facebook_image_base64 must be a png, jpg, jpeg, or webp image."
-
-    return (image_bytes, extension), None
-
-
-def _social_image_filename(filename, extension):
-    cleaned = str(filename or "").strip().replace("\\", "/").split("/")[-1]
-    if not cleaned:
-        return f"{uuid.uuid4().hex}.{extension}"
-
-    base = cleaned.rsplit(".", 1)[0][:90] or uuid.uuid4().hex
-    return f"{base}.{extension}"
+def _social_image_response(obj, draft_id=None):
+    return {
+        "ok": obj.social_image_status == obj.SocialImageStatus.SAVED,
+        "draft_id": draft_id,
+        "image_url": get_preferred_social_image_url(obj),
+        "image_source": get_preferred_social_image_source(obj),
+        "image_status": obj.social_image_status,
+        "image_error": obj.social_image_error,
+    }
 
 
 def public_pathway_queryset():
@@ -493,7 +462,11 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
             )
 
         facebook_post_text = request.data.get("facebook_post_text") or ""
-        facebook_image_prompt = request.data.get("facebook_image_prompt") or ""
+        facebook_image_prompt = (
+            request.data.get("facebook_image_prompt")
+            or request.data.get("image_prompt")
+            or ""
+        )
         facebook_image_url = request.data.get("facebook_image_url") or ""
         requested_status = request.data.get("status") or OpportunitySocialDraft.Status.DRAFT
         valid_statuses = {
@@ -507,35 +480,40 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        decoded_image = None
-        if request.data.get("facebook_image_base64"):
-            decoded_image, image_error = _decode_social_image_base64(
-                request.data.get("facebook_image_base64")
-            )
-            if image_error:
-                return Response({"detail": image_error}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             social_draft, _ = OpportunitySocialDraft.objects.update_or_create(
                 opportunity_draft=draft,
                 defaults={
                     "facebook_post_text": str(facebook_post_text).strip(),
                     "facebook_image_prompt": str(facebook_image_prompt).strip(),
-                    "facebook_image_url": str(facebook_image_url).strip(),
                     "status": requested_status,
                 },
             )
-            if decoded_image:
-                image_bytes, extension = decoded_image
-                filename = _social_image_filename(
-                    request.data.get("facebook_image_filename"),
-                    extension,
+            if request.data.get("facebook_image_base64"):
+                save_social_image_from_base64(
+                    social_draft,
+                    request.data.get("facebook_image_base64"),
+                    filename=request.data.get("facebook_image_filename"),
+                    source=social_draft.SocialImageSource.GPT_BASE64,
                 )
-                social_draft.facebook_image.save(
-                    filename,
-                    ContentFile(image_bytes),
-                    save=True,
+            elif facebook_image_url:
+                save_social_image_from_url(
+                    social_draft,
+                    facebook_image_url,
+                    source=social_draft.SocialImageSource.GPT_IMAGE_URL,
                 )
+            elif facebook_image_prompt:
+                social_draft.social_image_status = social_draft.SocialImageStatus.MISSING
+                social_draft.social_image_error = ""
+                social_draft.save(
+                    update_fields=[
+                        "social_image_status",
+                        "social_image_error",
+                        "updated_at",
+                    ]
+                )
+        except SocialImageError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
             logger.exception("Agent scholarship social draft save failed.")
             return Response(
@@ -549,9 +527,11 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
                 "social_draft_id": social_draft.pk,
                 "status": social_draft.status,
                 "has_image_file": bool(social_draft.facebook_image),
-                "facebook_image_url": social_draft.facebook_image.url
-                if social_draft.facebook_image
-                else social_draft.facebook_image_url,
+                "facebook_image_url": get_preferred_social_image_url(social_draft),
+                "image_url": get_preferred_social_image_url(social_draft),
+                "image_source": get_preferred_social_image_source(social_draft),
+                "image_status": social_draft.social_image_status,
+                "image_error": social_draft.social_image_error,
                 "edit_url": _agent_admin_edit_url(draft),
                 "admin_edit_url": _agent_admin_edit_url(draft),
                 "facebook_post_text": social_draft.facebook_post_text,
@@ -559,6 +539,124 @@ class AgentScholarshipSocialDraftView(AgentScholarshipBaseView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class AgentScholarshipDraftSocialImageView(AgentScholarshipBaseView):
+    def post(self, request, draft_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            draft = OpportunityDraft.objects.get(pk=draft_id)
+        except OpportunityDraft.DoesNotExist:
+            return Response(
+                {"detail": "Scholarship draft not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        social_draft, _ = OpportunitySocialDraft.objects.get_or_create(
+            opportunity_draft=draft
+        )
+        image_prompt = str(request.data.get("image_prompt") or "").strip()
+        if image_prompt:
+            social_draft.facebook_image_prompt = image_prompt
+            social_draft.save(update_fields=["facebook_image_prompt", "updated_at"])
+
+        try:
+            if request.data.get("image_base64"):
+                save_social_image_from_base64(
+                    social_draft,
+                    request.data.get("image_base64"),
+                    filename=request.data.get("filename"),
+                    source=social_draft.SocialImageSource.GPT_UPLOADED,
+                )
+            elif request.data.get("image_url"):
+                save_social_image_from_url(
+                    social_draft,
+                    request.data.get("image_url"),
+                    source=social_draft.SocialImageSource.GPT_IMAGE_URL,
+                )
+            else:
+                return Response(
+                    {"detail": "image_base64 or image_url is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except SocialImageError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_data = _social_image_response(social_draft, draft_id=draft.pk)
+        response_data["social_draft_id"] = social_draft.pk
+        return Response(response_data)
+
+
+class AgentScholarshipOpportunitySocialImageView(AgentScholarshipBaseView):
+    def post(self, request, opportunity_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response(
+                {"detail": "Scholarship not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        plan, _ = OpportunitySocialPostPlan.objects.get_or_create(
+            opportunity=opportunity,
+            platform=DEFAULT_PLATFORM,
+            defaults={
+                "enabled": True,
+                "status": OpportunitySocialPostPlan.Status.READY
+                if opportunity.status == Opportunity.Status.PUBLISHED
+                else OpportunitySocialPostPlan.Status.DRAFT,
+                "link_url": scholarship_detail_url(opportunity),
+            },
+        )
+        image_prompt = str(request.data.get("image_prompt") or "").strip()
+        if image_prompt:
+            plan.image_prompt = image_prompt
+            plan.save(update_fields=["image_prompt", "updated_at"])
+
+        try:
+            if request.data.get("image_base64"):
+                save_social_image_from_base64(
+                    plan,
+                    request.data.get("image_base64"),
+                    filename=request.data.get("filename"),
+                    source=plan.SocialImageSource.GPT_UPLOADED,
+                )
+            elif request.data.get("image_url"):
+                save_social_image_from_url(
+                    plan,
+                    request.data.get("image_url"),
+                    source=plan.SocialImageSource.GPT_IMAGE_URL,
+                )
+            else:
+                return Response(
+                    {"detail": "image_base64 or image_url is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except SocialImageError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_data = _social_image_response(plan)
+        response_data["opportunity_id"] = opportunity.pk
+        response_data["plan_id"] = plan.pk
+        return Response(response_data)
 
 
 class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):

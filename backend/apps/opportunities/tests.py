@@ -1,8 +1,9 @@
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
-from io import StringIO
+from io import BytesIO, StringIO
 import base64
 import tempfile
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
@@ -100,9 +101,29 @@ from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
 )
+from apps.opportunities.services.social_image_uploads import save_social_image_from_base64
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
+
+
+VALID_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGNg"
+    "YPgPAAEDAQCqD6nFAAAAAElFTkSuQmCC"
+)
+
+
+class FakeImageResponse:
+    headers = {"content-type": "image/png"}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, _size=-1):
+        return VALID_PNG_BYTES
 
 
 class OpportunityAPITests(APITestCase):
@@ -826,10 +847,7 @@ class OpportunityAPITests(APITestCase):
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_social_draft_saves_base64_image(self):
         draft = self.create_agent_draft()
-        png_base64 = base64.b64encode(
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
-        ).decode()
+        png_base64 = base64.b64encode(VALID_PNG_BYTES).decode()
 
         with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
             response = self.client.post(
@@ -850,7 +868,9 @@ class OpportunityAPITests(APITestCase):
             self.assertTrue(response.data["has_image_file"])
             social_draft = OpportunitySocialDraft.objects.get(pk=response.data["social_draft_id"])
             self.assertTrue(social_draft.facebook_image.name.endswith(".png"))
-            self.assertEqual(social_draft.facebook_image_url, "https://cdn.example/social.png")
+            self.assertIn("/media/", response.data["facebook_image_url"])
+            self.assertEqual(social_draft.social_image_source, social_draft.SocialImageSource.GPT_BASE64)
+            self.assertEqual(social_draft.social_image_status, social_draft.SocialImageStatus.SAVED)
             self.assertEqual(social_draft.status, OpportunitySocialDraft.Status.READY)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
@@ -865,7 +885,7 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["detail"], "facebook_image_base64 must be valid base64.")
+        self.assertEqual(response.data["detail"], "image_base64 must be valid base64.")
         self.assert_json_response(response)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
@@ -881,36 +901,175 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["detail"], "facebook_image_base64 exceeds the 8 MB limit.")
+        self.assertEqual(response.data["detail"], "Image exceeds the 8 MB limit.")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_requires_agent_token(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+            {"image_base64": base64.b64encode(VALID_PNG_BYTES).decode()},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_saves_base64_file(self):
+        draft = self.create_agent_draft()
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+                {
+                    "image_base64": base64.b64encode(VALID_PNG_BYTES).decode(),
+                    "filename": "gpt-scholarship.png",
+                    "image_prompt": "Professional scholarship announcement.",
+                },
+                format="json",
+                **self.agent_headers(),
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            social_draft = OpportunitySocialDraft.objects.get(opportunity_draft=draft)
+            self.assertTrue(social_draft.facebook_image)
+            self.assertEqual(
+                social_draft.social_image_source,
+                OpportunitySocialDraft.SocialImageSource.GPT_UPLOADED,
+            )
+            self.assertEqual(
+                social_draft.social_image_status,
+                OpportunitySocialDraft.SocialImageStatus.SAVED,
+            )
+            self.assertIn("/media/", response.data["image_url"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_downloads_and_saves_url(self):
+        draft = self.create_agent_draft()
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            with patch(
+                "apps.opportunities.services.social_image_uploads.urlopen",
+                return_value=FakeImageResponse(),
+            ):
+                response = self.client.post(
+                    f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+                    {
+                        "image_url": "https://cdn.example/generated.png",
+                        "image_prompt": "Professional scholarship announcement.",
+                    },
+                    format="json",
+                    **self.agent_headers(),
+                )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            social_draft = OpportunitySocialDraft.objects.get(opportunity_draft=draft)
+            self.assertTrue(social_draft.facebook_image)
+            self.assertEqual(
+                social_draft.social_image_source,
+                OpportunitySocialDraft.SocialImageSource.GPT_IMAGE_URL,
+            )
+            self.assertIn("/media/", response.data["image_url"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_rejects_invalid_image(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+            {"image_base64": base64.b64encode(b"not an image").decode()},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("valid PNG, JPG, or WebP", response.data["detail"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_opportunity_social_image_endpoint_saves_to_plan(self):
+        opportunity = self.opportunity(slug="opportunity-social-image")
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                f"/api/admin/agent/scholarships/{opportunity.pk}/social-image/",
+                {
+                    "image_base64": base64.b64encode(VALID_PNG_BYTES).decode(),
+                    "filename": "published-scholarship.png",
+                    "image_prompt": "Published social image.",
+                },
+                format="json",
+                **self.agent_headers(),
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
+            self.assertTrue(plan.image)
+            self.assertEqual(plan.social_image_source, plan.SocialImageSource.GPT_UPLOADED)
+            self.assertIn("/media/", response.data["image_url"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_prompt_only_does_not_count_as_saved_image(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
+            {
+                "facebook_post_text": "Prompt only.",
+                "facebook_image_prompt": "Make an announcement image.",
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        social_draft = OpportunitySocialDraft.objects.get(pk=response.data["social_draft_id"])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(social_draft.facebook_image)
+        self.assertEqual(
+            social_draft.social_image_status,
+            OpportunitySocialDraft.SocialImageStatus.MISSING,
+        )
 
     def test_social_draft_promotes_to_ready_plan_when_imported_opportunity_is_published(self):
-        draft = OpportunityDraft.objects.create(
-            title="Social Promotion Draft",
-            slug="social-promotion-draft",
-            raw_payload=self.draft_payload(slug="social-promotion-opportunity"),
-            status=OpportunityDraft.Status.VALIDATED,
-        )
-        OpportunitySocialDraft.objects.create(
-            opportunity_draft=draft,
-            facebook_post_text="Saved social post text.",
-            facebook_image_prompt="Saved image prompt.",
-            facebook_image_url="https://cdn.example/social.png",
-            status=OpportunitySocialDraft.Status.READY,
-        )
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            draft = OpportunityDraft.objects.create(
+                title="Social Promotion Draft",
+                slug="social-promotion-draft",
+                raw_payload=self.draft_payload(slug="social-promotion-opportunity"),
+                status=OpportunityDraft.Status.VALIDATED,
+            )
+            social_draft = OpportunitySocialDraft.objects.create(
+                opportunity_draft=draft,
+                facebook_post_text="Saved social post text.",
+                facebook_image_prompt="Saved image prompt.",
+                status=OpportunitySocialDraft.Status.READY,
+            )
+            save_social_image_from_base64(
+                social_draft,
+                base64.b64encode(VALID_PNG_BYTES).decode(),
+                filename="saved-social.png",
+                source=social_draft.SocialImageSource.GPT_UPLOADED,
+            )
 
-        opportunity = import_opportunity_draft(draft, user=self.admin)
-        self.assertIsNotNone(opportunity)
-        plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity, platform="facebook")
-        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.DRAFT)
+            opportunity = import_opportunity_draft(draft, user=self.admin)
+            self.assertIsNotNone(opportunity)
+            plan = OpportunitySocialPostPlan.objects.get(
+                opportunity=opportunity,
+                platform="facebook",
+            )
+            self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.DRAFT)
 
-        opportunity.status = Opportunity.Status.PUBLISHED
-        opportunity.save()
+            opportunity.status = Opportunity.Status.PUBLISHED
+            opportunity.save()
 
-        plan.refresh_from_db()
-        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
-        self.assertEqual(plan.post_text, "Saved social post text.")
-        self.assertEqual(plan.image_prompt, "Saved image prompt.")
-        self.assertEqual(plan.image_url, "https://cdn.example/social.png")
+            plan.refresh_from_db()
+            self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
+            self.assertEqual(plan.post_text, "Saved social post text.")
+            self.assertEqual(plan.image_prompt, "Saved image prompt.")
+            self.assertTrue(plan.image)
+            self.assertIn("/media/", plan.image_url)
+            self.assertEqual(plan.social_image_source, plan.SocialImageSource.GPT_UPLOADED)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_weekly_for_deadline_more_than_7_days(self):
@@ -935,6 +1094,67 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_due_posts_use_saved_social_image_before_fallback(self):
+        opportunity = self.opportunity(
+            slug="saved-social-image-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=20),
+        )
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            plan = OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+                last_posted_at=timezone.now() - timedelta(days=8),
+            )
+            save_social_image_from_base64(
+                plan,
+                base64.b64encode(VALID_PNG_BYTES).decode(),
+                filename="saved-due.png",
+                source=plan.SocialImageSource.GPT_UPLOADED,
+            )
+
+            response = self.client.post(
+                "/api/admin/agent/social/facebook/due-posts/",
+                {"limit": 5},
+                format="json",
+                HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+            )
+
+        item = response.data["items"][0]
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(item["plan_id"], plan.pk)
+        self.assertIn("/media/", item["image_url"])
+        self.assertEqual(item["image_source"], plan.SocialImageSource.GPT_UPLOADED)
+        self.assertTrue(item["has_image"])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_due_posts_fall_back_to_og_image(self):
+        opportunity = self.opportunity(
+            slug="og-fallback-social-image-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=20),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(days=8),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        item = response.data["items"][0]
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(item["plan_id"], plan.pk)
+        self.assertIn("/scholarships/og-fallback-social-image-due/opengraph-image", item["image_url"])
+        self.assertEqual(item["image_source"], plan.SocialImageSource.OG_FALLBACK)
+        self.assertTrue(item["has_image"])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_daily_within_7_days(self):

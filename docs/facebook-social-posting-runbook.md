@@ -8,6 +8,8 @@ GPT creates scholarship drafts and related social content. Django stores the soc
 
 Django never posts directly to Facebook. Facebook Page credentials live only in Cloudflare Worker secrets.
 
+Exact GPT-generated images are the primary image workflow. GPT must upload the actual generated image file or a downloadable generated-image URL to Django. A prompt alone is not enough. Backend-generated images are fallback only, and the existing dynamic Open Graph image is the final fallback.
+
 ## 2. Architecture
 
 Flow:
@@ -157,6 +159,10 @@ Important fields include:
 - `facebook_image_prompt`
 - `facebook_image`
 - `facebook_image_url`
+- `social_image_source`
+- `social_image_status`
+- `social_image_error`
+- `social_image_saved_at`
 - `status`
 
 ### `OpportunitySocialPostPlan`
@@ -173,6 +179,10 @@ Important fields include:
 - `image_prompt`
 - `image`
 - `image_url`
+- `social_image_source`
+- `social_image_status`
+- `social_image_error`
+- `social_image_saved_at`
 - `link_url`
 - `last_posted_at`
 - `next_post_at`
@@ -208,6 +218,26 @@ Header: X-Agent-Token: <SCHOLARS_AGENT_TOKEN>
 
 Used by GPT to save Facebook post text, image prompt, image URL, and optional base64 image data for a scholarship draft.
 
+Important: when GPT has generated an image, it should send the actual image using `facebook_image_base64` or `facebook_image_url`. The backend downloads/validates/saves the image into media storage and returns the saved backend `image_url`.
+
+### Save exact social image for a draft
+
+```text
+POST /api/admin/agent/scholarships/drafts/<draft_id>/social-image/
+Header: X-Agent-Token: <SCHOLARS_AGENT_TOKEN>
+```
+
+Use this to save the exact GPT-generated image for a private scholarship draft.
+
+### Save exact social image for a published scholarship
+
+```text
+POST /api/admin/agent/scholarships/<id>/social-image/
+Header: X-Agent-Token: <SCHOLARS_AGENT_TOKEN>
+```
+
+Use this to attach the exact GPT-generated image to a published scholarship Facebook social post plan.
+
 ### Fetch due Facebook posts
 
 ```text
@@ -216,6 +246,15 @@ Header: X-Social-Worker-Token: <SCHOLARS_SOCIAL_WORKER_TOKEN>
 ```
 
 Used by the Worker to fetch currently due Facebook posts.
+
+Image priority in due-post responses:
+
+1. Saved backend social image file from GPT upload/base64/URL
+2. Saved local image URL from the social plan
+3. Backend-generated image from prompt, if available
+4. Dynamic Open Graph image fallback
+
+Facebook posts use the returned backend `image_url` when present.
 
 ### Report Facebook post result
 
