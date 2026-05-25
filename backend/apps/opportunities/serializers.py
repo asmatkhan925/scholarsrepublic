@@ -3,6 +3,10 @@ from rest_framework import serializers
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityDraft, OpportunityPathway
+from apps.opportunities.services.social_image_uploads import (
+    get_preferred_social_image_source,
+    get_preferred_social_image_url,
+)
 from apps.reference_data.models import Country, Region, StudyField
 from apps.reference_data.serializers import (
     CountrySerializer,
@@ -229,6 +233,7 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
     saved_opportunity_id = serializers.SerializerMethodField()
     is_tracking = serializers.SerializerMethodField()
     application_id = serializers.SerializerMethodField()
+    social_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Opportunity
@@ -264,6 +269,7 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             "saved_opportunity_id",
             "is_tracking",
             "application_id",
+            "social_image",
             "created_at",
         )
         read_only_fields = (
@@ -274,9 +280,24 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             "saved_opportunity_id",
             "is_tracking",
             "application_id",
+            "social_image",
             "created_at",
             "updated_at",
         )
+
+    def get_social_image(self, obj):
+        plan = obj.social_post_plans.filter(platform="facebook").order_by("-updated_at").first()
+        if not plan:
+            return None
+
+        return {
+            "image_url": get_preferred_social_image_url(plan, request=self.context.get("request")),
+            "image_source": get_preferred_social_image_source(plan),
+            "image_status": plan.social_image_status,
+            "image_error": plan.social_image_error,
+            "image_prompt": plan.image_prompt,
+            "saved_at": plan.social_image_saved_at,
+        }
 
     def _student_user(self):
         request = self.context.get("request")
@@ -562,6 +583,7 @@ class RecommendedOpportunitySerializer(serializers.Serializer):
 class OpportunityDraftSerializer(serializers.ModelSerializer):
     created_opportunity_detail = OpportunityListSerializer(source="created_opportunity", read_only=True)
     created_by_email = serializers.EmailField(source="created_by.email", read_only=True)
+    social_image = serializers.SerializerMethodField()
 
     class Meta:
         model = OpportunityDraft
@@ -580,6 +602,7 @@ class OpportunityDraftSerializer(serializers.ModelSerializer):
             "created_opportunity_detail",
             "created_by",
             "created_by_email",
+            "social_image",
             "imported_at",
             "created_at",
             "updated_at",
@@ -596,10 +619,28 @@ class OpportunityDraftSerializer(serializers.ModelSerializer):
             "created_opportunity_detail",
             "created_by",
             "created_by_email",
+            "social_image",
             "imported_at",
             "created_at",
             "updated_at",
         )
+
+    def get_social_image(self, obj):
+        social_draft = obj.social_drafts.order_by("-updated_at").first()
+        if not social_draft:
+            return None
+
+        return {
+            "image_url": get_preferred_social_image_url(
+                social_draft,
+                request=self.context.get("request"),
+            ),
+            "image_source": get_preferred_social_image_source(social_draft),
+            "image_status": social_draft.social_image_status,
+            "image_error": social_draft.social_image_error,
+            "image_prompt": social_draft.facebook_image_prompt,
+            "saved_at": social_draft.social_image_saved_at,
+        }
 
 
 class OpportunityCommentReplySerializer(serializers.ModelSerializer):

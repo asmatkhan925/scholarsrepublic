@@ -10,6 +10,8 @@ Django never posts directly to Facebook. Facebook Page credentials live only in 
 
 Exact GPT-generated images are the primary image workflow. GPT must upload the actual generated image file or a downloadable generated-image URL to Django. A prompt alone is not enough. Backend-generated images are fallback only, and the existing dynamic Open Graph image is the final fallback.
 
+ChatGPT image download links are often private to the browser session and cannot be fetched directly by Django. For those images, use the admin upload workflow: generate the image in GPT, click the ChatGPT download button, then upload the downloaded PNG/JPG/WebP file in the scholarship admin `Facebook/Social Image` section.
+
 ## 2. Architecture
 
 Flow:
@@ -229,6 +231,19 @@ Header: X-Agent-Token: <SCHOLARS_AGENT_TOKEN>
 
 Use this to save the exact GPT-generated image for a private scholarship draft.
 
+### Admin upload exact social image for a draft
+
+```text
+POST /api/admin/scholarships/drafts/<draft_id>/social-image-upload/
+Auth: normal admin login/JWT
+Content-Type: multipart/form-data
+Fields:
+  image=<PNG/JPG/WebP file>
+  image_prompt=<optional prompt text>
+```
+
+Use this when the exact GPT image has been downloaded locally from ChatGPT and must be uploaded through the admin UI. This is the simplest reliable workflow for ChatGPT images whose download URLs are not public.
+
 ### Save exact social image for a published scholarship
 
 ```text
@@ -237,6 +252,32 @@ Header: X-Agent-Token: <SCHOLARS_AGENT_TOKEN>
 ```
 
 Use this to attach the exact GPT-generated image to a published scholarship Facebook social post plan.
+
+### Admin upload exact social image for a published scholarship
+
+```text
+POST /api/admin/scholarships/<id>/social-image-upload/
+Auth: normal admin login/JWT
+Content-Type: multipart/form-data
+Fields:
+  image=<PNG/JPG/WebP file>
+  image_prompt=<optional prompt text>
+```
+
+The published scholarship edit page has the same `Facebook/Social Image` card. Uploading there updates the Facebook social post plan image used by the Worker.
+
+### Manual GPT image workflow
+
+1. Generate the scholarship social image in GPT.
+2. Download the image from ChatGPT.
+3. Open the scholarship draft edit page or published scholarship edit page.
+4. In `Facebook/Social Image`, select the downloaded image file.
+5. Optionally paste the image prompt.
+6. Click `Upload image`.
+7. Confirm the saved image preview and backend media URL appear.
+8. Publish or queue the scholarship post normally.
+
+Agent base64 upload remains available when GPT can provide image bytes directly, but admin file upload is preferred for private/local ChatGPT downloads.
 
 ### Fetch due Facebook posts
 

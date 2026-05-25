@@ -221,6 +221,15 @@ def save_social_image_from_url(obj, image_url, source="gpt_image_url"):
     )
 
 
+def save_social_image_from_file(obj, image_file, filename=None, source="gpt_uploaded"):
+    if not image_file:
+        raise SocialImageError("image file is required.")
+
+    image_bytes = image_file.read(MAX_SOCIAL_IMAGE_BYTES + 1)
+    filename = filename or getattr(image_file, "name", None)
+    return _save_image_bytes(obj, image_bytes, filename=filename, source=source)
+
+
 def get_preferred_social_image_url(obj_or_plan, request=None):
     image_field_name = _image_field_name(obj_or_plan)
     url_field_name = _url_field_name(obj_or_plan)

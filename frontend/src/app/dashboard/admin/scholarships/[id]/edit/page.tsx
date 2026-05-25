@@ -10,6 +10,7 @@ import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, Save, ShieldCheck } fro
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DuplicateWarningPanel } from "@/components/admin/DuplicateWarningPanel";
 import { PathwaySelect } from "@/components/admin/PathwaySelect";
+import { SocialImageUploadCard } from "@/components/admin/SocialImageUploadCard";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
@@ -17,6 +18,7 @@ import {
   getAdminOpportunity,
   getAdminOpportunityPathways,
   patchAdminOpportunity,
+  uploadAdminOpportunitySocialImage,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type {
@@ -780,6 +782,15 @@ function AdminScholarshipEditContent() {
             </div>
 
             <aside className="grid content-start gap-4">
+              {opportunity ? (
+                <SocialImageUploadCard
+                  initialImage={opportunity.social_image}
+                  onUpload={(image, imagePrompt) =>
+                    uploadAdminOpportunitySocialImage(opportunity.id, image, imagePrompt)
+                  }
+                />
+              ) : null}
+
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-3 p-3 md:p-4">
                   <h2 className="text-lg font-bold text-ink dark:text-white">Publish readiness</h2>

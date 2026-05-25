@@ -6,7 +6,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db.models import Count, F, Prefetch, Q
 from django.utils import timezone
-from rest_framework import generics, permissions, status
+from rest_framework import generics, parsers, permissions, status
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -50,6 +50,7 @@ from apps.opportunities.services.social_image_uploads import (
     get_preferred_social_image_source,
     get_preferred_social_image_url,
     save_social_image_from_base64,
+    save_social_image_from_file,
     save_social_image_from_url,
 )
 from apps.users.models import User
@@ -650,6 +651,110 @@ class AgentScholarshipOpportunitySocialImageView(AgentScholarshipBaseView):
                     {"detail": "image_base64 or image_url is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+        except SocialImageError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_data = _social_image_response(plan)
+        response_data["opportunity_id"] = opportunity.pk
+        response_data["plan_id"] = plan.pk
+        return Response(response_data)
+
+
+class AdminScholarshipDraftSocialImageUploadView(APIView):
+    permission_classes = [IsPlatformAdmin]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+
+    def post(self, request, draft_id):
+        try:
+            draft = OpportunityDraft.objects.get(pk=draft_id)
+        except OpportunityDraft.DoesNotExist:
+            return Response(
+                {"detail": "Scholarship draft not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response(
+                {"detail": "image file is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        social_draft, _ = OpportunitySocialDraft.objects.get_or_create(
+            opportunity_draft=draft
+        )
+        image_prompt = str(request.data.get("image_prompt") or "").strip()
+        if image_prompt:
+            social_draft.facebook_image_prompt = image_prompt
+            social_draft.save(update_fields=["facebook_image_prompt", "updated_at"])
+
+        image_source = (
+            str(request.data.get("image_source") or "").strip()
+            or social_draft.SocialImageSource.GPT_UPLOADED
+        )
+        valid_sources = {choice[0] for choice in social_draft.SocialImageSource.choices}
+        if image_source not in valid_sources:
+            image_source = social_draft.SocialImageSource.GPT_UPLOADED
+
+        try:
+            save_social_image_from_file(
+                social_draft,
+                image_file,
+                source=image_source,
+            )
+        except SocialImageError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_data = _social_image_response(social_draft, draft_id=draft.pk)
+        response_data["social_draft_id"] = social_draft.pk
+        return Response(response_data)
+
+
+class AdminScholarshipSocialImageUploadView(APIView):
+    permission_classes = [IsPlatformAdmin]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+
+    def post(self, request, opportunity_id):
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response(
+                {"detail": "Scholarship not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response(
+                {"detail": "image file is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plan, _ = OpportunitySocialPostPlan.objects.get_or_create(
+            opportunity=opportunity,
+            platform=DEFAULT_PLATFORM,
+            defaults={
+                "enabled": True,
+                "status": OpportunitySocialPostPlan.Status.READY
+                if opportunity.status == Opportunity.Status.PUBLISHED
+                else OpportunitySocialPostPlan.Status.DRAFT,
+                "link_url": scholarship_detail_url(opportunity),
+            },
+        )
+        image_prompt = str(request.data.get("image_prompt") or "").strip()
+        if image_prompt:
+            plan.image_prompt = image_prompt
+            plan.save(update_fields=["image_prompt", "updated_at"])
+
+        image_source = (
+            str(request.data.get("image_source") or "").strip()
+            or plan.SocialImageSource.GPT_UPLOADED
+        )
+        valid_sources = {choice[0] for choice in plan.SocialImageSource.choices}
+        if image_source not in valid_sources:
+            image_source = plan.SocialImageSource.GPT_UPLOADED
+
+        try:
+            save_social_image_from_file(plan, image_file, source=image_source)
         except SocialImageError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

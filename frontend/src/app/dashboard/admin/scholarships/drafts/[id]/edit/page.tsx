@@ -20,6 +20,7 @@ import {
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DuplicateWarningPanel } from "@/components/admin/DuplicateWarningPanel";
 import { PathwaySelect } from "@/components/admin/PathwaySelect";
+import { SocialImageUploadCard } from "@/components/admin/SocialImageUploadCard";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
@@ -28,6 +29,7 @@ import {
   getAdminOpportunityPathways,
   importAdminOpportunityDraft,
   patchAdminOpportunityDraft,
+  uploadAdminDraftSocialImage,
   validateAdminOpportunityDraft,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
@@ -806,6 +808,13 @@ function AdminDraftEditContent() {
 
             <aside className="grid content-start gap-4">
               <DraftStatusPanel draft={draft} />
+
+              <SocialImageUploadCard
+                initialImage={draft.social_image}
+                onUpload={(image, imagePrompt) =>
+                  uploadAdminDraftSocialImage(draft.id, image, imagePrompt)
+                }
+              />
 
               <Card className="dark:border-white/10 dark:bg-[#181b1d]">
                 <CardContent className="grid gap-2 p-3 md:p-4">

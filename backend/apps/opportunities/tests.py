@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import RequestFactory, override_settings
@@ -1008,6 +1009,119 @@ class OpportunityAPITests(APITestCase):
             self.assertTrue(plan.image)
             self.assertEqual(plan.social_image_source, plan.SocialImageSource.GPT_UPLOADED)
             self.assertIn("/media/", response.data["image_url"])
+
+    def test_admin_draft_social_image_upload_requires_authentication(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/scholarships/drafts/{draft.pk}/social-image-upload/",
+            {
+                "image": SimpleUploadedFile(
+                    "social.png",
+                    VALID_PNG_BYTES,
+                    content_type="image/png",
+                )
+            },
+            format="multipart",
+        )
+
+        self.assertIn(
+            response.status_code,
+            {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN},
+        )
+
+    def test_admin_draft_social_image_upload_saves_valid_png(self):
+        draft = self.create_agent_draft()
+        self.client.force_authenticate(self.admin)
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                f"/api/admin/scholarships/drafts/{draft.pk}/social-image-upload/",
+                {
+                    "image": SimpleUploadedFile(
+                        "downloaded-gpt.png",
+                        VALID_PNG_BYTES,
+                        content_type="image/png",
+                    ),
+                    "image_prompt": "Prompt used in GPT.",
+                },
+                format="multipart",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertTrue(response.data["ok"])
+            self.assertIn("/media/", response.data["image_url"])
+            social_draft = OpportunitySocialDraft.objects.get(opportunity_draft=draft)
+            self.assertTrue(social_draft.facebook_image)
+            self.assertEqual(
+                social_draft.social_image_source,
+                OpportunitySocialDraft.SocialImageSource.GPT_UPLOADED,
+            )
+            self.assertEqual(
+                social_draft.social_image_status,
+                OpportunitySocialDraft.SocialImageStatus.SAVED,
+            )
+            self.assertEqual(social_draft.facebook_image_prompt, "Prompt used in GPT.")
+
+    def test_admin_draft_social_image_upload_rejects_invalid_file(self):
+        draft = self.create_agent_draft()
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f"/api/admin/scholarships/drafts/{draft.pk}/social-image-upload/",
+            {
+                "image": SimpleUploadedFile(
+                    "not-image.txt",
+                    b"not an image",
+                    content_type="text/plain",
+                )
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("valid PNG, JPG, or WebP", response.data["detail"])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_uploaded_social_image_appears_in_due_post_payload(self):
+        opportunity = self.opportunity(
+            slug="admin-uploaded-social-image-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=20),
+        )
+        self.client.force_authenticate(self.admin)
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            upload_response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/social-image-upload/",
+                {
+                    "image": SimpleUploadedFile(
+                        "downloaded-gpt.png",
+                        VALID_PNG_BYTES,
+                        content_type="image/png",
+                    )
+                },
+                format="multipart",
+            )
+            self.assertEqual(upload_response.status_code, status.HTTP_200_OK)
+
+            self.client.force_authenticate(user=None)
+            due_response = self.client.post(
+                "/api/admin/agent/social/facebook/due-posts/",
+                {"limit": 5},
+                format="json",
+                HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+            )
+
+        self.assertEqual(due_response.status_code, status.HTTP_200_OK)
+        item = due_response.data["items"][0]
+        self.assertEqual(item["opportunity_id"], opportunity.pk)
+        self.assertIn("/media/", item["image_url"])
+        self.assertEqual(
+            item["image_source"],
+            OpportunitySocialPostPlan.SocialImageSource.GPT_UPLOADED,
+        )
+        self.assertTrue(item["has_image"])
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_prompt_only_does_not_count_as_saved_image(self):

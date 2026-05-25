@@ -111,6 +111,7 @@ export type OpportunityDetail = OpportunityListItem & {
   saved_opportunity_id: number | null;
   is_tracking: boolean;
   application_id: number | null;
+  social_image: SocialImageState | null;
   created_at: string;
 };
 
@@ -425,6 +426,15 @@ export type OpportunityAdminPayload = Partial<OpportunityDetail> & {
   pathway_id?: number | null;
 };
 
+export type SocialImageState = {
+  image_url: string;
+  image_source: string;
+  image_status: string;
+  image_error: string;
+  image_prompt: string;
+  saved_at: string | null;
+};
+
 export type OpportunityDraftStatus = "new" | "validated" | "imported" | "error";
 
 export type OpportunityDraft = {
@@ -442,6 +452,7 @@ export type OpportunityDraft = {
   created_opportunity_detail: OpportunityListItem | null;
   created_by: number | null;
   created_by_email: string;
+  social_image: SocialImageState | null;
   imported_at: string | null;
   created_at: string;
   updated_at: string;

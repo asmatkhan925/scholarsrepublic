@@ -58,6 +58,7 @@ import type {
   ScholarshipComment,
   ScholarshipCommentReply,
   ScholarshipCommentResponse,
+  SocialImageState,
   UpdateApplicationPayload,
 } from "@/types/opportunity";
 import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
@@ -432,6 +433,58 @@ export async function importAdminOpportunityDraft(id: number) {
 
 export async function deleteAdminOpportunityDraft(id: number) {
   await api.delete(`/admin/opportunity-drafts/${id}/`);
+}
+
+export type SocialImageUploadResponse = {
+  ok: boolean;
+  draft_id?: number;
+  opportunity_id?: number;
+  plan_id?: number;
+  social_draft_id?: number;
+} & SocialImageState;
+
+function buildSocialImageFormData(image: File, imagePrompt?: string) {
+  const formData = new FormData();
+  formData.append("image", image);
+  if (imagePrompt?.trim()) {
+    formData.append("image_prompt", imagePrompt.trim());
+  }
+  formData.append("image_source", "gpt_uploaded");
+  return formData;
+}
+
+export async function uploadAdminDraftSocialImage(
+  draftId: number,
+  image: File,
+  imagePrompt?: string,
+) {
+  const response = await api.post<SocialImageUploadResponse>(
+    `/admin/scholarships/drafts/${draftId}/social-image-upload/`,
+    buildSocialImageFormData(image, imagePrompt),
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
+}
+
+export async function uploadAdminOpportunitySocialImage(
+  opportunityId: number,
+  image: File,
+  imagePrompt?: string,
+) {
+  const response = await api.post<SocialImageUploadResponse>(
+    `/admin/scholarships/${opportunityId}/social-image-upload/`,
+    buildSocialImageFormData(image, imagePrompt),
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
 }
 
 export type AdminCommentQueryParams = PaginationParams & {

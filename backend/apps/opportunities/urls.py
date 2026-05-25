@@ -19,6 +19,8 @@ from apps.opportunities.views import (
     AdminOpportunityListCreateView,
     AdminOpportunityPathwayDetailView,
     AdminOpportunityPathwayListCreateView,
+    AdminScholarshipDraftSocialImageUploadView,
+    AdminScholarshipSocialImageUploadView,
     AgentDebugAuthView,
     AgentFacebookDuePostsView,
     AgentFacebookPostResultView,
@@ -222,6 +224,16 @@ urlpatterns = [
         "admin/opportunity-drafts/<int:pk>/import/",
         AdminOpportunityDraftImportView.as_view(),
         name="admin-opportunity-draft-import",
+    ),
+    path(
+        "admin/scholarships/drafts/<int:draft_id>/social-image-upload/",
+        AdminScholarshipDraftSocialImageUploadView.as_view(),
+        name="admin-scholarship-draft-social-image-upload",
+    ),
+    path(
+        "admin/scholarships/<int:opportunity_id>/social-image-upload/",
+        AdminScholarshipSocialImageUploadView.as_view(),
+        name="admin-scholarship-social-image-upload",
     ),
     path(
         "admin/opportunities/",
