@@ -79,13 +79,22 @@ Payload:
 
 ## GPT Workflow
 
+Action operations:
+
+- `getDeadlineCheckQueue`
+- `submitDeadlineCheckResult`
+
+For the first real run, verify only 3 scholarships by calling `getDeadlineCheckQueue` with `limit=3`.
+
 1. Call the queue endpoint.
 2. Pick one scholarship from `items`.
-3. Open the official URL first. If unavailable, use the source URL.
-4. Look for explicit deadline, closing date, application period, or closed/expired wording.
-5. Submit one result payload per scholarship.
-6. Include concise evidence copied or summarized from the official/source page.
-7. If the result is unclear, submit `unclear` and do not invent a deadline.
+3. Open `official_url` first.
+4. If `official_url` is missing or unusable, open `application_url`.
+5. If still missing or unusable, open `source_url`.
+6. Look for explicit deadline, closing date, application period, or closed/expired wording.
+7. Submit one result payload per scholarship.
+8. Include concise evidence copied or summarized from the official/source page.
+9. If the result is unclear, submit `unclear` and do not invent a deadline.
 
 ## Status Meanings
 

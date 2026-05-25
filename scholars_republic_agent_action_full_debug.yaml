@@ -1,0 +1,719 @@
+openapi: 3.1.0
+info:
+  title: Scholars Republic Agent API
+  version: 1.3.0
+  description: Validate scholarship payloads, create private scholarship drafts, save social drafts, verify scholarship deadlines, and debug agent authentication.
+servers:
+  - url: https://scholarsrepublic.org/api
+security:
+  - AgentTokenAuth: []
+paths:
+  /admin/agent/debug-auth/:
+    get:
+      operationId: debugAgentAuth
+      summary: Debug agent authentication
+      description: Checks whether the GPT Action is sending the backend agent token without exposing token values.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      responses:
+        "200":
+          description: Auth debug result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentAuthDebugResponse"
+
+  /admin/agent/scholarships/validate/:
+    post:
+      operationId: validateScholarshipDraft
+      summary: Validate scholarship draft payload
+      description: Validates a scholarship payload and returns errors, warnings, missing information, and normalized data. It does not create records.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScholarshipDraftRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipValidationResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarships/create-draft/:
+    post:
+      operationId: createScholarshipDraft
+      summary: Create private scholarship draft
+      description: Creates a private admin scholarship draft only after validation and user approval. It does not publish the scholarship.
+      x-openai-isConsequential: true
+      security:
+        - AgentTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScholarshipDraftRequest"
+      responses:
+        "201":
+          description: Draft created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDraftResponse"
+        "400":
+          description: Invalid request or validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarships/drafts/{draft_id}/social-draft/:
+    post:
+      operationId: saveScholarshipSocialDraft
+      summary: Save scholarship social draft
+      description: Saves or updates Facebook post text and image prompt for an existing private scholarship draft. It does not post to Facebook.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      parameters:
+        - name: draft_id
+          in: path
+          required: true
+          description: Private scholarship draft ID.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialDraftRequest"
+      responses:
+        "200":
+          description: Social draft saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialDraftResponse"
+        "400":
+          description: Invalid social draft request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Draft not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarships/deadline-check-queue/:
+    get:
+      operationId: getDeadlineCheckQueue
+      summary: Get scholarship deadline verification queue
+      description: Fetches published scholarships that need deadline verification. Existing deadlines must also be verified because official deadlines can change, be extended, shortened, closed early, or become rolling.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of scholarships to return.
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+            minimum: 1
+        - name: days_ahead
+          in: query
+          required: false
+          description: Include deadlines within this many days.
+          schema:
+            type: integer
+            default: 14
+            minimum: 1
+        - name: check_stale_days
+          in: query
+          required: false
+          description: Include scholarships last checked more than this many days ago.
+          schema:
+            type: integer
+            default: 14
+            maximum: 90
+            minimum: 1
+        - name: include_missing_deadline
+          in: query
+          required: false
+          description: Whether to include scholarships with no stored deadline.
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: Deadline verification queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlineCheckQueueResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarships/{id}/deadline-check-result/:
+    post:
+      operationId: submitDeadlineCheckResult
+      summary: Submit scholarship deadline verification result
+      description: Submits a structured deadline verification result for one scholarship. Do not use Scholars Republic pages as evidence; check official_url first, then application_url, then source_url.
+      x-openai-isConsequential: true
+      security:
+        - AgentTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Scholarship opportunity ID.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeadlineCheckResultRequest"
+      responses:
+        "200":
+          description: Deadline verification result saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlineCheckResultResponse"
+        "400":
+          description: Invalid deadline verification request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    AgentTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Agent-Token
+
+  schemas:
+    AgentAuthDebugResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        configured:
+          type: boolean
+        configured_token_length:
+          type: integer
+        header_present:
+          type: boolean
+        header_length:
+          type: integer
+        valid:
+          type: boolean
+      required:
+        - configured
+        - configured_token_length
+        - header_present
+        - header_length
+        - valid
+
+    ScholarshipDraftRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        payload:
+          $ref: "#/components/schemas/ScholarshipPayload"
+      required:
+        - payload
+
+    ScholarshipPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        confidence:
+          type: string
+          description: Confidence level such as low, medium, or high.
+        create_missing_references:
+          type: boolean
+          description: Whether backend may create missing reference data during import.
+        opportunity:
+          $ref: "#/components/schemas/ScholarshipOpportunity"
+        eligible_countries:
+          type: array
+          items:
+            type: string
+        study_fields:
+          type: array
+          items:
+            type: string
+        all_study_fields:
+          type: boolean
+        pathway:
+          $ref: "#/components/schemas/PathwayPayload"
+        country_ref:
+          $ref: "#/components/schemas/CountryRefPayload"
+      required:
+        - opportunity
+
+    ScholarshipOpportunity:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        opportunity_type:
+          type: string
+          description: Usually scholarship.
+        application_track:
+          type: string
+          description: Backend may normalize unknown values.
+        provider_name:
+          type: string
+        university_name:
+          type: string
+        department_name:
+          type: string
+        lab_name:
+          type: string
+        professor_name:
+          type: string
+        country:
+          type: string
+        country_region:
+          type: string
+        official_link:
+          type: string
+        source_url:
+          type: string
+        source_name:
+          type: string
+        short_description:
+          type: string
+        description:
+          type: string
+        benefits:
+          type: string
+        eligibility:
+          type: string
+        how_to_apply:
+          type: string
+        deadline:
+          type:
+            - string
+            - "null"
+          description: Use YYYY-MM-DD when available.
+        is_rolling_deadline:
+          type: boolean
+        degree_levels:
+          type: array
+          items:
+            type: string
+        fields_of_study:
+          type: array
+          items:
+            type: string
+        all_study_fields:
+          type: boolean
+        study_field_categories:
+          type: array
+          items:
+            type: string
+        eligible_countries:
+          type: array
+          items:
+            type: string
+        funding_type:
+          type: string
+        funding_amount:
+          type:
+            - string
+            - number
+            - "null"
+        funding_currency:
+          type: string
+        stipend_summary:
+          type: string
+        application_fee_required:
+          type:
+            - boolean
+            - "null"
+        application_fee_amount:
+          type:
+            - string
+            - number
+            - "null"
+        application_fee_currency:
+          type: string
+        ielts_required:
+          type:
+            - boolean
+            - "null"
+        toefl_required:
+          type:
+            - boolean
+            - "null"
+        duolingo_required:
+          type:
+            - boolean
+            - "null"
+        hsk_required:
+          type:
+            - boolean
+            - "null"
+        english_proficiency_certificate_accepted:
+          type:
+            - boolean
+            - "null"
+        required_documents:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        missing_information:
+          type: array
+          items:
+            type: string
+        pathway_title:
+          type: string
+        pathway_parent:
+          type: string
+        pathway_country:
+          type: string
+        pathway_type:
+          type: string
+      required:
+        - title
+
+    PathwayPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+        parent:
+          type: string
+        country:
+          type: string
+        type:
+          type: string
+      required: []
+
+    CountryRefPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        region:
+          type: string
+      required: []
+
+    ScholarshipValidationResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        missing_information:
+          type: array
+          items:
+            type: string
+        normalized_payload:
+          $ref: "#/components/schemas/ScholarshipPayload"
+      required:
+        - valid
+        - errors
+        - warnings
+        - missing_information
+
+    CreateDraftResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        draft_id:
+          type: integer
+        id:
+          type: integer
+        status:
+          type: string
+        edit_url:
+          type: string
+        detail:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        normalized_payload:
+          $ref: "#/components/schemas/ScholarshipPayload"
+      required: []
+
+    SocialDraftRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        facebook_post_text:
+          type: string
+        facebook_image_prompt:
+          type: string
+        status:
+          type: string
+          description: Use draft unless explicitly changed by backend workflow.
+      required:
+        - facebook_post_text
+        - facebook_image_prompt
+
+    SocialDraftResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+        draft_id:
+          type: integer
+        facebook_post_text:
+          type: string
+        facebook_image_prompt:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - draft_id
+        - facebook_post_text
+        - facebook_image_prompt
+        - status
+
+    DeadlineCheckQueueResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeadlineCheckQueueItem"
+      required:
+        - items
+
+    DeadlineCheckQueueItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          example: 21
+        title:
+          type: string
+          example: DSU Scholarship at the University of Pisa
+        slug:
+          type: string
+          example: dsu-scholarship-at-the-university-of-pisa
+        provider_name:
+          type: string
+          example: DSU Toscana
+        country:
+          type: string
+          example: Italy
+        deadline:
+          type:
+            - string
+            - "null"
+          example: "2025-09-05"
+        status:
+          type: string
+          example: published
+        official_url:
+          type: string
+        source_url:
+          type: string
+        application_url:
+          type: string
+        deadline_last_checked_at:
+          type:
+            - string
+            - "null"
+        deadline_check_status:
+          type: string
+          enum:
+            - unchecked
+            - verified_active
+            - verified_expired
+            - deadline_changed
+            - unclear
+            - source_unreachable
+          example: unchecked
+        detail_url:
+          type: string
+        admin_url:
+          type: string
+      required:
+        - id
+        - title
+        - slug
+        - provider_name
+        - country
+        - deadline
+        - status
+        - official_url
+        - source_url
+        - application_url
+        - deadline_last_checked_at
+        - deadline_check_status
+        - detail_url
+        - admin_url
+
+    DeadlineCheckResultRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        check_status:
+          type: string
+          enum:
+            - verified_active
+            - verified_expired
+            - deadline_changed
+            - unclear
+            - source_unreachable
+          example: verified_active
+        verified_deadline:
+          type:
+            - string
+            - "null"
+          description: Use YYYY-MM-DD if a deadline is verified or changed; otherwise null.
+          example: "2026-06-30"
+        source_url:
+          type: string
+          example: https://official-source-url
+        evidence:
+          type: string
+          description: Short factual evidence from the official/source page.
+          example: Short factual evidence from official/source page.
+        note:
+          type: string
+          example: Short agent note.
+        should_unpublish_if_expired:
+          type: boolean
+          default: false
+      required:
+        - check_status
+        - verified_deadline
+        - source_url
+        - evidence
+        - note
+        - should_unpublish_if_expired
+
+    DeadlineCheckResultResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        opportunity:
+          $ref: "#/components/schemas/DeadlineCheckQueueItem"
+        log_id:
+          type: integer
+        old_deadline:
+          type:
+            - string
+            - "null"
+        new_deadline:
+          type:
+            - string
+            - "null"
+        old_status:
+          type: string
+        new_status:
+          type: string
+      required:
+        - opportunity
+
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        detail:
+          type: string
+        error:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+      required: []
