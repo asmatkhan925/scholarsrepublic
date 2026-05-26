@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -81,7 +81,31 @@ def deadline_label(opportunity):
     )
 
 
-def generate_facebook_post_text(opportunity, link_url=None):
+def deadline_days_left(opportunity, today=None):
+    if not opportunity.deadline or opportunity.is_rolling_deadline:
+        return None
+
+    today = today or timezone.localdate()
+    return (opportunity.deadline - today).days
+
+
+def is_near_deadline(opportunity, today=None):
+    days_left = deadline_days_left(opportunity, today=today)
+    return days_left is not None and 0 <= days_left <= 7
+
+
+def deadline_reminder_line(opportunity, today=None):
+    days_left = deadline_days_left(opportunity, today=today)
+    if days_left is None or days_left < 0 or days_left > 7:
+        return ""
+    if days_left == 0:
+        return "Reminder: deadline is today."
+    if days_left == 1:
+        return "Reminder: deadline is in 1 day."
+    return f"Reminder: deadline is in {days_left} days."
+
+
+def generate_facebook_post_text(opportunity, link_url=None, include_reminder=False):
     if not opportunity or not str(getattr(opportunity, "title", "") or "").strip():
         return ""
 
@@ -95,6 +119,9 @@ def generate_facebook_post_text(opportunity, link_url=None):
     deadline = deadline_label(opportunity)
 
     lines = [opportunity.title.strip(), ""]
+    reminder = deadline_reminder_line(opportunity) if include_reminder else ""
+    if reminder:
+        lines.extend([reminder, ""])
     sentence_parts = []
     if provider:
         sentence_parts.append(f"{provider} is offering this opportunity")
@@ -256,9 +283,11 @@ def next_post_time_for_plan(plan, now=None):
     opportunity = plan.opportunity
 
     if opportunity.deadline and not opportunity.is_rolling_deadline:
-        days_left = (opportunity.deadline - timezone.localdate()).days
+        days_left = (opportunity.deadline - timezone.localtime(now).date()).days
         if days_left <= 7 and days_left >= 0:
-            return now + timedelta(hours=24)
+            tomorrow = timezone.localtime(now).date() + timedelta(days=1)
+            next_time = datetime.combine(tomorrow, time(hour=9))
+            return timezone.make_aware(next_time, timezone.get_current_timezone())
 
     return now + timedelta(days=7)
 
@@ -271,6 +300,15 @@ def serialize_due_plan(plan):
     opportunity = plan.opportunity
     link_url = plan.link_url or scholarship_detail_url(opportunity)
     message = ensure_plan_post_text(plan)
+    if is_near_deadline(opportunity) and latest_successful_facebook_log(plan):
+        reminder = deadline_reminder_line(opportunity)
+        if reminder and reminder not in message:
+            title, separator, rest = message.partition("\n")
+            message = (
+                f"{title}\n\n{reminder}\n{rest}"
+                if separator
+                else f"{title}\n\n{reminder}"
+            )
     days_left = opportunity.days_until_deadline
     image_url = plan_image_url(plan)
 
@@ -289,12 +327,55 @@ def serialize_due_plan(plan):
     }
 
 
+def successful_facebook_logs(opportunity):
+    return OpportunitySocialPostLog.objects.filter(
+        opportunity=opportunity,
+        platform=DEFAULT_PLATFORM,
+        status=OpportunitySocialPostLog.Status.POSTED,
+    )
+
+
 def latest_successful_facebook_log(plan):
     return (
-        plan.logs.filter(status=OpportunitySocialPostLog.Status.POSTED)
+        successful_facebook_logs(plan.opportunity)
         .order_by("-posted_at", "-created_at")
         .first()
     )
+
+
+def latest_successful_facebook_log_today(opportunity, today=None):
+    today = today or timezone.localdate()
+    return (
+        successful_facebook_logs(opportunity)
+        .filter(posted_at__date=today)
+        .order_by("-posted_at", "-created_at")
+        .first()
+    )
+
+
+def can_post_opportunity_today(opportunity, plan, force=False, today=None):
+    today = today or timezone.localdate()
+    if force:
+        return {"can_post": True, "status": "posted", "latest_log": None}
+
+    if opportunity.is_expired:
+        return {"can_post": False, "status": "expired", "latest_log": None}
+
+    if is_near_deadline(opportunity, today=today):
+        today_log = latest_successful_facebook_log_today(opportunity, today=today)
+        if today_log:
+            return {
+                "can_post": False,
+                "status": "already_posted_today",
+                "latest_log": today_log,
+            }
+        return {"can_post": True, "status": "posted", "latest_log": None}
+
+    latest_log = latest_successful_facebook_log(plan)
+    if latest_log:
+        return {"can_post": False, "status": "already_posted", "latest_log": latest_log}
+
+    return {"can_post": True, "status": "posted", "latest_log": None}
 
 
 def post_to_facebook_worker(item):
@@ -365,26 +446,26 @@ def post_plan_to_facebook_now(opportunity, force=False):
             "error": "Scholarship must be published before posting to Facebook.",
         }
 
-    if opportunity.is_expired and not force:
-        plan.status = OpportunitySocialPostPlan.Status.PAUSED
-        plan.save(update_fields=["enabled", "status", "link_url", "updated_at"])
+    post_check = can_post_opportunity_today(opportunity, plan, force=force)
+    if not post_check["can_post"]:
+        latest_log = post_check.get("latest_log")
+        if post_check["status"] == "expired":
+            plan.status = OpportunitySocialPostPlan.Status.PAUSED
+            plan.save(update_fields=["enabled", "status", "link_url", "updated_at"])
         return {
             "ok": False,
-            "status": "expired",
+            "status": post_check["status"],
             "plan_id": plan.pk,
             "opportunity_id": opportunity.pk,
-            "error": "Scholarship deadline has passed. Use force=true to repost anyway.",
-        }
-
-    duplicate_log = latest_successful_facebook_log(plan)
-    if duplicate_log and not force:
-        return {
-            "ok": False,
-            "status": "already_posted",
-            "plan_id": plan.pk,
-            "opportunity_id": opportunity.pk,
-            "latest_facebook_post_url": duplicate_log.facebook_post_url,
-            "message": "This scholarship has already been posted to Facebook.",
+            "latest_facebook_post_url": latest_log.facebook_post_url if latest_log else "",
+            "message": "This scholarship has already been posted today."
+            if post_check["status"] == "already_posted_today"
+            else "This scholarship has already been posted before."
+            if post_check["status"] == "already_posted"
+            else "",
+            "error": "Scholarship deadline has passed. Use force=true to repost anyway."
+            if post_check["status"] == "expired"
+            else "",
         }
 
     plan.status = OpportunitySocialPostPlan.Status.READY
@@ -480,6 +561,9 @@ def get_due_facebook_post_plans(limit=10, now=None):
     due_plans = []
     for plan in plans:
         if not is_plan_due(plan, now=now):
+            continue
+        post_check = can_post_opportunity_today(plan.opportunity, plan, today=today)
+        if not post_check["can_post"]:
             continue
         if not ensure_plan_post_text(plan):
             continue

@@ -1586,6 +1586,87 @@ class OpportunityAPITests(APITestCase):
         )
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_allows_near_deadline_previous_day_post(self):
+        opportunity = self.opportunity(
+            slug="post-now-near-deadline-yesterday",
+            deadline=timezone.localdate() + timedelta(days=3),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Near deadline caption.",
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            plan=plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            facebook_post_url="https://www.facebook.com/123/posts/yesterday",
+            posted_at=timezone.now() - timedelta(days=1),
+        )
+        self.client.force_authenticate(self.admin)
+
+        with patch(
+            "apps.opportunities.services.social_posting.urlopen",
+            return_value=FakeWorkerResponse(
+                {
+                    "ok": True,
+                    "status": "posted",
+                    "facebook_post_id": "123_456",
+                    "facebook_post_url": "https://www.facebook.com/123/posts/today",
+                }
+            ),
+        ):
+            response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                {},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["status"], "posted")
+        self.assertIn("Reminder: deadline is in 3 days.", response.data["message"])
+        self.assertEqual(OpportunitySocialPostLog.objects.filter(plan=plan).count(), 2)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_blocks_near_deadline_posted_today(self):
+        opportunity = self.opportunity(
+            slug="post-now-near-deadline-today",
+            deadline=timezone.localdate() + timedelta(days=3),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Near deadline caption.",
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            plan=plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            facebook_post_url="https://www.facebook.com/123/posts/today",
+            posted_at=timezone.now(),
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["ok"])
+        self.assertEqual(response.data["status"], "already_posted_today")
+        self.assertEqual(
+            response.data["latest_facebook_post_url"],
+            "https://www.facebook.com/123/posts/today",
+        )
+        self.assertEqual(
+            response.data["message"],
+            "This scholarship has already been posted today.",
+        )
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_admin_facebook_post_now_allows_duplicate_when_forced(self):
         opportunity = self.opportunity(slug="post-now-force-duplicate")
         plan = OpportunitySocialPostPlan.objects.create(
@@ -1877,6 +1958,35 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual([item["plan_id"] for item in response.data["items"]], [due_plan.pk])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_due_posts_skips_near_deadline_posted_today_log(self):
+        opportunity = self.opportunity(
+            slug="near-deadline-today-log-skip",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=2),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            last_posted_at=timezone.now() - timedelta(days=1),
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            plan=plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at=timezone.now(),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 10},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_respects_limit(self):
         for index in range(3):
             opportunity = self.opportunity(
@@ -2009,6 +2119,40 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(plan.post_count, 1)
         self.assertEqual(plan.last_error, "")
         self.assertTrue(OpportunitySocialPostLog.objects.filter(plan=plan, status="posted").exists())
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_post_result_reschedules_near_deadline_for_tomorrow_morning(self):
+        opportunity = self.opportunity(
+            slug="social-result-near-deadline-reschedule",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=2),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/post-result/",
+            {
+                "plan_id": plan.pk,
+                "opportunity_id": opportunity.pk,
+                "status": "posted",
+                "facebook_post_id": "fb_near",
+                "facebook_post_url": "https://facebook.com/fb_near",
+                "message": "Posted message.",
+                "link_url": "https://scholarsrepublic.org/scholarships/social-result-near-deadline-reschedule",
+            },
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plan.refresh_from_db()
+        next_post_at = timezone.localtime(plan.next_post_at)
+        self.assertEqual(next_post_at.date(), timezone.localdate() + timedelta(days=1))
+        self.assertEqual(next_post_at.hour, 9)
+        self.assertEqual(next_post_at.minute, 0)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_post_result_logs_failure(self):

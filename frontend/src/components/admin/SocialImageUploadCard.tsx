@@ -97,8 +97,10 @@ export function SocialImageUploadCard({
       setPostNowResult(result);
       if (result.ok) {
         setMessage("Posted to Facebook.");
+      } else if (result.status === "already_posted_today") {
+        setMessage(result.message || "This scholarship has already been posted today.");
       } else if (result.status === "already_posted") {
-        setMessage(result.message || "This scholarship has already been posted to Facebook.");
+        setMessage(result.message || "This scholarship has already been posted before.");
       } else {
         setError(result.error || "Facebook post failed.");
       }
@@ -262,9 +264,14 @@ export function SocialImageUploadCard({
               </a>
             ) : null}
 
-            {postNowResult?.status === "already_posted" ? (
+            {postNowResult?.status === "already_posted" ||
+            postNowResult?.status === "already_posted_today" ? (
               <div className="grid gap-2 rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-sm leading-6 text-ink/75 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/65">
-                <div>This scholarship has already been posted to Facebook.</div>
+                <div>
+                  {postNowResult.status === "already_posted_today"
+                    ? "This scholarship has already been posted today."
+                    : "This scholarship has already been posted before."}
+                </div>
                 {postNowResult.latest_facebook_post_url ? (
                   <a
                     href={postNowResult.latest_facebook_post_url}
