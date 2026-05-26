@@ -29,6 +29,7 @@ import {
   getAdminOpportunityPathways,
   importAdminOpportunityDraft,
   patchAdminOpportunityDraft,
+  saveAdminDraftSocialPostReview,
   uploadAdminDraftSocialImage,
   validateAdminOpportunityDraft,
 } from "@/lib/api";
@@ -813,6 +814,12 @@ function AdminDraftEditContent() {
                 initialImage={draft.social_image}
                 onUpload={(image, imagePrompt) =>
                   uploadAdminDraftSocialImage(draft.id, image, imagePrompt)
+                }
+                onSavePost={(postText, imagePrompt) =>
+                  saveAdminDraftSocialPostReview(draft.id, {
+                    post_text: postText,
+                    image_prompt: imagePrompt,
+                  })
                 }
               />
 

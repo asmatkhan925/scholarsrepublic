@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.opportunities.models import Opportunity, OpportunitySocialPostPlan
+from apps.opportunities.services.social_posting import generate_facebook_post_text
 
 
 SITE_URL = "https://scholarsrepublic.org"
@@ -112,10 +113,13 @@ class Command(BaseCommand):
                     platform="facebook",
                     enabled=True,
                     status=OpportunitySocialPostPlan.Status.READY,
-                    post_text="",
                     image_url="",
                     link_url=self.link_url(opportunity),
                     next_post_at=next_post_at,
+                    post_text=generate_facebook_post_text(
+                        opportunity,
+                        self.link_url(opportunity),
+                    ),
                 )
             )
             self.stdout.write(

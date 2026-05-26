@@ -296,6 +296,10 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             "image_status": plan.social_image_status,
             "image_error": plan.social_image_error,
             "image_prompt": plan.image_prompt,
+            "post_text": plan.post_text,
+            "link_url": plan.link_url,
+            "plan_status": plan.status,
+            "next_post_at": plan.next_post_at,
             "saved_at": plan.social_image_saved_at,
         }
 
@@ -639,6 +643,10 @@ class OpportunityDraftSerializer(serializers.ModelSerializer):
             "image_status": social_draft.social_image_status,
             "image_error": social_draft.social_image_error,
             "image_prompt": social_draft.facebook_image_prompt,
+            "post_text": social_draft.facebook_post_text,
+            "link_url": "",
+            "plan_status": social_draft.status,
+            "next_post_at": None,
             "saved_at": social_draft.social_image_saved_at,
         }
 

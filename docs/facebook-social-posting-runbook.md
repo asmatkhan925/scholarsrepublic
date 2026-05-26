@@ -266,6 +266,26 @@ Fields:
 
 The published scholarship edit page has the same `Facebook/Social Image` card. Uploading there updates the Facebook social post plan image used by the Worker.
 
+### Facebook post review
+
+The draft edit page and published scholarship edit page both include a `Facebook/Social Image` card with a `Facebook Post Preview`.
+
+Use the preview to review and edit:
+
+- Facebook caption text
+- Uploaded social image
+- Scholarship detail link URL
+
+Captions should be professional and structured:
+
+- Start with the scholarship title, not an emoji.
+- Mention the provider or university when available.
+- Include only real scholarship fields.
+- Omit missing fields instead of writing `Unknown`.
+- Include the Scholars Republic scholarship detail link.
+
+If a ready plan has empty `post_text`, the backend generates a caption before returning it to the Worker.
+
 ### Manual GPT image workflow
 
 1. Generate the scholarship social image in GPT.
@@ -278,6 +298,18 @@ The published scholarship edit page has the same `Facebook/Social Image` card. U
 8. Publish or queue the scholarship post normally.
 
 Agent base64 upload remains available when GPT can provide image bytes directly, but admin file upload is preferred for private/local ChatGPT downloads.
+
+### Regenerate existing captions
+
+Use this command on the server to generate professional captions for existing Facebook plans whose `post_text` is empty:
+
+```bash
+cd /home/scholarsrepublic/scholarsrepublic/backend
+source venv/bin/activate
+python manage.py regenerate_social_post_text --only-empty
+```
+
+To regenerate all Facebook plan captions, omit `--only-empty`.
 
 ### Fetch due Facebook posts
 

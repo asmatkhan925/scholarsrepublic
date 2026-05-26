@@ -41,6 +41,7 @@ from apps.opportunities.services.opportunity_draft_importer import (
 )
 from apps.opportunities.services.social_posting import (
     DEFAULT_PLATFORM,
+    generate_facebook_post_text,
     get_due_facebook_post_plans,
     record_facebook_post_result,
     scholarship_detail_url,
@@ -252,6 +253,11 @@ def _deadline_check_summary(opportunity):
 
 
 def _social_image_response(obj, draft_id=None):
+    post_text = getattr(obj, "facebook_post_text", None)
+    if post_text is None:
+        post_text = getattr(obj, "post_text", "")
+
+    link_url = getattr(obj, "link_url", "")
     return {
         "ok": obj.social_image_status == obj.SocialImageStatus.SAVED,
         "draft_id": draft_id,
@@ -259,6 +265,13 @@ def _social_image_response(obj, draft_id=None):
         "image_source": get_preferred_social_image_source(obj),
         "image_status": obj.social_image_status,
         "image_error": obj.social_image_error,
+        "image_prompt": getattr(obj, "facebook_image_prompt", None)
+        if hasattr(obj, "facebook_image_prompt")
+        else getattr(obj, "image_prompt", ""),
+        "post_text": post_text,
+        "link_url": link_url,
+        "plan_status": getattr(obj, "status", ""),
+        "next_post_at": getattr(obj, "next_post_at", None),
     }
 
 
@@ -757,6 +770,80 @@ class AdminScholarshipSocialImageUploadView(APIView):
             save_social_image_from_file(plan, image_file, source=image_source)
         except SocialImageError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_data = _social_image_response(plan)
+        response_data["opportunity_id"] = opportunity.pk
+        response_data["plan_id"] = plan.pk
+        return Response(response_data)
+
+
+class AdminScholarshipDraftSocialPostReviewView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, draft_id):
+        try:
+            draft = OpportunityDraft.objects.get(pk=draft_id)
+        except OpportunityDraft.DoesNotExist:
+            return Response(
+                {"detail": "Scholarship draft not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        social_draft, _ = OpportunitySocialDraft.objects.get_or_create(
+            opportunity_draft=draft
+        )
+        social_draft.facebook_post_text = str(request.data.get("post_text") or "").strip()
+        image_prompt = str(request.data.get("image_prompt") or "").strip()
+        if image_prompt:
+            social_draft.facebook_image_prompt = image_prompt
+        social_draft.save(
+            update_fields=[
+                "facebook_post_text",
+                "facebook_image_prompt",
+                "updated_at",
+            ]
+        )
+
+        response_data = _social_image_response(social_draft, draft_id=draft.pk)
+        response_data["social_draft_id"] = social_draft.pk
+        return Response(response_data)
+
+
+class AdminScholarshipSocialPostReviewView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, opportunity_id):
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response(
+                {"detail": "Scholarship not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        plan, _ = OpportunitySocialPostPlan.objects.get_or_create(
+            opportunity=opportunity,
+            platform=DEFAULT_PLATFORM,
+            defaults={
+                "enabled": True,
+                "status": OpportunitySocialPostPlan.Status.READY
+                if opportunity.status == Opportunity.Status.PUBLISHED
+                else OpportunitySocialPostPlan.Status.DRAFT,
+                "link_url": scholarship_detail_url(opportunity),
+            },
+        )
+        link_url = str(request.data.get("link_url") or plan.link_url or "").strip()
+        if not link_url:
+            link_url = scholarship_detail_url(opportunity)
+        post_text = str(request.data.get("post_text") or "").strip()
+        if not post_text:
+            post_text = generate_facebook_post_text(opportunity, link_url)
+
+        plan.post_text = post_text
+        plan.link_url = link_url
+        image_prompt = str(request.data.get("image_prompt") or "").strip()
+        if image_prompt:
+            plan.image_prompt = image_prompt
+        plan.save(update_fields=["post_text", "link_url", "image_prompt", "updated_at"])
 
         response_data = _social_image_response(plan)
         response_data["opportunity_id"] = opportunity.pk

@@ -432,6 +432,10 @@ export type SocialImageState = {
   image_status: string;
   image_error: string;
   image_prompt: string;
+  post_text: string;
+  link_url: string;
+  plan_status: string;
+  next_post_at: string | null;
   saved_at: string | null;
 };
 

@@ -10,6 +10,25 @@ For the first real run, verify only 3 scholarships:
 Call getDeadlineCheckQueue with limit=3, days_ahead=14, check_stale_days=14, include_missing_deadline=true.
 ```
 
+## Social Image Saving Rule
+
+When generating a professional scholarship announcement image, save the actual image file to the backend. Do not assume that an image prompt alone saves the image.
+
+Use one of these paths:
+
+- For private drafts, call `uploadDraftSocialImage`.
+- For published scholarships, call `uploadOpportunitySocialImage`.
+- If also saving text through `saveScholarshipSocialDraft`, include `facebook_image_base64` or `facebook_image_url` when available.
+
+Image priority in Scholars Republic is:
+
+1. Exact GPT-uploaded/generated image saved in backend media.
+2. Image URL/base64 submitted by GPT and saved by backend.
+3. Backend-generated fallback image from the saved prompt if available.
+4. Existing scholarship Open Graph image fallback.
+
+Only post to Facebook after the backend confirms a saved `image_url`. If the exact GPT image cannot be uploaded, use the backend-generated fallback. A prompt by itself is not a saved image.
+
 ## Workflow
 
 1. Fetch candidates with `getDeadlineCheckQueue`.

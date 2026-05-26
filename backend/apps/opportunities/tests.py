@@ -103,6 +103,7 @@ from apps.opportunities.services.opportunity_draft_importer import (
     validate_opportunity_draft_payload,
 )
 from apps.opportunities.services.social_image_uploads import save_social_image_from_base64
+from apps.opportunities.services.social_posting import generate_facebook_post_text
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
@@ -353,7 +354,7 @@ class OpportunityAPITests(APITestCase):
             "degree_levels": ["Master", "PhD"],
             "fields_of_study": ["All Fields"],
             "all_study_fields": True,
-            "deadline": "2026-03-15",
+            "deadline": (timezone.localdate() + timedelta(days=30)).isoformat(),
             "is_rolling_deadline": False,
             "official_link": "https://example.edu/scholarship",
             "source_url": "https://example.edu/scholarship",
@@ -578,6 +579,57 @@ class OpportunityAPITests(APITestCase):
         )
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_rejects_past_fixed_deadline(self):
+        payload = self.draft_payload(
+            deadline=(timezone.localdate() - timedelta(days=1)).isoformat(),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["valid"])
+        self.assertIn("Deadline has already passed.", response.data["errors"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_accepts_future_deadline(self):
+        payload = self.draft_payload(
+            deadline=(timezone.localdate() + timedelta(days=45)).isoformat(),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["valid"])
+        self.assertNotIn("Deadline has already passed.", response.data["errors"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_accepts_rolling_deadline_without_fixed_deadline(self):
+        payload = self.draft_payload(deadline=None, is_rolling_deadline=True)
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["valid"])
+        self.assertNotIn("Deadline has already passed.", response.data["errors"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_create_draft_rejects_missing_token(self):
         response = self.client.post(
             "/api/admin/agent/scholarships/create-draft/",
@@ -635,6 +687,26 @@ class OpportunityAPITests(APITestCase):
         self.assertIsNone(response.data["draft_id"])
         self.assertEqual(response.data["edit_url"], "")
         self.assertGreater(len(response.data["validation_errors"]), 0)
+        self.assertEqual(OpportunityDraft.objects.count(), 0)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_rejects_past_fixed_deadline(self):
+        payload = self.draft_payload(
+            deadline=(timezone.localdate() - timedelta(days=1)).isoformat(),
+            is_rolling_deadline=False,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIsNone(response.data["draft_id"])
+        self.assertIn("Deadline has already passed.", response.data["validation_errors"])
         self.assertEqual(OpportunityDraft.objects.count(), 0)
         self.assert_json_response(response)
 
@@ -1145,6 +1217,82 @@ class OpportunityAPITests(APITestCase):
             OpportunitySocialDraft.SocialImageStatus.MISSING,
         )
 
+    def test_generated_facebook_caption_includes_available_details_and_link(self):
+        opportunity = self.opportunity(
+            title="Turin PhD Scholarships",
+            slug="turin-phd-scholarships",
+            country="Italy",
+            provider_name="University of Turin",
+            degree_levels=["PhD"],
+            funding_type=Opportunity.FundingType.STIPEND_ONLY,
+            deadline=date(2026, 6, 9),
+        )
+
+        caption = generate_facebook_post_text(
+            opportunity,
+            "https://scholarsrepublic.org/scholarships/turin-phd-scholarships/",
+        )
+
+        self.assertTrue(caption.startswith("Turin PhD Scholarships"))
+        self.assertIn("University of Turin", caption)
+        self.assertIn("• Country: Italy", caption)
+        self.assertIn("• Provider: University of Turin", caption)
+        self.assertIn("• Degree Level: PhD", caption)
+        self.assertIn("• Funding: Stipend Only", caption)
+        self.assertIn("• Deadline: June 9, 2026", caption)
+        self.assertIn(
+            "https://scholarsrepublic.org/scholarships/turin-phd-scholarships/",
+            caption,
+        )
+        self.assertNotIn("Unknown", caption)
+
+    def test_generated_facebook_caption_omits_missing_fields(self):
+        opportunity = self.empty_opportunity(
+            slug="caption-missing-fields",
+            title="Minimal Scholarship",
+        )
+        opportunity.country = ""
+        opportunity.provider_name = ""
+        opportunity.university_name = ""
+        opportunity.source_name = ""
+        opportunity.degree_levels = []
+        opportunity.funding_type = ""
+        opportunity.deadline = None
+
+        caption = generate_facebook_post_text(opportunity)
+
+        self.assertTrue(caption.startswith("Minimal Scholarship"))
+        self.assertNotIn("• Country:", caption)
+        self.assertNotIn("• Provider:", caption)
+        self.assertNotIn("• Degree Level:", caption)
+        self.assertNotIn("• Funding:", caption)
+        self.assertNotIn("• Deadline:", caption)
+        self.assertNotIn("Unknown", caption)
+
+    def test_generated_facebook_caption_does_not_start_with_emoji(self):
+        caption = generate_facebook_post_text(self.opportunity())
+
+        self.assertTrue(caption[0].isalnum())
+
+    def test_regenerate_social_post_text_only_empty(self):
+        empty_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=self.opportunity(slug="regenerate-empty-caption"),
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="",
+        )
+        existing_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=self.opportunity(slug="regenerate-existing-caption"),
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Keep this text.",
+        )
+
+        call_command("regenerate_social_post_text", "--only-empty", stdout=StringIO())
+
+        empty_plan.refresh_from_db()
+        existing_plan.refresh_from_db()
+        self.assertIn("Published Scholarship", empty_plan.post_text)
+        self.assertEqual(existing_plan.post_text, "Keep this text.")
+
     def test_social_draft_promotes_to_ready_plan_when_imported_opportunity_is_published(self):
         with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
             draft = OpportunityDraft.objects.create(
@@ -1184,6 +1332,56 @@ class OpportunityAPITests(APITestCase):
             self.assertTrue(plan.image)
             self.assertIn("/media/", plan.image_url)
             self.assertEqual(plan.social_image_source, plan.SocialImageSource.GPT_UPLOADED)
+
+    def test_publish_draft_generates_caption_and_schedules_ready_plan(self):
+        draft = OpportunityDraft.objects.create(
+            title="Generated Caption Draft",
+            slug="generated-caption-draft",
+            raw_payload=self.draft_payload(slug="generated-caption-opportunity"),
+            status=OpportunityDraft.Status.VALIDATED,
+        )
+        OpportunitySocialDraft.objects.create(
+            opportunity_draft=draft,
+            facebook_post_text="",
+            facebook_image_prompt="",
+            status=OpportunitySocialDraft.Status.READY,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+        self.assertIsNotNone(opportunity)
+        opportunity.status = Opportunity.Status.PUBLISHED
+        opportunity.save()
+
+        plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
+        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
+        self.assertTrue(plan.post_text)
+        self.assertIn("Key Details:", plan.post_text)
+        self.assertIsNotNone(plan.next_post_at)
+
+    def test_publish_draft_preserves_future_next_post_at(self):
+        future_time = timezone.now() + timedelta(days=3)
+        draft = OpportunityDraft.objects.create(
+            title="Future Schedule Draft",
+            slug="future-schedule-draft",
+            raw_payload=self.draft_payload(slug="future-schedule-opportunity"),
+            status=OpportunityDraft.Status.VALIDATED,
+        )
+        OpportunitySocialDraft.objects.create(
+            opportunity_draft=draft,
+            status=OpportunitySocialDraft.Status.READY,
+        )
+
+        opportunity = import_opportunity_draft(draft, user=self.admin)
+        plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
+        plan.next_post_at = future_time
+        plan.save(update_fields=["next_post_at", "updated_at"])
+
+        opportunity.status = Opportunity.Status.PUBLISHED
+        opportunity.save()
+
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
+        self.assertEqual(plan.next_post_at, future_time)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_weekly_for_deadline_more_than_7_days(self):
@@ -1269,6 +1467,34 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("/scholarships/og-fallback-social-image-due/opengraph-image", item["image_url"])
         self.assertEqual(item["image_source"], plan.SocialImageSource.OG_FALLBACK)
         self.assertTrue(item["has_image"])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_due_posts_auto_generate_empty_post_text_before_returning(self):
+        opportunity = self.opportunity(
+            slug="empty-caption-due",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=20),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="",
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        item = response.data["items"][0]
+        self.assertEqual(item["plan_id"], plan.pk)
+        self.assertTrue(item["message"])
+        self.assertIn("Key Details:", item["message"])
+        plan.refresh_from_db()
+        self.assertEqual(plan.post_text, item["message"])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_daily_within_7_days(self):
@@ -1934,7 +2160,8 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(plan.platform, "facebook")
         self.assertTrue(plan.enabled)
         self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
-        self.assertEqual(plan.post_text, "")
+        self.assertIn("Published Scholarship", plan.post_text)
+        self.assertIn("Key Details:", plan.post_text)
         self.assertEqual(plan.image_url, "")
         self.assertEqual(
             plan.link_url,

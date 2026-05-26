@@ -46,34 +46,108 @@ def format_funding(value):
     return str(value or "").replace("_", " ").strip().title()
 
 
-def fallback_social_post_text(opportunity, link_url=None):
-    lines = [f"Scholarship opportunity: {opportunity.title}", ""]
-    details = []
+def funding_label(opportunity):
+    return format_funding(opportunity.funding_type) or str(
+        opportunity.stipend_summary or ""
+    ).strip()
 
-    if opportunity.country:
-        details.append(f"Country: {opportunity.country}")
 
-    provider = (
+def provider_label(opportunity):
+    return (
         opportunity.provider_name
         or opportunity.university_name
         or opportunity.company_name
         or opportunity.source_name
+        or ""
     )
+
+
+def degree_label(opportunity):
+    return ", ".join(opportunity.degree_levels or [])
+
+
+def deadline_label(opportunity):
+    if not opportunity.deadline:
+        return ""
+
+    return (
+        f"{opportunity.deadline.strftime('%B')} "
+        f"{opportunity.deadline.day}, "
+        f"{opportunity.deadline.year}"
+    )
+
+
+def generate_facebook_post_text(opportunity, link_url=None):
+    if not opportunity or not str(getattr(opportunity, "title", "") or "").strip():
+        return ""
+
+    link_url = link_url or scholarship_detail_url(opportunity)
+    if not link_url:
+        return ""
+
+    provider = provider_label(opportunity)
+    degree = degree_label(opportunity)
+    funding = funding_label(opportunity)
+    deadline = deadline_label(opportunity)
+
+    lines = [opportunity.title.strip(), ""]
+    sentence_parts = []
     if provider:
-        details.append(f"Provider: {provider}")
+        sentence_parts.append(f"{provider} is offering this opportunity")
+    else:
+        sentence_parts.append("This scholarship opportunity is available")
 
-    if opportunity.degree_levels:
-        details.append(f"Degree: {', '.join(opportunity.degree_levels[:2])}")
+    context_bits = []
+    if opportunity.country:
+        context_bits.append(f"in {opportunity.country}")
+    if degree:
+        context_bits.append(f"for {degree} students")
+    if funding:
+        context_bits.append(f"with {funding.lower()} funding")
 
-    if opportunity.funding_type:
-        details.append(f"Funding: {format_funding(opportunity.funding_type)}")
+    paragraph = sentence_parts[0]
+    if context_bits:
+        paragraph += " " + ", ".join(context_bits)
+    paragraph += ". Review the full details before applying."
+    lines.extend([paragraph, "", "Key Details:"])
 
-    if opportunity.deadline:
-        details.append(f"Deadline: {opportunity.deadline.isoformat()}")
+    detail_lines = []
+    if opportunity.country:
+        detail_lines.append(f"• Country: {opportunity.country}")
+    if provider:
+        detail_lines.append(f"• Provider: {provider}")
+    if degree:
+        detail_lines.append(f"• Degree Level: {degree}")
+    if funding:
+        detail_lines.append(f"• Funding: {funding}")
+    if deadline:
+        detail_lines.append(f"• Deadline: {deadline}")
 
-    lines.extend(details)
-    lines.extend(["", "View details and official source:", link_url or scholarship_detail_url(opportunity)])
-    return "\n".join(line for line in lines if line != "")
+    lines.extend(detail_lines)
+    lines.extend(["", "Read full details and apply through Scholars Republic:", link_url])
+    return "\n".join(line for line in lines if line.strip())
+
+
+fallback_social_post_text = generate_facebook_post_text
+
+
+def ensure_plan_post_text(plan):
+    message = plan.post_text.strip()
+    if message:
+        return message
+
+    link_url = plan.link_url or scholarship_detail_url(plan.opportunity)
+    message = generate_facebook_post_text(plan.opportunity, link_url)
+    if not message:
+        plan.last_error = "Facebook caption could not be generated from scholarship fields."
+        plan.save(update_fields=["last_error", "updated_at"])
+        return ""
+
+    plan.post_text = message
+    plan.link_url = link_url
+    plan.last_error = ""
+    plan.save(update_fields=["post_text", "link_url", "last_error", "updated_at"])
+    return message
 
 
 def promote_social_draft_to_plan(draft):
@@ -86,25 +160,48 @@ def promote_social_draft_to_plan(draft):
         return None
 
     status = OpportunitySocialPostPlan.Status.DRAFT
-    if opportunity.status == Opportunity.Status.PUBLISHED:
+    if opportunity.status == Opportunity.Status.PUBLISHED and not opportunity.is_expired:
         status = OpportunitySocialPostPlan.Status.READY
 
-    plan, _ = OpportunitySocialPostPlan.objects.update_or_create(
+    plan, _ = OpportunitySocialPostPlan.objects.get_or_create(
         opportunity=opportunity,
         platform=DEFAULT_PLATFORM,
-        defaults={
-            "enabled": True,
-            "status": status,
-            "post_text": social_draft.facebook_post_text,
-            "image_prompt": social_draft.facebook_image_prompt,
-            "image": social_draft.facebook_image,
-            "image_url": social_draft.facebook_image_url,
-            "social_image_source": social_draft.social_image_source,
-            "social_image_status": social_draft.social_image_status,
-            "social_image_error": social_draft.social_image_error,
-            "social_image_saved_at": social_draft.social_image_saved_at,
-            "link_url": scholarship_detail_url(opportunity),
-        },
+        defaults={"link_url": scholarship_detail_url(opportunity)},
+    )
+    plan.enabled = True
+    plan.status = status
+    plan.post_text = social_draft.facebook_post_text.strip() or generate_facebook_post_text(
+        opportunity,
+        plan.link_url or scholarship_detail_url(opportunity),
+    )
+    plan.image_prompt = social_draft.facebook_image_prompt
+    plan.image = social_draft.facebook_image
+    plan.image_url = social_draft.facebook_image_url
+    plan.social_image_source = social_draft.social_image_source
+    plan.social_image_status = social_draft.social_image_status
+    plan.social_image_error = social_draft.social_image_error
+    plan.social_image_saved_at = social_draft.social_image_saved_at
+    plan.link_url = plan.link_url or scholarship_detail_url(opportunity)
+    if status == OpportunitySocialPostPlan.Status.READY and plan.next_post_at is None:
+        plan.next_post_at = timezone.now()
+    plan.last_error = "" if plan.post_text else "Facebook caption could not be generated from scholarship fields."
+    plan.save(
+        update_fields=[
+            "enabled",
+            "status",
+            "post_text",
+            "image_prompt",
+            "image",
+            "image_url",
+            "social_image_source",
+            "social_image_status",
+            "social_image_error",
+            "social_image_saved_at",
+            "link_url",
+            "next_post_at",
+            "last_error",
+            "updated_at",
+        ]
     )
     return plan
 
@@ -169,7 +266,7 @@ def plan_image_url(plan):
 def serialize_due_plan(plan):
     opportunity = plan.opportunity
     link_url = plan.link_url or scholarship_detail_url(opportunity)
-    message = plan.post_text.strip() or fallback_social_post_text(opportunity, link_url)
+    message = ensure_plan_post_text(plan)
     days_left = opportunity.days_until_deadline
     image_url = plan_image_url(plan)
 
@@ -222,7 +319,11 @@ def get_due_facebook_post_plans(limit=10, now=None):
     today = timezone.localtime(now).date()
     due_plans = []
     for plan in plans:
-        if is_plan_due(plan, now=now):
+        if not is_plan_due(plan, now=now):
+            continue
+        if not ensure_plan_post_text(plan):
+            continue
+        else:
             due_plans.append(plan)
 
     due_plans.sort(key=lambda plan: due_plan_sort_key(plan, today))

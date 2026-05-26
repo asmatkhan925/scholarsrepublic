@@ -297,6 +297,11 @@ def validate_opportunity_draft_payload(payload):
     if deadline_value:
         try:
             opportunity["deadline"] = date.fromisoformat(deadline_value)
+            if (
+                opportunity["deadline"] < timezone.localdate()
+                and not is_rolling_deadline
+            ):
+                errors.append("Deadline has already passed.")
         except ValueError:
             errors.append("deadline must use YYYY-MM-DD format.")
     elif not is_rolling_deadline:

@@ -18,6 +18,7 @@ import {
   getAdminOpportunity,
   getAdminOpportunityPathways,
   patchAdminOpportunity,
+  saveAdminOpportunitySocialPostReview,
   uploadAdminOpportunitySocialImage,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
@@ -787,6 +788,13 @@ function AdminScholarshipEditContent() {
                   initialImage={opportunity.social_image}
                   onUpload={(image, imagePrompt) =>
                     uploadAdminOpportunitySocialImage(opportunity.id, image, imagePrompt)
+                  }
+                  onSavePost={(postText, imagePrompt, linkUrl) =>
+                    saveAdminOpportunitySocialPostReview(opportunity.id, {
+                      post_text: postText,
+                      image_prompt: imagePrompt,
+                      link_url: linkUrl,
+                    })
                   }
                 />
               ) : null}

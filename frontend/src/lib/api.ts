@@ -487,6 +487,28 @@ export async function uploadAdminOpportunitySocialImage(
   return response.data;
 }
 
+export async function saveAdminDraftSocialPostReview(
+  draftId: number,
+  payload: { post_text: string; image_prompt?: string },
+) {
+  const response = await api.post<SocialImageUploadResponse>(
+    `/admin/scholarships/drafts/${draftId}/social-post-review/`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function saveAdminOpportunitySocialPostReview(
+  opportunityId: number,
+  payload: { post_text: string; image_prompt?: string; link_url?: string },
+) {
+  const response = await api.post<SocialImageUploadResponse>(
+    `/admin/scholarships/${opportunityId}/social-post-review/`,
+    payload,
+  );
+  return response.data;
+}
+
 export type AdminCommentQueryParams = PaginationParams & {
   search?: string;
   status?: "pending" | "active" | "deleted";
