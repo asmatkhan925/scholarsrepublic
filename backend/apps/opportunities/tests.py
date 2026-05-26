@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from io import BytesIO, StringIO
 import base64
+import json
 import tempfile
 from unittest.mock import patch
 
@@ -126,6 +127,27 @@ class FakeImageResponse:
 
     def read(self, _size=-1):
         return VALID_PNG_BYTES
+
+
+class FakeWorkerResponse:
+    status = 200
+
+    def __init__(self, payload=None):
+        self.payload = payload or {
+            "ok": True,
+            "status": "posted",
+            "facebook_post_id": "123_456",
+            "facebook_post_url": "https://www.facebook.com/123/posts/456",
+        }
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
 
 
 class OpportunityAPITests(APITestCase):
@@ -1382,6 +1404,224 @@ class OpportunityAPITests(APITestCase):
         plan.refresh_from_db()
         self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
         self.assertEqual(plan.next_post_at, future_time)
+
+    def test_admin_facebook_post_now_returns_404_for_missing_scholarship(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/scholarships/999999/facebook/post-now/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(response.data["ok"])
+
+    def test_admin_facebook_post_now_rejects_draft_scholarship(self):
+        opportunity = self.opportunity(
+            slug="post-now-draft",
+            status=Opportunity.Status.DRAFT,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["status"], "not_published")
+
+    def test_admin_facebook_post_now_rejects_expired_unless_forced(self):
+        opportunity = self.opportunity(
+            slug="post-now-expired",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["status"], "expired")
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_allows_expired_when_forced(self):
+        opportunity = self.opportunity(
+            slug="post-now-expired-force",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        self.client.force_authenticate(self.admin)
+
+        with patch(
+            "apps.opportunities.services.social_posting.urlopen",
+            return_value=FakeWorkerResponse(),
+        ):
+            response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                {"force": True},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_generates_caption_and_logs_success(self):
+        opportunity = self.opportunity(slug="post-now-caption")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="",
+        )
+        self.client.force_authenticate(self.admin)
+
+        with patch(
+            "apps.opportunities.services.social_posting.urlopen",
+            return_value=FakeWorkerResponse(),
+        ):
+            response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                {},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["facebook_post_url"], "https://www.facebook.com/123/posts/456")
+        plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
+        self.assertTrue(plan.post_text)
+        self.assertIn("Key Details:", plan.post_text)
+        log = OpportunitySocialPostLog.objects.get(plan=plan)
+        self.assertEqual(log.status, OpportunitySocialPostLog.Status.POSTED)
+        self.assertEqual(log.facebook_post_url, "https://www.facebook.com/123/posts/456")
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_uses_gpt_uploaded_image(self):
+        opportunity = self.opportunity(slug="post-now-gpt-image")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            plan = OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+            )
+            save_social_image_from_base64(
+                plan,
+                base64.b64encode(VALID_PNG_BYTES).decode(),
+                filename="facebook-now.png",
+                source=plan.SocialImageSource.GPT_UPLOADED,
+            )
+            self.client.force_authenticate(self.admin)
+
+            with patch(
+                "apps.opportunities.services.social_posting.urlopen",
+                return_value=FakeWorkerResponse(),
+            ):
+                response = self.client.post(
+                    f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                    {},
+                    format="json",
+                )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("/media/", response.data["image_url"])
+        self.assertEqual(response.data["image_source"], plan.SocialImageSource.GPT_UPLOADED)
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_falls_back_to_og_image(self):
+        opportunity = self.opportunity(slug="post-now-og-image")
+        self.client.force_authenticate(self.admin)
+
+        with patch(
+            "apps.opportunities.services.social_posting.urlopen",
+            return_value=FakeWorkerResponse(),
+        ):
+            response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                {},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("/scholarships/post-now-og-image/opengraph-image", response.data["image_url"])
+        self.assertEqual(
+            response.data["image_source"],
+            OpportunitySocialPostPlan.SocialImageSource.OG_FALLBACK,
+        )
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_blocks_duplicate_by_default(self):
+        opportunity = self.opportunity(slug="post-now-duplicate")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Already posted caption.",
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            plan=plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            facebook_post_url="https://www.facebook.com/123/posts/old",
+            posted_at=timezone.now(),
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["ok"])
+        self.assertEqual(response.data["status"], "already_posted")
+        self.assertEqual(
+            response.data["latest_facebook_post_url"],
+            "https://www.facebook.com/123/posts/old",
+        )
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_allows_duplicate_when_forced(self):
+        opportunity = self.opportunity(slug="post-now-force-duplicate")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Already posted caption.",
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            plan=plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            facebook_post_url="https://www.facebook.com/123/posts/old",
+            posted_at=timezone.now(),
+        )
+        self.client.force_authenticate(self.admin)
+
+        with patch(
+            "apps.opportunities.services.social_posting.urlopen",
+            return_value=FakeWorkerResponse(
+                {
+                    "ok": True,
+                    "status": "posted",
+                    "facebook_post_id": "123_789",
+                    "facebook_post_url": "https://www.facebook.com/123/posts/789",
+                }
+            ),
+        ):
+            response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                {"force": True},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(OpportunitySocialPostLog.objects.filter(plan=plan).count(), 2)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_weekly_for_deadline_more_than_7_days(self):

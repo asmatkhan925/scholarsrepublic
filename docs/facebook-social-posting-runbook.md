@@ -286,6 +286,36 @@ Captions should be professional and structured:
 
 If a ready plan has empty `post_text`, the backend generates a caption before returning it to the Worker.
 
+### Post one scholarship now
+
+Published scholarship edit pages include `Post to Facebook Now`. This button calls Django, not Facebook directly:
+
+```text
+POST /api/admin/scholarships/<id>/facebook/post-now/
+Auth: normal admin login/JWT
+Body: {}
+```
+
+Django prepares the saved caption, image URL, and scholarship link, then calls the protected Cloudflare Worker `/post-one` route server-to-server using `SCHOLARS_SOCIAL_WORKER_TOKEN`. Facebook Page tokens remain only in Cloudflare.
+
+Duplicate protection is enabled. If the scholarship already has a successful Facebook post log, the endpoint returns `status=already_posted` and the latest Facebook URL. Use this body only when intentionally reposting:
+
+```json
+{"force": true}
+```
+
+Expired scholarships are blocked unless `force=true`.
+
+### Schedule one scholarship
+
+```text
+POST /api/admin/scholarships/<id>/facebook/schedule/
+Auth: normal admin login/JWT
+Body: {"next_post_at": "2026-06-01T09:00:00Z"}
+```
+
+This updates the Facebook plan, marks it ready, and generates caption text if needed.
+
 ### Manual GPT image workflow
 
 1. Generate the scholarship social image in GPT.

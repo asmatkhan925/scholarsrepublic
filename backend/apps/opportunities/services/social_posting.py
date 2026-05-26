@@ -1,4 +1,7 @@
-from datetime import date, timedelta
+import json
+from datetime import date, datetime, timedelta
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.db.models import F
@@ -18,6 +21,7 @@ from apps.opportunities.services.social_image_uploads import (
 
 
 DEFAULT_PLATFORM = "facebook"
+FACEBOOK_WORKER_TIMEOUT_SECONDS = 30
 
 
 def site_url():
@@ -283,6 +287,162 @@ def serialize_due_plan(plan):
         "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
         "days_left": days_left,
     }
+
+
+def latest_successful_facebook_log(plan):
+    return (
+        plan.logs.filter(status=OpportunitySocialPostLog.Status.POSTED)
+        .order_by("-posted_at", "-created_at")
+        .first()
+    )
+
+
+def post_to_facebook_worker(item):
+    worker_url = getattr(settings, "FACEBOOK_POSTER_WORKER_URL", "").rstrip("/")
+    token = getattr(settings, "SCHOLARS_SOCIAL_WORKER_TOKEN", "")
+    if not worker_url or not token:
+        return {
+            "ok": False,
+            "status": "failed",
+            "error": "Facebook Worker posting is not configured.",
+        }
+
+    request = Request(
+        f"{worker_url}/post-one",
+        data=json.dumps(item).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Social-Worker-Token": token,
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=FACEBOOK_WORKER_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read().decode("utf-8") or "{}")
+            payload.setdefault("ok", 200 <= response.status < 300)
+            return payload
+    except URLError as exc:
+        return {
+            "ok": False,
+            "status": "failed",
+            "error": str(getattr(exc, "reason", exc)),
+        }
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "status": "failed", "error": str(exc)}
+
+
+def get_or_create_facebook_plan(opportunity):
+    plan, _ = OpportunitySocialPostPlan.objects.get_or_create(
+        opportunity=opportunity,
+        platform=DEFAULT_PLATFORM,
+        defaults={
+            "enabled": True,
+            "status": OpportunitySocialPostPlan.Status.READY
+            if opportunity.status == Opportunity.Status.PUBLISHED and not opportunity.is_expired
+            else OpportunitySocialPostPlan.Status.DRAFT,
+            "link_url": scholarship_detail_url(opportunity),
+        },
+    )
+    return plan
+
+
+def post_plan_to_facebook_now(opportunity, force=False):
+    if not opportunity:
+        return {"ok": False, "status": "not_found", "error": "Scholarship not found."}
+
+    plan = get_or_create_facebook_plan(opportunity)
+    plan.link_url = plan.link_url or scholarship_detail_url(opportunity)
+    plan.enabled = True
+
+    if opportunity.status != Opportunity.Status.PUBLISHED:
+        plan.status = OpportunitySocialPostPlan.Status.DRAFT
+        plan.save(update_fields=["enabled", "status", "link_url", "updated_at"])
+        return {
+            "ok": False,
+            "status": "not_published",
+            "plan_id": plan.pk,
+            "opportunity_id": opportunity.pk,
+            "error": "Scholarship must be published before posting to Facebook.",
+        }
+
+    if opportunity.is_expired and not force:
+        plan.status = OpportunitySocialPostPlan.Status.PAUSED
+        plan.save(update_fields=["enabled", "status", "link_url", "updated_at"])
+        return {
+            "ok": False,
+            "status": "expired",
+            "plan_id": plan.pk,
+            "opportunity_id": opportunity.pk,
+            "error": "Scholarship deadline has passed. Use force=true to repost anyway.",
+        }
+
+    duplicate_log = latest_successful_facebook_log(plan)
+    if duplicate_log and not force:
+        return {
+            "ok": False,
+            "status": "already_posted",
+            "plan_id": plan.pk,
+            "opportunity_id": opportunity.pk,
+            "latest_facebook_post_url": duplicate_log.facebook_post_url,
+            "message": "This scholarship has already been posted to Facebook.",
+        }
+
+    plan.status = OpportunitySocialPostPlan.Status.READY
+    plan.save(update_fields=["enabled", "status", "link_url", "updated_at"])
+    message = ensure_plan_post_text(plan)
+    if not message:
+        return {
+            "ok": False,
+            "status": "failed",
+            "plan_id": plan.pk,
+            "opportunity_id": opportunity.pk,
+            "error": plan.last_error,
+        }
+
+    item = serialize_due_plan(plan)
+    facebook_result = post_to_facebook_worker(item)
+    posted = bool(facebook_result.get("ok"))
+    log, _ = record_facebook_post_result(
+        {
+            "plan_id": plan.pk,
+            "opportunity_id": opportunity.pk,
+            "status": OpportunitySocialPostLog.Status.POSTED
+            if posted
+            else OpportunitySocialPostLog.Status.FAILED,
+            "facebook_post_id": facebook_result.get("facebook_post_id", ""),
+            "facebook_post_url": facebook_result.get("facebook_post_url", ""),
+            "message": item["message"],
+            "image_url": item["image_url"],
+            "image_source": item["image_source"],
+            "link_url": item["link_url"],
+            "error_message": facebook_result.get("error", ""),
+        }
+    )
+
+    return {
+        "ok": posted,
+        "status": "posted" if posted else "failed",
+        "plan_id": plan.pk,
+        "opportunity_id": opportunity.pk,
+        "facebook_post_id": facebook_result.get("facebook_post_id", ""),
+        "facebook_post_url": facebook_result.get("facebook_post_url", ""),
+        "image_source": item["image_source"],
+        "image_url": item["image_url"],
+        "message": item["message"],
+        "error": "" if posted else facebook_result.get("error", "Facebook post failed."),
+        "log_id": log.pk if log else None,
+    }
+
+
+def schedule_facebook_plan(opportunity, next_post_at):
+    plan = get_or_create_facebook_plan(opportunity)
+    plan.enabled = True
+    plan.status = OpportunitySocialPostPlan.Status.READY
+    plan.link_url = plan.link_url or scholarship_detail_url(opportunity)
+    plan.next_post_at = next_post_at
+    ensure_plan_post_text(plan)
+    plan.save(update_fields=["enabled", "status", "link_url", "next_post_at", "updated_at"])
+    return plan
 
 
 def due_plan_sort_key(plan, today):

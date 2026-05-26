@@ -2,16 +2,17 @@
 
 import { useMemo, useState } from "react";
 
-import { ImageUp, Loader2 } from "lucide-react";
+import { ExternalLink, ImageUp, Loader2, Send } from "lucide-react";
 
 import { Button, Card, CardContent } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import type { SocialImageState } from "@/types/opportunity";
+import type { FacebookPostNowResponse, SocialImageState } from "@/types/opportunity";
 
 type SocialImageUploadCardProps = {
   initialImage: SocialImageState | null;
   onUpload: (image: File, imagePrompt?: string) => Promise<SocialImageState>;
   onSavePost: (postText: string, imagePrompt?: string, linkUrl?: string) => Promise<SocialImageState>;
+  onPostNow?: (force?: boolean) => Promise<FacebookPostNowResponse>;
 };
 
 const acceptedImageTypes = "image/png,image/jpeg,image/webp";
@@ -20,6 +21,7 @@ export function SocialImageUploadCard({
   initialImage,
   onUpload,
   onSavePost,
+  onPostNow,
 }: SocialImageUploadCardProps) {
   const [socialImage, setSocialImage] = useState<SocialImageState | null>(initialImage);
   const [imagePrompt, setImagePrompt] = useState(initialImage?.image_prompt ?? "");
@@ -28,6 +30,8 @@ export function SocialImageUploadCard({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [savingPost, setSavingPost] = useState(false);
+  const [postingNow, setPostingNow] = useState(false);
+  const [postNowResult, setPostNowResult] = useState<FacebookPostNowResponse | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -77,6 +81,31 @@ export function SocialImageUploadCard({
       setError(getErrorMessage(saveError) ?? "Facebook post review save failed.");
     } finally {
       setSavingPost(false);
+    }
+  }
+
+  async function handlePostNow(force = false) {
+    if (!onPostNow) return;
+
+    setPostingNow(true);
+    setError("");
+    setMessage("");
+    setPostNowResult(null);
+
+    try {
+      const result = await onPostNow(force);
+      setPostNowResult(result);
+      if (result.ok) {
+        setMessage("Posted to Facebook.");
+      } else if (result.status === "already_posted") {
+        setMessage(result.message || "This scholarship has already been posted to Facebook.");
+      } else {
+        setError(result.error || "Facebook post failed.");
+      }
+    } catch (postError) {
+      setError(getErrorMessage(postError) ?? "Facebook post failed.");
+    } finally {
+      setPostingNow(false);
     }
   }
 
@@ -209,6 +238,56 @@ export function SocialImageUploadCard({
           {savingPost ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : null}
           {savingPost ? "Saving..." : "Save Facebook post text"}
         </Button>
+
+        {onPostNow ? (
+          <div className="grid gap-2">
+            <Button type="button" onClick={() => void handlePostNow()} disabled={postingNow}>
+              {postingNow ? (
+                <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Send size={15} aria-hidden="true" />
+              )}
+              {postingNow ? "Posting..." : "Post to Facebook Now"}
+            </Button>
+
+            {postNowResult?.facebook_post_url ? (
+              <a
+                href={postNowResult.facebook_post_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-pine hover:text-pine/80"
+              >
+                View Facebook post
+                <ExternalLink size={14} aria-hidden="true" />
+              </a>
+            ) : null}
+
+            {postNowResult?.status === "already_posted" ? (
+              <div className="grid gap-2 rounded-xl border border-saffron/30 bg-saffron/10 px-3 py-2 text-sm leading-6 text-ink/75 dark:border-saffron/25 dark:bg-saffron/10 dark:text-white/65">
+                <div>This scholarship has already been posted to Facebook.</div>
+                {postNowResult.latest_facebook_post_url ? (
+                  <a
+                    href={postNowResult.latest_facebook_post_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 font-bold text-pine"
+                  >
+                    Latest Facebook post
+                    <ExternalLink size={14} aria-hidden="true" />
+                  </a>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handlePostNow(true)}
+                  disabled={postingNow}
+                >
+                  Repost Anyway
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

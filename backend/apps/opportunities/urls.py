@@ -19,6 +19,8 @@ from apps.opportunities.views import (
     AdminOpportunityListCreateView,
     AdminOpportunityPathwayDetailView,
     AdminOpportunityPathwayListCreateView,
+    AdminScholarshipFacebookPostNowView,
+    AdminScholarshipFacebookScheduleView,
     AdminScholarshipDraftSocialImageUploadView,
     AdminScholarshipDraftSocialPostReviewView,
     AdminScholarshipSocialImageUploadView,
@@ -246,6 +248,16 @@ urlpatterns = [
         "admin/scholarships/<int:opportunity_id>/social-post-review/",
         AdminScholarshipSocialPostReviewView.as_view(),
         name="admin-scholarship-social-post-review",
+    ),
+    path(
+        "admin/scholarships/<int:opportunity_id>/facebook/post-now/",
+        AdminScholarshipFacebookPostNowView.as_view(),
+        name="admin-scholarship-facebook-post-now",
+    ),
+    path(
+        "admin/scholarships/<int:opportunity_id>/facebook/schedule/",
+        AdminScholarshipFacebookScheduleView.as_view(),
+        name="admin-scholarship-facebook-schedule",
     ),
     path(
         "admin/opportunities/",

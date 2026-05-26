@@ -439,6 +439,30 @@ export type SocialImageState = {
   saved_at: string | null;
 };
 
+export type FacebookPostNowResponse = {
+  ok: boolean;
+  status: string;
+  plan_id?: number;
+  opportunity_id?: number;
+  facebook_post_id?: string;
+  facebook_post_url?: string;
+  latest_facebook_post_url?: string;
+  image_source?: string;
+  image_url?: string;
+  message?: string;
+  error?: string;
+};
+
+export type FacebookScheduleResponse = {
+  ok: boolean;
+  status: string;
+  plan_id: number;
+  opportunity_id: number;
+  next_post_at: string;
+  message: string;
+  link_url: string;
+};
+
 export type OpportunityDraftStatus = "new" | "validated" | "imported" | "error";
 
 export type OpportunityDraft = {

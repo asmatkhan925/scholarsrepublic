@@ -18,6 +18,7 @@ import {
   getAdminOpportunity,
   getAdminOpportunityPathways,
   patchAdminOpportunity,
+  postScholarshipToFacebookNow,
   saveAdminOpportunitySocialPostReview,
   uploadAdminOpportunitySocialImage,
 } from "@/lib/api";
@@ -795,6 +796,11 @@ function AdminScholarshipEditContent() {
                       image_prompt: imagePrompt,
                       link_url: linkUrl,
                     })
+                  }
+                  onPostNow={
+                    opportunity.status === "published"
+                      ? (force) => postScholarshipToFacebookNow(opportunity.id, { force })
+                      : undefined
                   }
                 />
               ) : null}

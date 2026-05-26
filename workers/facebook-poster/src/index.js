@@ -23,6 +23,13 @@ function hasManualAccess(request, env) {
   return Boolean(expected && provided && expected === provided);
 }
 
+function hasSocialWorkerAccess(request, env) {
+  const expected = env.SCHOLARS_SOCIAL_WORKER_TOKEN || "";
+  const provided = getHeader(request, "X-Social-Worker-Token");
+
+  return Boolean(expected && provided && expected === provided);
+}
+
 function requireEnv(env, names) {
   const missing = names.filter((name) => !env[name]);
 
@@ -291,6 +298,37 @@ async function handleRunDuePosts(request, env) {
   }
 }
 
+async function handlePostOne(request, env) {
+  if (!hasSocialWorkerAccess(request, env)) {
+    return jsonResponse({ error: "Unauthorized." }, 401);
+  }
+
+  const payload = await readJson(request);
+
+  if (payload === null) {
+    return jsonResponse({ error: "Invalid JSON body." }, 400);
+  }
+
+  try {
+    const facebookResult = await postToFacebook(env, payload);
+    return jsonResponse({
+      ok: true,
+      status: "posted",
+      facebook_post_id: facebookResult.facebook_post_id,
+      facebook_post_url: facebookResult.facebook_post_url,
+    });
+  } catch (error) {
+    return jsonResponse(
+      {
+        ok: false,
+        status: "failed",
+        error: error instanceof Error ? error.message : "Facebook post failed.",
+      },
+      502,
+    );
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -301,6 +339,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/run-due-posts") {
       return handleRunDuePosts(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/post-one") {
+      return handlePostOne(request, env);
     }
 
     return jsonResponse({ error: "Not found." }, 404);

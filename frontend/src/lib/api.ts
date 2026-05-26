@@ -33,6 +33,8 @@ import type {
   ApplicationSummary,
   CreateApplicationPayload,
   CreateSavedOpportunityPayload,
+  FacebookPostNowResponse,
+  FacebookScheduleResponse,
   CreateScholarshipCommentPayload,
   OpportunityAdminPayload,
   OpportunityApplication,
@@ -504,6 +506,28 @@ export async function saveAdminOpportunitySocialPostReview(
 ) {
   const response = await api.post<SocialImageUploadResponse>(
     `/admin/scholarships/${opportunityId}/social-post-review/`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function postScholarshipToFacebookNow(
+  opportunityId: number,
+  payload?: { force?: boolean },
+) {
+  const response = await api.post<FacebookPostNowResponse>(
+    `/admin/scholarships/${opportunityId}/facebook/post-now/`,
+    payload ?? {},
+  );
+  return response.data;
+}
+
+export async function scheduleScholarshipFacebookPost(
+  opportunityId: number,
+  payload: { next_post_at: string },
+) {
+  const response = await api.post<FacebookScheduleResponse>(
+    `/admin/scholarships/${opportunityId}/facebook/schedule/`,
     payload,
   );
   return response.data;

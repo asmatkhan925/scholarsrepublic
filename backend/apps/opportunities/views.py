@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db.models import Count, F, Prefetch, Q
+from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from rest_framework import generics, parsers, permissions, status
 from rest_framework.renderers import JSONRenderer
@@ -43,7 +44,9 @@ from apps.opportunities.services.social_posting import (
     DEFAULT_PLATFORM,
     generate_facebook_post_text,
     get_due_facebook_post_plans,
+    post_plan_to_facebook_now,
     record_facebook_post_result,
+    schedule_facebook_plan,
     scholarship_detail_url,
 )
 from apps.opportunities.services.social_image_uploads import (
@@ -849,6 +852,63 @@ class AdminScholarshipSocialPostReviewView(APIView):
         response_data["opportunity_id"] = opportunity.pk
         response_data["plan_id"] = plan.pk
         return Response(response_data)
+
+
+class AdminScholarshipFacebookPostNowView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, opportunity_id):
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response(
+                {"ok": False, "status": "not_found", "error": "Scholarship not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        force = parse_bool(request.data.get("force")) if isinstance(request.data, dict) else False
+        result = post_plan_to_facebook_now(opportunity, force=bool(force))
+        response_status = status.HTTP_200_OK
+        if result.get("status") in {"not_published", "expired"}:
+            response_status = status.HTTP_400_BAD_REQUEST
+        elif result.get("status") == "failed":
+            response_status = status.HTTP_502_BAD_GATEWAY
+
+        return Response(result, status=response_status)
+
+
+class AdminScholarshipFacebookScheduleView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, opportunity_id):
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response(
+                {"ok": False, "status": "not_found", "error": "Scholarship not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        next_post_at_value = request.data.get("next_post_at") if isinstance(request.data, dict) else ""
+        next_post_at = parse_datetime(str(next_post_at_value or ""))
+        if not next_post_at:
+            return Response(
+                {"ok": False, "error": "next_post_at must be a valid ISO datetime."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if timezone.is_naive(next_post_at):
+            next_post_at = timezone.make_aware(next_post_at, timezone.get_current_timezone())
+
+        plan = schedule_facebook_plan(opportunity, next_post_at)
+        return Response(
+            {
+                "ok": True,
+                "status": plan.status,
+                "plan_id": plan.pk,
+                "opportunity_id": opportunity.pk,
+                "next_post_at": plan.next_post_at,
+                "message": plan.post_text,
+                "link_url": plan.link_url,
+            }
+        )
 
 
 class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):
