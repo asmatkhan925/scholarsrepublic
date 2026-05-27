@@ -130,24 +130,19 @@ class FakeImageResponse:
 
 
 class FakeWorkerResponse:
-    status = 200
-
-    def __init__(self, payload=None):
-        self.payload = payload or {
+    def __init__(self, payload=None, status_code=200, text=None):
+        self.payload = payload if payload is not None else {
             "ok": True,
             "status": "posted",
             "facebook_post_id": "123_456",
             "facebook_post_url": "https://www.facebook.com/123/posts/456",
         }
+        self.status_code = status_code
+        self.ok = 200 <= status_code < 300
+        self.text = text if text is not None else json.dumps(self.payload)
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-    def read(self):
-        return json.dumps(self.payload).encode("utf-8")
+    def json(self):
+        return self.payload
 
 
 class OpportunityAPITests(APITestCase):
@@ -1460,7 +1455,7 @@ class OpportunityAPITests(APITestCase):
         self.client.force_authenticate(self.admin)
 
         with patch(
-            "apps.opportunities.services.social_posting.urlopen",
+            "apps.opportunities.services.social_posting.requests.post",
             return_value=FakeWorkerResponse(),
         ):
             response = self.client.post(
@@ -1483,9 +1478,9 @@ class OpportunityAPITests(APITestCase):
         self.client.force_authenticate(self.admin)
 
         with patch(
-            "apps.opportunities.services.social_posting.urlopen",
+            "apps.opportunities.services.social_posting.requests.post",
             return_value=FakeWorkerResponse(),
-        ):
+        ) as post_mock:
             response = self.client.post(
                 f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
                 {},
@@ -1503,6 +1498,43 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(log.status, OpportunitySocialPostLog.Status.POSTED)
         self.assertEqual(log.facebook_post_id, "123_456")
         self.assertEqual(log.facebook_post_url, "https://www.facebook.com/123/posts/456")
+        _, kwargs = post_mock.call_args
+        self.assertEqual(kwargs["timeout"], 30)
+        self.assertEqual(kwargs["headers"]["Content-Type"], "application/json")
+        self.assertEqual(kwargs["headers"]["Accept"], "application/json")
+        self.assertEqual(kwargs["headers"]["User-Agent"], "ScholarsRepublicBackend/1.0")
+        self.assertEqual(kwargs["headers"]["X-Social-Worker-Token"], "worker-token")
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_preserves_worker_http_error_body(self):
+        opportunity = self.opportunity(slug="post-now-worker-1010")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Caption.",
+        )
+        self.client.force_authenticate(self.admin)
+
+        with patch(
+            "apps.opportunities.services.social_posting.requests.post",
+            return_value=FakeWorkerResponse(
+                payload={},
+                status_code=403,
+                text="error code: 1010",
+            ),
+        ):
+            response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                {},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertFalse(response.data["ok"])
+        self.assertEqual(response.data["error"], "Worker HTTP 403: error code: 1010")
+        log = OpportunitySocialPostLog.objects.get(plan=plan)
+        self.assertEqual(log.status, OpportunitySocialPostLog.Status.FAILED)
+        self.assertEqual(log.error_message, "Worker HTTP 403: error code: 1010")
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_admin_facebook_post_now_returns_json_if_log_save_fails(self):
@@ -1516,7 +1548,7 @@ class OpportunityAPITests(APITestCase):
 
         with (
             patch(
-                "apps.opportunities.services.social_posting.urlopen",
+                "apps.opportunities.services.social_posting.requests.post",
                 return_value=FakeWorkerResponse(),
             ),
             patch(
@@ -1555,7 +1587,7 @@ class OpportunityAPITests(APITestCase):
             self.client.force_authenticate(self.admin)
 
             with patch(
-                "apps.opportunities.services.social_posting.urlopen",
+                "apps.opportunities.services.social_posting.requests.post",
                 return_value=FakeWorkerResponse(),
             ):
                 response = self.client.post(
@@ -1574,7 +1606,7 @@ class OpportunityAPITests(APITestCase):
         self.client.force_authenticate(self.admin)
 
         with patch(
-            "apps.opportunities.services.social_posting.urlopen",
+            "apps.opportunities.services.social_posting.requests.post",
             return_value=FakeWorkerResponse(),
         ):
             response = self.client.post(
@@ -1642,7 +1674,7 @@ class OpportunityAPITests(APITestCase):
         self.client.force_authenticate(self.admin)
 
         with patch(
-            "apps.opportunities.services.social_posting.urlopen",
+            "apps.opportunities.services.social_posting.requests.post",
             return_value=FakeWorkerResponse(
                 {
                     "ok": True,
@@ -1720,7 +1752,7 @@ class OpportunityAPITests(APITestCase):
         self.client.force_authenticate(self.admin)
 
         with patch(
-            "apps.opportunities.services.social_posting.urlopen",
+            "apps.opportunities.services.social_posting.requests.post",
             return_value=FakeWorkerResponse(
                 {
                     "ok": True,

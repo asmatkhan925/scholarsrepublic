@@ -1,9 +1,7 @@
-import json
 import logging
 from datetime import date, datetime, time, timedelta
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
+import requests
 from django.conf import settings
 from django.db.models import F
 from django.utils import timezone
@@ -23,6 +21,7 @@ from apps.opportunities.services.social_image_uploads import (
 
 DEFAULT_PLATFORM = "facebook"
 FACEBOOK_WORKER_TIMEOUT_SECONDS = 30
+FACEBOOK_WORKER_USER_AGENT = "ScholarsRepublicBackend/1.0"
 logger = logging.getLogger(__name__)
 
 
@@ -380,7 +379,46 @@ def can_post_opportunity_today(opportunity, plan, force=False, today=None):
     return {"can_post": True, "status": "posted", "latest_log": None}
 
 
-def post_to_facebook_worker(item):
+def worker_post_headers(token):
+    return {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": FACEBOOK_WORKER_USER_AGENT,
+        "X-Social-Worker-Token": token,
+    }
+
+
+def parse_worker_response(response):
+    worker_status_code = response.status_code
+    worker_response_body = response.text or ""
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {}
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    payload["worker_status_code"] = worker_status_code
+    payload["worker_response_body"] = worker_response_body
+
+    if not response.ok:
+        error_text = worker_response_body.strip() or str(payload.get("error") or "").strip()
+        payload.update(
+            {
+                "ok": False,
+                "status": str(payload.get("status") or "failed"),
+                "error": f"Worker HTTP {worker_status_code}: {error_text}",
+            }
+        )
+    else:
+        payload.setdefault("ok", True)
+        payload.setdefault("status", "posted" if payload.get("ok") else "failed")
+
+    return payload
+
+
+def call_worker_post_one(payload):
     worker_url = getattr(settings, "FACEBOOK_POSTER_WORKER_URL", "").rstrip("/")
     token = getattr(settings, "SCHOLARS_SOCIAL_WORKER_TOKEN", "")
     if not worker_url or not token:
@@ -390,83 +428,36 @@ def post_to_facebook_worker(item):
             "error": "Facebook Worker posting is not configured.",
         }
 
-    request = Request(
-        f"{worker_url}/post-one",
-        data=json.dumps(item).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "X-Social-Worker-Token": token,
-        },
-        method="POST",
-    )
     try:
-        with urlopen(request, timeout=FACEBOOK_WORKER_TIMEOUT_SECONDS) as response:
-            worker_status_code = getattr(response, "status", None) or response.getcode()
-            worker_response_body = response.read().decode("utf-8") or "{}"
-            try:
-                payload = json.loads(worker_response_body)
-            except ValueError:
-                logger.warning(
-                    "Facebook post-now Worker returned non-JSON response: "
-                    "worker_status_code=%s worker_response_body=%s",
-                    worker_status_code,
-                    worker_response_body,
-                )
-                return {
-                    "ok": False,
-                    "status": "failed",
-                    "error": "Facebook Worker returned an invalid response.",
-                    "worker_status_code": worker_status_code,
-                    "worker_response_body": worker_response_body,
-                }
-
-            if not isinstance(payload, dict):
-                payload = {}
-
-            payload.setdefault("ok", 200 <= worker_status_code < 300)
-            payload.setdefault("status", "posted" if payload.get("ok") else "failed")
-            payload["worker_status_code"] = worker_status_code
-            payload["worker_response_body"] = worker_response_body
-            logger.info(
-                "Facebook post-now Worker response: worker_status_code=%s "
-                "worker_response_body=%s facebook_post_id=%s facebook_post_url=%s",
-                worker_status_code,
-                worker_response_body,
-                payload.get("facebook_post_id", ""),
-                payload.get("facebook_post_url", ""),
-            )
-            return payload
-    except HTTPError as exc:
-        worker_response_body = exc.read().decode("utf-8", errors="replace")
-        logger.warning(
-            "Facebook post-now Worker returned HTTP error: "
-            "worker_status_code=%s worker_response_body=%s",
-            exc.code,
-            worker_response_body,
+        response = requests.post(
+            f"{worker_url}/post-one",
+            json=payload,
+            headers=worker_post_headers(token),
+            timeout=FACEBOOK_WORKER_TIMEOUT_SECONDS,
         )
-        try:
-            payload = json.loads(worker_response_body or "{}")
-        except ValueError:
-            payload = {}
-        if not isinstance(payload, dict):
-            payload = {}
-        return {
-            "ok": False,
-            "status": str(payload.get("status") or "failed"),
-            "error": str(payload.get("error") or exc.reason or exc),
-            "worker_status_code": exc.code,
-            "worker_response_body": worker_response_body,
-        }
-    except URLError as exc:
+    except requests.RequestException as exc:
         logger.warning("Facebook post-now Worker request failed: %s", exc)
         return {
             "ok": False,
             "status": "failed",
             "error": str(getattr(exc, "reason", exc)),
         }
-    except (OSError, ValueError) as exc:
-        logger.warning("Facebook post-now Worker request failed: %s", exc)
-        return {"ok": False, "status": "failed", "error": str(exc)}
+
+    parsed = parse_worker_response(response)
+    log_method = logger.warning if not parsed.get("ok") else logger.info
+    log_method(
+        "Facebook post-now Worker response: worker_status_code=%s "
+        "worker_response_body=%s facebook_post_id=%s facebook_post_url=%s",
+        parsed.get("worker_status_code", ""),
+        parsed.get("worker_response_body", ""),
+        parsed.get("facebook_post_id", ""),
+        parsed.get("facebook_post_url", ""),
+    )
+    return parsed
+
+
+def post_to_facebook_worker(item):
+    return call_worker_post_one(item)
 
 
 def get_or_create_facebook_plan(opportunity):
