@@ -956,6 +956,115 @@ def _deadline_verification_status_to_legacy(status_value):
     return mapping.get(status_value, Opportunity.DeadlineCheckStatus.NEEDS_REVIEW)
 
 
+def _degree_label_for_queue(opportunity):
+    return ", ".join(opportunity.degree_levels or [])
+
+
+def _provider_for_queue(opportunity):
+    return (
+        opportunity.provider_name
+        or opportunity.university_name
+        or opportunity.company_name
+        or opportunity.source_name
+        or ""
+    )
+
+
+def _deadline_verification_priority(opportunity, now=None, days=30):
+    now = now or timezone.now()
+    today = timezone.localtime(now).date()
+    checked_at = opportunity.deadline_last_checked_at
+    days_left = opportunity.days_until_deadline
+    stale_24h = not checked_at or checked_at < now - timedelta(hours=24)
+    stale_7d = not checked_at or checked_at < now - timedelta(days=7)
+
+    if days_left is not None and 0 <= days_left <= 7:
+        return 0, "deadline_within_7_days"
+    if opportunity.deadline_check_status == Opportunity.DeadlineCheckStatus.UNCHECKED:
+        return 1, "unchecked"
+    if opportunity.deadline_check_status in {
+        Opportunity.DeadlineCheckStatus.UNCLEAR,
+        Opportunity.DeadlineCheckStatus.FAILED,
+        Opportunity.DeadlineCheckStatus.NEEDS_REVIEW,
+    }:
+        return 2, opportunity.deadline_check_status
+    if days_left is not None and 0 <= days_left <= 7 and stale_24h:
+        return 3, "near_deadline_check_older_than_24_hours"
+    if stale_7d:
+        return 4, "check_older_than_7_days"
+    if days_left is not None and 0 <= days_left <= days:
+        return 5, "deadline_within_requested_days"
+    return 6, "recently_checked"
+
+
+def _deadline_verification_queue_item(opportunity, priority_reason):
+    return {
+        "id": opportunity.pk,
+        "title": opportunity.title,
+        "provider": _provider_for_queue(opportunity),
+        "country": opportunity.country,
+        "degree_level": _degree_label_for_queue(opportunity),
+        "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
+        "days_left": opportunity.days_until_deadline,
+        "official_link": opportunity.official_link,
+        "source_url": opportunity.source_url,
+        "deadline_check_status": opportunity.deadline_check_status,
+        "deadline_check_confidence": opportunity.deadline_check_confidence,
+        "deadline_last_checked_at": opportunity.deadline_last_checked_at.isoformat()
+        if opportunity.deadline_last_checked_at
+        else None,
+        "priority_reason": priority_reason,
+    }
+
+
+def build_deadline_verification_queue(payload):
+    payload = payload if isinstance(payload, dict) else {}
+    limit = max(1, min(parse_positive_int(payload.get("limit")) or 10, 50))
+    days = max(1, min(parse_positive_int(payload.get("days")) or 30, 365))
+    only_near_deadline = bool(payload.get("only_near_deadline"))
+    include_expired = bool(payload.get("include_expired"))
+    requested_status = str(payload.get("status") or "all").strip()
+    allowed_statuses = {"unchecked", "unclear", "failed", "needs_review", "all"}
+    if requested_status not in allowed_statuses:
+        requested_status = "all"
+
+    today = timezone.localdate()
+    queryset = (
+        Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
+        .filter(Q(official_link__gt="") | Q(source_url__gt=""))
+        .select_related("country_ref")
+        .distinct()
+    )
+    if not include_expired:
+        queryset = queryset.filter(
+            Q(is_rolling_deadline=True) | Q(deadline__isnull=True) | Q(deadline__gte=today)
+        )
+    if only_near_deadline:
+        queryset = queryset.filter(
+            deadline__isnull=False,
+            deadline__gte=today,
+            deadline__lte=today + timedelta(days=days),
+        )
+    if requested_status != "all":
+        queryset = queryset.filter(deadline_check_status=requested_status)
+
+    now = timezone.now()
+    items = []
+    for opportunity in queryset:
+        priority, reason = _deadline_verification_priority(opportunity, now=now, days=days)
+        if priority == 6 and requested_status == "all":
+            continue
+        deadline_sort = opportunity.deadline or date.max
+        items.append((priority, deadline_sort, opportunity.pk, opportunity, reason))
+
+    items.sort(key=lambda item: (item[0], item[1], item[2]))
+    selected = [
+        _deadline_verification_queue_item(opportunity, reason)
+        for _, _, _, opportunity, reason in items[:limit]
+    ]
+    return {"ok": True, "count": len(selected), "items": selected}
+
+
 def _deadline_verification_response(opportunity, log=None):
     latest_log = log or opportunity.deadline_check_logs.order_by("-checked_at", "-created_at").first()
     return {
@@ -987,6 +1096,74 @@ class AgentScholarshipDeadlineVerificationPackageView(AgentScholarshipBaseView):
             return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(prepare_deadline_verification_package(opportunity))
+
+
+class AgentScholarshipDeadlineVerificationQueueView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(build_deadline_verification_queue(request.data))
+
+
+class AgentScholarshipDeadlineVerificationBatchPackageView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ids = request.data.get("ids") or []
+        if not isinstance(ids, list):
+            return Response({"detail": "ids must be a list."}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_excerpt_chars = max(500, min(parse_positive_int(request.data.get("max_excerpt_chars")) or 6000, 12000))
+        packages = []
+        for raw_id in ids[:25]:
+            try:
+                opportunity_id = int(raw_id)
+            except (TypeError, ValueError):
+                packages.append({"id": raw_id, "status": "failed", "error": "Invalid opportunity id."})
+                continue
+
+            opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+            if not opportunity:
+                packages.append({"id": opportunity_id, "status": "failed", "error": "Scholarship not found."})
+                continue
+
+            try:
+                package = prepare_deadline_verification_package(opportunity)
+                package["status"] = "ready"
+                package["page_text_excerpt"] = package["page_text_excerpt"][:max_excerpt_chars]
+                packages.append(package)
+            except Exception as exc:
+                logger.exception(
+                    "Deadline verification batch package failed: opportunity_id=%s",
+                    opportunity_id,
+                )
+                packages.append(
+                    {
+                        "id": opportunity_id,
+                        "opportunity_id": opportunity_id,
+                        "title": opportunity.title,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        return Response({"ok": True, "count": len(packages), "packages": packages})
 
 
 class AgentScholarshipDeadlineVerificationResultView(AgentScholarshipBaseView):
@@ -1096,6 +1273,18 @@ class AdminScholarshipDeadlineVerificationPackageView(APIView):
         if not opportunity:
             return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(prepare_deadline_verification_package(opportunity))
+
+
+class AdminScholarshipDeadlineVerificationQueueView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request):
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(build_deadline_verification_queue(request.data))
 
 
 class AdminScholarshipDeadlineApplyView(APIView):

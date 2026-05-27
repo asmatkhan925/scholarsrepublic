@@ -289,6 +289,62 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/agent/scholarships/deadline-verification-queue/:
+    post:
+      operationId: getDeadlineVerificationQueue
+      summary: Get batch deadline verification queue
+      description: Returns published scholarships that need deadline verification, prioritized for GPT review.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeadlineVerificationQueueRequest"
+      responses:
+        "200":
+          description: Deadline verification queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlineVerificationQueueResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarships/deadline-verification-batch-package/:
+    post:
+      operationId: getDeadlineVerificationBatchPackage
+      summary: Get deadline verification packages for multiple scholarships
+      description: Prepares page excerpts and candidate dates for multiple scholarship deadline checks. Failed items are returned individually.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeadlineVerificationBatchPackageRequest"
+      responses:
+        "200":
+          description: Deadline verification packages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlineVerificationBatchPackageResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/agent/scholarships/{id}/deadline-check-result/:
     post:
       operationId: submitDeadlineCheckResult
@@ -740,6 +796,119 @@ components:
             $ref: "#/components/schemas/DeadlineCheckQueueItem"
       required:
         - items
+
+    DeadlineVerificationQueueRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        limit:
+          type: integer
+          default: 10
+          maximum: 50
+        days:
+          type: integer
+          default: 30
+        only_near_deadline:
+          type: boolean
+          default: false
+        status:
+          type: string
+          enum:
+            - unchecked
+            - unclear
+            - failed
+            - needs_review
+            - all
+          default: all
+        include_expired:
+          type: boolean
+          default: false
+
+    DeadlineVerificationQueueResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+        count:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeadlineVerificationQueueItem"
+      required:
+        - ok
+        - count
+        - items
+
+    DeadlineVerificationQueueItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        provider:
+          type: string
+        country:
+          type: string
+        degree_level:
+          type: string
+        deadline:
+          type:
+            - string
+            - "null"
+        days_left:
+          type:
+            - integer
+            - "null"
+        official_link:
+          type: string
+        source_url:
+          type: string
+        deadline_check_status:
+          type: string
+        deadline_check_confidence:
+          type: string
+        deadline_last_checked_at:
+          type:
+            - string
+            - "null"
+        priority_reason:
+          type: string
+
+    DeadlineVerificationBatchPackageRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+        max_excerpt_chars:
+          type: integer
+          default: 6000
+      required:
+        - ids
+
+    DeadlineVerificationBatchPackageResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+        count:
+          type: integer
+        packages:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required:
+        - ok
+        - count
+        - packages
 
     DeadlineCheckQueueItem:
       type: object

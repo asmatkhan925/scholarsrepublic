@@ -486,6 +486,28 @@ export type DeadlineVerificationPackage = {
   instructions: string;
 };
 
+export type DeadlineVerificationQueueItem = {
+  id: number;
+  title: string;
+  provider: string;
+  country: string;
+  degree_level: string;
+  deadline: string | null;
+  days_left: number | null;
+  official_link: string;
+  source_url: string;
+  deadline_check_status: string;
+  deadline_check_confidence: string;
+  deadline_last_checked_at: string | null;
+  priority_reason: string;
+};
+
+export type DeadlineVerificationQueueResponse = {
+  ok: boolean;
+  count: number;
+  items: DeadlineVerificationQueueItem[];
+};
+
 export type DeadlineVerificationApplyResponse = {
   ok: boolean;
   log_id: number | null;

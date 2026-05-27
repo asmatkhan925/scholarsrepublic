@@ -23,6 +23,7 @@ from apps.opportunities.views import (
     AdminScholarshipFacebookScheduleView,
     AdminScholarshipDeadlineApplyView,
     AdminScholarshipDeadlineVerificationPackageView,
+    AdminScholarshipDeadlineVerificationQueueView,
     AdminScholarshipDraftSocialImageUploadView,
     AdminScholarshipDraftSocialPostReviewView,
     AdminScholarshipSocialImageUploadView,
@@ -34,6 +35,8 @@ from apps.opportunities.views import (
     AgentScholarshipDeadlineCheckQueueView,
     AgentScholarshipDeadlineCheckResultView,
     AgentScholarshipDeadlineVerificationPackageView,
+    AgentScholarshipDeadlineVerificationQueueView,
+    AgentScholarshipDeadlineVerificationBatchPackageView,
     AgentScholarshipDeadlineVerificationResultView,
     AgentScholarshipDraftSocialImageView,
     AgentScholarshipOpportunitySocialImageView,
@@ -169,6 +172,16 @@ urlpatterns = [
         name="agent-scholarship-deadline-verification-package",
     ),
     path(
+        "admin/agent/scholarships/deadline-verification-queue/",
+        AgentScholarshipDeadlineVerificationQueueView.as_view(),
+        name="agent-scholarship-deadline-verification-queue",
+    ),
+    path(
+        "admin/agent/scholarships/deadline-verification-batch-package/",
+        AgentScholarshipDeadlineVerificationBatchPackageView.as_view(),
+        name="agent-scholarship-deadline-verification-batch-package",
+    ),
+    path(
         "admin/agent/scholarships/<int:opportunity_id>/deadline-verification-result/",
         AgentScholarshipDeadlineVerificationResultView.as_view(),
         name="agent-scholarship-deadline-verification-result",
@@ -277,6 +290,11 @@ urlpatterns = [
         "admin/scholarships/<int:opportunity_id>/deadline-verification-package/",
         AdminScholarshipDeadlineVerificationPackageView.as_view(),
         name="admin-scholarship-deadline-verification-package",
+    ),
+    path(
+        "admin/scholarships/deadline-verification-queue/",
+        AdminScholarshipDeadlineVerificationQueueView.as_view(),
+        name="admin-scholarship-deadline-verification-queue",
     ),
     path(
         "admin/scholarships/<int:opportunity_id>/deadline-apply/",

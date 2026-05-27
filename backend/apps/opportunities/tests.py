@@ -2294,6 +2294,108 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("Verify if the deadline", response.data["instructions"])
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_queue_orders_by_priority(self):
+        near = self.opportunity(
+            slug="queue-near",
+            deadline=timezone.localdate() + timedelta(days=3),
+            official_link="https://example.edu/near",
+        )
+        unchecked = self.opportunity(
+            slug="queue-unchecked",
+            deadline=timezone.localdate() + timedelta(days=40),
+            official_link="https://example.edu/unchecked",
+        )
+        review = self.opportunity(
+            slug="queue-review",
+            deadline=timezone.localdate() + timedelta(days=20),
+            official_link="https://example.edu/review",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.NEEDS_REVIEW,
+        )
+        old = self.opportunity(
+            slug="queue-old-check",
+            deadline=timezone.localdate() + timedelta(days=50),
+            official_link="https://example.edu/old",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.CONFIRMED,
+            deadline_last_checked_at=timezone.now() - timedelta(days=8),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "all"},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data["items"]],
+            [near.pk, unchecked.pk, review.pk, old.pk],
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_queue_excludes_expired_by_default_and_can_include(self):
+        expired = self.opportunity(
+            slug="queue-expired",
+            deadline=timezone.localdate() - timedelta(days=1),
+            official_link="https://example.edu/expired",
+        )
+
+        default_response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "all"},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+        include_response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "all", "include_expired": True},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertNotIn(expired.pk, [item["id"] for item in default_response.data["items"]])
+        self.assertIn(expired.pk, [item["id"] for item in include_response.data["items"]])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_batch_package_returns_multiple_packages(self):
+        first = self.opportunity(slug="batch-first", official_link="https://example.edu/first")
+        second = self.opportunity(slug="batch-second", official_link="https://example.edu/second")
+        with patch(
+            "apps.opportunities.services.deadline_checker.fetch_page_text",
+            return_value="Deadline is July 15, 2026.",
+        ):
+            response = self.client.post(
+                "/api/admin/agent/scholarships/deadline-verification-batch-package/",
+                {"ids": [first.pk, second.pk], "max_excerpt_chars": 6000},
+                format="json",
+                HTTP_X_AGENT_TOKEN="test-token",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual([item["status"] for item in response.data["packages"]], ["ready", "ready"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_batch_package_handles_failed_item(self):
+        opportunity = self.opportunity(slug="batch-failure", official_link="https://example.edu/fail")
+
+        def fake_prepare(item):
+            raise RuntimeError("fetch failed")
+
+        with patch("apps.opportunities.views.prepare_deadline_verification_package", side_effect=fake_prepare):
+            response = self.client.post(
+                "/api/admin/agent/scholarships/deadline-verification-batch-package/",
+                {"ids": [opportunity.pk, 999999]},
+                format="json",
+                HTTP_X_AGENT_TOKEN="test-token",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(response.data["packages"][0]["status"], "failed")
+        self.assertEqual(response.data["packages"][1]["status"], "failed")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_deadline_verification_result_stores_log_and_updates_high_confidence_extension(self):
         opportunity = self.opportunity(
             slug="deadline-extension",

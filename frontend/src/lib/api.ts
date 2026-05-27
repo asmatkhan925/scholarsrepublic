@@ -38,6 +38,7 @@ import type {
   CreateScholarshipCommentPayload,
   DeadlineVerificationApplyResponse,
   DeadlineVerificationPackage,
+  DeadlineVerificationQueueResponse,
   OpportunityAdminPayload,
   OpportunityApplication,
   CreateOpportunityDraftPayload,
@@ -539,6 +540,20 @@ export async function prepareAdminDeadlineVerification(opportunityId: number) {
   const response = await api.post<DeadlineVerificationPackage>(
     `/admin/scholarships/${opportunityId}/deadline-verification-package/`,
     {},
+  );
+  return response.data;
+}
+
+export async function getAdminDeadlineVerificationQueue(payload?: {
+  limit?: number;
+  days?: number;
+  only_near_deadline?: boolean;
+  status?: "unchecked" | "unclear" | "failed" | "needs_review" | "all";
+  include_expired?: boolean;
+}) {
+  const response = await api.post<DeadlineVerificationQueueResponse>(
+    "/admin/scholarships/deadline-verification-queue/",
+    payload ?? {},
   );
   return response.data;
 }
