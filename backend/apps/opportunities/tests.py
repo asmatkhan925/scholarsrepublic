@@ -1495,12 +1495,48 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["ok"])
         self.assertEqual(response.data["facebook_post_url"], "https://www.facebook.com/123/posts/456")
+        self.assertEqual(response.data["message"], "Posted to Facebook successfully.")
         plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
         self.assertTrue(plan.post_text)
         self.assertIn("Key Details:", plan.post_text)
         log = OpportunitySocialPostLog.objects.get(plan=plan)
         self.assertEqual(log.status, OpportunitySocialPostLog.Status.POSTED)
+        self.assertEqual(log.facebook_post_id, "123_456")
         self.assertEqual(log.facebook_post_url, "https://www.facebook.com/123/posts/456")
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_admin_facebook_post_now_returns_json_if_log_save_fails(self):
+        opportunity = self.opportunity(slug="post-now-log-save-failure")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Caption.",
+        )
+        self.client.force_authenticate(self.admin)
+
+        with (
+            patch(
+                "apps.opportunities.services.social_posting.urlopen",
+                return_value=FakeWorkerResponse(),
+            ),
+            patch(
+                "apps.opportunities.services.social_posting.record_facebook_post_result",
+                side_effect=RuntimeError("database write failed"),
+            ),
+        ):
+            response = self.client.post(
+                f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+                {},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertEqual(response["content-type"], "application/json")
+        self.assertFalse(response.data["ok"])
+        self.assertEqual(response.data["status"], "failed")
+        self.assertEqual(response.data["facebook_post_id"], "123_456")
+        self.assertEqual(response.data["facebook_post_url"], "https://www.facebook.com/123/posts/456")
+        self.assertIn("backend could not save", response.data["error"])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_admin_facebook_post_now_uses_gpt_uploaded_image(self):
@@ -1625,7 +1661,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["ok"])
         self.assertEqual(response.data["status"], "posted")
-        self.assertIn("Reminder: deadline is in 3 days.", response.data["message"])
+        self.assertIn("Reminder: deadline is in 3 days.", response.data["caption"])
         self.assertEqual(OpportunitySocialPostLog.objects.filter(plan=plan).count(), 2)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")

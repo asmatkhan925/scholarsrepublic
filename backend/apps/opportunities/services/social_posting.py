@@ -1,6 +1,7 @@
 import json
+import logging
 from datetime import date, datetime, time, timedelta
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
@@ -22,6 +23,7 @@ from apps.opportunities.services.social_image_uploads import (
 
 DEFAULT_PLATFORM = "facebook"
 FACEBOOK_WORKER_TIMEOUT_SECONDS = 30
+logger = logging.getLogger(__name__)
 
 
 def site_url():
@@ -399,16 +401,71 @@ def post_to_facebook_worker(item):
     )
     try:
         with urlopen(request, timeout=FACEBOOK_WORKER_TIMEOUT_SECONDS) as response:
-            payload = json.loads(response.read().decode("utf-8") or "{}")
-            payload.setdefault("ok", 200 <= response.status < 300)
+            worker_status_code = getattr(response, "status", None) or response.getcode()
+            worker_response_body = response.read().decode("utf-8") or "{}"
+            try:
+                payload = json.loads(worker_response_body)
+            except ValueError:
+                logger.warning(
+                    "Facebook post-now Worker returned non-JSON response: "
+                    "worker_status_code=%s worker_response_body=%s",
+                    worker_status_code,
+                    worker_response_body,
+                )
+                return {
+                    "ok": False,
+                    "status": "failed",
+                    "error": "Facebook Worker returned an invalid response.",
+                    "worker_status_code": worker_status_code,
+                    "worker_response_body": worker_response_body,
+                }
+
+            if not isinstance(payload, dict):
+                payload = {}
+
+            payload.setdefault("ok", 200 <= worker_status_code < 300)
+            payload.setdefault("status", "posted" if payload.get("ok") else "failed")
+            payload["worker_status_code"] = worker_status_code
+            payload["worker_response_body"] = worker_response_body
+            logger.info(
+                "Facebook post-now Worker response: worker_status_code=%s "
+                "worker_response_body=%s facebook_post_id=%s facebook_post_url=%s",
+                worker_status_code,
+                worker_response_body,
+                payload.get("facebook_post_id", ""),
+                payload.get("facebook_post_url", ""),
+            )
             return payload
+    except HTTPError as exc:
+        worker_response_body = exc.read().decode("utf-8", errors="replace")
+        logger.warning(
+            "Facebook post-now Worker returned HTTP error: "
+            "worker_status_code=%s worker_response_body=%s",
+            exc.code,
+            worker_response_body,
+        )
+        try:
+            payload = json.loads(worker_response_body or "{}")
+        except ValueError:
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        return {
+            "ok": False,
+            "status": str(payload.get("status") or "failed"),
+            "error": str(payload.get("error") or exc.reason or exc),
+            "worker_status_code": exc.code,
+            "worker_response_body": worker_response_body,
+        }
     except URLError as exc:
+        logger.warning("Facebook post-now Worker request failed: %s", exc)
         return {
             "ok": False,
             "status": "failed",
             "error": str(getattr(exc, "reason", exc)),
         }
     except (OSError, ValueError) as exc:
+        logger.warning("Facebook post-now Worker request failed: %s", exc)
         return {"ok": False, "status": "failed", "error": str(exc)}
 
 
@@ -481,23 +538,98 @@ def post_plan_to_facebook_now(opportunity, force=False):
         }
 
     item = serialize_due_plan(plan)
-    facebook_result = post_to_facebook_worker(item)
+    facebook_result = post_to_facebook_worker(item) or {}
+    if not isinstance(facebook_result, dict):
+        facebook_result = {}
     posted = bool(facebook_result.get("ok"))
-    log, _ = record_facebook_post_result(
-        {
+    facebook_post_id = str(facebook_result.get("facebook_post_id") or "")
+    facebook_post_url = str(facebook_result.get("facebook_post_url") or "")
+    error_message = "" if posted else str(facebook_result.get("error") or "Facebook post failed.")
+
+    try:
+        log, log_error = record_facebook_post_result(
+            {
+                "plan_id": plan.pk,
+                "opportunity_id": opportunity.pk,
+                "status": OpportunitySocialPostLog.Status.POSTED
+                if posted
+                else OpportunitySocialPostLog.Status.FAILED,
+                "facebook_post_id": facebook_post_id,
+                "facebook_post_url": facebook_post_url,
+                "message": item.get("message", ""),
+                "image_url": item.get("image_url", ""),
+                "image_source": item.get("image_source", ""),
+                "link_url": item.get("link_url", ""),
+                "error_message": error_message,
+            }
+        )
+    except Exception:
+        logger.exception(
+            "Facebook post-now failed while saving post log: "
+            "opportunity_id=%s plan_id=%s worker_status_code=%s "
+            "worker_response_body=%s facebook_post_id=%s facebook_post_url=%s",
+            opportunity.pk,
+            plan.pk,
+            facebook_result.get("worker_status_code", ""),
+            facebook_result.get("worker_response_body", ""),
+            facebook_post_id,
+            facebook_post_url,
+        )
+        return {
+            "ok": False,
+            "status": "failed",
             "plan_id": plan.pk,
             "opportunity_id": opportunity.pk,
-            "status": OpportunitySocialPostLog.Status.POSTED
+            "facebook_post_id": facebook_post_id,
+            "facebook_post_url": facebook_post_url,
+            "image_source": item.get("image_source", ""),
+            "image_url": item.get("image_url", ""),
+            "message": "",
+            "caption": item.get("message", ""),
+            "error": "Facebook post succeeded, but backend could not save the result."
             if posted
-            else OpportunitySocialPostLog.Status.FAILED,
-            "facebook_post_id": facebook_result.get("facebook_post_id", ""),
-            "facebook_post_url": facebook_result.get("facebook_post_url", ""),
-            "message": item["message"],
-            "image_url": item["image_url"],
-            "image_source": item["image_source"],
-            "link_url": item["link_url"],
-            "error_message": facebook_result.get("error", ""),
+            else error_message,
+            "log_id": None,
         }
+
+    if log_error:
+        logger.error(
+            "Facebook post-now post-result rejected: opportunity_id=%s plan_id=%s "
+            "worker_status_code=%s worker_response_body=%s facebook_post_id=%s "
+            "facebook_post_url=%s log_error=%s",
+            opportunity.pk,
+            plan.pk,
+            facebook_result.get("worker_status_code", ""),
+            facebook_result.get("worker_response_body", ""),
+            facebook_post_id,
+            facebook_post_url,
+            log_error,
+        )
+        return {
+            "ok": False,
+            "status": "failed",
+            "plan_id": plan.pk,
+            "opportunity_id": opportunity.pk,
+            "facebook_post_id": facebook_post_id,
+            "facebook_post_url": facebook_post_url,
+            "image_source": item.get("image_source", ""),
+            "image_url": item.get("image_url", ""),
+            "message": "",
+            "caption": item.get("message", ""),
+            "error": "Facebook post succeeded, but backend could not save the result."
+            if posted
+            else error_message,
+            "log_id": None,
+        }
+
+    logger.info(
+        "Facebook post-now result saved: worker_status_code=%s worker_response_body=%s "
+        "facebook_post_id=%s facebook_post_url=%s log_id=%s",
+        facebook_result.get("worker_status_code", ""),
+        facebook_result.get("worker_response_body", ""),
+        facebook_post_id,
+        facebook_post_url,
+        log.pk if log else "",
     )
 
     return {
@@ -505,12 +637,13 @@ def post_plan_to_facebook_now(opportunity, force=False):
         "status": "posted" if posted else "failed",
         "plan_id": plan.pk,
         "opportunity_id": opportunity.pk,
-        "facebook_post_id": facebook_result.get("facebook_post_id", ""),
-        "facebook_post_url": facebook_result.get("facebook_post_url", ""),
-        "image_source": item["image_source"],
-        "image_url": item["image_url"],
-        "message": item["message"],
-        "error": "" if posted else facebook_result.get("error", "Facebook post failed."),
+        "facebook_post_id": facebook_post_id,
+        "facebook_post_url": facebook_post_url,
+        "image_source": item.get("image_source", ""),
+        "image_url": item.get("image_url", ""),
+        "message": "Posted to Facebook successfully." if posted else "",
+        "caption": item.get("message", ""),
+        "error": "" if posted else error_message,
         "log_id": log.pk if log else None,
     }
 

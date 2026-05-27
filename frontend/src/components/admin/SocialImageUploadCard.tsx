@@ -96,7 +96,7 @@ export function SocialImageUploadCard({
       const result = await onPostNow(force);
       setPostNowResult(result);
       if (result.ok) {
-        setMessage("Posted to Facebook.");
+        setMessage(result.message || "Posted to Facebook successfully.");
       } else if (result.status === "already_posted_today") {
         setMessage(result.message || "This scholarship has already been posted today.");
       } else if (result.status === "already_posted") {

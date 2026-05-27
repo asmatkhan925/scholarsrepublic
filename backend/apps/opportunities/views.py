@@ -866,7 +866,36 @@ class AdminScholarshipFacebookPostNowView(APIView):
             )
 
         force = parse_bool(request.data.get("force")) if isinstance(request.data, dict) else False
-        result = post_plan_to_facebook_now(opportunity, force=bool(force))
+        try:
+            result = post_plan_to_facebook_now(opportunity, force=bool(force))
+        except Exception:
+            logger.exception(
+                "Admin Facebook post-now request failed: opportunity_id=%s",
+                opportunity_id,
+            )
+            return Response(
+                {
+                    "ok": False,
+                    "status": "failed",
+                    "opportunity_id": opportunity.pk,
+                    "error": "Facebook post request failed. Check server logs.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        if not isinstance(result, dict):
+            logger.error(
+                "Admin Facebook post-now returned invalid result: opportunity_id=%s result=%r",
+                opportunity_id,
+                result,
+            )
+            result = {
+                "ok": False,
+                "status": "failed",
+                "opportunity_id": opportunity.pk,
+                "error": "Facebook post request failed. Check server logs.",
+            }
+
         response_status = status.HTTP_200_OK
         if result.get("status") in {"not_published", "expired"}:
             response_status = status.HTTP_400_BAD_REQUEST

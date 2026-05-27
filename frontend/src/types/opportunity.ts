@@ -450,6 +450,7 @@ export type FacebookPostNowResponse = {
   image_source?: string;
   image_url?: string;
   message?: string;
+  caption?: string;
   error?: string;
 };
 

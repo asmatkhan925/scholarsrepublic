@@ -1,8 +1,6 @@
 import axios from "axios";
 
-type ErrorDetail = string | string[] | Record<string, string | string[]> | undefined;
-
-function flattenErrorDetail(detail: ErrorDetail): string | null {
+function flattenErrorDetail(detail: unknown): string | null {
   if (!detail) {
     return null;
   }
@@ -11,30 +9,47 @@ function flattenErrorDetail(detail: ErrorDetail): string | null {
     return detail;
   }
 
+  if (typeof detail === "number" || typeof detail === "boolean") {
+    return null;
+  }
+
   if (Array.isArray(detail)) {
     return detail.join(" ");
   }
 
-  const firstValue = Object.values(detail)[0];
+  if (typeof detail !== "object") {
+    return null;
+  }
+
+  const firstValue = Object.values(detail).find(
+    (value) => typeof value === "string" || Array.isArray(value),
+  );
   if (Array.isArray(firstValue)) {
     return firstValue.join(" ");
   }
 
-  return firstValue ?? null;
+  return firstValue || null;
 }
 
 export function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as
-      | { detail?: ErrorDetail; non_field_errors?: ErrorDetail }
-      | Record<string, ErrorDetail>
+      | {
+          detail?: unknown;
+          error?: unknown;
+          message?: unknown;
+          non_field_errors?: unknown;
+        }
+      | Record<string, unknown>
       | undefined;
 
     if (data) {
       return (
         flattenErrorDetail(data.detail) ??
+        flattenErrorDetail(data.error) ??
+        flattenErrorDetail(data.message) ??
         flattenErrorDetail(data.non_field_errors) ??
-        flattenErrorDetail(data as Record<string, string | string[]>)
+        flattenErrorDetail(data)
       );
     }
   }
