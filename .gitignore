@@ -47,3 +47,6 @@ backend/venv/
 venv/
 workers/facebook-poster/node_modules/
 workers/facebook-poster/test-run-due-posts.json
+
+backend/.env.backup.*
+backend/.env
