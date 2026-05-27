@@ -112,6 +112,14 @@ export type OpportunityDetail = OpportunityListItem & {
   is_tracking: boolean;
   application_id: number | null;
   social_image: SocialImageState | null;
+  deadline_last_checked_at: string | null;
+  deadline_check_status: string;
+  deadline_check_confidence: string;
+  deadline_check_note: string;
+  deadline_check_source_url: string;
+  deadline_check_evidence: string;
+  deadline_previous_value: string | null;
+  deadline_updated_from_source_at: string | null;
   created_at: string;
 };
 
@@ -431,6 +439,7 @@ export type SocialImageState = {
   image_source: string;
   image_status: string;
   image_error: string;
+  image_is_stale?: boolean;
   image_prompt: string;
   post_text: string;
   link_url: string;
@@ -462,6 +471,31 @@ export type FacebookScheduleResponse = {
   next_post_at: string;
   message: string;
   link_url: string;
+};
+
+export type DeadlineVerificationPackage = {
+  opportunity_id: number;
+  title: string;
+  provider: string;
+  current_deadline: string | null;
+  official_link: string;
+  source_url: string;
+  page_text_excerpt: string;
+  candidate_dates: { date: string; evidence: string }[];
+  fetch_error?: string;
+  instructions: string;
+};
+
+export type DeadlineVerificationApplyResponse = {
+  ok: boolean;
+  log_id: number | null;
+  status: string;
+  confidence: string;
+  detected_deadline: string | null;
+  evidence_text: string;
+  source_url: string;
+  deadline_previous_value: string | null;
+  deadline_updated_from_source_at: string | null;
 };
 
 export type OpportunityDraftStatus = "new" | "validated" | "imported" | "error";

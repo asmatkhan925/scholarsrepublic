@@ -21,6 +21,8 @@ from apps.opportunities.views import (
     AdminOpportunityPathwayListCreateView,
     AdminScholarshipFacebookPostNowView,
     AdminScholarshipFacebookScheduleView,
+    AdminScholarshipDeadlineApplyView,
+    AdminScholarshipDeadlineVerificationPackageView,
     AdminScholarshipDraftSocialImageUploadView,
     AdminScholarshipDraftSocialPostReviewView,
     AdminScholarshipSocialImageUploadView,
@@ -31,6 +33,8 @@ from apps.opportunities.views import (
     AgentScholarshipCreateDraftView,
     AgentScholarshipDeadlineCheckQueueView,
     AgentScholarshipDeadlineCheckResultView,
+    AgentScholarshipDeadlineVerificationPackageView,
+    AgentScholarshipDeadlineVerificationResultView,
     AgentScholarshipDraftSocialImageView,
     AgentScholarshipOpportunitySocialImageView,
     AgentScholarshipSocialDraftView,
@@ -160,6 +164,16 @@ urlpatterns = [
         name="agent-scholarship-social-draft",
     ),
     path(
+        "admin/agent/scholarships/<int:opportunity_id>/deadline-verification-package/",
+        AgentScholarshipDeadlineVerificationPackageView.as_view(),
+        name="agent-scholarship-deadline-verification-package",
+    ),
+    path(
+        "admin/agent/scholarships/<int:opportunity_id>/deadline-verification-result/",
+        AgentScholarshipDeadlineVerificationResultView.as_view(),
+        name="agent-scholarship-deadline-verification-result",
+    ),
+    path(
         "admin/agent/scholarships/drafts/<int:draft_id>/social-image/",
         AgentScholarshipDraftSocialImageView.as_view(),
         name="agent-scholarship-draft-social-image",
@@ -258,6 +272,16 @@ urlpatterns = [
         "admin/scholarships/<int:opportunity_id>/facebook/schedule/",
         AdminScholarshipFacebookScheduleView.as_view(),
         name="admin-scholarship-facebook-schedule",
+    ),
+    path(
+        "admin/scholarships/<int:opportunity_id>/deadline-verification-package/",
+        AdminScholarshipDeadlineVerificationPackageView.as_view(),
+        name="admin-scholarship-deadline-verification-package",
+    ),
+    path(
+        "admin/scholarships/<int:opportunity_id>/deadline-apply/",
+        AdminScholarshipDeadlineApplyView.as_view(),
+        name="admin-scholarship-deadline-apply",
     ),
     path(
         "admin/opportunities/",

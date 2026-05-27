@@ -115,6 +115,16 @@ class Opportunity(models.Model):
         DEADLINE_CHANGED = "deadline_changed", "Deadline changed"
         UNCLEAR = "unclear", "Unclear"
         SOURCE_UNREACHABLE = "source_unreachable", "Source unreachable"
+        CONFIRMED = "confirmed", "Confirmed"
+        EXTENDED = "extended", "Extended"
+        EXPIRED = "expired", "Expired"
+        FAILED = "failed", "Failed"
+        NEEDS_REVIEW = "needs_review", "Needs review"
+
+    class DeadlineCheckConfidence(models.TextChoices):
+        HIGH = "high", "High"
+        MEDIUM = "medium", "Medium"
+        LOW = "low", "Low"
 
     class OrganizationType(models.TextChoices):
         UNIVERSITY = "university", "University"
@@ -313,6 +323,14 @@ class Opportunity(models.Model):
     deadline_check_note = models.TextField(blank=True)
     deadline_check_source_url = models.URLField(blank=True)
     deadline_check_evidence = models.TextField(blank=True)
+    deadline_check_confidence = models.CharField(
+        max_length=20,
+        choices=DeadlineCheckConfidence.choices,
+        blank=True,
+        db_index=True,
+    )
+    deadline_previous_value = models.DateField(null=True, blank=True)
+    deadline_updated_from_source_at = models.DateTimeField(null=True, blank=True)
     application_open_date = models.DateField(null=True, blank=True)
     application_method = models.CharField(
         max_length=80, choices=ApplicationMethod.choices, blank=True
@@ -661,6 +679,7 @@ class OpportunitySocialDraft(models.Model):
     )
     social_image_error = models.TextField(blank=True)
     social_image_saved_at = models.DateTimeField(null=True, blank=True)
+    social_image_is_stale = models.BooleanField(default=False, db_index=True)
     status = models.CharField(
         max_length=30,
         choices=Status.choices,
@@ -742,6 +761,7 @@ class OpportunitySocialPostPlan(models.Model):
     )
     social_image_error = models.TextField(blank=True)
     social_image_saved_at = models.DateTimeField(null=True, blank=True)
+    social_image_is_stale = models.BooleanField(default=False, db_index=True)
     link_url = models.TextField(blank=True)
     last_posted_at = models.DateTimeField(null=True, blank=True)
     next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -818,6 +838,14 @@ class OpportunitySocialPostLog(models.Model):
 
 
 class OpportunityDeadlineCheckLog(models.Model):
+    class Status(models.TextChoices):
+        CONFIRMED = "confirmed", "Confirmed"
+        EXTENDED = "extended", "Extended"
+        EXPIRED = "expired", "Expired"
+        UNCLEAR = "unclear", "Unclear"
+        FAILED = "failed", "Failed"
+        NEEDS_REVIEW = "needs_review", "Needs review"
+
     opportunity = models.ForeignKey(
         "opportunities.Opportunity",
         on_delete=models.CASCADE,
@@ -825,8 +853,21 @@ class OpportunityDeadlineCheckLog(models.Model):
     )
     old_deadline = models.DateField(null=True, blank=True)
     new_deadline = models.DateField(null=True, blank=True)
+    detected_deadline = models.DateField(null=True, blank=True)
     old_status = models.CharField(max_length=30, blank=True)
     new_status = models.CharField(max_length=30, blank=True)
+    status = models.CharField(
+        max_length=40,
+        choices=Status.choices,
+        blank=True,
+        db_index=True,
+    )
+    confidence = models.CharField(
+        max_length=20,
+        choices=Opportunity.DeadlineCheckConfidence.choices,
+        blank=True,
+        db_index=True,
+    )
     check_status = models.CharField(
         max_length=40,
         choices=Opportunity.DeadlineCheckStatus.choices,
@@ -834,8 +875,13 @@ class OpportunityDeadlineCheckLog(models.Model):
     )
     source_url = models.URLField(blank=True)
     evidence = models.TextField(blank=True)
+    evidence_text = models.TextField(blank=True)
     note = models.TextField(blank=True)
+    verifier = models.CharField(max_length=40, default="agent", db_index=True)
     checked_by = models.CharField(max_length=120, default="agent")
+    raw_response_excerpt = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

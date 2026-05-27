@@ -40,12 +40,15 @@ from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
 )
+from apps.opportunities.services.deadline_checker import prepare_deadline_verification_package
 from apps.opportunities.services.social_posting import (
     DEFAULT_PLATFORM,
     generate_facebook_post_text,
     get_due_facebook_post_plans,
+    mark_social_image_stale_for_deadline_change,
     post_plan_to_facebook_now,
     record_facebook_post_result,
+    regenerate_facebook_caption_for_opportunity,
     schedule_facebook_plan,
     scholarship_detail_url,
 )
@@ -268,6 +271,7 @@ def _social_image_response(obj, draft_id=None):
         "image_source": get_preferred_social_image_source(obj),
         "image_status": obj.social_image_status,
         "image_error": obj.social_image_error,
+        "image_is_stale": bool(getattr(obj, "social_image_is_stale", False)),
         "image_prompt": getattr(obj, "facebook_image_prompt", None)
         if hasattr(obj, "facebook_image_prompt")
         else getattr(obj, "image_prompt", ""),
@@ -938,6 +942,214 @@ class AdminScholarshipFacebookScheduleView(APIView):
                 "link_url": plan.link_url,
             }
         )
+
+
+def _deadline_verification_status_to_legacy(status_value):
+    mapping = {
+        "confirmed": Opportunity.DeadlineCheckStatus.CONFIRMED,
+        "extended": Opportunity.DeadlineCheckStatus.EXTENDED,
+        "expired": Opportunity.DeadlineCheckStatus.EXPIRED,
+        "unclear": Opportunity.DeadlineCheckStatus.UNCLEAR,
+        "failed": Opportunity.DeadlineCheckStatus.FAILED,
+        "needs_review": Opportunity.DeadlineCheckStatus.NEEDS_REVIEW,
+    }
+    return mapping.get(status_value, Opportunity.DeadlineCheckStatus.NEEDS_REVIEW)
+
+
+def _deadline_verification_response(opportunity, log=None):
+    latest_log = log or opportunity.deadline_check_logs.order_by("-checked_at", "-created_at").first()
+    return {
+        "ok": True,
+        "opportunity": _deadline_check_summary(opportunity),
+        "log_id": latest_log.pk if latest_log else None,
+        "status": latest_log.status if latest_log else opportunity.deadline_check_status,
+        "confidence": opportunity.deadline_check_confidence,
+        "detected_deadline": latest_log.detected_deadline.isoformat()
+        if latest_log and latest_log.detected_deadline
+        else None,
+        "evidence_text": opportunity.deadline_check_evidence,
+        "source_url": opportunity.deadline_check_source_url,
+        "deadline_previous_value": opportunity.deadline_previous_value.isoformat()
+        if opportunity.deadline_previous_value
+        else None,
+        "deadline_updated_from_source_at": opportunity.deadline_updated_from_source_at,
+    }
+
+
+class AgentScholarshipDeadlineVerificationPackageView(AgentScholarshipBaseView):
+    def post(self, request, opportunity_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(prepare_deadline_verification_package(opportunity))
+
+
+class AgentScholarshipDeadlineVerificationResultView(AgentScholarshipBaseView):
+    def post(self, request, opportunity_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        allowed_statuses = {"confirmed", "extended", "expired", "unclear", "needs_review", "failed"}
+        status_value = str(request.data.get("status") or "").strip()
+        if status_value not in allowed_statuses:
+            return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+
+        confidence = str(request.data.get("confidence") or "").strip()
+        if confidence not in {choice[0] for choice in Opportunity.DeadlineCheckConfidence.choices}:
+            return Response({"detail": "Invalid confidence."}, status=status.HTTP_400_BAD_REQUEST)
+
+        detected_deadline, date_error = _parse_iso_date_or_none(request.data.get("detected_deadline"))
+        if date_error:
+            return Response({"detail": date_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_deadline = opportunity.deadline
+        old_status = opportunity.status
+        source_url = str(request.data.get("source_url") or "").strip()
+        evidence_text = str(request.data.get("evidence_text") or "").strip()
+        notes = str(request.data.get("notes") or "").strip()
+        raw_response_excerpt = str(request.data.get("raw_response_excerpt") or "")[:4000]
+        apply_update = bool(request.data.get("apply_update"))
+        now = timezone.now()
+        should_update_deadline = (
+            status_value == "extended"
+            and confidence == Opportunity.DeadlineCheckConfidence.HIGH
+            and apply_update
+            and detected_deadline is not None
+            and detected_deadline != old_deadline
+        )
+
+        if should_update_deadline:
+            opportunity.deadline_previous_value = old_deadline
+            opportunity.deadline = detected_deadline
+            opportunity.deadline_updated_from_source_at = now
+            regenerate_facebook_caption_for_opportunity(opportunity)
+            mark_social_image_stale_for_deadline_change(opportunity)
+        elif status_value == "extended" and confidence != Opportunity.DeadlineCheckConfidence.HIGH:
+            status_value = "needs_review"
+
+        opportunity.deadline_last_checked_at = now
+        opportunity.deadline_check_status = _deadline_verification_status_to_legacy(status_value)
+        opportunity.deadline_check_confidence = confidence
+        opportunity.deadline_check_source_url = source_url
+        opportunity.deadline_check_evidence = evidence_text
+        opportunity.deadline_check_note = notes
+        opportunity.save(
+            update_fields=[
+                "deadline",
+                "deadline_last_checked_at",
+                "deadline_check_status",
+                "deadline_check_confidence",
+                "deadline_check_source_url",
+                "deadline_check_evidence",
+                "deadline_check_note",
+                "deadline_previous_value",
+                "deadline_updated_from_source_at",
+                "updated_at",
+            ]
+        )
+
+        log = OpportunityDeadlineCheckLog.objects.create(
+            opportunity=opportunity,
+            old_deadline=old_deadline,
+            new_deadline=opportunity.deadline,
+            detected_deadline=detected_deadline,
+            old_status=old_status,
+            new_status=opportunity.status,
+            status=status_value,
+            confidence=confidence,
+            check_status=opportunity.deadline_check_status,
+            source_url=source_url,
+            evidence=evidence_text,
+            evidence_text=evidence_text,
+            note=notes,
+            verifier="gpt_action",
+            checked_by="gpt_action",
+            raw_response_excerpt=raw_response_excerpt,
+            error_message=str(request.data.get("error_message") or ""),
+            checked_at=now,
+        )
+
+        return Response(_deadline_verification_response(opportunity, log))
+
+
+class AdminScholarshipDeadlineVerificationPackageView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, opportunity_id):
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(prepare_deadline_verification_package(opportunity))
+
+
+class AdminScholarshipDeadlineApplyView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, opportunity_id):
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+        detected_deadline, date_error = _parse_iso_date_or_none(request.data.get("detected_deadline"))
+        if date_error or not detected_deadline:
+            return Response({"detail": date_error or "detected_deadline is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_deadline = opportunity.deadline
+        now = timezone.now()
+        opportunity.deadline_previous_value = old_deadline
+        opportunity.deadline = detected_deadline
+        opportunity.deadline_last_checked_at = now
+        opportunity.deadline_check_status = Opportunity.DeadlineCheckStatus.EXTENDED
+        opportunity.deadline_check_confidence = Opportunity.DeadlineCheckConfidence.HIGH
+        opportunity.deadline_updated_from_source_at = now
+        opportunity.deadline_check_evidence = str(request.data.get("evidence_text") or "")
+        opportunity.deadline_check_source_url = str(request.data.get("source_url") or "")
+        opportunity.save(
+            update_fields=[
+                "deadline",
+                "deadline_previous_value",
+                "deadline_last_checked_at",
+                "deadline_check_status",
+                "deadline_check_confidence",
+                "deadline_updated_from_source_at",
+                "deadline_check_evidence",
+                "deadline_check_source_url",
+                "updated_at",
+            ]
+        )
+        regenerate_facebook_caption_for_opportunity(opportunity)
+        mark_social_image_stale_for_deadline_change(opportunity)
+        log = OpportunityDeadlineCheckLog.objects.create(
+            opportunity=opportunity,
+            old_deadline=old_deadline,
+            new_deadline=opportunity.deadline,
+            detected_deadline=detected_deadline,
+            status="extended",
+            confidence=Opportunity.DeadlineCheckConfidence.HIGH,
+            check_status=opportunity.deadline_check_status,
+            source_url=opportunity.deadline_check_source_url,
+            evidence=opportunity.deadline_check_evidence,
+            evidence_text=opportunity.deadline_check_evidence,
+            verifier="admin",
+            checked_by="admin",
+            checked_at=now,
+        )
+        return Response(_deadline_verification_response(opportunity, log))
 
 
 class AgentScholarshipDeadlineCheckQueueView(AgentScholarshipBaseView):

@@ -184,8 +184,7 @@ def _save_image_bytes(obj, image_bytes, filename=None, source="gpt_base64"):
         obj.social_image_status = _status_choices(obj).SAVED
         obj.social_image_error = ""
         obj.social_image_saved_at = timezone.now()
-        obj.save(
-            update_fields=[
+        update_fields = [
                 image_field_name,
                 url_field_name,
                 "social_image_source",
@@ -194,7 +193,10 @@ def _save_image_bytes(obj, image_bytes, filename=None, source="gpt_base64"):
                 "social_image_saved_at",
                 "updated_at",
             ]
-        )
+        if hasattr(obj, "social_image_is_stale"):
+            obj.social_image_is_stale = False
+            update_fields.append("social_image_is_stale")
+        obj.save(update_fields=update_fields)
     except SocialImageError as exc:
         _mark_failed(obj, exc)
         raise
@@ -234,6 +236,12 @@ def get_preferred_social_image_url(obj_or_plan, request=None):
     image_field_name = _image_field_name(obj_or_plan)
     url_field_name = _url_field_name(obj_or_plan)
     image_field = getattr(obj_or_plan, image_field_name)
+    if (
+        isinstance(obj_or_plan, OpportunitySocialPostPlan)
+        and obj_or_plan.social_image_is_stale
+    ):
+        return og_image_url_for_opportunity(obj_or_plan.opportunity, request=request)
+
     if image_field:
         return absolute_url(image_field.url, request=request)
 
@@ -249,6 +257,11 @@ def get_preferred_social_image_url(obj_or_plan, request=None):
 
 def get_preferred_social_image_source(obj_or_plan):
     if getattr(obj_or_plan, _image_field_name(obj_or_plan)):
+        if (
+            isinstance(obj_or_plan, OpportunitySocialPostPlan)
+            and obj_or_plan.social_image_is_stale
+        ):
+            return obj_or_plan.SocialImageSource.OG_FALLBACK
         return obj_or_plan.social_image_source or "gpt_uploaded"
     if getattr(obj_or_plan, _url_field_name(obj_or_plan), ""):
         return obj_or_plan.social_image_source or "gpt_image_url"

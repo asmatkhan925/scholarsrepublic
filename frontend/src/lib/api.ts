@@ -36,6 +36,8 @@ import type {
   FacebookPostNowResponse,
   FacebookScheduleResponse,
   CreateScholarshipCommentPayload,
+  DeadlineVerificationApplyResponse,
+  DeadlineVerificationPackage,
   OpportunityAdminPayload,
   OpportunityApplication,
   CreateOpportunityDraftPayload,
@@ -528,6 +530,25 @@ export async function scheduleScholarshipFacebookPost(
 ) {
   const response = await api.post<FacebookScheduleResponse>(
     `/admin/scholarships/${opportunityId}/facebook/schedule/`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function prepareAdminDeadlineVerification(opportunityId: number) {
+  const response = await api.post<DeadlineVerificationPackage>(
+    `/admin/scholarships/${opportunityId}/deadline-verification-package/`,
+    {},
+  );
+  return response.data;
+}
+
+export async function applyAdminDetectedDeadline(
+  opportunityId: number,
+  payload: { detected_deadline: string; evidence_text?: string; source_url?: string },
+) {
+  const response = await api.post<DeadlineVerificationApplyResponse>(
+    `/admin/scholarships/${opportunityId}/deadline-apply/`,
     payload,
   );
   return response.data;

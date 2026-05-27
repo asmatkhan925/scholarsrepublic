@@ -104,7 +104,7 @@ from apps.opportunities.services.opportunity_draft_importer import (
     validate_opportunity_draft_payload,
 )
 from apps.opportunities.services.social_image_uploads import save_social_image_from_base64
-from apps.opportunities.services.social_posting import generate_facebook_post_text
+from apps.opportunities.services.social_posting import generate_facebook_post_text, plan_image_url
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
@@ -2270,6 +2270,133 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_package_returns_structured_data(self):
+        opportunity = self.opportunity(
+            slug="deadline-package",
+            official_link="https://example.edu/call",
+        )
+        with patch(
+            "apps.opportunities.services.deadline_checker.fetch_page_text",
+            return_value="Applications close on June 30, 2026. Late applications are not accepted.",
+        ):
+            response = self.client.post(
+                f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-package/",
+                {},
+                format="json",
+                HTTP_X_AGENT_TOKEN="test-token",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["opportunity_id"], opportunity.pk)
+        self.assertEqual(response.data["candidate_dates"][0]["date"], "2026-06-30")
+        self.assertIn("Verify if the deadline", response.data["instructions"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_stores_log_and_updates_high_confidence_extension(self):
+        opportunity = self.opportunity(
+            slug="deadline-extension",
+            deadline=date(2026, 6, 1),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "extended",
+                "detected_deadline": "2026-06-30",
+                "confidence": "high",
+                "evidence_text": "Official page says applications close on June 30, 2026.",
+                "source_url": "https://example.edu/call",
+                "notes": "Official source verified.",
+                "apply_update": True,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 6, 30))
+        self.assertEqual(opportunity.deadline_previous_value, date(2026, 6, 1))
+        log = OpportunityDeadlineCheckLog.objects.get(opportunity=opportunity)
+        self.assertEqual(log.status, "extended")
+        self.assertEqual(log.confidence, "high")
+        self.assertEqual(log.detected_deadline, date(2026, 6, 30))
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_low_confidence_deadline_extension_does_not_update_deadline(self):
+        opportunity = self.opportunity(
+            slug="deadline-low-confidence",
+            deadline=date(2026, 6, 1),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "extended",
+                "detected_deadline": "2026-06-30",
+                "confidence": "low",
+                "evidence_text": "A forum mentions June 30.",
+                "source_url": "https://example.edu/call",
+                "notes": "Weak evidence.",
+                "apply_update": True,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 6, 1))
+        self.assertEqual(opportunity.deadline_check_status, Opportunity.DeadlineCheckStatus.NEEDS_REVIEW)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_change_marks_uploaded_social_image_stale_and_forces_og_fallback(self):
+        opportunity = self.opportunity(
+            slug="deadline-stale-image",
+            deadline=date(2026, 6, 1),
+        )
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            plan = OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+            )
+            save_social_image_from_base64(
+                plan,
+                base64.b64encode(VALID_PNG_BYTES).decode(),
+                filename="deadline-image.png",
+                source=plan.SocialImageSource.GPT_UPLOADED,
+            )
+
+            response = self.client.post(
+                f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+                {
+                    "status": "extended",
+                    "detected_deadline": "2026-06-30",
+                    "confidence": "high",
+                    "evidence_text": "Official page says applications close on June 30, 2026.",
+                    "source_url": "https://example.edu/call",
+                    "notes": "",
+                    "apply_update": True,
+                },
+                format="json",
+                HTTP_X_AGENT_TOKEN="test-token",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            plan.refresh_from_db()
+            self.assertTrue(plan.social_image_is_stale)
+            self.assertIn("/opengraph-image", plan_image_url(plan))
+
+            save_social_image_from_base64(
+                plan,
+                base64.b64encode(VALID_PNG_BYTES).decode(),
+                filename="new-deadline-image.png",
+                source=plan.SocialImageSource.GPT_UPLOADED,
+            )
+            plan.refresh_from_db()
+            self.assertFalse(plan.social_image_is_stale)
         self.assert_json_response(response)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")

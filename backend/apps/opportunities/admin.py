@@ -675,22 +675,25 @@ class OpportunityCommentAdmin(admin.ModelAdmin):
 class OpportunityDeadlineCheckLogAdmin(admin.ModelAdmin):
     list_display = (
         "opportunity",
+        "status",
         "check_status",
+        "confidence",
         "old_deadline",
+        "detected_deadline",
         "new_deadline",
-        "old_status",
-        "new_status",
-        "checked_by",
+        "verifier",
+        "checked_at",
         "created_at",
     )
-    list_filter = ("check_status", "checked_by", "created_at")
+    list_filter = ("status", "check_status", "confidence", "verifier", "created_at")
     search_fields = (
         "opportunity__title",
         "opportunity__slug",
         "source_url",
         "evidence",
+        "evidence_text",
         "note",
     )
     raw_id_fields = ("opportunity",)
-    readonly_fields = ("created_at",)
-    ordering = ("-created_at",)
+    readonly_fields = ("created_at", "checked_at")
+    ordering = ("-checked_at", "-created_at")

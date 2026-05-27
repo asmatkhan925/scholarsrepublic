@@ -182,6 +182,41 @@ def ensure_plan_post_text(plan):
     return message
 
 
+def regenerate_facebook_caption_for_opportunity(opportunity):
+    plan = get_or_create_facebook_plan(opportunity)
+    plan.link_url = plan.link_url or scholarship_detail_url(opportunity)
+    plan.post_text = generate_facebook_post_text(opportunity, plan.link_url)
+    plan.last_error = "" if plan.post_text else "Facebook caption could not be generated from scholarship fields."
+    plan.save(update_fields=["post_text", "link_url", "last_error", "updated_at"])
+    return plan
+
+
+def mark_social_image_stale_for_deadline_change(opportunity):
+    plan = (
+        opportunity.social_post_plans.filter(platform=DEFAULT_PLATFORM)
+        .order_by("-updated_at")
+        .first()
+    )
+    if not plan:
+        return None
+
+    if plan.image or plan.image_url:
+        plan.social_image_is_stale = True
+        plan.social_image_status = plan.SocialImageStatus.FALLBACK
+        plan.social_image_error = (
+            "Deadline changed. Uploaded social image may contain the old deadline."
+        )
+        plan.save(
+            update_fields=[
+                "social_image_is_stale",
+                "social_image_status",
+                "social_image_error",
+                "updated_at",
+            ]
+        )
+    return plan
+
+
 def promote_social_draft_to_plan(draft):
     if not draft.created_opportunity_id:
         return None
@@ -686,6 +721,31 @@ def get_due_facebook_post_plans(limit=10, now=None):
     for plan in plans:
         if not is_plan_due(plan, now=now):
             continue
+        days_left = deadline_days_left(plan.opportunity, today=today)
+        recently_checked = (
+            plan.opportunity.deadline_last_checked_at
+            and plan.opportunity.deadline_last_checked_at >= now - timedelta(hours=24)
+        )
+        if days_left is not None and 0 <= days_left <= 3 and not recently_checked:
+            plan.opportunity.deadline_check_status = Opportunity.DeadlineCheckStatus.NEEDS_REVIEW
+            plan.opportunity.deadline_check_note = (
+                "Near-deadline social post is due, but the deadline has not been "
+                "checked in the last 24 hours."
+            )
+            plan.opportunity.save(
+                update_fields=[
+                    "deadline_check_status",
+                    "deadline_check_note",
+                    "updated_at",
+                ]
+            )
+            logger.warning(
+                "Near-deadline Facebook plan needs deadline verification before posting: "
+                "opportunity_id=%s plan_id=%s days_left=%s",
+                plan.opportunity_id,
+                plan.pk,
+                days_left,
+            )
         post_check = can_post_opportunity_today(plan.opportunity, plan, today=today)
         if not post_check["can_post"]:
             continue
