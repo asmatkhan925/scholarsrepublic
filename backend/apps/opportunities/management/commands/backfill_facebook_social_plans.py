@@ -67,8 +67,16 @@ class Command(BaseCommand):
 
         today = timezone.localdate()
         published = Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
-        active_published = published.filter(Q(deadline__isnull=True) | Q(deadline__gte=today))
-        expired_count = published.filter(deadline__lt=today).count()
+        expired_check_statuses = [
+            Opportunity.DeadlineCheckStatus.EXPIRED,
+            Opportunity.DeadlineCheckStatus.VERIFIED_EXPIRED,
+        ]
+        active_published = published.filter(
+            Q(deadline__isnull=True) | Q(deadline__gte=today)
+        ).exclude(deadline_check_status__in=expired_check_statuses)
+        expired_count = published.filter(
+            Q(deadline__lt=today) | Q(deadline_check_status__in=expired_check_statuses)
+        ).count()
         existing_count = (
             active_published.filter(social_post_plans__platform="facebook")
             .distinct()

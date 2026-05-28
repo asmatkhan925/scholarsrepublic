@@ -22,6 +22,9 @@ from apps.opportunities.services.social_image_uploads import (
 DEFAULT_PLATFORM = "facebook"
 FACEBOOK_WORKER_TIMEOUT_SECONDS = 30
 FACEBOOK_WORKER_USER_AGENT = "ScholarsRepublicBackend/1.0"
+EXPIRED_AUTOMATIC_SKIP_MESSAGE = (
+    "Skipped automatic Facebook post because opportunity is expired."
+)
 logger = logging.getLogger(__name__)
 
 
@@ -93,6 +96,27 @@ def deadline_days_left(opportunity, today=None):
 def is_near_deadline(opportunity, today=None):
     days_left = deadline_days_left(opportunity, today=today)
     return days_left is not None and 0 <= days_left <= 7
+
+
+def is_opportunity_expired_for_social(opportunity, today=None):
+    if not opportunity:
+        return True
+
+    today = today or timezone.localdate()
+    if opportunity.deadline_check_status in {
+        Opportunity.DeadlineCheckStatus.EXPIRED,
+        Opportunity.DeadlineCheckStatus.VERIFIED_EXPIRED,
+    }:
+        return True
+
+    if (
+        opportunity.deadline
+        and not opportunity.is_rolling_deadline
+        and opportunity.deadline < today
+    ):
+        return True
+
+    return False
 
 
 def deadline_reminder_line(opportunity, today=None):
@@ -227,7 +251,10 @@ def promote_social_draft_to_plan(draft):
         return None
 
     status = OpportunitySocialPostPlan.Status.DRAFT
-    if opportunity.status == Opportunity.Status.PUBLISHED and not opportunity.is_expired:
+    if (
+        opportunity.status == Opportunity.Status.PUBLISHED
+        and not is_opportunity_expired_for_social(opportunity)
+    ):
         status = OpportunitySocialPostPlan.Status.READY
 
     plan, _ = OpportunitySocialPostPlan.objects.get_or_create(
@@ -297,7 +324,7 @@ def is_plan_due(plan, now=None):
     if opportunity.status != Opportunity.Status.PUBLISHED:
         return False
 
-    if opportunity.is_expired:
+    if is_opportunity_expired_for_social(opportunity, today=today):
         return False
 
     if plan.next_post_at and plan.next_post_at > now:
@@ -394,7 +421,7 @@ def can_post_opportunity_today(opportunity, plan, force=False, today=None):
     if force:
         return {"can_post": True, "status": "posted", "latest_log": None}
 
-    if opportunity.is_expired:
+    if is_opportunity_expired_for_social(opportunity, today=today):
         return {"can_post": False, "status": "expired", "latest_log": None}
 
     if is_near_deadline(opportunity, today=today):
@@ -502,7 +529,10 @@ def get_or_create_facebook_plan(opportunity):
         defaults={
             "enabled": True,
             "status": OpportunitySocialPostPlan.Status.READY
-            if opportunity.status == Opportunity.Status.PUBLISHED and not opportunity.is_expired
+            if (
+                opportunity.status == Opportunity.Status.PUBLISHED
+                and not is_opportunity_expired_for_social(opportunity)
+            )
             else OpportunitySocialPostPlan.Status.DRAFT,
             "link_url": scholarship_detail_url(opportunity),
         },
@@ -697,6 +727,30 @@ def due_plan_sort_key(plan, today):
     return (1, date.max, plan.pk)
 
 
+def record_skipped_expired_automatic_post(plan):
+    if plan.last_error == EXPIRED_AUTOMATIC_SKIP_MESSAGE:
+        return None
+
+    message = str(plan.post_text or "")
+    image_url = plan_image_url(plan)
+    link_url = plan.link_url or scholarship_detail_url(plan.opportunity)
+    log = OpportunitySocialPostLog.objects.create(
+        opportunity=plan.opportunity,
+        plan=plan,
+        platform=DEFAULT_PLATFORM,
+        message=message,
+        image_url=image_url,
+        image_source=get_preferred_social_image_source(plan),
+        link_url=link_url,
+        status=OpportunitySocialPostLog.Status.SKIPPED,
+        error_message=EXPIRED_AUTOMATIC_SKIP_MESSAGE,
+    )
+    plan.status = OpportunitySocialPostPlan.Status.PAUSED
+    plan.last_error = EXPIRED_AUTOMATIC_SKIP_MESSAGE
+    plan.save(update_fields=["status", "last_error", "updated_at"])
+    return log
+
+
 def get_due_facebook_post_plans(limit=10, now=None):
     try:
         limit = int(limit)
@@ -719,6 +773,9 @@ def get_due_facebook_post_plans(limit=10, now=None):
     today = timezone.localtime(now).date()
     due_plans = []
     for plan in plans:
+        if is_opportunity_expired_for_social(plan.opportunity, today=today):
+            record_skipped_expired_automatic_post(plan)
+            continue
         if not is_plan_due(plan, now=now):
             continue
         days_left = deadline_days_left(plan.opportunity, today=today)

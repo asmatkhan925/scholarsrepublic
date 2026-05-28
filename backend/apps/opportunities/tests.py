@@ -1448,6 +1448,24 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["status"], "expired")
 
+    def test_admin_facebook_post_now_rejects_verified_expired_unless_forced(self):
+        opportunity = self.opportunity(
+            slug="post-now-deadline-check-expired",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=10),
+            deadline_check_status=Opportunity.DeadlineCheckStatus.EXPIRED,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f"/api/admin/scholarships/{opportunity.pk}/facebook/post-now/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["status"], "expired")
+
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_admin_facebook_post_now_allows_expired_when_forced(self):
         opportunity = self.opportunity(
@@ -2156,6 +2174,71 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["items"], [])
+        expired_plan = OpportunitySocialPostPlan.objects.get(opportunity=expired)
+        expired_plan.refresh_from_db()
+        self.assertEqual(expired_plan.status, OpportunitySocialPostPlan.Status.PAUSED)
+        self.assertEqual(
+            expired_plan.last_error,
+            "Skipped automatic Facebook post because opportunity is expired.",
+        )
+        self.assertTrue(
+            OpportunitySocialPostLog.objects.filter(
+                plan=expired_plan,
+                status=OpportunitySocialPostLog.Status.SKIPPED,
+                error_message="Skipped automatic Facebook post because opportunity is expired.",
+            ).exists()
+        )
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_skips_deadline_check_expired_status(self):
+        opportunity = self.opportunity(
+            slug="deadline-check-expired-social-skip",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=10),
+            deadline_check_status=Opportunity.DeadlineCheckStatus.EXPIRED,
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.PAUSED)
+        self.assertEqual(
+            plan.last_error,
+            "Skipped automatic Facebook post because opportunity is expired.",
+        )
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_selects_published_future_opportunity(self):
+        opportunity = self.opportunity(
+            slug="future-social-safe-select",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=10),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_post_result_updates_successful_plan(self):

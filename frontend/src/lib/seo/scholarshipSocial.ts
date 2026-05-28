@@ -123,6 +123,73 @@ export function getDeadlineLabel(opportunity?: ScholarshipValue | null) {
   return formatDeadline(cleanText(opportunity?.deadline));
 }
 
+export type DeadlineUrgencyTone = "urgent" | "soon" | "normal" | "none";
+
+function utcStartOfToday() {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+}
+
+function parseDeadlineDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00Z`) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function getDeadlineUrgency(opportunity?: ScholarshipValue | null) {
+  const rawDeadline = cleanText(opportunity?.deadline);
+  const deadline = parseDeadlineDate(rawDeadline);
+  const formattedDeadline = getDeadlineLabel(opportunity);
+
+  if (!deadline || !formattedDeadline) {
+    return {
+      label: "Deadline",
+      value: "Not specified",
+      badge: "Deadline: Not specified",
+      tone: "none" as DeadlineUrgencyTone,
+      daysLeft: null as number | null,
+    };
+  }
+
+  const deadlineDay = Date.UTC(
+    deadline.getUTCFullYear(),
+    deadline.getUTCMonth(),
+    deadline.getUTCDate(),
+  );
+  const daysLeft = Math.floor((deadlineDay - utcStartOfToday()) / 86_400_000);
+
+  if (daysLeft >= 0 && daysLeft <= 3) {
+    return {
+      label: "Deadline Approaching",
+      value: formattedDeadline,
+      badge: `Deadline Approaching: ${formattedDeadline}`,
+      tone: "urgent" as DeadlineUrgencyTone,
+      daysLeft,
+    };
+  }
+
+  if (daysLeft >= 0 && daysLeft <= 7) {
+    return {
+      label: "Apply Soon",
+      value: formattedDeadline,
+      badge: `Apply Soon: ${formattedDeadline}`,
+      tone: "soon" as DeadlineUrgencyTone,
+      daysLeft,
+    };
+  }
+
+  return {
+    label: "Deadline",
+    value: formattedDeadline,
+    badge: `Deadline: ${formattedDeadline}`,
+    tone: "normal" as DeadlineUrgencyTone,
+    daysLeft,
+  };
+}
+
 export function getCountryLabel(opportunity?: ScholarshipValue | null) {
   const country = cleanText(opportunity?.country);
 
