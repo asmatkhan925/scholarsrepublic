@@ -923,6 +923,65 @@ class OpportunitySourceLinkCorrectionLog(models.Model):
         return f"Source link correction for {self.opportunity}"
 
 
+class ScholarshipResearchLead(models.Model):
+    class DuplicateStatus(models.TextChoices):
+        UNKNOWN = "unknown", "Unknown"
+        NEW = "new", "New"
+        POSSIBLE_DUPLICATE = "possible_duplicate", "Possible duplicate"
+        DUPLICATE = "duplicate", "Duplicate"
+
+    class ReviewStatus(models.TextChoices):
+        NEW = "new", "New"
+        NEEDS_REVIEW = "needs_review", "Needs review"
+        READY_FOR_DRAFT = "ready_for_draft", "Ready for draft"
+        REJECTED = "rejected", "Rejected"
+        IMPORTED = "imported", "Imported"
+
+    title = models.CharField(max_length=255)
+    provider_name = models.CharField(max_length=255, blank=True)
+    country = models.CharField(max_length=120, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    university = models.CharField(max_length=255, blank=True)
+    degree_level = models.CharField(max_length=120, blank=True)
+    funding_type = models.CharField(max_length=120, blank=True)
+    official_url = models.URLField(max_length=2000, blank=True)
+    source_url = models.URLField(max_length=2000, blank=True)
+    detected_deadline = models.DateField(null=True, blank=True)
+    deadline_text = models.CharField(max_length=255, blank=True)
+    eligibility_summary = models.TextField(blank=True)
+    pakistan_relevance_score = models.PositiveSmallIntegerField(default=0)
+    duplicate_status = models.CharField(
+        max_length=40,
+        choices=DuplicateStatus.choices,
+        default=DuplicateStatus.UNKNOWN,
+        db_index=True,
+    )
+    duplicate_matches = models.JSONField(default=list, blank=True)
+    review_status = models.CharField(
+        max_length=40,
+        choices=ReviewStatus.choices,
+        default=ReviewStatus.NEW,
+        db_index=True,
+    )
+    notes = models.TextField(blank=True)
+    created_by_agent = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["review_status", "duplicate_status"]),
+            models.Index(fields=["country"]),
+            models.Index(fields=["degree_level"]),
+            models.Index(fields=["provider_name"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+
 class OpportunityComment(models.Model):
     class ModerationStatus(models.TextChoices):
         PENDING = "pending", "Pending review"

@@ -12,6 +12,7 @@ from apps.opportunities.models import (
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
     OpportunitySourceLinkCorrectionLog,
+    ScholarshipResearchLead,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -610,6 +611,40 @@ class OpportunitySocialPostLogAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ("opportunity", "plan")
     readonly_fields = ("created_at",)
+
+
+@admin.register(ScholarshipResearchLead)
+class ScholarshipResearchLeadAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "provider_name",
+        "country",
+        "degree_level",
+        "detected_deadline",
+        "pakistan_relevance_score",
+        "duplicate_status",
+        "review_status",
+        "created_at",
+    )
+    list_filter = (
+        "review_status",
+        "duplicate_status",
+        "country",
+        "degree_level",
+        "created_by_agent",
+        "created_at",
+    )
+    search_fields = (
+        "title",
+        "provider_name",
+        "university",
+        "country",
+        "official_url",
+        "source_url",
+        "notes",
+    )
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("-created_at",)
 
 
 @admin.register(OpportunityComment)

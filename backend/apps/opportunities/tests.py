@@ -100,6 +100,7 @@ from apps.opportunities.models import (
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
     OpportunitySourceLinkCorrectionLog,
+    ScholarshipResearchLead,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -1465,6 +1466,159 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["status"], "expired")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_duplicate_url_detected_from_existing_opportunity(self):
+        self.opportunity(
+            slug="research-existing-duplicate",
+            title="Endotrain PhD Positions",
+            provider_name="University of Bergen",
+            country="Norway",
+            official_link="https://example.edu/phd?utm_source=chatgpt.co",
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/check-duplicate/",
+            {
+                "title": "Endotrain PhD Positions",
+                "provider_name": "University of Bergen",
+                "country": "Norway",
+                "official_url": "https://example.edu/phd/",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_duplicate"])
+        self.assertEqual(response.data["recommendation"], "duplicate")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_duplicate_detected_from_existing_lead(self):
+        ScholarshipResearchLead.objects.create(
+            title="Existing Lead",
+            official_url="https://example.edu/lead",
+            review_status=ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/check-duplicate/",
+            {
+                "title": "Existing Lead",
+                "official_url": "https://example.edu/lead?utm_campaign=test",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_duplicate"])
+        self.assertEqual(response.data["possible_matches"][0]["type"], "research_lead")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_lead_created_and_listed_ready_for_draft(self):
+        create_response = self.client.post(
+            "/api/admin/agent/scholarship-research/leads/",
+            {
+                "title": "New Research Scholarship",
+                "provider_name": "Example University",
+                "country": "Italy",
+                "degree_level": "PhD",
+                "official_url": "https://example.edu/new-scholarship",
+                "detected_deadline": "2026-06-09",
+                "pakistan_relevance_score": 85,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        lead = ScholarshipResearchLead.objects.get(title="New Research Scholarship")
+        self.assertEqual(lead.review_status, ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT)
+
+        list_response = self.client.post(
+            "/api/admin/agent/scholarship-research/leads/list/",
+            {"limit": 10},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data["items"][0]["id"], lead.pk)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_duplicate_lead_rejected_unless_allowed(self):
+        ScholarshipResearchLead.objects.create(
+            title="Duplicate Lead",
+            official_url="https://example.edu/duplicate-lead",
+        )
+
+        duplicate_response = self.client.post(
+            "/api/admin/agent/scholarship-research/leads/",
+            {
+                "title": "Duplicate Lead",
+                "official_url": "https://example.edu/duplicate-lead/",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+        allowed_response = self.client.post(
+            "/api/admin/agent/scholarship-research/leads/",
+            {
+                "title": "Duplicate Lead Allowed",
+                "official_url": "https://example.edu/duplicate-lead/",
+                "allow_duplicate": True,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(allowed_response.status_code, status.HTTP_201_CREATED)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_lead_mark_imported(self):
+        lead = ScholarshipResearchLead.objects.create(
+            title="Import Lead",
+            official_url="https://example.edu/import-lead",
+            review_status=ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT,
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarship-research/leads/{lead.pk}/mark-imported/",
+            {},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        lead.refresh_from_db()
+        self.assertEqual(lead.review_status, ScholarshipResearchLead.ReviewStatus.IMPORTED)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_lead_invalid_url_returns_400(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/leads/",
+            {
+                "title": "Invalid URL Lead",
+                "official_url": "ftp://example.edu/lead",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_lead_missing_or_invalid_token_returns_403(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/leads/list/",
+            {},
+            format="json",
+            HTTP_X_AGENT_TOKEN="wrong-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_admin_facebook_post_now_allows_expired_when_forced(self):

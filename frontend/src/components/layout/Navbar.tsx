@@ -56,6 +56,7 @@ const adminLinks: NavLink[] = [
   { label: "Workbench", href: "/dashboard/admin", exact: true },
   { label: "Import", href: "/dashboard/admin/scholarships/import" },
   { label: "Review Queue", href: "/dashboard/admin/scholarships/drafts" },
+  { label: "Research Leads", href: "/dashboard/admin/scholarships/research-leads" },
   { label: "Deadline Verification", href: "/dashboard/admin/scholarships/deadlines" },
   {
     label: "Manager",
@@ -63,6 +64,7 @@ const adminLinks: NavLink[] = [
     excludePrefixes: [
       "/dashboard/admin/scholarships/import",
       "/dashboard/admin/scholarships/drafts",
+      "/dashboard/admin/scholarships/research-leads",
       "/dashboard/admin/scholarships/deadlines",
     ],
   },

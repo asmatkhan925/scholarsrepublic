@@ -64,6 +64,8 @@ import type {
   ScholarshipComment,
   ScholarshipCommentReply,
   ScholarshipCommentResponse,
+  ScholarshipResearchLeadActionResponse,
+  ScholarshipResearchLeadResponse,
   SocialImageState,
   UpdateApplicationPayload,
 } from "@/types/opportunity";
@@ -313,10 +315,9 @@ export async function deactivateAdminOpportunityPathway(id: number) {
 }
 
 export async function reactivateAdminOpportunityPathway(id: number) {
-  const response = await api.patch<OpportunityPathwayDetail>(
-    `/admin/opportunity-pathways/${id}/`,
-    { is_active: true },
-  );
+  const response = await api.patch<OpportunityPathwayDetail>(`/admin/opportunity-pathways/${id}/`, {
+    is_active: true,
+  });
   return response.data;
 }
 
@@ -371,9 +372,7 @@ export async function getAdminOpportunity(id: number) {
   return response.data;
 }
 
-export async function checkAdminOpportunityDuplicates(
-  payload: AdminOpportunityDuplicatePayload,
-) {
+export async function checkAdminOpportunityDuplicates(payload: AdminOpportunityDuplicatePayload) {
   const response = await api.post<AdminOpportunityDuplicateResponse>(
     "/admin/opportunities/check-duplicates/",
     payload,
@@ -596,6 +595,32 @@ export async function applyAdminDetectedDeadline(
   const response = await api.post<DeadlineVerificationApplyResponse>(
     `/admin/scholarships/${opportunityId}/deadline-apply/`,
     payload,
+  );
+  return response.data;
+}
+
+export async function getAdminScholarshipResearchLeads(params?: {
+  review_status?: string;
+  country?: string;
+  degree_level?: string;
+  provider_name?: string;
+  duplicate_status?: string;
+  limit?: number;
+}) {
+  const response = await api.get<ScholarshipResearchLeadResponse>(
+    "/admin/scholarships/research-leads/",
+    { params },
+  );
+  return response.data;
+}
+
+export async function updateAdminScholarshipResearchLeadStatus(
+  id: number,
+  action: "ready_for_draft" | "reject" | "imported" | "needs_review",
+) {
+  const response = await api.post<ScholarshipResearchLeadActionResponse>(
+    `/admin/scholarships/research-leads/${id}/`,
+    { action },
   );
   return response.data;
 }

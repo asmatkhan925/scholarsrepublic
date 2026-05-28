@@ -545,6 +545,41 @@ export type DeadlineVerificationApplyResponse = {
   deadline_updated_from_source_at: string | null;
 };
 
+export type ScholarshipResearchLead = {
+  id: number;
+  title: string;
+  provider_name: string;
+  country: string;
+  city: string;
+  university: string;
+  degree_level: string;
+  funding_type: string;
+  official_url: string;
+  source_url: string;
+  detected_deadline: string | null;
+  deadline_text: string;
+  eligibility_summary: string;
+  pakistan_relevance_score: number;
+  duplicate_status: "unknown" | "new" | "possible_duplicate" | "duplicate";
+  duplicate_matches: Array<Record<string, unknown>>;
+  review_status: "new" | "needs_review" | "ready_for_draft" | "rejected" | "imported";
+  notes: string;
+  created_by_agent: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type ScholarshipResearchLeadResponse = {
+  ok: boolean;
+  count: number;
+  items: ScholarshipResearchLead[];
+};
+
+export type ScholarshipResearchLeadActionResponse = {
+  ok: boolean;
+  lead: ScholarshipResearchLead;
+};
+
 export type OpportunityDraftStatus = "new" | "validated" | "imported" | "error";
 
 export type OpportunityDraft = {

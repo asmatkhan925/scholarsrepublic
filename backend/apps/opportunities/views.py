@@ -8,7 +8,7 @@ from django.db.models import Count, F, Prefetch, Q
 from django.db.utils import DataError
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_date, parse_datetime
 from django.utils import timezone
 from rest_framework import generics, parsers, permissions, status
 from rest_framework.renderers import JSONRenderer
@@ -27,6 +27,7 @@ from apps.opportunities.models import (
     OpportunitySocialDraft,
     OpportunitySocialPostPlan,
     OpportunitySourceLinkCorrectionLog,
+    ScholarshipResearchLead,
 )
 from apps.opportunities.serializers import (
     AdminOpportunityCommentSerializer,
@@ -39,7 +40,12 @@ from apps.opportunities.serializers import (
     OpportunityListSerializer,
     OpportunityPathwaySerializer,
 )
-from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
+from apps.opportunities.services.duplicate_detector import (
+    find_duplicate_opportunities,
+    normalize_key,
+    normalize_url,
+    title_similarity,
+)
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
@@ -292,6 +298,181 @@ def _social_image_response(obj, draft_id=None):
     }
 
 
+def _clean_research_text(data, field, max_length=None):
+    value = str(data.get(field) or "").strip()
+    return value[:max_length] if max_length else value
+
+
+def _validate_research_url(value, field_name, required=False):
+    value = str(value or "").strip()
+    if not value:
+        if required:
+            return "", f"{field_name} is required."
+        return "", ""
+    if len(value) > 2000:
+        return "", f"{field_name} is too long."
+    if not value.startswith(("http://", "https://")):
+        return "", f"{field_name} must be an http or https URL."
+    try:
+        URLValidator(schemes=["http", "https"])(value)
+    except ValidationError:
+        return "", f"{field_name} must be a valid URL."
+    return value, ""
+
+
+def _serialize_research_match(kind, obj, confidence, reasons):
+    return {
+        "type": kind,
+        "id": obj.pk,
+        "title": obj.title,
+        "provider_name": getattr(obj, "provider_name", "") or getattr(obj, "university", ""),
+        "country": getattr(obj, "country", ""),
+        "deadline": (
+            obj.deadline.isoformat()
+            if getattr(obj, "deadline", None)
+            else obj.detected_deadline.isoformat()
+            if getattr(obj, "detected_deadline", None)
+            else None
+        ),
+        "official_url": getattr(obj, "official_link", "") or getattr(obj, "official_url", ""),
+        "source_url": getattr(obj, "source_url", ""),
+        "confidence": confidence,
+        "reasons": reasons,
+        "slug": getattr(obj, "slug", ""),
+        "review_status": getattr(obj, "review_status", ""),
+    }
+
+
+def _find_research_lead_duplicates(data, exclude_lead_id=None, limit=10):
+    official_url = str(data.get("official_url") or data.get("official_link") or "").strip()
+    source_url = str(data.get("source_url") or "").strip()
+    normalized_urls = {normalize_url(official_url), normalize_url(source_url)}
+    normalized_urls.discard("")
+    title_key = normalize_key(data.get("title"))
+    provider_key = normalize_key(data.get("provider_name") or data.get("university"))
+    country_key = normalize_key(data.get("country"))
+    detected_deadline = parse_date(str(data.get("detected_deadline") or data.get("deadline") or ""))
+
+    matches = []
+    for opportunity_match in find_duplicate_opportunities(
+        {
+            "title": data.get("title"),
+            "provider_name": data.get("provider_name"),
+            "university_name": data.get("university"),
+            "country": data.get("country"),
+            "official_link": official_url,
+            "source_url": source_url,
+            "deadline": data.get("detected_deadline") or data.get("deadline"),
+        },
+        limit=limit,
+    ):
+        matches.append({"type": "opportunity", **opportunity_match})
+
+    leads = ScholarshipResearchLead.objects.all()
+    if exclude_lead_id:
+        leads = leads.exclude(pk=exclude_lead_id)
+    for lead in leads:
+        reasons = []
+        confidence = "medium"
+        lead_urls = {normalize_url(lead.official_url), normalize_url(lead.source_url)}
+        lead_urls.discard("")
+        if normalized_urls and normalized_urls & lead_urls:
+            reasons.append("Same normalized official/source URL")
+            confidence = "exact"
+        same_provider = provider_key and provider_key == normalize_key(lead.provider_name or lead.university)
+        same_country = country_key and country_key == normalize_key(lead.country)
+        if title_key and title_key == normalize_key(lead.title) and (same_provider or same_country):
+            reasons.append("Same title with matching provider/country")
+            confidence = "high" if confidence != "exact" else confidence
+        if (
+            title_similarity(str(data.get("title") or ""), lead.title) >= 0.86
+            and same_provider
+            and same_country
+            and detected_deadline
+            and lead.detected_deadline == detected_deadline
+        ):
+            reasons.append("Similar title with same provider, country, and deadline")
+            confidence = "high" if confidence != "exact" else confidence
+        if reasons:
+            matches.append(_serialize_research_match("research_lead", lead, confidence, reasons))
+
+    rank = {"exact": 4, "high": 3, "medium": 2, "low": 1}
+    matches.sort(key=lambda item: (-rank.get(item.get("confidence", "low"), 0), item.get("title", "")))
+    return matches[:limit]
+
+
+def _research_duplicate_status(matches):
+    if any(match.get("confidence") == "exact" for match in matches):
+        return ScholarshipResearchLead.DuplicateStatus.DUPLICATE
+    if matches:
+        return ScholarshipResearchLead.DuplicateStatus.POSSIBLE_DUPLICATE
+    return ScholarshipResearchLead.DuplicateStatus.NEW
+
+
+def _serialize_research_lead(lead):
+    return {
+        "id": lead.pk,
+        "title": lead.title,
+        "provider_name": lead.provider_name,
+        "country": lead.country,
+        "city": lead.city,
+        "university": lead.university,
+        "degree_level": lead.degree_level,
+        "funding_type": lead.funding_type,
+        "official_url": lead.official_url,
+        "source_url": lead.source_url,
+        "detected_deadline": lead.detected_deadline.isoformat() if lead.detected_deadline else None,
+        "deadline_text": lead.deadline_text,
+        "eligibility_summary": lead.eligibility_summary,
+        "pakistan_relevance_score": lead.pakistan_relevance_score,
+        "duplicate_status": lead.duplicate_status,
+        "duplicate_matches": lead.duplicate_matches,
+        "review_status": lead.review_status,
+        "notes": lead.notes,
+        "created_by_agent": lead.created_by_agent,
+        "created_at": lead.created_at.isoformat() if lead.created_at else None,
+        "updated_at": lead.updated_at.isoformat() if lead.updated_at else None,
+    }
+
+
+def _build_research_lead_defaults(data, duplicate_matches=None):
+    deadline = parse_date(str(data.get("detected_deadline") or ""))
+    score = data.get("pakistan_relevance_score", 0)
+    try:
+        score = max(0, min(100, int(score)))
+    except (TypeError, ValueError):
+        score = 0
+    duplicate_matches = duplicate_matches or []
+    review_status = str(data.get("review_status") or "").strip()
+    valid_review_statuses = {choice[0] for choice in ScholarshipResearchLead.ReviewStatus.choices}
+    if review_status not in valid_review_statuses:
+        review_status = (
+            ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW
+            if duplicate_matches
+            else ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT
+        )
+    return {
+        "title": _clean_research_text(data, "title", 255),
+        "provider_name": _clean_research_text(data, "provider_name", 255),
+        "country": _clean_research_text(data, "country", 120),
+        "city": _clean_research_text(data, "city", 120),
+        "university": _clean_research_text(data, "university", 255),
+        "degree_level": _clean_research_text(data, "degree_level", 120),
+        "funding_type": _clean_research_text(data, "funding_type", 120),
+        "official_url": str(data.get("official_url") or "").strip(),
+        "source_url": str(data.get("source_url") or "").strip(),
+        "detected_deadline": deadline,
+        "deadline_text": _clean_research_text(data, "deadline_text", 255),
+        "eligibility_summary": _clean_research_text(data, "eligibility_summary"),
+        "pakistan_relevance_score": score,
+        "duplicate_status": _research_duplicate_status(duplicate_matches),
+        "duplicate_matches": duplicate_matches,
+        "review_status": review_status,
+        "notes": _clean_research_text(data, "notes"),
+        "created_by_agent": bool(data.get("created_by_agent", True)),
+    }
+
+
 def public_pathway_queryset():
     return (
         OpportunityPathway.objects.filter(is_active=True)
@@ -372,6 +553,122 @@ class AgentDebugAuthView(AgentScholarshipBaseView):
                 and secrets.compare_digest(header_token, configured_token),
             }
         )
+
+
+class AgentScholarshipResearchDuplicateView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        matches = _find_research_lead_duplicates(request.data)
+        is_duplicate = any(match.get("confidence") == "exact" for match in matches)
+        recommendation = "duplicate" if is_duplicate else "needs_review" if matches else "new"
+        return Response(
+            {
+                "is_duplicate": is_duplicate,
+                "possible_matches": matches,
+                "recommendation": recommendation,
+            }
+        )
+
+
+class AgentScholarshipResearchLeadCreateView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        official_url, official_error = _validate_research_url(
+            request.data.get("official_url"),
+            "official_url",
+        )
+        source_url, source_error = _validate_research_url(
+            request.data.get("source_url"),
+            "source_url",
+        )
+        errors = [error for error in [official_error, source_error] if error]
+        if not official_url and not source_url:
+            errors.append("official_url or source_url is required.")
+        if not _clean_research_text(request.data, "title", 255):
+            errors.append("title is required.")
+        if errors:
+            return Response(
+                {"detail": "Invalid research lead.", "errors": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payload = dict(request.data)
+        payload["official_url"] = official_url
+        payload["source_url"] = source_url
+        matches = _find_research_lead_duplicates(payload)
+        exact_duplicate = any(match.get("confidence") == "exact" for match in matches)
+        allow_duplicate = parse_bool(payload.get("allow_duplicate")) is True
+        if exact_duplicate and not allow_duplicate:
+            return Response(
+                {
+                    "detail": "Duplicate research lead.",
+                    "is_duplicate": True,
+                    "possible_matches": matches,
+                    "recommendation": "duplicate",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        lead = ScholarshipResearchLead.objects.create(
+            **_build_research_lead_defaults(payload, duplicate_matches=matches)
+        )
+        return Response(
+            {"ok": True, "lead": _serialize_research_lead(lead)},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AgentScholarshipResearchLeadListView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+        data = request.data if isinstance(request.data, dict) else {}
+        limit = min(parse_positive_int(data.get("limit")) or 20, 100)
+        queryset = ScholarshipResearchLead.objects.all().order_by("-created_at")
+        review_status = str(
+            data.get("review_status") or data.get("status") or "ready_for_draft"
+        ).strip()
+        if review_status and review_status != "all":
+            queryset = queryset.filter(review_status=review_status)
+        for field in ["country", "degree_level", "provider_name", "duplicate_status"]:
+            value = str(data.get(field) or "").strip()
+            if value:
+                queryset = queryset.filter(**{f"{field}__iexact": value})
+        items = [_serialize_research_lead(lead) for lead in queryset[:limit]]
+        return Response({"ok": True, "count": len(items), "items": items})
+
+
+class AgentScholarshipResearchLeadMarkImportedView(AgentScholarshipBaseView):
+    def post(self, request, lead_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+        lead = ScholarshipResearchLead.objects.filter(pk=lead_id).first()
+        if not lead:
+            return Response(
+                {"detail": "Research lead not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        lead.review_status = ScholarshipResearchLead.ReviewStatus.IMPORTED
+        lead.save(update_fields=["review_status", "updated_at"])
+        return Response({"ok": True, "lead": _serialize_research_lead(lead)})
 
 
 class AgentScholarshipValidateView(AgentScholarshipBaseView):
@@ -1970,6 +2267,51 @@ class AgentFacebookPostResultView(SocialWorkerBaseView):
                 "status": log.status,
             }
         )
+
+
+class AdminScholarshipResearchLeadListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        limit = min(parse_positive_int(request.query_params.get("limit")) or 50, 100)
+        queryset = ScholarshipResearchLead.objects.all().order_by("-created_at")
+        for field in [
+            "review_status",
+            "country",
+            "degree_level",
+            "provider_name",
+            "duplicate_status",
+        ]:
+            value = str(request.query_params.get(field) or "").strip()
+            if value and value != "all":
+                queryset = queryset.filter(**{f"{field}__iexact": value})
+        items = [_serialize_research_lead(lead) for lead in queryset[:limit]]
+        return Response({"ok": True, "count": len(items), "items": items})
+
+
+class AdminScholarshipResearchLeadActionView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request, lead_id):
+        lead = ScholarshipResearchLead.objects.filter(pk=lead_id).first()
+        if not lead:
+            return Response(
+                {"detail": "Research lead not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        action = str(request.data.get("action") if isinstance(request.data, dict) else "").strip()
+        status_map = {
+            "ready_for_draft": ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT,
+            "reject": ScholarshipResearchLead.ReviewStatus.REJECTED,
+            "rejected": ScholarshipResearchLead.ReviewStatus.REJECTED,
+            "imported": ScholarshipResearchLead.ReviewStatus.IMPORTED,
+            "needs_review": ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW,
+        }
+        if action not in status_map:
+            return Response({"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+        lead.review_status = status_map[action]
+        lead.save(update_fields=["review_status", "updated_at"])
+        return Response({"ok": True, "lead": _serialize_research_lead(lead)})
 
 
 class AdminOverviewView(APIView):

@@ -21,6 +21,8 @@ from apps.opportunities.views import (
     AdminOpportunityPathwayListCreateView,
     AdminScholarshipFacebookPostNowView,
     AdminScholarshipFacebookScheduleView,
+    AdminScholarshipResearchLeadActionView,
+    AdminScholarshipResearchLeadListView,
     AdminScholarshipDeadlineApplyView,
     AdminScholarshipDeadlineVerificationActionView,
     AdminScholarshipDeadlineVerificationPackageView,
@@ -41,6 +43,10 @@ from apps.opportunities.views import (
     AgentScholarshipDeadlineVerificationResultView,
     AgentScholarshipDraftSocialImageView,
     AgentScholarshipOpportunitySocialImageView,
+    AgentScholarshipResearchDuplicateView,
+    AgentScholarshipResearchLeadCreateView,
+    AgentScholarshipResearchLeadListView,
+    AgentScholarshipResearchLeadMarkImportedView,
     AgentScholarshipSourceLinkCorrectionView,
     AgentScholarshipSocialDraftView,
     AgentScholarshipValidateView,
@@ -209,6 +215,26 @@ urlpatterns = [
         name="agent-scholarship-deadline-check-queue",
     ),
     path(
+        "admin/agent/scholarship-research/check-duplicate/",
+        AgentScholarshipResearchDuplicateView.as_view(),
+        name="agent-scholarship-research-check-duplicate",
+    ),
+    path(
+        "admin/agent/scholarship-research/leads/",
+        AgentScholarshipResearchLeadCreateView.as_view(),
+        name="agent-scholarship-research-lead-create",
+    ),
+    path(
+        "admin/agent/scholarship-research/leads/list/",
+        AgentScholarshipResearchLeadListView.as_view(),
+        name="agent-scholarship-research-lead-list",
+    ),
+    path(
+        "admin/agent/scholarship-research/leads/<int:lead_id>/mark-imported/",
+        AgentScholarshipResearchLeadMarkImportedView.as_view(),
+        name="agent-scholarship-research-lead-mark-imported",
+    ),
+    path(
         "admin/agent/scholarships/<int:opportunity_id>/deadline-check-result/",
         AgentScholarshipDeadlineCheckResultView.as_view(),
         name="agent-scholarship-deadline-check-result",
@@ -307,6 +333,16 @@ urlpatterns = [
         "admin/scholarships/deadline-verification-actions/",
         AdminScholarshipDeadlineVerificationActionView.as_view(),
         name="admin-scholarship-deadline-verification-actions",
+    ),
+    path(
+        "admin/scholarships/research-leads/",
+        AdminScholarshipResearchLeadListView.as_view(),
+        name="admin-scholarship-research-lead-list",
+    ),
+    path(
+        "admin/scholarships/research-leads/<int:lead_id>/",
+        AdminScholarshipResearchLeadActionView.as_view(),
+        name="admin-scholarship-research-lead-action",
     ),
     path(
         "admin/scholarships/<int:opportunity_id>/deadline-apply/",

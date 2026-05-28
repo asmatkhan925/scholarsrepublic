@@ -92,6 +92,130 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/agent/scholarship-research/check-duplicate/:
+    post:
+      operationId: checkScholarshipResearchDuplicate
+      summary: Check scholarship research lead duplicates
+      description: Checks a researched official scholarship link against existing scholarships and research leads.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScholarshipResearchDuplicateRequest"
+      responses:
+        "200":
+          description: Duplicate check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipResearchDuplicateResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarship-research/leads/:
+    post:
+      operationId: createScholarshipResearchLead
+      summary: Create scholarship research lead
+      description: Saves an official scholarship link found during deep research for later draft creation.
+      x-openai-isConsequential: true
+      security:
+        - AgentTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScholarshipResearchLeadRequest"
+      responses:
+        "201":
+          description: Research lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipResearchLeadCreateResponse"
+        "400":
+          description: Invalid or duplicate research lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarship-research/leads/list/:
+    post:
+      operationId: listScholarshipResearchLeads
+      summary: List scholarship research leads
+      description: Lists saved research leads, defaulting to leads ready for draft creation.
+      x-openai-isConsequential: false
+      security:
+        - AgentTokenAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScholarshipResearchLeadListRequest"
+      responses:
+        "200":
+          description: Research lead list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipResearchLeadListResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/agent/scholarship-research/leads/{id}/mark-imported/:
+    post:
+      operationId: markScholarshipResearchLeadImported
+      summary: Mark scholarship research lead imported
+      description: Marks a research lead as imported after a scholarship draft is created from it.
+      x-openai-isConsequential: true
+      security:
+        - AgentTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Research lead marked imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipResearchLeadCreateResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Research lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/agent/scholarships/drafts/{draft_id}/social-draft/:
     post:
       operationId: saveScholarshipSocialDraft
@@ -715,6 +839,202 @@ components:
         normalized_payload:
           $ref: "#/components/schemas/ScholarshipPayload"
       required: []
+
+    ScholarshipResearchDuplicateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+        provider_name:
+          type: string
+        country:
+          type: string
+        official_url:
+          type: string
+        source_url:
+          type: string
+      required: []
+
+    ScholarshipResearchDuplicateResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        is_duplicate:
+          type: boolean
+        possible_matches:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        recommendation:
+          type: string
+          enum:
+            - new
+            - needs_review
+            - duplicate
+      required:
+        - is_duplicate
+        - possible_matches
+        - recommendation
+
+    ScholarshipResearchLeadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+        provider_name:
+          type: string
+        country:
+          type: string
+        city:
+          type: string
+        university:
+          type: string
+        degree_level:
+          type: string
+        funding_type:
+          type: string
+        official_url:
+          type: string
+        source_url:
+          type: string
+        detected_deadline:
+          type:
+            - string
+            - "null"
+          description: YYYY-MM-DD if detected.
+        deadline_text:
+          type: string
+        eligibility_summary:
+          type: string
+        pakistan_relevance_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        notes:
+          type: string
+        allow_duplicate:
+          type: boolean
+          default: false
+      required:
+        - title
+
+    ScholarshipResearchLead:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        provider_name:
+          type: string
+        country:
+          type: string
+        city:
+          type: string
+        university:
+          type: string
+        degree_level:
+          type: string
+        funding_type:
+          type: string
+        official_url:
+          type: string
+        source_url:
+          type: string
+        detected_deadline:
+          type:
+            - string
+            - "null"
+        deadline_text:
+          type: string
+        eligibility_summary:
+          type: string
+        pakistan_relevance_score:
+          type: integer
+        duplicate_status:
+          type: string
+          enum:
+            - unknown
+            - new
+            - possible_duplicate
+            - duplicate
+        duplicate_matches:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        review_status:
+          type: string
+          enum:
+            - new
+            - needs_review
+            - ready_for_draft
+            - rejected
+            - imported
+
+    ScholarshipResearchLeadCreateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+        lead:
+          $ref: "#/components/schemas/ScholarshipResearchLead"
+      required:
+        - ok
+        - lead
+
+    ScholarshipResearchLeadListRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        review_status:
+          type: string
+          enum:
+            - new
+            - needs_review
+            - ready_for_draft
+            - rejected
+            - imported
+            - all
+          default: ready_for_draft
+        country:
+          type: string
+        degree_level:
+          type: string
+        provider_name:
+          type: string
+        duplicate_status:
+          type: string
+          enum:
+            - unknown
+            - new
+            - possible_duplicate
+            - duplicate
+        limit:
+          type: integer
+          default: 20
+
+    ScholarshipResearchLeadListResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+        count:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScholarshipResearchLead"
+      required:
+        - ok
+        - count
+        - items
 
     SocialDraftRequest:
       type: object
