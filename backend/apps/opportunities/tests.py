@@ -15,6 +15,7 @@ from django.test import RequestFactory, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
 
@@ -424,7 +425,7 @@ class OpportunityAPITests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
         self.assert_json_response(response)
 
@@ -2403,6 +2404,34 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["stats"]["extended"], 1)
         self.assertEqual(response.data["stats"]["stale_social_image"], 1)
 
+    def test_admin_deadline_verification_queue_requires_jwt_auth(self):
+        response = self.client.post(
+            "/api/admin/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "all"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_deadline_verification_queue_accepts_admin_jwt_auth(self):
+        self.opportunity(
+            slug="jwt-deadline-dashboard",
+            deadline=timezone.localdate() + timedelta(days=3),
+            official_link="https://example.edu/jwt-dashboard",
+        )
+        access_token = str(RefreshToken.for_user(self.admin).access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+
+        response = self.client.post(
+            "/api/admin/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "all"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+        self.assertGreaterEqual(response.data["count"], 1)
+
     def test_deadline_candidate_classifier_deterministic_rules(self):
         confirmed = classify_deadline_candidates(
             "2026-06-01",
@@ -2525,6 +2554,154 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(log.status, "extended")
         self.assertEqual(log.confidence, "high")
         self.assertEqual(log.detected_deadline, date(2026, 6, 30))
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_confirmed_without_update_returns_200(self):
+        opportunity = self.opportunity(
+            slug="deadline-confirmed",
+            deadline=date(2026, 5, 31),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "confirmed",
+                "detected_deadline": "2026-05-31",
+                "confidence": "high",
+                "evidence_text": "Apply by 2026-05-31.",
+                "source_url": "https://example.com",
+                "notes": "Official source confirms the stored deadline.",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 5, 31))
+        self.assertEqual(opportunity.deadline_check_status, Opportunity.DeadlineCheckStatus.CONFIRMED)
+        self.assertTrue(
+            OpportunityDeadlineCheckLog.objects.filter(
+                opportunity=opportunity,
+                status=OpportunityDeadlineCheckLog.Status.CONFIRMED,
+            ).exists()
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_confirmed_with_apply_update_does_not_crash(self):
+        opportunity = self.opportunity(
+            slug="deadline-confirmed-apply",
+            deadline=date(2026, 5, 31),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "confirmed",
+                "detected_deadline": "2026-05-31",
+                "confidence": "high",
+                "evidence_text": "Apply by 2026-05-31.",
+                "source_url": "https://example.com",
+                "notes": "Official source confirms the stored deadline.",
+                "apply_update": True,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 5, 31))
+        self.assertEqual(opportunity.deadline_check_status, Opportunity.DeadlineCheckStatus.CONFIRMED)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_unclear_logs_without_deadline_update(self):
+        opportunity = self.opportunity(
+            slug="deadline-unclear",
+            deadline=date(2026, 5, 31),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "unclear",
+                "detected_deadline": None,
+                "confidence": "low",
+                "evidence_text": "The official page mentions dates but no application deadline.",
+                "source_url": "https://example.com",
+                "notes": "Needs manual review.",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 5, 31))
+        self.assertEqual(opportunity.deadline_check_status, Opportunity.DeadlineCheckStatus.UNCLEAR)
+        self.assertTrue(
+            OpportunityDeadlineCheckLog.objects.filter(
+                opportunity=opportunity,
+                status=OpportunityDeadlineCheckLog.Status.UNCLEAR,
+            ).exists()
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_empty_detected_deadline_does_not_crash(self):
+        opportunity = self.opportunity(
+            slug="deadline-empty-detected",
+            deadline=date(2026, 5, 31),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "failed",
+                "detected_deadline": "",
+                "confidence": "low",
+                "evidence_text": "No reliable deadline found.",
+                "source_url": "https://example.com/" + ("a" * 260),
+                "notes": "Source was not conclusive.",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 5, 31))
+        self.assertEqual(opportunity.deadline_check_status, Opportunity.DeadlineCheckStatus.FAILED)
+        log = OpportunityDeadlineCheckLog.objects.get(opportunity=opportunity)
+        self.assertLessEqual(len(log.source_url), 200)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_extended_without_social_image_does_not_crash(self):
+        opportunity = self.opportunity(
+            slug="deadline-extended-no-image",
+            deadline=date(2026, 6, 1),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "extended",
+                "detected_deadline": "2026-06-30",
+                "confidence": "high",
+                "evidence_text": "Official page says applications close on June 30, 2026.",
+                "source_url": "https://example.com",
+                "notes": "No uploaded social image exists.",
+                "apply_update": True,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 6, 30))
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_low_confidence_deadline_extension_does_not_update_deadline(self):

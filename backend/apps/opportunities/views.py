@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db.models import Count, F, Prefetch, Q
+from django.db.utils import DataError
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from rest_framework import generics, parsers, permissions, status
@@ -1122,8 +1123,101 @@ def _deadline_verification_response(opportunity, log=None):
         "deadline_previous_value": opportunity.deadline_previous_value.isoformat()
         if opportunity.deadline_previous_value
         else None,
-        "deadline_updated_from_source_at": opportunity.deadline_updated_from_source_at,
+        "deadline_updated_from_source_at": opportunity.deadline_updated_from_source_at.isoformat()
+        if opportunity.deadline_updated_from_source_at
+        else None,
     }
+
+
+def _deadline_result_source_url(payload):
+    source_url = str(payload.get("source_url") or "").strip()
+    opportunity_max = Opportunity._meta.get_field("deadline_check_source_url").max_length or 200
+    log_max = OpportunityDeadlineCheckLog._meta.get_field("source_url").max_length or 200
+    return source_url[: min(opportunity_max, log_max)]
+
+
+def _save_agent_deadline_verification_result(opportunity, payload):
+    allowed_statuses = {"confirmed", "extended", "expired", "unclear", "needs_review", "failed"}
+    status_value = str(payload.get("status") or "").strip()
+    if status_value not in allowed_statuses:
+        return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+
+    confidence = str(payload.get("confidence") or "").strip()
+    if confidence not in {choice[0] for choice in Opportunity.DeadlineCheckConfidence.choices}:
+        return Response({"detail": "Invalid confidence."}, status=status.HTTP_400_BAD_REQUEST)
+
+    detected_deadline, date_error = _parse_iso_date_or_none(payload.get("detected_deadline"))
+    if date_error:
+        return Response({"detail": date_error}, status=status.HTTP_400_BAD_REQUEST)
+
+    old_deadline = opportunity.deadline
+    old_status = opportunity.status
+    source_url = _deadline_result_source_url(payload)
+    evidence_text = str(payload.get("evidence_text") or "").strip()
+    notes = str(payload.get("notes") or "").strip()
+    raw_response_excerpt = str(payload.get("raw_response_excerpt") or "")[:4000]
+    apply_update = bool(parse_bool(payload.get("apply_update")))
+    now = timezone.now()
+    should_update_deadline = (
+        status_value == "extended"
+        and confidence == Opportunity.DeadlineCheckConfidence.HIGH
+        and apply_update
+        and detected_deadline is not None
+        and detected_deadline != old_deadline
+    )
+
+    if should_update_deadline:
+        opportunity.deadline_previous_value = old_deadline
+        opportunity.deadline = detected_deadline
+        opportunity.deadline_updated_from_source_at = now
+        regenerate_facebook_caption_for_opportunity(opportunity)
+        mark_social_image_stale_for_deadline_change(opportunity)
+    elif status_value == "extended" and confidence != Opportunity.DeadlineCheckConfidence.HIGH:
+        status_value = "needs_review"
+
+    opportunity.deadline_last_checked_at = now
+    opportunity.deadline_check_status = _deadline_verification_status_to_legacy(status_value)
+    opportunity.deadline_check_confidence = confidence
+    opportunity.deadline_check_source_url = source_url
+    opportunity.deadline_check_evidence = evidence_text
+    opportunity.deadline_check_note = notes
+    opportunity.save(
+        update_fields=[
+            "deadline",
+            "deadline_last_checked_at",
+            "deadline_check_status",
+            "deadline_check_confidence",
+            "deadline_check_source_url",
+            "deadline_check_evidence",
+            "deadline_check_note",
+            "deadline_previous_value",
+            "deadline_updated_from_source_at",
+            "updated_at",
+        ]
+    )
+
+    log = OpportunityDeadlineCheckLog.objects.create(
+        opportunity=opportunity,
+        old_deadline=old_deadline,
+        new_deadline=opportunity.deadline,
+        detected_deadline=detected_deadline,
+        old_status=old_status,
+        new_status=opportunity.status,
+        status=status_value,
+        confidence=confidence,
+        check_status=opportunity.deadline_check_status,
+        source_url=source_url,
+        evidence=evidence_text,
+        evidence_text=evidence_text,
+        note=notes,
+        verifier="gpt_action",
+        checked_by="gpt_action",
+        raw_response_excerpt=raw_response_excerpt,
+        error_message=str(payload.get("error_message") or ""),
+        checked_at=now,
+    )
+
+    return Response(_deadline_verification_response(opportunity, log))
 
 
 class AgentScholarshipDeadlineVerificationPackageView(AgentScholarshipBaseView):
@@ -1223,91 +1317,32 @@ class AgentScholarshipDeadlineVerificationResultView(AgentScholarshipBaseView):
         if not opportunity:
             return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        allowed_statuses = {"confirmed", "extended", "expired", "unclear", "needs_review", "failed"}
-        status_value = str(request.data.get("status") or "").strip()
-        if status_value not in allowed_statuses:
-            return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
-
-        confidence = str(request.data.get("confidence") or "").strip()
-        if confidence not in {choice[0] for choice in Opportunity.DeadlineCheckConfidence.choices}:
-            return Response({"detail": "Invalid confidence."}, status=status.HTTP_400_BAD_REQUEST)
-
-        detected_deadline, date_error = _parse_iso_date_or_none(request.data.get("detected_deadline"))
-        if date_error:
-            return Response({"detail": date_error}, status=status.HTTP_400_BAD_REQUEST)
-
-        old_deadline = opportunity.deadline
-        old_status = opportunity.status
-        source_url = str(request.data.get("source_url") or "").strip()
-        evidence_text = str(request.data.get("evidence_text") or "").strip()
-        notes = str(request.data.get("notes") or "").strip()
-        raw_response_excerpt = str(request.data.get("raw_response_excerpt") or "")[:4000]
-        apply_update = bool(request.data.get("apply_update"))
-        now = timezone.now()
-        should_update_deadline = (
-            status_value == "extended"
-            and confidence == Opportunity.DeadlineCheckConfidence.HIGH
-            and apply_update
-            and detected_deadline is not None
-            and detected_deadline != old_deadline
-        )
-
-        if should_update_deadline:
-            opportunity.deadline_previous_value = old_deadline
-            opportunity.deadline = detected_deadline
-            opportunity.deadline_updated_from_source_at = now
-            regenerate_facebook_caption_for_opportunity(opportunity)
-            mark_social_image_stale_for_deadline_change(opportunity)
-        elif status_value == "extended" and confidence != Opportunity.DeadlineCheckConfidence.HIGH:
-            status_value = "needs_review"
-
-        opportunity.deadline_last_checked_at = now
-        opportunity.deadline_check_status = _deadline_verification_status_to_legacy(status_value)
-        opportunity.deadline_check_confidence = confidence
-        opportunity.deadline_check_source_url = source_url
-        opportunity.deadline_check_evidence = evidence_text
-        opportunity.deadline_check_note = notes
-        opportunity.save(
-            update_fields=[
-                "deadline",
-                "deadline_last_checked_at",
-                "deadline_check_status",
-                "deadline_check_confidence",
-                "deadline_check_source_url",
-                "deadline_check_evidence",
-                "deadline_check_note",
-                "deadline_previous_value",
-                "deadline_updated_from_source_at",
-                "updated_at",
-            ]
-        )
-
-        log = OpportunityDeadlineCheckLog.objects.create(
-            opportunity=opportunity,
-            old_deadline=old_deadline,
-            new_deadline=opportunity.deadline,
-            detected_deadline=detected_deadline,
-            old_status=old_status,
-            new_status=opportunity.status,
-            status=status_value,
-            confidence=confidence,
-            check_status=opportunity.deadline_check_status,
-            source_url=source_url,
-            evidence=evidence_text,
-            evidence_text=evidence_text,
-            note=notes,
-            verifier="gpt_action",
-            checked_by="gpt_action",
-            raw_response_excerpt=raw_response_excerpt,
-            error_message=str(request.data.get("error_message") or ""),
-            checked_at=now,
-        )
-
-        return Response(_deadline_verification_response(opportunity, log))
+        try:
+            return _save_agent_deadline_verification_result(opportunity, request.data)
+        except (DataError, ValueError) as exc:
+            logger.exception(
+                "Invalid deadline verification result payload: opportunity_id=%s status=%s",
+                opportunity.pk,
+                request.data.get("status"),
+            )
+            return Response(
+                {"detail": "Invalid deadline verification result.", "error": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception(
+                "Deadline verification result failed: opportunity_id=%s status=%s",
+                opportunity.pk,
+                request.data.get("status"),
+            )
+            return Response(
+                {"detail": "Deadline verification result failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class AdminScholarshipDeadlineVerificationPackageView(APIView):
-    permission_classes = [IsPlatformAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def post(self, request, opportunity_id):
         opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
@@ -1317,7 +1352,7 @@ class AdminScholarshipDeadlineVerificationPackageView(APIView):
 
 
 class AdminScholarshipDeadlineVerificationQueueView(APIView):
-    permission_classes = [IsPlatformAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def post(self, request):
         if not isinstance(request.data, dict):
@@ -1329,7 +1364,7 @@ class AdminScholarshipDeadlineVerificationQueueView(APIView):
 
 
 class AdminScholarshipDeadlineVerificationActionView(APIView):
-    permission_classes = [IsPlatformAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def post(self, request):
         if not isinstance(request.data, dict):
@@ -1414,7 +1449,7 @@ class AdminScholarshipDeadlineVerificationActionView(APIView):
 
 
 class AdminScholarshipDeadlineApplyView(APIView):
-    permission_classes = [IsPlatformAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def post(self, request, opportunity_id):
         opportunity = Opportunity.objects.filter(pk=opportunity_id).first()

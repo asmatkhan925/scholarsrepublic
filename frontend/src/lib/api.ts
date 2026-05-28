@@ -68,6 +68,7 @@ import type {
   UpdateApplicationPayload,
 } from "@/types/opportunity";
 import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
+import { getAccessToken } from "@/lib/auth";
 
 function resolvePublicApiBaseUrl() {
   const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
@@ -102,6 +103,11 @@ api.interceptors.request.use((config) => {
     throw new Error(
       "Missing NEXT_PUBLIC_API_BASE_URL in production. Set it to the Django API base URL.",
     );
+  }
+
+  const accessToken = getAccessToken();
+  if (accessToken && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
 
   return config;

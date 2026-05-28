@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { CheckCircle2, Download, FileJson, RefreshCw, Search } from "lucide-react";
 
+import { useAuth } from "@/components/auth/AuthProvider";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
@@ -75,6 +76,7 @@ function downloadJson(filename: string, value: unknown) {
 }
 
 export default function ScholarshipDeadlineVerificationPage() {
+  const { loading: authLoading, user } = useAuth();
   const [items, setItems] = useState<DeadlineVerificationQueueItem[]>([]);
   const [stats, setStats] = useState<DeadlineVerificationQueueResponse["stats"]>(emptyStats);
   const [filter, setFilter] = useState<QueueFilter>("all");
@@ -105,9 +107,12 @@ export default function ScholarshipDeadlineVerificationPage() {
   }
 
   useEffect(() => {
+    if (authLoading || user?.role !== "admin") {
+      return;
+    }
     void loadQueue("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, user?.role]);
 
   const grouped = useMemo(() => {
     return groups.map((group) => ({
