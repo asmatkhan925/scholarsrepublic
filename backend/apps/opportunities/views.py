@@ -1004,7 +1004,72 @@ def _deadline_verification_priority(opportunity, now=None, days=30):
     return 6, "recently_checked"
 
 
-def _deadline_verification_queue_item(opportunity, priority_reason):
+VERIFIED_DEADLINE_STATUSES = {
+    Opportunity.DeadlineCheckStatus.CONFIRMED,
+    Opportunity.DeadlineCheckStatus.EXTENDED,
+    Opportunity.DeadlineCheckStatus.EXPIRED,
+    Opportunity.DeadlineCheckStatus.VERIFIED_ACTIVE,
+    Opportunity.DeadlineCheckStatus.VERIFIED_EXPIRED,
+    Opportunity.DeadlineCheckStatus.DEADLINE_CHANGED,
+}
+
+OPEN_DEADLINE_STATUSES = {
+    "",
+    Opportunity.DeadlineCheckStatus.UNCHECKED,
+    Opportunity.DeadlineCheckStatus.UNCLEAR,
+    Opportunity.DeadlineCheckStatus.FAILED,
+    Opportunity.DeadlineCheckStatus.NEEDS_REVIEW,
+    Opportunity.DeadlineCheckStatus.SOURCE_UNREACHABLE,
+}
+
+
+def _latest_deadline_check_log(opportunity):
+    return opportunity.deadline_check_logs.order_by("-checked_at", "-created_at").first()
+
+
+def _verification_fresh_until(opportunity, *, freshness_days):
+    if not opportunity.deadline_last_checked_at:
+        return None
+    if opportunity.days_until_deadline is not None and 0 <= opportunity.days_until_deadline <= 7:
+        return opportunity.deadline_last_checked_at + timedelta(hours=24)
+    return opportunity.deadline_last_checked_at + timedelta(days=freshness_days)
+
+
+def _deadline_unchanged_since_verification(opportunity):
+    latest_log = _latest_deadline_check_log(opportunity)
+    if not latest_log:
+        return True
+    return latest_log.new_deadline == opportunity.deadline
+
+
+def _has_stale_social_image(opportunity):
+    return opportunity.social_post_plans.filter(social_image_is_stale=True).exists()
+
+
+def _deadline_queue_flags(opportunity, *, now, freshness_days):
+    fresh_until = _verification_fresh_until(opportunity, freshness_days=freshness_days)
+    recently_verified = (
+        opportunity.deadline_check_status in VERIFIED_DEADLINE_STATUSES
+        and fresh_until is not None
+        and fresh_until > now
+        and _deadline_unchanged_since_verification(opportunity)
+    )
+    needs_verification = (
+        opportunity.deadline_check_status in OPEN_DEADLINE_STATUSES
+        or _has_stale_social_image(opportunity)
+        or (
+            opportunity.deadline_check_status in VERIFIED_DEADLINE_STATUSES
+            and not recently_verified
+        )
+    )
+    return {
+        "recently_verified": recently_verified,
+        "needs_verification": needs_verification,
+        "verification_fresh_until": fresh_until.isoformat() if fresh_until else None,
+    }
+
+
+def _deadline_verification_queue_item(opportunity, priority_reason, *, flags):
     return {
         "id": opportunity.pk,
         "title": opportunity.title,
@@ -1021,10 +1086,13 @@ def _deadline_verification_queue_item(opportunity, priority_reason):
         if opportunity.deadline_last_checked_at
         else None,
         "priority_reason": priority_reason,
+        "recently_verified": flags["recently_verified"],
+        "needs_verification": flags["needs_verification"],
+        "verification_fresh_until": flags["verification_fresh_until"],
     }
 
 
-def _deadline_verification_dashboard_stats(queryset, *, now, days):
+def _deadline_verification_dashboard_stats(queryset, *, now, days, freshness_days):
     stats = {
         "total_pending": 0,
         "near_deadline": 0,
@@ -1034,8 +1102,9 @@ def _deadline_verification_dashboard_stats(queryset, *, now, days):
         "stale_social_image": 0,
     }
     for opportunity in queryset:
+        flags = _deadline_queue_flags(opportunity, now=now, freshness_days=freshness_days)
         priority, _reason = _deadline_verification_priority(opportunity, now=now, days=days)
-        if priority < 6:
+        if flags["needs_verification"] and priority < 6:
             stats["total_pending"] += 1
         if opportunity.days_until_deadline is not None and 0 <= opportunity.days_until_deadline <= 7:
             stats["near_deadline"] += 1
@@ -1045,7 +1114,7 @@ def _deadline_verification_dashboard_stats(queryset, *, now, days):
             stats["failed"] += 1
         if opportunity.deadline_check_status == Opportunity.DeadlineCheckStatus.EXTENDED:
             stats["extended"] += 1
-        if opportunity.social_post_plans.filter(social_image_is_stale=True).exists():
+        if _has_stale_social_image(opportunity):
             stats["stale_social_image"] += 1
     return stats
 
@@ -1054,10 +1123,14 @@ def build_deadline_verification_queue(payload):
     payload = payload if isinstance(payload, dict) else {}
     limit = max(1, min(parse_positive_int(payload.get("limit")) or 10, 50))
     days = max(1, min(parse_positive_int(payload.get("days")) or 30, 365))
+    freshness_days = max(1, min(parse_positive_int(payload.get("freshness_days")) or 7, 90))
     only_near_deadline = bool(payload.get("only_near_deadline"))
     include_expired = bool(payload.get("include_expired"))
-    requested_status = str(payload.get("status") or "all").strip()
+    include_recently_verified = bool(parse_bool(payload.get("include_recently_verified")))
+    requested_status = str(payload.get("status") or "needs_verification").strip()
     allowed_statuses = {
+        "needs_verification",
+        "recently_verified",
         "unchecked",
         "unclear",
         "failed",
@@ -1069,7 +1142,7 @@ def build_deadline_verification_queue(payload):
         "all",
     }
     if requested_status not in allowed_statuses:
-        requested_status = "all"
+        requested_status = "needs_verification"
 
     today = timezone.localdate()
     base_queryset = (
@@ -1097,18 +1170,36 @@ def build_deadline_verification_queue(payload):
 
     now = timezone.now()
     items = []
-    stats = _deadline_verification_dashboard_stats(stats_queryset, now=now, days=days)
+    stats = _deadline_verification_dashboard_stats(
+        stats_queryset,
+        now=now,
+        days=days,
+        freshness_days=freshness_days,
+    )
     for opportunity in queryset:
         priority, reason = _deadline_verification_priority(opportunity, now=now, days=days)
-        if priority == 6 and requested_status == "all":
+        flags = _deadline_queue_flags(opportunity, now=now, freshness_days=freshness_days)
+        if requested_status == "needs_verification" and not flags["needs_verification"]:
+            continue
+        if requested_status == "recently_verified" and not flags["recently_verified"]:
+            continue
+        if (
+            requested_status == "needs_verification"
+            and flags["recently_verified"]
+            and not include_recently_verified
+        ):
+            continue
+        if priority == 6 and requested_status == "needs_verification":
             continue
         deadline_sort = opportunity.deadline or date.max
-        items.append((priority, deadline_sort, opportunity.pk, opportunity, reason))
+        if flags["recently_verified"] and requested_status == "all":
+            priority = max(priority, 7)
+        items.append((priority, deadline_sort, opportunity.pk, opportunity, reason, flags))
 
     items.sort(key=lambda item: (item[0], item[1], item[2]))
     selected = [
-        _deadline_verification_queue_item(opportunity, reason)
-        for _, _, _, opportunity, reason in items[:limit]
+        _deadline_verification_queue_item(opportunity, reason, flags=flags)
+        for _, _, _, opportunity, reason, flags in items[:limit]
     ]
     return {"ok": True, "count": len(selected), "stats": stats, "items": selected}
 

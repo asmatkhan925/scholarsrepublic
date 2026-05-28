@@ -506,6 +506,9 @@ export type DeadlineVerificationQueueItem = {
   deadline_check_confidence: string;
   deadline_last_checked_at: string | null;
   priority_reason: string;
+  recently_verified: boolean;
+  needs_verification: boolean;
+  verification_fresh_until: string | null;
 };
 
 export type DeadlineVerificationQueueResponse = {

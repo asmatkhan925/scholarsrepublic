@@ -31,7 +31,20 @@ Only post to Facebook after the backend confirms a saved `image_url`. If the exa
 
 ## Workflow
 
-1. Fetch candidates with `getDeadlineCheckQueue`.
+1. Fetch candidates with `getDeadlineVerificationQueue` for the normal next batch:
+
+```json
+{
+  "limit": 5,
+  "days": 30,
+  "status": "needs_verification",
+  "include_expired": false,
+  "include_recently_verified": false
+}
+```
+
+Do not reuse old batch IDs unless the user explicitly asks to recheck those exact scholarships.
+
 2. Work through one scholarship at a time.
 3. Check `official_url` first.
 4. If `official_url` is missing or unusable, check `application_url`.

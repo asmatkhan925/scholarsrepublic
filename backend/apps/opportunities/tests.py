@@ -2358,6 +2358,115 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn(expired.pk, [item["id"] for item in default_response.data["items"]])
         self.assertIn(expired.pk, [item["id"] for item in include_response.data["items"]])
 
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_queue_excludes_recently_confirmed_by_default(self):
+        confirmed = self.opportunity(
+            slug="queue-confirmed-recent",
+            deadline=timezone.localdate() + timedelta(days=40),
+            official_link="https://example.edu/confirmed-recent",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.CONFIRMED,
+            deadline_check_confidence=Opportunity.DeadlineCheckConfidence.HIGH,
+            deadline_last_checked_at=timezone.now(),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn(confirmed.pk, [item["id"] for item in response.data["items"]])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_queue_includes_stale_confirmed_after_freshness_window(self):
+        confirmed = self.opportunity(
+            slug="queue-confirmed-stale",
+            deadline=timezone.localdate() + timedelta(days=40),
+            official_link="https://example.edu/confirmed-stale",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.CONFIRMED,
+            deadline_check_confidence=Opportunity.DeadlineCheckConfidence.HIGH,
+            deadline_last_checked_at=timezone.now() - timedelta(days=8),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "needs_verification", "freshness_days": 7},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(confirmed.pk, [item["id"] for item in response.data["items"]])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_queue_keeps_problem_statuses_visible(self):
+        review = self.opportunity(
+            slug="queue-needs-review-visible",
+            deadline=timezone.localdate() + timedelta(days=40),
+            official_link="https://example.edu/review-visible",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.NEEDS_REVIEW,
+        )
+        unclear = self.opportunity(
+            slug="queue-unclear-visible",
+            deadline=timezone.localdate() + timedelta(days=41),
+            official_link="https://example.edu/unclear-visible",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.UNCLEAR,
+        )
+        failed = self.opportunity(
+            slug="queue-failed-visible",
+            deadline=timezone.localdate() + timedelta(days=42),
+            official_link="https://example.edu/failed-visible",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.FAILED,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "needs_verification"},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data["items"]]
+        self.assertIn(review.pk, ids)
+        self.assertIn(unclear.pk, ids)
+        self.assertIn(failed.pk, ids)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_queue_all_and_confirmed_filters_include_recent_confirmed(self):
+        confirmed = self.opportunity(
+            slug="queue-confirmed-filter",
+            deadline=timezone.localdate() + timedelta(days=60),
+            official_link="https://example.edu/confirmed-filter",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.CONFIRMED,
+            deadline_check_confidence=Opportunity.DeadlineCheckConfidence.HIGH,
+            deadline_last_checked_at=timezone.now(),
+        )
+
+        all_response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "all"},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+        confirmed_response = self.client.post(
+            "/api/admin/agent/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "confirmed"},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(all_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(confirmed_response.status_code, status.HTTP_200_OK)
+        self.assertIn(confirmed.pk, [item["id"] for item in all_response.data["items"]])
+        confirmed_item = confirmed_response.data["items"][0]
+        self.assertEqual(confirmed_item["id"], confirmed.pk)
+        self.assertTrue(confirmed_item["recently_verified"])
+        self.assertFalse(confirmed_item["needs_verification"])
+        self.assertIsNotNone(confirmed_item["verification_fresh_until"])
+
     def test_admin_deadline_verification_queue_returns_dashboard_stats(self):
         self.client.force_authenticate(self.admin)
         today = timezone.localdate()

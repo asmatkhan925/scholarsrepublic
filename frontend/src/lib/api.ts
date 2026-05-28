@@ -556,16 +556,20 @@ export async function getAdminDeadlineVerificationQueue(payload?: {
   days?: number;
   only_near_deadline?: boolean;
   status?:
-    | "all"
-    | "near"
+    | "needs_verification"
+    | "recently_verified"
+    | "confirmed"
+    | "extended"
     | "needs_review"
     | "unclear"
     | "failed"
-    | "confirmed"
-    | "extended"
+    | "all"
+    | "near"
     | "image_stale"
     | "unchecked";
   include_expired?: boolean;
+  include_recently_verified?: boolean;
+  freshness_days?: number;
 }) {
   const response = await api.post<DeadlineVerificationQueueResponse>(
     "/admin/scholarships/deadline-verification-queue/",

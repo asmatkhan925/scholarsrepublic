@@ -83,8 +83,25 @@ Action operations:
 
 - `getDeadlineCheckQueue`
 - `submitDeadlineCheckResult`
+- `getDeadlineVerificationQueue`
+- `getDeadlineVerificationBatchPackage`
 
 For the first real run, verify only 3 scholarships by calling `getDeadlineCheckQueue` with `limit=3`.
+
+For the normal next-batch workflow, call `getDeadlineVerificationQueue` with:
+
+```json
+{
+  "limit": 5,
+  "days": 30,
+  "status": "needs_verification",
+  "include_expired": false,
+  "include_recently_verified": false,
+  "freshness_days": 7
+}
+```
+
+Recently confirmed, extended, or expired records are excluded from this normal queue until their freshness window expires. Normal scholarships use a 7-day freshness window; near-deadline scholarships use a 24-hour window. Use `status="all"` or `include_recently_verified=true` only when intentionally auditing/rechecking prior results.
 
 1. Call the queue endpoint.
 2. Pick one scholarship from `items`.

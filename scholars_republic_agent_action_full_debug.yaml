@@ -814,15 +814,27 @@ components:
         status:
           type: string
           enum:
+            - needs_verification
+            - recently_verified
             - unchecked
             - unclear
             - failed
             - needs_review
+            - confirmed
+            - extended
             - all
-          default: all
+          default: needs_verification
         include_expired:
           type: boolean
           default: false
+        include_recently_verified:
+          type: boolean
+          default: false
+        freshness_days:
+          type: integer
+          default: 7
+          minimum: 1
+          maximum: 90
 
     DeadlineVerificationQueueResponse:
       type: object
@@ -832,6 +844,22 @@ components:
           type: boolean
         count:
           type: integer
+        stats:
+          type: object
+          additionalProperties: false
+          properties:
+            total_pending:
+              type: integer
+            near_deadline:
+              type: integer
+            unclear:
+              type: integer
+            failed:
+              type: integer
+            extended:
+              type: integer
+            stale_social_image:
+              type: integer
         items:
           type: array
           items:
@@ -839,6 +867,7 @@ components:
       required:
         - ok
         - count
+        - stats
         - items
 
     DeadlineVerificationQueueItem:
@@ -877,6 +906,14 @@ components:
             - "null"
         priority_reason:
           type: string
+        recently_verified:
+          type: boolean
+        needs_verification:
+          type: boolean
+        verification_fresh_until:
+          type:
+            - string
+            - "null"
 
     DeadlineVerificationBatchPackageRequest:
       type: object

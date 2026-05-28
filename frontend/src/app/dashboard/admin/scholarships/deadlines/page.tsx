@@ -20,24 +20,24 @@ import type {
 } from "@/types/opportunity";
 
 type QueueFilter =
-  | "all"
-  | "near"
+  | "needs_verification"
+  | "recently_verified"
+  | "confirmed"
+  | "extended"
   | "needs_review"
   | "unclear"
   | "failed"
-  | "confirmed"
-  | "extended"
-  | "image_stale";
+  | "all";
 
 const filters: { key: QueueFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "near", label: "Near deadline" },
+  { key: "needs_verification", label: "Needs verification" },
+  { key: "recently_verified", label: "Recently verified" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "extended", label: "Extended" },
   { key: "needs_review", label: "Needs review" },
   { key: "unclear", label: "Unclear" },
   { key: "failed", label: "Failed" },
-  { key: "confirmed", label: "Confirmed" },
-  { key: "extended", label: "Extended" },
-  { key: "image_stale", label: "Image stale" },
+  { key: "all", label: "All" },
 ];
 
 const groups = [
@@ -79,7 +79,7 @@ export default function ScholarshipDeadlineVerificationPage() {
   const { loading: authLoading, user } = useAuth();
   const [items, setItems] = useState<DeadlineVerificationQueueItem[]>([]);
   const [stats, setStats] = useState<DeadlineVerificationQueueResponse["stats"]>(emptyStats);
-  const [filter, setFilter] = useState<QueueFilter>("all");
+  const [filter, setFilter] = useState<QueueFilter>("needs_verification");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
@@ -95,6 +95,7 @@ export default function ScholarshipDeadlineVerificationPage() {
         limit: 50,
         days: 30,
         status: activeFilter,
+        include_recently_verified: activeFilter !== "needs_verification",
       });
       setItems(response.items);
       setStats(response.stats ?? emptyStats);
@@ -110,7 +111,7 @@ export default function ScholarshipDeadlineVerificationPage() {
     if (authLoading || user?.role !== "admin") {
       return;
     }
-    void loadQueue("all");
+    void loadQueue("needs_verification");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.role]);
 
