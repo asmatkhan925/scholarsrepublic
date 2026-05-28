@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-import { ExternalLink, RefreshCw } from "lucide-react";
+import Link from "next/link";
+
+import { ExternalLink, FilePlus2, RefreshCw } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge, Button, Card, CardContent } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
   getAdminScholarshipResearchLeads,
   updateAdminScholarshipResearchLeadStatus,
@@ -68,7 +70,11 @@ export default function ScholarshipResearchLeadsPage() {
     setMessage("");
     try {
       await updateAdminScholarshipResearchLeadStatus(id, action);
-      setMessage("Research lead updated.");
+      setMessage(
+        action === "imported"
+          ? "Research lead marked imported. Use this only after a draft exists."
+          : "Research lead updated.",
+      );
       await loadLeads(reviewStatus);
     } catch (requestError) {
       setError(getErrorMessage(requestError) ?? "Could not update research lead.");
@@ -91,6 +97,10 @@ export default function ScholarshipResearchLeadsPage() {
       >
         <div className="grid gap-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
+              Normal workflow: open the official URL, create a private draft from verified
+              source facts, then mark the lead imported only after the draft is saved.
+            </div>
             <div className="flex flex-wrap gap-2">
               {reviewFilters.map((filter) => (
                 <Button
@@ -180,16 +190,32 @@ export default function ScholarshipResearchLeadsPage() {
                               onClick={() => void updateLead(lead.id, "ready_for_draft")}
                               disabled={actionId === lead.id}
                             >
-                              Ready
+                              Mark Ready for Draft
                             </Button>
+                            <ButtonLink
+                              href="/dashboard/admin/scholarships/import"
+                              size="sm"
+                              variant="outline"
+                            >
+                              <FilePlus2 size={14} aria-hidden="true" />
+                              Create Draft
+                            </ButtonLink>
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => void updateLead(lead.id, "imported")}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "Mark this lead imported only if a private draft already exists. Continue?",
+                                  )
+                                ) {
+                                  void updateLead(lead.id, "imported");
+                                }
+                              }}
                               disabled={actionId === lead.id}
                             >
-                              Imported
+                              Mark Imported
                             </Button>
                             <Button
                               type="button"
@@ -200,6 +226,14 @@ export default function ScholarshipResearchLeadsPage() {
                             >
                               Reject
                             </Button>
+                            {lead.duplicate_matches.length ? (
+                              <Link
+                                href="/dashboard/admin/scholarships"
+                                className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-pine hover:bg-pine/5"
+                              >
+                                Open possible duplicate
+                              </Link>
+                            ) : null}
                           </div>
                         </td>
                       </tr>

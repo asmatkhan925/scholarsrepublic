@@ -652,7 +652,7 @@ class AgentScholarshipResearchLeadListView(AgentScholarshipBaseView):
             if value:
                 queryset = queryset.filter(**{f"{field}__iexact": value})
         items = [_serialize_research_lead(lead) for lead in queryset[:limit]]
-        return Response({"ok": True, "count": len(items), "items": items})
+        return Response({"ok": True, "count": len(items), "items": items, "leads": items})
 
 
 class AgentScholarshipResearchLeadMarkImportedView(AgentScholarshipBaseView):

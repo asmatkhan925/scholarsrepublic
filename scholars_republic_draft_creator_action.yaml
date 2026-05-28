@@ -1,0 +1,314 @@
+openapi: 3.1.0
+info:
+  title: Scholars Republic Admin Agent API
+  version: "1.5.0"
+  description: GPT agent API for scholarship validation, private draft creation, social draft saving, and research lead drafting workflow.
+
+servers:
+  - url: https://scholarsrepublic.org/api
+
+security:
+  - AgentTokenAuth: []
+
+paths:
+  /admin/agent/debug-auth/:
+    get:
+      operationId: debugAgentAuth
+      summary: Debug agent authentication
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: Auth debug result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  configured_token_length:
+                    type: integer
+                  header_present:
+                    type: boolean
+                  header_length:
+                    type: integer
+                  valid:
+                    type: boolean
+
+  /admin/agent/scholarships/validate/:
+    post:
+      operationId: validateScholarshipDraft
+      summary: Validate scholarship draft payload
+      description: Validate scholarship data without creating a draft.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /admin/agent/scholarships/create-draft/:
+    post:
+      operationId: createScholarshipDraft
+      summary: Create private scholarship draft
+      description: Create a private admin scholarship draft. This does not publish.
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Draft created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "201":
+          description: Draft created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /admin/agent/scholarships/drafts/{draft_id}/social-draft/:
+    post:
+      operationId: saveScholarshipSocialDraft
+      summary: Save social draft for a scholarship draft
+      description: Save Facebook post text and image prompt/content for a private scholarship draft. This does not post to Facebook.
+      x-openai-isConsequential: true
+      parameters:
+        - name: draft_id
+          in: path
+          required: true
+          description: Opportunity draft ID.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                facebook_post_text:
+                  type: string
+                image_prompt:
+                  type: string
+                image_url:
+                  type: string
+                notes:
+                  type: string
+              additionalProperties: true
+      responses:
+        "200":
+          description: Social draft saved
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /admin/agent/scholarship-research/check-duplicate/:
+    post:
+      operationId: checkScholarshipResearchDuplicate
+      summary: Check scholarship duplicate
+      description: Check whether a researched scholarship already exists.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - provider_name
+                - country
+                - official_url
+                - source_url
+              properties:
+                title:
+                  type: string
+                provider_name:
+                  type: string
+                country:
+                  type: string
+                official_url:
+                  type: string
+                source_url:
+                  type: string
+                detected_deadline:
+                  type: string
+      responses:
+        "200":
+          description: Duplicate check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  is_duplicate:
+                    type: boolean
+                  duplicate_status:
+                    type: string
+                  recommendation:
+                    type: string
+                  possible_matches:
+                    type: array
+                    items:
+                      type: object
+                  matches:
+                    type: array
+                    items:
+                      type: object
+
+  /admin/agent/scholarship-research/leads/list/:
+    post:
+      operationId: listScholarshipResearchLeads
+      summary: List scholarship research leads
+      description: List saved research leads, usually ready_for_draft leads.
+      x-openai-isConsequential: false
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                review_status:
+                  type: string
+                  enum:
+                    - new
+                    - needs_review
+                    - ready_for_draft
+                    - rejected
+                    - imported
+                    - all
+                duplicate_status:
+                  type: string
+                  enum:
+                    - unknown
+                    - new
+                    - possible_duplicate
+                    - duplicate
+                    - all
+                country:
+                  type: string
+                city:
+                  type: string
+                university:
+                  type: string
+                provider_name:
+                  type: string
+                degree_level:
+                  type: string
+                funding_type:
+                  type: string
+                limit:
+                  type: integer
+      responses:
+        "200":
+          description: Research leads list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  count:
+                    type: integer
+                  leads:
+                    type: array
+                    items:
+                      type: object
+
+  /admin/agent/scholarship-research/leads/{id}/mark-imported/:
+    post:
+      operationId: markScholarshipResearchLeadImported
+      summary: Mark research lead imported
+      description: Mark a research lead imported after private draft creation succeeds.
+      x-openai-isConsequential: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Research lead ID.
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Research lead marked imported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  lead:
+                    type: object
+                  message:
+                    type: string
+
+components:
+  securitySchemes:
+    AgentTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Agent-Token
+
+  schemas:
+    Empty:
+      type: object
+      properties:
+        ok:
+          type: boolean

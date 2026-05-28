@@ -1031,6 +1031,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ScholarshipResearchLead"
+        leads:
+          type: array
+          description: Alias for items for Draft Creator GPT compatibility.
+          items:
+            $ref: "#/components/schemas/ScholarshipResearchLead"
       required:
         - ok
         - count
