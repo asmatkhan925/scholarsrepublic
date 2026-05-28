@@ -1,0 +1,9 @@
+{
+  "status": "needs_review",
+  "detected_deadline": "",
+  "confidence": "medium",
+  "evidence_text": "Two source pages show different dates: one page indicates Jun 3, 2026 while another indicates May 1-29, 2026.",
+  "source_url": "https://jobs.sciencecareers.org/job/678907/phd-student-m-f-d-/",
+  "notes": "Conflicting deadline evidence. Manual review required before updating.",
+  "apply_update": false
+}

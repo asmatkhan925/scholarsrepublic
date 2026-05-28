@@ -2678,6 +2678,58 @@ class OpportunityAPITests(APITestCase):
         self.assertLessEqual(len(log.source_url), 200)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_needs_review_empty_detected_deadline_returns_200(self):
+        opportunity = self.opportunity(
+            slug="deadline-needs-review-empty",
+            deadline=date(2026, 5, 31),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "needs_review",
+                "detected_deadline": "",
+                "confidence": "medium",
+                "evidence_text": "Multiple dates appear on the page.",
+                "source_url": "https://example.com",
+                "notes": "Manual review required.",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 5, 31))
+        self.assertEqual(opportunity.deadline_check_status, Opportunity.DeadlineCheckStatus.NEEDS_REVIEW)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_deadline_verification_result_invalid_detected_deadline_returns_400(self):
+        opportunity = self.opportunity(
+            slug="deadline-invalid-detected",
+            deadline=date(2026, 5, 31),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/deadline-verification-result/",
+            {
+                "status": "confirmed",
+                "detected_deadline": "31-05-2026",
+                "confidence": "high",
+                "evidence_text": "Apply by 31-05-2026.",
+                "source_url": "https://example.com",
+                "notes": "Bad date format from agent.",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Invalid date format. Use YYYY-MM-DD.")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_deadline_verification_result_extended_without_social_image_does_not_crash(self):
         opportunity = self.opportunity(
             slug="deadline-extended-no-image",

@@ -230,12 +230,18 @@ def _opportunity_admin_url(opportunity):
 
 def _parse_iso_date_or_none(value):
     if value in (None, ""):
-        return None, None
+        return None, ""
+
+    if isinstance(value, datetime):
+        return value.date(), ""
+
+    if isinstance(value, date):
+        return value, ""
 
     try:
-        return date.fromisoformat(str(value))
+        return date.fromisoformat(str(value)), ""
     except ValueError:
-        return None, "verified_deadline must be YYYY-MM-DD or null."
+        return None, "Invalid date format. Use YYYY-MM-DD."
 
 
 def _deadline_check_summary(opportunity):
