@@ -895,6 +895,34 @@ class OpportunityDeadlineCheckLog(models.Model):
         return f"{self.check_status} deadline check for {self.opportunity}"
 
 
+class OpportunitySourceLinkCorrectionLog(models.Model):
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.CASCADE,
+        related_name="source_link_correction_logs",
+    )
+    old_official_url = models.TextField(blank=True)
+    old_source_url = models.TextField(blank=True)
+    old_application_url = models.TextField(blank=True)
+    suggested_official_url = models.TextField(blank=True)
+    suggested_source_url = models.TextField(blank=True)
+    suggested_application_url = models.TextField(blank=True)
+    reason = models.TextField(blank=True)
+    evidence_url = models.TextField(blank=True)
+    applied = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["applied"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Source link correction for {self.opportunity}"
+
+
 class OpportunityComment(models.Model):
     class ModerationStatus(models.TextChoices):
         PENDING = "pending", "Pending review"

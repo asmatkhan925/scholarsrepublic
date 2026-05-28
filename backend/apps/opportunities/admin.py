@@ -11,6 +11,7 @@ from apps.opportunities.models import (
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
+    OpportunitySourceLinkCorrectionLog,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -697,3 +698,40 @@ class OpportunityDeadlineCheckLogAdmin(admin.ModelAdmin):
     raw_id_fields = ("opportunity",)
     readonly_fields = ("created_at", "checked_at")
     ordering = ("-checked_at", "-created_at")
+
+
+@admin.register(OpportunitySourceLinkCorrectionLog)
+class OpportunitySourceLinkCorrectionLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "opportunity",
+        "applied",
+        "suggested_official_url",
+        "suggested_source_url",
+        "created_at",
+    )
+    list_filter = ("applied", "created_at")
+    search_fields = (
+        "opportunity__title",
+        "opportunity__slug",
+        "old_official_url",
+        "old_source_url",
+        "suggested_official_url",
+        "suggested_source_url",
+        "reason",
+        "evidence_url",
+    )
+    raw_id_fields = ("opportunity",)
+    readonly_fields = (
+        "opportunity",
+        "old_official_url",
+        "old_source_url",
+        "old_application_url",
+        "suggested_official_url",
+        "suggested_source_url",
+        "suggested_application_url",
+        "reason",
+        "evidence_url",
+        "applied",
+        "created_at",
+    )
+    ordering = ("-created_at",)

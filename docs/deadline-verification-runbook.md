@@ -23,6 +23,29 @@ Django stores the current deadline check status on `Opportunity` and records eve
 
 ## Endpoints
 
+### Suggest Source-Link Correction
+
+```text
+POST /api/admin/agent/scholarships/<id>/source-links-correction/
+Header: X-Agent-Token: <SCHOLARS_AGENT_TOKEN>
+Content-Type: application/json
+```
+
+Payload:
+
+```json
+{
+  "official_url": "https://official.example.edu/new-page",
+  "source_url": "https://official.example.edu/new-page",
+  "application_url": "",
+  "reason": "Stored source URL points to an outdated or mismatched page.",
+  "evidence_url": "https://official.example.edu/new-page",
+  "apply_update": false
+}
+```
+
+By default, this only records a correction suggestion. With `apply_update=true`, Django updates only `official_link` and/or `source_url`; it never updates title, content, deadline, publishing status, or social posting state.
+
 ### Fetch Queue
 
 ```text

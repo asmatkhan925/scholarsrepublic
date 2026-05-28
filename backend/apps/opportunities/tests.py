@@ -99,6 +99,7 @@ from apps.opportunities.models import (
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
+    OpportunitySourceLinkCorrectionLog,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -2837,6 +2838,117 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["detail"], "Invalid date format. Use YYYY-MM-DD.")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_source_link_correction_suggestion_does_not_edit_urls(self):
+        opportunity = self.opportunity(
+            slug="source-link-suggestion",
+            official_link="https://old.example.edu/call",
+            source_url="https://old.example.edu/source",
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/source-links-correction/",
+            {
+                "official_url": "https://new.example.edu/call",
+                "source_url": "https://new.example.edu/source",
+                "application_url": "https://new.example.edu/apply",
+                "reason": "Stored links point to outdated pages.",
+                "evidence_url": "https://new.example.edu/call",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.official_link, "https://old.example.edu/call")
+        self.assertEqual(opportunity.source_url, "https://old.example.edu/source")
+        log = OpportunitySourceLinkCorrectionLog.objects.get(opportunity=opportunity)
+        self.assertFalse(log.applied)
+        self.assertEqual(log.suggested_official_url, "https://new.example.edu/call")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_source_link_correction_apply_updates_url_fields_only(self):
+        opportunity = self.opportunity(
+            slug="source-link-apply",
+            title="Original Title",
+            deadline=date(2026, 5, 31),
+            official_link="https://old.example.edu/call",
+            source_url="https://old.example.edu/source",
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/source-links-correction/",
+            {
+                "official_url": "https://new.example.edu/call",
+                "source_url": "https://new.example.edu/source",
+                "reason": "Official page moved.",
+                "evidence_url": "https://new.example.edu/call",
+                "apply_update": True,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.official_link, "https://new.example.edu/call")
+        self.assertEqual(opportunity.source_url, "https://new.example.edu/source")
+        self.assertEqual(opportunity.title, "Original Title")
+        self.assertEqual(opportunity.deadline, date(2026, 5, 31))
+        self.assertTrue(OpportunitySourceLinkCorrectionLog.objects.get(opportunity=opportunity).applied)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_source_link_correction_invalid_url_returns_400(self):
+        opportunity = self.opportunity(slug="source-link-invalid")
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/source-links-correction/",
+            {
+                "official_url": "ftp://example.edu/call",
+                "reason": "Invalid scheme.",
+                "evidence_url": "https://example.edu",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("official_url", response.data["detail"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_source_link_correction_requires_agent_token(self):
+        opportunity = self.opportunity(slug="source-link-token")
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/source-links-correction/",
+            {"official_url": "https://example.edu/call", "apply_update": False},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_source_link_correction_overlong_url_returns_400(self):
+        opportunity = self.opportunity(slug="source-link-overlong")
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/source-links-correction/",
+            {
+                "official_url": f"https://example.edu/{'a' * 220}",
+                "reason": "URL too long.",
+                "evidence_url": "https://example.edu",
+                "apply_update": False,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("too long", response.data["detail"])
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_deadline_verification_result_extended_without_social_image_does_not_crash(self):

@@ -392,6 +392,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/agent/scholarships/{id}/source-links-correction/:
+    post:
+      operationId: submitSourceLinksCorrection
+      summary: Suggest or apply corrected scholarship source links
+      description: Saves a source-link correction suggestion. If apply_update is true, only URL fields may be updated; title, deadline, content, publishing, and social posting are never changed by this endpoint.
+      x-openai-isConsequential: true
+      security:
+        - AgentTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Scholarship opportunity ID.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceLinksCorrectionRequest"
+      responses:
+        "200":
+          description: Source-link correction saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceLinksCorrectionResponse"
+        "400":
+          description: Invalid source-link correction request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing or invalid agent token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     AgentTokenAuth:
@@ -1076,6 +1123,62 @@ components:
           type: string
       required:
         - opportunity
+
+    SourceLinksCorrectionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        official_url:
+          type: string
+          description: Corrected official URL. Use http or https only.
+        source_url:
+          type: string
+          description: Corrected source URL. Use http or https only.
+        application_url:
+          type: string
+          description: Corrected application URL if separate. Logged for review.
+        reason:
+          type: string
+          description: Short reason why the stored source link is wrong or outdated.
+        evidence_url:
+          type: string
+          description: URL that supports the correction.
+        apply_update:
+          type: boolean
+          default: false
+      required:
+        - apply_update
+
+    SourceLinksCorrectionResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+        correction_log_id:
+          type: integer
+        opportunity_id:
+          type: integer
+        applied:
+          type: boolean
+        updated_fields:
+          type: array
+          items:
+            type: string
+        old:
+          type: object
+          additionalProperties: true
+        suggested:
+          type: object
+          additionalProperties: true
+        current:
+          type: object
+          additionalProperties: true
+      required:
+        - ok
+        - correction_log_id
+        - opportunity_id
+        - applied
 
     ErrorResponse:
       type: object

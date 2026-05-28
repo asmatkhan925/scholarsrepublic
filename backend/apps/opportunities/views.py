@@ -6,6 +6,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.db.models import Count, F, Prefetch, Q
 from django.db.utils import DataError
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from rest_framework import generics, parsers, permissions, status
@@ -24,6 +26,7 @@ from apps.opportunities.models import (
     OpportunityPathway,
     OpportunitySocialDraft,
     OpportunitySocialPostPlan,
+    OpportunitySourceLinkCorrectionLog,
 )
 from apps.opportunities.serializers import (
     AdminOpportunityCommentSerializer,
@@ -1233,6 +1236,21 @@ def _deadline_result_source_url(payload):
     return source_url[: min(opportunity_max, log_max)]
 
 
+def _validated_source_link(payload, key):
+    raw_value = str(payload.get(key) or "").strip()
+    if not raw_value:
+        return ""
+    if len(raw_value) > 200:
+        raise ValueError(f"{key} is too long. Maximum length is 200 characters.")
+    if not raw_value.lower().startswith(("http://", "https://")):
+        raise ValueError(f"{key} must be a valid http or https URL.")
+    try:
+        URLValidator(schemes=["http", "https"])(raw_value)
+    except ValidationError as exc:
+        raise ValueError(f"{key} must be a valid http or https URL.") from exc
+    return raw_value
+
+
 def _save_agent_deadline_verification_result(opportunity, payload):
     allowed_statuses = {"confirmed", "extended", "expired", "unclear", "needs_review", "failed"}
     status_value = str(payload.get("status") or "").strip()
@@ -1436,6 +1454,93 @@ class AgentScholarshipDeadlineVerificationResultView(AgentScholarshipBaseView):
                 {"detail": "Deadline verification result failed."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class AgentScholarshipSourceLinkCorrectionView(AgentScholarshipBaseView):
+    def post(self, request, opportunity_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        opportunity = Opportunity.objects.filter(pk=opportunity_id).first()
+        if not opportunity:
+            return Response({"detail": "Scholarship not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            official_url = _validated_source_link(request.data, "official_url")
+            source_url = _validated_source_link(request.data, "source_url")
+            application_url = _validated_source_link(request.data, "application_url")
+            evidence_url = _validated_source_link(request.data, "evidence_url")
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not any([official_url, source_url, application_url]):
+            return Response(
+                {"detail": "At least one corrected URL is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        apply_update = bool(parse_bool(request.data.get("apply_update")))
+        reason = str(request.data.get("reason") or "").strip()[:4000]
+        old_official_url = opportunity.official_link
+        old_source_url = opportunity.source_url
+        old_application_url = opportunity.official_link or opportunity.source_url
+
+        log = OpportunitySourceLinkCorrectionLog.objects.create(
+            opportunity=opportunity,
+            old_official_url=old_official_url,
+            old_source_url=old_source_url,
+            old_application_url=old_application_url,
+            suggested_official_url=official_url,
+            suggested_source_url=source_url,
+            suggested_application_url=application_url,
+            reason=reason,
+            evidence_url=evidence_url,
+            applied=apply_update,
+        )
+
+        updated_fields = []
+        if apply_update:
+            if official_url:
+                opportunity.official_link = official_url
+                updated_fields.append("official_link")
+            if source_url:
+                opportunity.source_url = source_url
+                updated_fields.append("source_url")
+            if updated_fields:
+                updated_fields.append("updated_at")
+                opportunity.save(update_fields=updated_fields)
+
+        return Response(
+            {
+                "ok": True,
+                "correction_log_id": log.pk,
+                "opportunity_id": opportunity.pk,
+                "applied": apply_update,
+                "updated_fields": updated_fields,
+                "old": {
+                    "official_url": old_official_url,
+                    "source_url": old_source_url,
+                    "application_url": old_application_url,
+                },
+                "suggested": {
+                    "official_url": official_url,
+                    "source_url": source_url,
+                    "application_url": application_url,
+                },
+                "current": {
+                    "official_url": opportunity.official_link,
+                    "source_url": opportunity.source_url,
+                    "application_url": opportunity.official_link or opportunity.source_url,
+                },
+            }
+        )
 
 
 class AdminScholarshipDeadlineVerificationPackageView(APIView):

@@ -41,6 +41,7 @@ from apps.opportunities.views import (
     AgentScholarshipDeadlineVerificationResultView,
     AgentScholarshipDraftSocialImageView,
     AgentScholarshipOpportunitySocialImageView,
+    AgentScholarshipSourceLinkCorrectionView,
     AgentScholarshipSocialDraftView,
     AgentScholarshipValidateView,
     OpportunityCommentDeleteView,
@@ -186,6 +187,11 @@ urlpatterns = [
         "admin/agent/scholarships/<int:opportunity_id>/deadline-verification-result/",
         AgentScholarshipDeadlineVerificationResultView.as_view(),
         name="agent-scholarship-deadline-verification-result",
+    ),
+    path(
+        "admin/agent/scholarships/<int:opportunity_id>/source-links-correction/",
+        AgentScholarshipSourceLinkCorrectionView.as_view(),
+        name="agent-scholarship-source-links-correction",
     ),
     path(
         "admin/agent/scholarships/drafts/<int:draft_id>/social-image/",

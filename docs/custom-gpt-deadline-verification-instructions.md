@@ -52,6 +52,8 @@ Do not reuse old batch IDs unless the user explicitly asks to recheck those exac
 6. Do not use the Scholars Republic page as evidence for deadline verification.
 7. Submit exactly one `submitDeadlineCheckResult` payload for each checked scholarship.
 
+If a stored `official_url`, `application_url`, or `source_url` is wrong, outdated, or points to an unrelated page, call `submitSourceLinksCorrection` with the corrected link, a short reason, and evidence URL. Use `apply_update=false` unless the user explicitly asks you to apply the URL update or the evidence is very clear. Never update title, content, deadline, publishing, or social posting through the source-link correction endpoint.
+
 ## Verification Rules
 
 - Verify existing deadlines too; do not only check missing deadlines.
