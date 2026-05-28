@@ -2177,6 +2177,7 @@ class OpportunityAPITests(APITestCase):
         expired_plan = OpportunitySocialPostPlan.objects.get(opportunity=expired)
         expired_plan.refresh_from_db()
         self.assertEqual(expired_plan.status, OpportunitySocialPostPlan.Status.PAUSED)
+        self.assertFalse(expired_plan.enabled)
         self.assertEqual(
             expired_plan.last_error,
             "Skipped automatic Facebook post because opportunity is expired.",
@@ -2187,6 +2188,24 @@ class OpportunityAPITests(APITestCase):
                 status=OpportunitySocialPostLog.Status.SKIPPED,
                 error_message="Skipped automatic Facebook post because opportunity is expired.",
             ).exists()
+        )
+
+        second_response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.data["items"], [])
+        self.assertEqual(
+            OpportunitySocialPostLog.objects.filter(
+                plan=expired_plan,
+                status=OpportunitySocialPostLog.Status.SKIPPED,
+                error_message="Skipped automatic Facebook post because opportunity is expired.",
+            ).count(),
+            1,
         )
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
@@ -2213,6 +2232,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["items"], [])
         plan.refresh_from_db()
         self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.PAUSED)
+        self.assertFalse(plan.enabled)
         self.assertEqual(
             plan.last_error,
             "Skipped automatic Facebook post because opportunity is expired.",

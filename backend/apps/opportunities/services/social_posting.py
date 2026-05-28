@@ -746,8 +746,9 @@ def record_skipped_expired_automatic_post(plan):
         error_message=EXPIRED_AUTOMATIC_SKIP_MESSAGE,
     )
     plan.status = OpportunitySocialPostPlan.Status.PAUSED
+    plan.enabled = False
     plan.last_error = EXPIRED_AUTOMATIC_SKIP_MESSAGE
-    plan.save(update_fields=["status", "last_error", "updated_at"])
+    plan.save(update_fields=["enabled", "status", "last_error", "updated_at"])
     return log
 
 
