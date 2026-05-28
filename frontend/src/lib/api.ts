@@ -36,6 +36,7 @@ import type {
   FacebookPostNowResponse,
   FacebookScheduleResponse,
   CreateScholarshipCommentPayload,
+  DeadlineVerificationActionResponse,
   DeadlineVerificationApplyResponse,
   DeadlineVerificationPackage,
   DeadlineVerificationQueueResponse,
@@ -548,12 +549,32 @@ export async function getAdminDeadlineVerificationQueue(payload?: {
   limit?: number;
   days?: number;
   only_near_deadline?: boolean;
-  status?: "unchecked" | "unclear" | "failed" | "needs_review" | "all";
+  status?:
+    | "all"
+    | "near"
+    | "needs_review"
+    | "unclear"
+    | "failed"
+    | "confirmed"
+    | "extended"
+    | "image_stale"
+    | "unchecked";
   include_expired?: boolean;
 }) {
   const response = await api.post<DeadlineVerificationQueueResponse>(
     "/admin/scholarships/deadline-verification-queue/",
     payload ?? {},
+  );
+  return response.data;
+}
+
+export async function runAdminDeadlineVerificationAction(payload: {
+  action: "prepare_packages" | "mark_reviewed" | "recheck";
+  ids: number[];
+}) {
+  const response = await api.post<DeadlineVerificationActionResponse>(
+    "/admin/scholarships/deadline-verification-actions/",
+    payload,
   );
   return response.data;
 }

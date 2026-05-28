@@ -22,6 +22,7 @@ from apps.opportunities.views import (
     AdminScholarshipFacebookPostNowView,
     AdminScholarshipFacebookScheduleView,
     AdminScholarshipDeadlineApplyView,
+    AdminScholarshipDeadlineVerificationActionView,
     AdminScholarshipDeadlineVerificationPackageView,
     AdminScholarshipDeadlineVerificationQueueView,
     AdminScholarshipDraftSocialImageUploadView,
@@ -295,6 +296,11 @@ urlpatterns = [
         "admin/scholarships/deadline-verification-queue/",
         AdminScholarshipDeadlineVerificationQueueView.as_view(),
         name="admin-scholarship-deadline-verification-queue",
+    ),
+    path(
+        "admin/scholarships/deadline-verification-actions/",
+        AdminScholarshipDeadlineVerificationActionView.as_view(),
+        name="admin-scholarship-deadline-verification-actions",
     ),
     path(
         "admin/scholarships/<int:opportunity_id>/deadline-apply/",

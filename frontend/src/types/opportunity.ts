@@ -482,6 +482,12 @@ export type DeadlineVerificationPackage = {
   source_url: string;
   page_text_excerpt: string;
   candidate_dates: { date: string; evidence: string }[];
+  deterministic_assessment?: {
+    status: string;
+    confidence: string;
+    reason: string;
+    detected_deadline: string | null;
+  };
   fetch_error?: string;
   instructions: string;
 };
@@ -505,7 +511,23 @@ export type DeadlineVerificationQueueItem = {
 export type DeadlineVerificationQueueResponse = {
   ok: boolean;
   count: number;
+  stats: {
+    total_pending: number;
+    near_deadline: number;
+    unclear: number;
+    failed: number;
+    extended: number;
+    stale_social_image: number;
+  };
   items: DeadlineVerificationQueueItem[];
+};
+
+export type DeadlineVerificationActionResponse = {
+  ok: boolean;
+  action: string;
+  updated?: number;
+  count?: number;
+  packages?: DeadlineVerificationPackage[];
 };
 
 export type DeadlineVerificationApplyResponse = {

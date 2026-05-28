@@ -113,6 +113,76 @@ def extract_candidate_dates(page_text):
     return sorted(candidates.values(), key=lambda item: item.date)
 
 
+DEADLINE_WORDS = {"deadline", "apply", "application", "closing", "submit", "submission"}
+NON_DEADLINE_WORDS = {"start", "joining", "interview", "orientation", "commencement"}
+
+
+def classify_deadline_candidates(current_deadline, candidate_dates):
+    if not candidate_dates:
+        return {
+            "status": "unclear",
+            "confidence": "low",
+            "reason": "No candidate date found.",
+            "detected_deadline": None,
+        }
+
+    normalized = []
+    for candidate in candidate_dates:
+        candidate_date = candidate["date"] if isinstance(candidate, dict) else candidate.date.isoformat()
+        evidence = candidate["evidence"] if isinstance(candidate, dict) else candidate.evidence
+        normalized.append({"date": candidate_date, "evidence": str(evidence or "")})
+
+    non_deadline_matches = [
+        item
+        for item in normalized
+        if any(word in item["evidence"].lower() for word in NON_DEADLINE_WORDS)
+    ]
+    if non_deadline_matches and len(non_deadline_matches) == len(normalized):
+        return {
+            "status": "needs_review",
+            "confidence": "low",
+            "reason": "Candidate dates look like start, joining, interview, or orientation dates.",
+            "detected_deadline": non_deadline_matches[0]["date"],
+        }
+
+    deadline_like = [
+        item
+        for item in normalized
+        if any(word in item["evidence"].lower() for word in DEADLINE_WORDS)
+    ]
+    unique_deadline_dates = {item["date"] for item in deadline_like}
+    if len(unique_deadline_dates) > 1:
+        return {
+            "status": "needs_review",
+            "confidence": "medium",
+            "reason": "Multiple conflicting deadline-like dates found.",
+            "detected_deadline": sorted(unique_deadline_dates)[-1],
+        }
+
+    selected = deadline_like[0] if deadline_like else normalized[0]
+    detected = selected["date"]
+    if current_deadline and detected == str(current_deadline):
+        return {
+            "status": "confirmed",
+            "confidence": "high",
+            "reason": "Candidate date equals stored deadline.",
+            "detected_deadline": detected,
+        }
+    if current_deadline and detected > str(current_deadline) and deadline_like:
+        return {
+            "status": "extended",
+            "confidence": "high",
+            "reason": "Candidate deadline is later than stored deadline.",
+            "detected_deadline": detected,
+        }
+    return {
+        "status": "needs_review",
+        "confidence": "medium",
+        "reason": "Candidate date found but does not safely confirm or extend the stored deadline.",
+        "detected_deadline": detected,
+    }
+
+
 def prepare_deadline_verification_package(opportunity):
     source_url = source_url_for_opportunity(opportunity)
     page_text = ""
@@ -124,6 +194,10 @@ def prepare_deadline_verification_package(opportunity):
             error = str(exc)
 
     candidates = extract_candidate_dates(page_text)
+    candidate_payload = [
+        {"date": candidate.date.isoformat(), "evidence": candidate.evidence}
+        for candidate in candidates
+    ]
     return {
         "opportunity_id": opportunity.pk,
         "title": opportunity.title,
@@ -132,10 +206,11 @@ def prepare_deadline_verification_package(opportunity):
         "official_link": opportunity.official_link,
         "source_url": opportunity.source_url,
         "page_text_excerpt": page_text[:4000],
-        "candidate_dates": [
-            {"date": candidate.date.isoformat(), "evidence": candidate.evidence}
-            for candidate in candidates
-        ],
+        "candidate_dates": candidate_payload,
+        "deterministic_assessment": classify_deadline_candidates(
+            opportunity.deadline.isoformat() if opportunity.deadline else None,
+            candidate_payload,
+        ),
         "fetch_error": error,
         "instructions": (
             "Verify if the deadline is confirmed, extended, expired, unclear, "

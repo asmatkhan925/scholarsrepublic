@@ -105,6 +105,7 @@ from apps.opportunities.services.opportunity_draft_importer import (
 )
 from apps.opportunities.services.social_image_uploads import save_social_image_from_base64
 from apps.opportunities.services.social_posting import generate_facebook_post_text, plan_image_url
+from apps.opportunities.services.deadline_checker import classify_deadline_candidates
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
 from apps.users.models import User
@@ -2355,6 +2356,105 @@ class OpportunityAPITests(APITestCase):
 
         self.assertNotIn(expired.pk, [item["id"] for item in default_response.data["items"]])
         self.assertIn(expired.pk, [item["id"] for item in include_response.data["items"]])
+
+    def test_admin_deadline_verification_queue_returns_dashboard_stats(self):
+        self.client.force_authenticate(self.admin)
+        today = timezone.localdate()
+        self.opportunity(
+            slug="stats-near",
+            deadline=today + timedelta(days=3),
+            official_link="https://example.edu/near",
+        )
+        self.opportunity(
+            slug="stats-unclear",
+            deadline=today + timedelta(days=20),
+            official_link="https://example.edu/unclear",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.UNCLEAR,
+        )
+        self.opportunity(
+            slug="stats-failed",
+            deadline=today + timedelta(days=25),
+            official_link="https://example.edu/failed",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.FAILED,
+        )
+        extended = self.opportunity(
+            slug="stats-extended",
+            deadline=today + timedelta(days=30),
+            official_link="https://example.edu/extended",
+            deadline_check_status=Opportunity.DeadlineCheckStatus.EXTENDED,
+        )
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=extended,
+            platform="facebook",
+            social_image_is_stale=True,
+        )
+
+        response = self.client.post(
+            "/api/admin/scholarships/deadline-verification-queue/",
+            {"limit": 10, "status": "all"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(response.data["stats"]["total_pending"], 4)
+        self.assertGreaterEqual(response.data["stats"]["near_deadline"], 1)
+        self.assertEqual(response.data["stats"]["unclear"], 1)
+        self.assertEqual(response.data["stats"]["failed"], 1)
+        self.assertEqual(response.data["stats"]["extended"], 1)
+        self.assertEqual(response.data["stats"]["stale_social_image"], 1)
+
+    def test_deadline_candidate_classifier_deterministic_rules(self):
+        confirmed = classify_deadline_candidates(
+            "2026-06-01",
+            [{"date": "2026-06-01", "evidence": "Application deadline: June 1, 2026."}],
+        )
+        extended = classify_deadline_candidates(
+            "2026-06-01",
+            [{"date": "2026-06-30", "evidence": "Applications submit deadline: June 30, 2026."}],
+        )
+        non_deadline = classify_deadline_candidates(
+            "2026-06-01",
+            [{"date": "2026-09-01", "evidence": "Programme start date is September 1, 2026."}],
+        )
+        conflicting = classify_deadline_candidates(
+            "2026-06-01",
+            [
+                {"date": "2026-06-15", "evidence": "Application deadline: June 15, 2026."},
+                {"date": "2026-06-30", "evidence": "Closing deadline: June 30, 2026."},
+            ],
+        )
+        unclear = classify_deadline_candidates("2026-06-01", [])
+
+        self.assertEqual(confirmed["status"], "confirmed")
+        self.assertEqual(extended["status"], "extended")
+        self.assertEqual(non_deadline["status"], "needs_review")
+        self.assertEqual(conflicting["status"], "needs_review")
+        self.assertEqual(unclear["status"], "unclear")
+
+    def test_run_deadline_verification_queue_dry_run_does_not_update_deadline(self):
+        opportunity = self.opportunity(
+            slug="dry-run-deadline-command",
+            deadline=date(2026, 6, 1),
+            official_link="https://example.edu/dry-run",
+        )
+        output = StringIO()
+
+        with patch(
+            "apps.opportunities.services.deadline_checker.fetch_page_text",
+            return_value="Applications submit deadline: June 30, 2026.",
+        ):
+            call_command(
+                "run_deadline_verification_queue",
+                "--dry-run",
+                "--limit",
+                "1",
+                stdout=output,
+            )
+
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.deadline, date(2026, 6, 1))
+        self.assertIsNone(opportunity.deadline_last_checked_at)
+        self.assertIn("likely=extended", output.getvalue())
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_deadline_verification_batch_package_returns_multiple_packages(self):

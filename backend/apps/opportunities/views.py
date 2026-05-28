@@ -1017,6 +1017,32 @@ def _deadline_verification_queue_item(opportunity, priority_reason):
     }
 
 
+def _deadline_verification_dashboard_stats(queryset, *, now, days):
+    stats = {
+        "total_pending": 0,
+        "near_deadline": 0,
+        "unclear": 0,
+        "failed": 0,
+        "extended": 0,
+        "stale_social_image": 0,
+    }
+    for opportunity in queryset:
+        priority, _reason = _deadline_verification_priority(opportunity, now=now, days=days)
+        if priority < 6:
+            stats["total_pending"] += 1
+        if opportunity.days_until_deadline is not None and 0 <= opportunity.days_until_deadline <= 7:
+            stats["near_deadline"] += 1
+        if opportunity.deadline_check_status == Opportunity.DeadlineCheckStatus.UNCLEAR:
+            stats["unclear"] += 1
+        if opportunity.deadline_check_status == Opportunity.DeadlineCheckStatus.FAILED:
+            stats["failed"] += 1
+        if opportunity.deadline_check_status == Opportunity.DeadlineCheckStatus.EXTENDED:
+            stats["extended"] += 1
+        if opportunity.social_post_plans.filter(social_image_is_stale=True).exists():
+            stats["stale_social_image"] += 1
+    return stats
+
+
 def build_deadline_verification_queue(payload):
     payload = payload if isinstance(payload, dict) else {}
     limit = max(1, min(parse_positive_int(payload.get("limit")) or 10, 50))
@@ -1024,32 +1050,47 @@ def build_deadline_verification_queue(payload):
     only_near_deadline = bool(payload.get("only_near_deadline"))
     include_expired = bool(payload.get("include_expired"))
     requested_status = str(payload.get("status") or "all").strip()
-    allowed_statuses = {"unchecked", "unclear", "failed", "needs_review", "all"}
+    allowed_statuses = {
+        "unchecked",
+        "unclear",
+        "failed",
+        "needs_review",
+        "confirmed",
+        "extended",
+        "image_stale",
+        "near",
+        "all",
+    }
     if requested_status not in allowed_statuses:
         requested_status = "all"
 
     today = timezone.localdate()
-    queryset = (
+    base_queryset = (
         Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
         .filter(Q(official_link__gt="") | Q(source_url__gt=""))
         .select_related("country_ref")
         .distinct()
     )
+    queryset = base_queryset
     if not include_expired:
         queryset = queryset.filter(
             Q(is_rolling_deadline=True) | Q(deadline__isnull=True) | Q(deadline__gte=today)
         )
-    if only_near_deadline:
+    stats_queryset = queryset
+    if only_near_deadline or requested_status == "near":
         queryset = queryset.filter(
             deadline__isnull=False,
             deadline__gte=today,
             deadline__lte=today + timedelta(days=days),
         )
-    if requested_status != "all":
+    if requested_status in {"unchecked", "unclear", "failed", "needs_review", "confirmed", "extended"}:
         queryset = queryset.filter(deadline_check_status=requested_status)
+    if requested_status == "image_stale":
+        queryset = queryset.filter(social_post_plans__social_image_is_stale=True)
 
     now = timezone.now()
     items = []
+    stats = _deadline_verification_dashboard_stats(stats_queryset, now=now, days=days)
     for opportunity in queryset:
         priority, reason = _deadline_verification_priority(opportunity, now=now, days=days)
         if priority == 6 and requested_status == "all":
@@ -1062,7 +1103,7 @@ def build_deadline_verification_queue(payload):
         _deadline_verification_queue_item(opportunity, reason)
         for _, _, _, opportunity, reason in items[:limit]
     ]
-    return {"ok": True, "count": len(selected), "items": selected}
+    return {"ok": True, "count": len(selected), "stats": stats, "items": selected}
 
 
 def _deadline_verification_response(opportunity, log=None):
@@ -1285,6 +1326,91 @@ class AdminScholarshipDeadlineVerificationQueueView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(build_deadline_verification_queue(request.data))
+
+
+class AdminScholarshipDeadlineVerificationActionView(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request):
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        action = str(request.data.get("action") or "").strip()
+        ids = request.data.get("ids") or []
+        if action not in {"prepare_packages", "mark_reviewed", "recheck"}:
+            return Response({"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(ids, list):
+            return Response({"detail": "ids must be a list."}, status=status.HTTP_400_BAD_REQUEST)
+
+        parsed_ids = []
+        for item in ids:
+            try:
+                parsed_ids.append(int(item))
+            except (TypeError, ValueError):
+                continue
+        opportunities = list(Opportunity.objects.filter(pk__in=parsed_ids))
+        now = timezone.now()
+
+        if action == "mark_reviewed":
+            updated = 0
+            for opportunity in opportunities:
+                opportunity.deadline_last_checked_at = now
+                opportunity.deadline_check_status = Opportunity.DeadlineCheckStatus.CONFIRMED
+                opportunity.deadline_check_confidence = Opportunity.DeadlineCheckConfidence.MEDIUM
+                opportunity.deadline_check_note = "Marked reviewed by admin batch action."
+                opportunity.save(
+                    update_fields=[
+                        "deadline_last_checked_at",
+                        "deadline_check_status",
+                        "deadline_check_confidence",
+                        "deadline_check_note",
+                        "updated_at",
+                    ]
+                )
+                updated += 1
+            return Response({"ok": True, "action": action, "updated": updated})
+
+        packages = []
+        for opportunity in opportunities:
+            try:
+                package = prepare_deadline_verification_package(opportunity)
+                assessment = package.get("deterministic_assessment") or {}
+                if action == "recheck":
+                    opportunity.deadline_last_checked_at = now
+                    opportunity.deadline_check_status = _deadline_verification_status_to_legacy(
+                        assessment.get("status")
+                    )
+                    opportunity.deadline_check_confidence = assessment.get("confidence", "")
+                    opportunity.deadline_check_note = assessment.get("reason", "")
+                    opportunity.save(
+                        update_fields=[
+                            "deadline_last_checked_at",
+                            "deadline_check_status",
+                            "deadline_check_confidence",
+                            "deadline_check_note",
+                            "updated_at",
+                        ]
+                    )
+                packages.append(package)
+            except Exception as exc:
+                logger.exception(
+                    "Admin deadline verification action failed: action=%s opportunity_id=%s",
+                    action,
+                    opportunity.pk,
+                )
+                packages.append(
+                    {
+                        "opportunity_id": opportunity.pk,
+                        "title": opportunity.title,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        return Response({"ok": True, "action": action, "count": len(packages), "packages": packages})
 
 
 class AdminScholarshipDeadlineApplyView(APIView):
