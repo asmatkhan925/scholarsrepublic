@@ -1,4 +1,5 @@
 import logging
+import re
 import secrets
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
@@ -139,12 +140,55 @@ def _extract_agent_payload(request):
 
     payload = data.get("payload")
     if isinstance(payload, dict):
-        return payload
+        return _normalize_agent_draft_payload(payload)
 
     if isinstance(data.get("opportunity"), dict):
         return data
 
     return None
+
+
+def _agent_string_list(value):
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    text = str(value or "").strip()
+    if not text:
+        return []
+
+    return [item.strip(" -\t") for item in re.split(r"[\n;,]+", text) if item.strip(" -\t")]
+
+
+def _normalize_agent_draft_payload(payload):
+    if isinstance(payload.get("opportunity"), dict):
+        return payload
+
+    opportunity = {
+        "title": payload.get("title", ""),
+        "provider_name": payload.get("provider_name", ""),
+        "country": payload.get("country", ""),
+        "short_description": payload.get("summary", ""),
+        "description": payload.get("description", ""),
+        "eligibility": payload.get("eligibility", ""),
+        "benefits": payload.get("benefits", ""),
+        "how_to_apply": payload.get("how_to_apply", ""),
+        "deadline": payload.get("deadline", ""),
+        "official_link": payload.get("official_url", ""),
+        "source_url": payload.get("source_url", ""),
+        "application_url": payload.get("application_url", ""),
+        "funding_type": payload.get("funding_type", ""),
+        "degree_levels": _agent_string_list(payload.get("degree_level")),
+        "fields_of_study": _agent_string_list(payload.get("fields")),
+        "required_documents": _agent_string_list(payload.get("required_documents")),
+    }
+    normalized = {
+        "confidence": payload.get("confidence", ""),
+        "create_missing_references": payload.get("create_missing_references", True),
+        "opportunity": opportunity,
+    }
+    if payload.get("notes"):
+        normalized["notes"] = payload.get("notes")
+    return normalized
 
 
 def _invalid_agent_payload_response():

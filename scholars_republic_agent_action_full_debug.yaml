@@ -597,9 +597,49 @@ components:
       additionalProperties: false
       properties:
         payload:
-          $ref: "#/components/schemas/ScholarshipPayload"
+          $ref: "#/components/schemas/ScholarshipDraftPayload"
       required:
         - payload
+
+    ScholarshipDraftPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+        provider_name:
+          type: string
+        country:
+          type: string
+        degree_level:
+          type: string
+        funding_type:
+          type: string
+        deadline:
+          type: string
+        official_url:
+          type: string
+        source_url:
+          type: string
+        application_url:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        eligibility:
+          type: string
+        benefits:
+          type: string
+        how_to_apply:
+          type: string
+        required_documents:
+          type: string
+        fields:
+          type: string
+        notes:
+          type: string
+      required: []
 
     ScholarshipPayload:
       type: object
@@ -866,6 +906,7 @@ components:
           type: array
           items:
             type: object
+            properties: {}
             additionalProperties: true
         recommendation:
           type: string
@@ -966,6 +1007,7 @@ components:
           type: array
           items:
             type: object
+            properties: {}
             additionalProperties: true
         review_status:
           type: string
@@ -1313,6 +1355,7 @@ components:
           type: array
           items:
             type: object
+            properties: {}
             additionalProperties: true
       required:
         - ok
@@ -1492,12 +1535,15 @@ components:
             type: string
         old:
           type: object
+          properties: {}
           additionalProperties: true
         suggested:
           type: object
+          properties: {}
           additionalProperties: true
         current:
           type: object
+          properties: {}
           additionalProperties: true
       required:
         - ok

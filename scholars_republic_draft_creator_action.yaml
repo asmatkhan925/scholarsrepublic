@@ -46,8 +46,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: "#/components/schemas/ScholarshipDraftRequest"
       responses:
         "200":
           description: Validation result
@@ -55,6 +54,7 @@ paths:
             application/json:
               schema:
                 type: object
+                properties: {}
                 additionalProperties: true
         "400":
           description: Invalid request
@@ -62,6 +62,7 @@ paths:
             application/json:
               schema:
                 type: object
+                properties: {}
                 additionalProperties: true
 
   /admin/agent/scholarships/create-draft/:
@@ -75,8 +76,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: "#/components/schemas/ScholarshipDraftRequest"
       responses:
         "200":
           description: Draft created
@@ -84,6 +84,7 @@ paths:
             application/json:
               schema:
                 type: object
+                properties: {}
                 additionalProperties: true
         "201":
           description: Draft created
@@ -91,6 +92,7 @@ paths:
             application/json:
               schema:
                 type: object
+                properties: {}
                 additionalProperties: true
         "400":
           description: Invalid request
@@ -98,6 +100,7 @@ paths:
             application/json:
               schema:
                 type: object
+                properties: {}
                 additionalProperties: true
 
   /admin/agent/scholarships/drafts/{draft_id}/social-draft/:
@@ -136,6 +139,7 @@ paths:
             application/json:
               schema:
                 type: object
+                properties: {}
                 additionalProperties: true
         "400":
           description: Invalid request
@@ -143,6 +147,7 @@ paths:
             application/json:
               schema:
                 type: object
+                properties: {}
                 additionalProperties: true
 
   /admin/agent/scholarship-research/check-duplicate/:
@@ -196,10 +201,12 @@ paths:
                     type: array
                     items:
                       type: object
+                      properties: {}
                   matches:
                     type: array
                     items:
                       type: object
+                      properties: {}
 
   /admin/agent/scholarship-research/leads/list/:
     post:
@@ -261,6 +268,7 @@ paths:
                     type: array
                     items:
                       type: object
+                      properties: {}
 
   /admin/agent/scholarship-research/leads/{id}/mark-imported/:
     post:
@@ -296,6 +304,7 @@ paths:
                     type: boolean
                   lead:
                     type: object
+                    properties: {}
                   message:
                     type: string
 
@@ -307,6 +316,52 @@ components:
       name: X-Agent-Token
 
   schemas:
+    ScholarshipDraftRequest:
+      type: object
+      required:
+        - payload
+      properties:
+        payload:
+          $ref: "#/components/schemas/ScholarshipDraftPayload"
+
+    ScholarshipDraftPayload:
+      type: object
+      properties:
+        title:
+          type: string
+        provider_name:
+          type: string
+        country:
+          type: string
+        degree_level:
+          type: string
+        funding_type:
+          type: string
+        deadline:
+          type: string
+        official_url:
+          type: string
+        source_url:
+          type: string
+        application_url:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        eligibility:
+          type: string
+        benefits:
+          type: string
+        how_to_apply:
+          type: string
+        required_documents:
+          type: string
+        fields:
+          type: string
+        notes:
+          type: string
+
     Empty:
       type: object
       properties:

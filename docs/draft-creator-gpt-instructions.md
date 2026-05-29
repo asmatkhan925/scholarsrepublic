@@ -30,6 +30,45 @@ prepare the final draft payload from source evidence, not from lead hints alone.
 Validate first. Ask the admin before creating the private draft. Mark the lead imported
 only after `createScholarshipDraft` returns a successful draft ID.
 
+Call `validateScholarshipDraft` with a request body shaped exactly like:
+
+```json
+{
+  "payload": {
+    "title": "Scholarship title",
+    "provider_name": "Provider name",
+    "country": "Country",
+    "degree_level": "Degree level",
+    "funding_type": "Funding type",
+    "deadline": "YYYY-MM-DD or deadline text",
+    "official_url": "https://official.example/scholarship",
+    "source_url": "https://source.example/page",
+    "application_url": "https://official.example/apply",
+    "summary": "Short summary",
+    "description": "Full description",
+    "eligibility": "Eligibility requirements",
+    "benefits": "Benefits and funding details",
+    "how_to_apply": "Application instructions",
+    "required_documents": "Required documents",
+    "fields": "Eligible fields of study",
+    "notes": "Admin notes"
+  }
+}
+```
+
+Call `createScholarshipDraft` with the same wrapper after validation succeeds:
+
+```json
+{
+  "payload": {
+    "...": "validated draft fields"
+  }
+}
+```
+
+Do not call `markScholarshipResearchLeadImported` unless `createScholarshipDraft`
+has succeeded and returned a draft ID.
+
 ## Stop conditions
 
 - The scholarship appears expired.
