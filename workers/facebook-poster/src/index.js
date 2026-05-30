@@ -155,6 +155,16 @@ async function fetchDuePosts(env, limit) {
     throw new Error(`Backend due-posts returned HTTP ${response.status}`);
   }
 
+  if (Array.isArray(data)) {
+    return {
+      ok: true,
+      due_count: data.length,
+      returned_count: data.length,
+      reason: data.length ? "" : "no_due_posts",
+      items: data,
+    };
+  }
+
   return {
     ...data,
     items: Array.isArray(data.items) ? data.items : [],

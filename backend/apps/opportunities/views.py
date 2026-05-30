@@ -1297,7 +1297,11 @@ class AdminScholarshipFacebookPostNowView(APIView):
         response_status = status.HTTP_200_OK
         if result.get("status") in {"not_published", "expired"}:
             response_status = status.HTTP_400_BAD_REQUEST
-        elif result.get("status") in {"daily_cap_reached", "min_spacing_active"}:
+        elif result.get("status") in {
+            "daily_cap_reached",
+            "min_spacing_active",
+            "minimum_interval_not_reached",
+        }:
             response_status = status.HTTP_429_TOO_MANY_REQUESTS
         elif result.get("status") == "failed":
             response_status = status.HTTP_502_BAD_GATEWAY

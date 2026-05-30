@@ -477,7 +477,7 @@ def facebook_posting_cap_status(now=None):
     if daily_remaining <= 0:
         reason = "daily_cap_reached"
     elif next_allowed_post_at and next_allowed_post_at > now:
-        reason = "min_spacing_active"
+        reason = "minimum_interval_not_reached"
 
     return {
         **settings_data,
@@ -498,10 +498,10 @@ def facebook_posting_block_response(now=None):
             "error": "Facebook daily post cap has been reached.",
             **cap_status,
         }
-    if cap_status["reason"] == "min_spacing_active":
+    if cap_status["reason"] == "minimum_interval_not_reached":
         return {
             "ok": False,
-            "status": "min_spacing_active",
+            "status": "minimum_interval_not_reached",
             "error": "Minimum spacing between Facebook posts is still active.",
             **cap_status,
         }
@@ -911,12 +911,19 @@ def build_due_posts_response(items, due_count, cap_status, reason=""):
 
 
 def get_due_facebook_post_plan_response(limit=10, now=None):
+    return get_due_facebook_post_plans(limit=limit, now=now)
+
+
+def get_due_facebook_post_plans(limit=10, now=None):
     limit = parse_due_post_limit(limit)
     now = now or timezone.now()
     cap_status = facebook_posting_cap_status(now=now)
     effective_limit = min(limit, cap_status["per_run_cap"], cap_status["daily_remaining"])
 
-    if cap_status["daily_remaining"] <= 0 or cap_status["reason"] == "min_spacing_active":
+    if (
+        cap_status["daily_remaining"] <= 0
+        or cap_status["reason"] == "minimum_interval_not_reached"
+    ):
         return build_due_posts_response([], 0, cap_status)
 
     if effective_limit <= 0:
@@ -943,6 +950,11 @@ def get_due_facebook_post_plan_response(limit=10, now=None):
         if not is_plan_due(plan, now=now):
             continue
         apply_social_priority(plan)
+        if (
+            plan.auto_social_decision
+            != OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL
+        ):
+            continue
         days_left = deadline_days_left(plan.opportunity, today=today)
         recently_checked = (
             plan.opportunity.deadline_last_checked_at
@@ -984,8 +996,8 @@ def get_due_facebook_post_plan_response(limit=10, now=None):
     return build_due_posts_response(items, due_count, cap_status)
 
 
-def get_due_facebook_post_plans(limit=10, now=None):
-    return get_due_facebook_post_plan_response(limit=limit, now=now)["items"]
+def get_due_facebook_post_plan_items(limit=10, now=None):
+    return get_due_facebook_post_plans(limit=limit, now=now)["items"]
 
 
 def record_facebook_post_result(payload):

@@ -112,7 +112,11 @@ from apps.opportunities.services.social_scheduler import (
     score_opportunity_for_social,
 )
 from apps.opportunities.services.social_image_uploads import save_social_image_from_base64
-from apps.opportunities.services.social_posting import generate_facebook_post_text, plan_image_url
+from apps.opportunities.services.social_posting import (
+    generate_facebook_post_text,
+    get_due_facebook_post_plans,
+    plan_image_url,
+)
 from apps.opportunities.services.deadline_checker import classify_deadline_candidates
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
@@ -180,7 +184,13 @@ class OpportunityAPITests(APITestCase):
             "eligible_countries": ["Pakistan"],
             "degree_levels": ["Master"],
             "fields_of_study": ["Computer Science"],
-            "deadline": timezone.localdate() + timedelta(days=30),
+            "deadline": timezone.localdate() + timedelta(days=10),
+            "short_description": "A complete scholarship summary.",
+            "description": "A complete scholarship description for applicants.",
+            "how_to_apply": "Apply through the official scholarship portal.",
+            "official_link": "https://example.edu/scholarship",
+            "source_url": "https://example.edu/scholarship/source",
+            "university_name": "Sample University",
             "required_documents": ["Passport", "Transcript"],
             "tags": ["Sample Data", "Fully Funded"],
         }
@@ -2473,7 +2483,7 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["items"], [])
-        self.assertEqual(response.data["reason"], "min_spacing_active")
+        self.assertEqual(response.data["reason"], "minimum_interval_not_reached")
         self.assertEqual(response.data["min_spacing_minutes"], 30)
         self.assertIsNotNone(response.data["latest_posted_at"])
         self.assertIsNotNone(response.data["next_allowed_post_at"])
@@ -2569,6 +2579,97 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(response.data["ok"])
         self.assertEqual(response.data["returned_count"], 1)
         self.assertEqual(response.data["reason"], "")
+
+    @override_settings(
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_get_due_facebook_post_plans_returns_metadata_dict(self):
+        opportunity = self.opportunity(slug="service-metadata-social-due")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        result = get_due_facebook_post_plans(limit=5)
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("items", result)
+        self.assertEqual(result["returned_count"], 1)
+        self.assertEqual(len(result["items"]), 1)
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_excludes_non_individual_decisions(self):
+        individual = self.opportunity(slug="due-individual-decision")
+        collection_candidate = self.opportunity(
+            slug="due-collection-candidate-decision",
+            funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
+            deadline=timezone.localdate() + timedelta(days=20),
+            verified_status=False,
+            official_link="",
+            source_url="",
+            university_name="",
+            degree_levels=["Bachelor"],
+            published_at=timezone.now() - timedelta(days=20),
+        )
+        website_only = self.opportunity(
+            slug="due-website-only-decision",
+            funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
+            deadline=None,
+            official_link="",
+            source_url="",
+            university_name="",
+            degree_levels=[],
+            published_at=timezone.now() - timedelta(days=20),
+        )
+        for opportunity in [individual, collection_candidate, website_only]:
+            OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+            )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["slug"] for item in response.data["items"]],
+            ["due-individual-decision"],
+        )
+        decisions = dict(
+            OpportunitySocialPostPlan.objects.filter(
+                opportunity__slug__in=[
+                    "due-individual-decision",
+                    "due-collection-candidate-decision",
+                    "due-website-only-decision",
+                ]
+            ).values_list("opportunity__slug", "auto_social_decision")
+        )
+        self.assertEqual(
+            decisions["due-individual-decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+        )
+        self.assertIn(
+            decisions["due-collection-candidate-decision"],
+            [
+                OpportunitySocialPostPlan.AutoSocialDecision.COLLECTION_CANDIDATE,
+                OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+            ],
+        )
+        self.assertEqual(
+            decisions["due-website-only-decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+        )
 
     def test_social_scheduler_scores_high_priority_as_individual(self):
         opportunity = self.opportunity(
@@ -4269,6 +4370,112 @@ class OpportunityAPITests(APITestCase):
                 datetime(2026, 6, 2, 9, 0, tzinfo=dt_timezone.utc),
             ],
         )
+
+    def test_recalculate_facebook_social_scores_updates_existing_plan(self):
+        opportunity = self.opportunity(
+            slug="recalculate-social-score",
+            deadline=timezone.localdate() + timedelta(days=10),
+            official_link="https://example.edu/recalculate-social-score",
+            description="A complete scholarship description for social scoring.",
+            short_description="Complete short description.",
+            how_to_apply="Apply through the official portal.",
+            university_name="Example University",
+            published_at=timezone.now(),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            priority_score=0,
+            priority_reason={},
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+        )
+        output = StringIO()
+
+        call_command("recalculate_facebook_social_scores", stdout=output)
+
+        plan.refresh_from_db()
+        self.assertGreater(plan.priority_score, 0)
+        self.assertEqual(
+            plan.auto_social_decision,
+            OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+        )
+        self.assertIn("Plans changed: 1", output.getvalue())
+        self.assertIn(f"id={plan.id}", output.getvalue())
+
+    def test_recalculate_facebook_social_scores_dry_run_does_not_save(self):
+        opportunity = self.opportunity(
+            slug="recalculate-social-score-dry-run",
+            deadline=timezone.localdate() + timedelta(days=10),
+            official_link="https://example.edu/recalculate-social-score-dry-run",
+            description="A complete scholarship description for social scoring.",
+            short_description="Complete short description.",
+            how_to_apply="Apply through the official portal.",
+            university_name="Example University",
+            published_at=timezone.now(),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            priority_score=0,
+            priority_reason={},
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+        )
+        output = StringIO()
+
+        call_command("recalculate_facebook_social_scores", "--dry-run", stdout=output)
+
+        plan.refresh_from_db()
+        self.assertEqual(plan.priority_score, 0)
+        self.assertEqual(
+            plan.auto_social_decision,
+            OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+        )
+        self.assertIn("Dry run: yes", output.getvalue())
+        self.assertIn("Plans changed: 1", output.getvalue())
+        self.assertIn("After decisions: individual=1", output.getvalue())
+
+    def test_recalculate_facebook_social_scores_default_scope_skips_inactive(self):
+        active = self.opportunity(
+            slug="recalculate-active",
+            deadline=timezone.localdate() + timedelta(days=10),
+            official_link="https://example.edu/recalculate-active",
+            description="A complete scholarship description for social scoring.",
+            short_description="Complete short description.",
+            how_to_apply="Apply through the official portal.",
+            university_name="Example University",
+            published_at=timezone.now(),
+        )
+        archived = self.opportunity(
+            slug="recalculate-archived",
+            status=Opportunity.Status.ARCHIVED,
+            deadline=timezone.localdate() + timedelta(days=10),
+            official_link="https://example.edu/recalculate-archived",
+        )
+        expired = self.opportunity(
+            slug="recalculate-expired",
+            deadline=timezone.localdate() - timedelta(days=1),
+            official_link="https://example.edu/recalculate-expired",
+        )
+        plans = [
+            OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                platform="facebook",
+                status=OpportunitySocialPostPlan.Status.READY,
+                priority_score=0,
+                auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+            )
+            for opportunity in [active, archived, expired]
+        ]
+
+        call_command("recalculate_facebook_social_scores", stdout=StringIO())
+
+        for plan in plans:
+            plan.refresh_from_db()
+        self.assertGreater(plans[0].priority_score, 0)
+        self.assertEqual(plans[1].priority_score, 0)
+        self.assertEqual(plans[2].priority_score, 0)
 
     def test_public_can_list_published_opportunities(self):
         opportunity = self.opportunity(
