@@ -2,7 +2,13 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
-from apps.opportunities.models import Opportunity, OpportunityComment, OpportunityDraft, OpportunityPathway
+from apps.opportunities.models import (
+    Opportunity,
+    OpportunityCollection,
+    OpportunityComment,
+    OpportunityDraft,
+    OpportunityPathway,
+)
 from apps.opportunities.services.social_image_uploads import (
     get_preferred_social_image_source,
     get_preferred_social_image_url,
@@ -359,6 +365,56 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
 
     def get_is_tracking(self, obj):
         return self.get_application_id(obj) is not None
+
+
+class PublicOpportunityCollectionItemSerializer(serializers.Serializer):
+    position = serializers.IntegerField()
+    reason = serializers.CharField()
+    opportunity = serializers.SerializerMethodField()
+
+    def get_opportunity(self, obj):
+        opportunity = obj.opportunity
+        return {
+            "id": opportunity.pk,
+            "title": opportunity.title,
+            "slug": opportunity.slug,
+            "country": opportunity.country,
+            "provider_name": opportunity.provider_name,
+            "university_name": opportunity.university_name,
+            "company_name": opportunity.company_name,
+            "degree_levels": opportunity.degree_levels,
+            "funding_type": opportunity.funding_type,
+            "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
+            "is_rolling_deadline": opportunity.is_rolling_deadline,
+            "days_until_deadline": opportunity.days_until_deadline,
+            "summary": opportunity.short_description,
+            "official_link": opportunity.official_link,
+            "source_url": opportunity.source_url,
+            "application_url": opportunity.official_link or opportunity.source_url,
+        }
+
+
+class PublicOpportunityCollectionSerializer(serializers.ModelSerializer):
+    items = PublicOpportunityCollectionItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = OpportunityCollection
+        fields = (
+            "id",
+            "title",
+            "slug",
+            "description",
+            "intro_text",
+            "collection_type",
+            "country",
+            "degree_level",
+            "funding_type",
+            "field_label",
+            "deadline_start",
+            "deadline_end",
+            "priority_score",
+            "items",
+        )
 
 
 class OpportunityAdminSerializer(serializers.ModelSerializer):

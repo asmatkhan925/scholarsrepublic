@@ -130,6 +130,46 @@ export type OpportunityListResponse = {
   results: OpportunityListItem[];
 };
 
+export type OpportunityCollectionItem = {
+  position: number;
+  reason: string;
+  opportunity: {
+    id: number;
+    title: string;
+    slug: string;
+    country: string;
+    provider_name: string;
+    university_name: string;
+    company_name: string;
+    degree_levels: string[];
+    funding_type: string;
+    deadline: string | null;
+    is_rolling_deadline: boolean;
+    days_until_deadline: number | null;
+    summary: string;
+    official_link: string;
+    source_url: string;
+    application_url: string;
+  };
+};
+
+export type OpportunityCollectionDetail = {
+  id: number;
+  title: string;
+  slug: string;
+  description: string;
+  intro_text: string;
+  collection_type: string;
+  country: string;
+  degree_level: string;
+  funding_type: string;
+  field_label: string;
+  deadline_start: string | null;
+  deadline_end: string | null;
+  priority_score: number;
+  items: OpportunityCollectionItem[];
+};
+
 export type OpportunityPathwayListResponse = {
   count: number;
   next: string | null;

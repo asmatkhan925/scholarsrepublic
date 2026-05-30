@@ -21,6 +21,7 @@ from apps.applications.models import OpportunityApplication, SavedOpportunity
 from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import (
     Opportunity,
+    OpportunityCollection,
     OpportunityComment,
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
@@ -40,6 +41,7 @@ from apps.opportunities.serializers import (
     OpportunityDetailSerializer,
     OpportunityListSerializer,
     OpportunityPathwaySerializer,
+    PublicOpportunityCollectionSerializer,
 )
 from apps.opportunities.services.duplicate_detector import (
     find_duplicate_opportunities,
@@ -2817,6 +2819,27 @@ class PublicScholarshipDetailView(PublicOpportunityDetailView):
     def get_queryset(self):
         return (
             super().get_queryset().filter(opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP)
+        )
+
+
+class PublicScholarshipCollectionDetailView(generics.RetrieveAPIView):
+    serializer_class = PublicOpportunityCollectionSerializer
+    permission_classes = [permissions.AllowAny]
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        return (
+            OpportunityCollection.objects.filter(
+                status__in=[
+                    OpportunityCollection.Status.APPROVED,
+                    OpportunityCollection.Status.POSTED,
+                ]
+            )
+            .prefetch_related(
+                "items__opportunity",
+                "items__opportunity__country_ref",
+                "items__opportunity__study_field_refs",
+            )
         )
 
 

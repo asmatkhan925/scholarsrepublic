@@ -56,6 +56,7 @@ from apps.opportunities.views import (
     PublicOpportunityListView,
     PublicOpportunityPathwayDetailView,
     PublicOpportunityPathwayListView,
+    PublicScholarshipCollectionDetailView,
     PublicScholarshipDetailView,
     PublicScholarshipListView,
     ScholarshipPickerView,
@@ -113,6 +114,11 @@ urlpatterns = [
         "scholarships/recommended/",
         RecommendedScholarshipsView.as_view(),
         name="scholarship-recommended",
+    ),
+    path(
+        "scholarships/collections/<slug:slug>/",
+        PublicScholarshipCollectionDetailView.as_view(),
+        name="scholarship-collection-detail",
     ),
     path(
         "scholarships/<slug:slug>/match/",

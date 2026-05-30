@@ -2905,6 +2905,86 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("3 PhD Scholarships in Italy", output.getvalue())
         self.assertEqual(OpportunityCollection.objects.count(), 0)
 
+    def test_public_approved_collection_is_accessible(self):
+        plans = [
+            self.collection_candidate_plan(f"public-approved-collection-{index}")
+            for index in range(3)
+        ]
+        collection = self.collection_from_plans(
+            "3 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+        )
+
+        response = self.client.get(f"/api/scholarships/collections/{collection.slug}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["title"], collection.title)
+        self.assertEqual(response.data["slug"], collection.slug)
+        self.assertEqual(len(response.data["items"]), 3)
+        item = response.data["items"][0]["opportunity"]
+        self.assertIn("title", item)
+        self.assertIn("slug", item)
+        self.assertIn("official_link", item)
+        self.assertIn("source_url", item)
+        self.assertIn("application_url", item)
+
+    def test_public_ready_collection_is_not_accessible(self):
+        plans = [self.collection_candidate_plan(f"public-ready-hidden-{index}") for index in range(3)]
+        collection = self.collection_from_plans(
+            "3 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.READY,
+        )
+
+        response = self.client.get(f"/api/scholarships/collections/{collection.slug}/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_public_collection_items_are_ordered_by_position(self):
+        plans = [self.collection_candidate_plan(f"public-ordered-{index}") for index in range(3)]
+        collection = self.collection_from_plans(
+            "3 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+        )
+        OpportunityCollectionItem.objects.filter(collection=collection).delete()
+        OpportunityCollectionItem.objects.create(
+            collection=collection,
+            opportunity=plans[2].opportunity,
+            social_post_plan=plans[2],
+            position=1,
+        )
+        OpportunityCollectionItem.objects.create(
+            collection=collection,
+            opportunity=plans[0].opportunity,
+            social_post_plan=plans[0],
+            position=2,
+        )
+        OpportunityCollectionItem.objects.create(
+            collection=collection,
+            opportunity=plans[1].opportunity,
+            social_post_plan=plans[1],
+            position=3,
+        )
+
+        response = self.client.get(f"/api/scholarships/collections/{collection.slug}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["opportunity"]["slug"] for item in response.data["items"]],
+            [
+                plans[2].opportunity.slug,
+                plans[0].opportunity.slug,
+                plans[1].opportunity.slug,
+            ],
+        )
+
+    def test_public_missing_collection_slug_returns_404(self):
+        response = self.client.get("/api/scholarships/collections/not-a-real-collection/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_high_quality_country_degree_collection_auto_approves(self):
         plans = [
             self.collection_candidate_plan(

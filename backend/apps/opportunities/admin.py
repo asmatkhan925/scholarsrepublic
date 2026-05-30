@@ -643,6 +643,7 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
         "auto_approval_score",
         "approval_source",
         "auto_approved_at",
+        "public_page_link",
         "created_at",
     )
     list_filter = (
@@ -667,6 +668,7 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
     )
     prepopulated_fields = {"slug": ("title",)}
     readonly_fields = (
+        "public_page_link",
         "auto_approval_score",
         "auto_approval_reason",
         "auto_approved_at",
@@ -687,6 +689,16 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
     @admin.display(description="Items", ordering="item_total")
     def item_count(self, obj):
         return obj.item_total
+
+    @admin.display(description="Public page")
+    def public_page_link(self, obj):
+        if obj.status not in {
+            OpportunityCollection.Status.APPROVED,
+            OpportunityCollection.Status.POSTED,
+        }:
+            return "-"
+        url = f"/scholarships/collections/{obj.slug}"
+        return format_html('<a href="{}" target="_blank" rel="noreferrer">Open public page</a>', url)
 
     @admin.action(description="Auto-evaluate approval")
     def auto_evaluate_approval(self, request, queryset):

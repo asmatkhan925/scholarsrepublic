@@ -1,4 +1,8 @@
-import type { OpportunityDetail, OpportunityListResponse } from "@/types/opportunity";
+import type {
+  OpportunityCollectionDetail,
+  OpportunityDetail,
+  OpportunityListResponse,
+} from "@/types/opportunity";
 
 const SERVER_FETCH_TIMEOUT_MS = 4_000;
 
@@ -83,4 +87,10 @@ export async function getPublicScholarshipsInitial() {
 
 export async function getPublicScholarshipInitial(slug: string) {
   return serverFetchJson<OpportunityDetail>(`/scholarships/${encodeURIComponent(slug)}/`);
+}
+
+export async function getPublicScholarshipCollectionInitial(slug: string) {
+  return serverFetchJson<OpportunityCollectionDetail>(
+    `/scholarships/collections/${encodeURIComponent(slug)}/`,
+  );
 }
