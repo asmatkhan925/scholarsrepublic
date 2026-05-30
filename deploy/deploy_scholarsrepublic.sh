@@ -129,7 +129,14 @@ echo "Updating frontend..."
 cd "$FRONTEND_DIR"
 
 if [ ! -f ".env.local" ]; then
-  echo "NEXT_PUBLIC_API_BASE_URL=$DOMAIN/api" > .env.local
+  {
+    echo "SERVER_API_BASE_URL=http://127.0.0.1:8000/api"
+    echo "NEXT_PUBLIC_API_BASE_URL=$DOMAIN/api"
+  } > .env.local
+else
+  if ! grep -q "^SERVER_API_BASE_URL=" .env.local; then
+    echo "SERVER_API_BASE_URL=http://127.0.0.1:8000/api" >> .env.local
+  fi
 fi
 
 if [ -f "package-lock.json" ]; then

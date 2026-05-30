@@ -40,9 +40,9 @@ function normalizeApiBaseUrl(value: string) {
 }
 
 type ServerFetchResult<T> =
-  | { data: T; notFound: false; status: number; url: string }
-  | { data: null; notFound: true; status: number; url: string }
-  | { data: null; notFound: false; status: number; url: string };
+  | { data: T; notFound: false; status: number; url: string; bodySnippet?: string }
+  | { data: null; notFound: true; status: number; url: string; bodySnippet?: string }
+  | { data: null; notFound: false; status: number; url: string; bodySnippet?: string };
 
 function buildApiUrl(path: string, params?: Record<string, string | number | boolean | undefined>) {
   const normalizedBase = resolveServerApiBaseUrl().replace(/\/$/, "");
@@ -56,6 +56,11 @@ function buildApiUrl(path: string, params?: Record<string, string | number | boo
   });
 
   return url;
+}
+
+async function readResponseBodySnippet(response: Response) {
+  const body = await response.text();
+  return body.slice(0, 300);
 }
 
 async function serverFetchJson<T>(
@@ -78,7 +83,20 @@ async function serverFetchJson<T>(
     }
 
     if (!response.ok) {
-      return { data: null, notFound: false, status: response.status, url: url.toString() };
+      const bodySnippet = await readResponseBodySnippet(response);
+      console.error("[serverApi] Server fetch failed", {
+        url: url.toString(),
+        status: response.status,
+        bodySnippet,
+      });
+
+      return {
+        data: null,
+        notFound: false,
+        status: response.status,
+        url: url.toString(),
+        bodySnippet,
+      };
     }
 
     return {
@@ -92,7 +110,15 @@ async function serverFetchJson<T>(
       throw error;
     }
 
-    return { data: null, notFound: false, status: 0, url: url.toString() };
+    const bodySnippet =
+      error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300);
+    console.error("[serverApi] Server fetch failed", {
+      url: url.toString(),
+      status: 0,
+      bodySnippet,
+    });
+
+    return { data: null, notFound: false, status: 0, url: url.toString(), bodySnippet };
   }
 }
 

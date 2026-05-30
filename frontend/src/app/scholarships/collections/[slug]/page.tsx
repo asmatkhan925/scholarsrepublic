@@ -55,9 +55,7 @@ function collectionDescription(collection: OpportunityCollectionDetail | null, s
   );
 }
 
-export async function generateMetadata({
-  params,
-}: CollectionRoutePageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: CollectionRoutePageProps): Promise<Metadata> {
   const { slug } = await params;
   const result = await getPublicScholarshipCollection(slug);
   const collection = result.data;
@@ -88,18 +86,11 @@ export async function generateMetadata({
   };
 }
 
-export default async function ScholarshipCollectionRoutePage({
-  params,
-}: CollectionRoutePageProps) {
+export default async function ScholarshipCollectionRoutePage({ params }: CollectionRoutePageProps) {
   const { slug } = await params;
   const result = await getPublicScholarshipCollection(slug);
 
   if (result.notFound) {
-    console.error("[collection-page] Failed to load collection", {
-      slug,
-      status: result.status,
-      url: result.url,
-    });
     notFound();
   }
 
@@ -108,6 +99,7 @@ export default async function ScholarshipCollectionRoutePage({
       slug,
       status: result.status,
       url: result.url,
+      bodySnippet: result.bodySnippet,
     });
 
     if (result.status === 200) {
@@ -126,9 +118,7 @@ export default async function ScholarshipCollectionRoutePage({
   const summaryFacts = [
     collection.country ? { label: "Country", value: collection.country } : null,
     collection.degree_level ? { label: "Degree", value: collection.degree_level } : null,
-    collection.funding_type
-      ? { label: "Funding", value: humanize(collection.funding_type) }
-      : null,
+    collection.funding_type ? { label: "Funding", value: humanize(collection.funding_type) } : null,
     collection.field_label ? { label: "Field", value: collection.field_label } : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
@@ -200,9 +190,7 @@ export default async function ScholarshipCollectionRoutePage({
                     <p className="text-xs font-bold uppercase text-ink/45 dark:text-white/45">
                       {fact.label}
                     </p>
-                    <p className="mt-1 text-sm font-black text-ink dark:text-white">
-                      {fact.value}
-                    </p>
+                    <p className="mt-1 text-sm font-black text-ink dark:text-white">{fact.value}</p>
                   </div>
                 ))}
               </div>
@@ -229,7 +217,10 @@ export default async function ScholarshipCollectionRoutePage({
                         </span>
                       </div>
                       <h2 className="text-xl font-black text-ink dark:text-white">
-                        <Link href={`/scholarships/${opportunity.slug}`} className="hover:text-pine">
+                        <Link
+                          href={`/scholarships/${opportunity.slug}`}
+                          className="hover:text-pine"
+                        >
                           {opportunity.title}
                         </Link>
                       </h2>

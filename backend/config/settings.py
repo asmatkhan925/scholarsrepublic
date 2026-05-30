@@ -20,6 +20,16 @@ def env_list(name: str, default: str | list[str] | None = None) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def unique_list(values: list[str]) -> list[str]:
+    seen = set()
+    unique_values = []
+    for value in values:
+        if value not in seen:
+            unique_values.append(value)
+            seen.add(value)
+    return unique_values
+
+
 def env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
@@ -40,10 +50,12 @@ def env_has_value(*names: str) -> bool:
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", os.getenv("SECRET_KEY", "dev-only-insecure-key"))
 DEBUG = env_bool("DJANGO_DEBUG", env_bool("DEBUG", True))
-ALLOWED_HOSTS = env_list(
+CONFIGURED_ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
     env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver"),
 )
+INTERNAL_ALLOWED_HOSTS = env_list("DJANGO_INTERNAL_ALLOWED_HOSTS", "localhost,127.0.0.1")
+ALLOWED_HOSTS = unique_list([*CONFIGURED_ALLOWED_HOSTS, *INTERNAL_ALLOWED_HOSTS])
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -158,14 +170,23 @@ if not DEBUG:
     }:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set to a safe value when DEBUG=False.")
 
-    unsafe_hosts = {"localhost", "127.0.0.1", "testserver"}
+    internal_hosts = {"localhost", "127.0.0.1", "::1", "[::1]"}
+    public_allowed_hosts = [
+        host
+        for host in CONFIGURED_ALLOWED_HOSTS
+        if host not in internal_hosts and host != "testserver"
+    ]
     if (
         not env_has_value("DJANGO_ALLOWED_HOSTS", "ALLOWED_HOSTS")
         or not ALLOWED_HOSTS
         or "*" in ALLOWED_HOSTS
-        or any(host in unsafe_hosts for host in ALLOWED_HOSTS)
     ):
         raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must be explicit when DEBUG=False.")
+
+    if not public_allowed_hosts:
+        raise ImproperlyConfigured(
+            "DJANGO_ALLOWED_HOSTS must include at least one public host when DEBUG=False."
+        )
 
     if not CORS_ALLOWED_ORIGINS or "*" in CORS_ALLOWED_ORIGINS:
         raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS must be explicit when DEBUG=False.")

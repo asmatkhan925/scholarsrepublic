@@ -65,7 +65,8 @@ Create `/home/scholarsrepublic/scholarsrepublic/backend/.env` from
 ```env
 DJANGO_DEBUG=False
 DJANGO_SECRET_KEY=change-me
-DJANGO_ALLOWED_HOSTS=scholarsrepublic.org,localhost,127.0.0.1
+DJANGO_ALLOWED_HOSTS=scholarsrepublic.org,www.scholarsrepublic.org
+DJANGO_INTERNAL_ALLOWED_HOSTS=localhost,127.0.0.1
 
 DATABASE_NAME=scholars_republic
 DATABASE_USER=scholars_user
@@ -75,8 +76,8 @@ DATABASE_PORT=5432
 DATABASE_CONNECT_TIMEOUT_SECONDS=5
 DATABASE_CONN_MAX_AGE=60
 
-CORS_ALLOWED_ORIGINS=https://scholarsrepublic.org
-CSRF_TRUSTED_ORIGINS=https://scholarsrepublic.org
+CORS_ALLOWED_ORIGINS=https://scholarsrepublic.org,https://www.scholarsrepublic.org
+CSRF_TRUSTED_ORIGINS=https://scholarsrepublic.org,https://www.scholarsrepublic.org
 
 STATIC_URL=/static/
 STATIC_ROOT=/var/www/scholarsrepublic/staticfiles
@@ -94,6 +95,7 @@ SESSION_COOKIE_SAMESITE=Lax
 Create `/home/scholarsrepublic/scholarsrepublic/frontend/.env.local`:
 
 ```env
+SERVER_API_BASE_URL=http://127.0.0.1:8000/api
 NEXT_PUBLIC_API_BASE_URL=https://scholarsrepublic.org/api
 ```
 

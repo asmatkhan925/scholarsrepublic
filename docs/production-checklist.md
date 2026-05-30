@@ -34,10 +34,10 @@ Backend:
 DJANGO_DEBUG=False
 DJANGO_SECRET_KEY=<secret>
 DJANGO_ALLOWED_HOSTS=scholarsrepublic.org,www.scholarsrepublic.org
+DJANGO_INTERNAL_ALLOWED_HOSTS=localhost,127.0.0.1
 CORS_ALLOWED_ORIGINS=https://scholarsrepublic.org,https://www.scholarsrepublic.org
 CSRF_TRUSTED_ORIGINS=https://scholarsrepublic.org,https://www.scholarsrepublic.org
 FRONTEND_URL=https://scholarsrepublic.org
-SERVER_API_BASE_URL=http://127.0.0.1:8000/api
 
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.resend.com
@@ -47,6 +47,13 @@ EMAIL_USE_SSL=False
 EMAIL_HOST_USER=resend
 EMAIL_HOST_PASSWORD=<secret>
 DEFAULT_FROM_EMAIL=Scholars Republic <noreply@scholarsrepublic.org>
+```
+
+Frontend:
+
+```dotenv
+SERVER_API_BASE_URL=http://127.0.0.1:8000/api
+NEXT_PUBLIC_API_BASE_URL=https://scholarsrepublic.org/api
 ```
 
 `settings.py` also reads `DEBUG`, `SECRET_KEY`, and `ALLOWED_HOSTS` as compatibility fallbacks,
@@ -73,7 +80,8 @@ PY
 Expected:
 
 - `DEBUG` is `False`.
-- Hosts and origins contain only Scholars Republic production domains.
+- Hosts contain Scholars Republic production domains plus loopback hosts for internal SSR fetches.
+- Origins contain only Scholars Republic HTTPS production domains.
 - `SECRET_KEY_SET` is `True`; never print the actual secret.
 
 ## Smoke Checks
