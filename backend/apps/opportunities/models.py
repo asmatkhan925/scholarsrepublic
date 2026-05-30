@@ -940,6 +940,86 @@ class OpportunityCollectionItem(models.Model):
         return f"{self.opportunity} in {self.collection}"
 
 
+class OpportunityCollectionSocialPostPlan(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        READY = "ready", "Ready"
+        PAUSED = "paused", "Paused"
+        POSTED = "posted", "Posted"
+        FAILED = "failed", "Failed"
+        ARCHIVED = "archived", "Archived"
+
+    collection = models.ForeignKey(
+        "opportunities.OpportunityCollection",
+        on_delete=models.CASCADE,
+        related_name="social_post_plans",
+    )
+    platform = models.CharField(max_length=50, default="facebook", db_index=True)
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.READY,
+        db_index=True,
+    )
+    post_text = models.TextField(blank=True)
+    link_url = models.TextField(blank=True)
+    image_url = models.TextField(blank=True)
+    image_source = models.CharField(max_length=80, blank=True)
+    next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    posted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    priority_score = models.IntegerField(default=0, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("next_post_at", "-priority_score", "-created_at")
+        indexes = [
+            models.Index(fields=["platform", "status"]),
+            models.Index(fields=["priority_score"]),
+            models.Index(fields=["next_post_at"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.platform} collection plan for {self.collection}"
+
+
+class OpportunityCollectionSocialPostLog(models.Model):
+    class Status(models.TextChoices):
+        POSTED = "posted", "Posted"
+        SKIPPED = "skipped", "Skipped"
+        FAILED = "failed", "Failed"
+
+    collection = models.ForeignKey(
+        "opportunities.OpportunityCollection",
+        on_delete=models.CASCADE,
+        related_name="social_post_logs",
+    )
+    plan = models.ForeignKey(
+        "opportunities.OpportunityCollectionSocialPostPlan",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="logs",
+    )
+    platform = models.CharField(max_length=50, default="facebook", db_index=True)
+    status = models.CharField(max_length=30, choices=Status.choices, db_index=True)
+    facebook_post_id = models.CharField(max_length=255, blank=True)
+    error_message = models.TextField(blank=True)
+    response_payload = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["platform", "status"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.platform} collection {self.status} log for {self.collection}"
+
+
 class OpportunitySocialPostLog(models.Model):
     class Status(models.TextChoices):
         POSTED = "posted", "Posted"

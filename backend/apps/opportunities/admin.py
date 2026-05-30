@@ -7,6 +7,8 @@ from apps.opportunities.models import (
     Opportunity,
     OpportunityCollection,
     OpportunityCollectionItem,
+    OpportunityCollectionSocialPostLog,
+    OpportunityCollectionSocialPostPlan,
     OpportunityComment,
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
@@ -753,6 +755,75 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
             updated_at=timezone.now(),
         )
         self.message_user(request, f"Archived {updated} collection(s).", messages.WARNING)
+
+
+@admin.register(OpportunityCollectionSocialPostPlan)
+class OpportunityCollectionSocialPostPlanAdmin(admin.ModelAdmin):
+    list_display = (
+        "collection",
+        "platform",
+        "status",
+        "priority_score",
+        "next_post_at",
+        "posted_at",
+        "updated_at",
+    )
+    list_filter = ("platform", "status", "next_post_at", "posted_at", "created_at")
+    search_fields = (
+        "collection__title",
+        "collection__slug",
+        "post_text",
+        "link_url",
+        "image_url",
+        "image_source",
+    )
+    raw_id_fields = ("collection",)
+    readonly_fields = ("created_at", "updated_at", "posted_at")
+    actions = ("mark_ready", "pause_plans", "archive_plans")
+
+    @admin.action(description="Mark selected collection plans ready")
+    def mark_ready(self, request, queryset):
+        updated = queryset.update(
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            updated_at=timezone.now(),
+        )
+        self.message_user(request, f"Marked {updated} collection plan(s) ready.", messages.SUCCESS)
+
+    @admin.action(description="Pause selected collection plans")
+    def pause_plans(self, request, queryset):
+        updated = queryset.update(
+            status=OpportunityCollectionSocialPostPlan.Status.PAUSED,
+            updated_at=timezone.now(),
+        )
+        self.message_user(request, f"Paused {updated} collection plan(s).", messages.WARNING)
+
+    @admin.action(description="Archive selected collection plans")
+    def archive_plans(self, request, queryset):
+        updated = queryset.update(
+            status=OpportunityCollectionSocialPostPlan.Status.ARCHIVED,
+            updated_at=timezone.now(),
+        )
+        self.message_user(request, f"Archived {updated} collection plan(s).", messages.WARNING)
+
+
+@admin.register(OpportunityCollectionSocialPostLog)
+class OpportunityCollectionSocialPostLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "collection",
+        "platform",
+        "status",
+        "facebook_post_id",
+        "created_at",
+    )
+    list_filter = ("platform", "status", "created_at")
+    search_fields = (
+        "collection__title",
+        "collection__slug",
+        "facebook_post_id",
+        "error_message",
+    )
+    raw_id_fields = ("collection", "plan")
+    readonly_fields = ("created_at",)
 
 
 @admin.register(ScholarshipResearchLead)

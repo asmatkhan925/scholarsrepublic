@@ -95,6 +95,7 @@ from apps.opportunities.models import (
     Opportunity,
     OpportunityCollection,
     OpportunityCollectionItem,
+    OpportunityCollectionSocialPostPlan,
     OpportunityComment,
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
@@ -109,6 +110,11 @@ from apps.opportunities.services.social_collections import (
     approve_social_collections,
     evaluate_collection_auto_approval,
     generate_social_collections,
+)
+from apps.opportunities.services.social_collection_posting import (
+    build_collection_social_post_text,
+    create_collection_social_post_plan,
+    create_due_collection_social_post_plans,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
@@ -3136,6 +3142,193 @@ class OpportunityAPITests(APITestCase):
         )
         self.assertEqual(approved_titles, ["5 PhD Scholarships in Italy"])
         self.assertEqual(ready_titles, ["3 Scholarships Closing Soon"])
+
+    def test_create_collection_social_post_plan_for_approved_collection(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-approved-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+
+        result = create_collection_social_post_plan(collection)
+
+        self.assertTrue(result["created"])
+        plan = OpportunityCollectionSocialPostPlan.objects.get(collection=collection)
+        self.assertEqual(plan.status, OpportunityCollectionSocialPostPlan.Status.READY)
+        self.assertEqual(plan.platform, "facebook")
+        self.assertEqual(plan.priority_score, 250)
+        self.assertEqual(
+            plan.link_url,
+            f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+        )
+
+    def test_collection_social_post_plan_requires_approved_collection(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-unapproved-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.READY,
+            priority_score=250,
+        )
+
+        result = create_collection_social_post_plan(collection)
+
+        self.assertFalse(result["created"])
+        self.assertIn("collection_not_approved", result["eligibility"]["blockers"])
+        self.assertEqual(OpportunityCollectionSocialPostPlan.objects.count(), 0)
+
+    def test_collection_social_post_plan_does_not_duplicate_active_plan(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-duplicate-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            platform="facebook",
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Existing plan.",
+        )
+
+        result = create_collection_social_post_plan(collection)
+
+        self.assertFalse(result["created"])
+        self.assertIn("active_plan_exists", result["eligibility"]["blockers"])
+        self.assertEqual(OpportunityCollectionSocialPostPlan.objects.count(), 1)
+
+    def test_collection_social_post_plan_dry_run_does_not_save(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-dry-run-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+
+        result = create_collection_social_post_plan(collection, dry_run=True)
+
+        self.assertTrue(result["created"])
+        self.assertTrue(result["dry_run"])
+        self.assertEqual(OpportunityCollectionSocialPostPlan.objects.count(), 0)
+
+    def test_collection_social_post_text_includes_title_and_public_url(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-text-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+
+        post_text = build_collection_social_post_text(collection)
+
+        self.assertIn(collection.title, post_text)
+        self.assertIn(
+            f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            post_text,
+        )
+        self.assertIn("verify eligibility, deadlines, and application details", post_text)
+
+    def test_create_collection_social_post_plans_command_supports_collection_id(self):
+        first_plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-command-first-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        second_plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-command-second-{index}",
+                country="Germany",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        first = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            first_plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        second = self.collection_from_plans(
+            "5 PhD Scholarships in Germany",
+            second_plans,
+            country="Germany",
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        output = StringIO()
+
+        call_command(
+            "create_collection_social_post_plans",
+            "--collection-id",
+            str(second.pk),
+            "--schedule-now",
+            stdout=output,
+        )
+
+        self.assertIn("Collection ID", output.getvalue())
+        self.assertFalse(
+            OpportunityCollectionSocialPostPlan.objects.filter(collection=first).exists()
+        )
+        self.assertTrue(
+            OpportunityCollectionSocialPostPlan.objects.filter(collection=second).exists()
+        )
+
+    def test_create_due_collection_social_post_plans_dry_run_does_not_save(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-social-plan-service-dry-run-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+
+        result = create_due_collection_social_post_plans(dry_run=True)
+
+        self.assertEqual(result["created_count"], 1)
+        self.assertEqual(OpportunityCollectionSocialPostPlan.objects.count(), 0)
 
     def test_social_scheduler_scores_low_priority_as_website_only(self):
         opportunity = self.opportunity(
