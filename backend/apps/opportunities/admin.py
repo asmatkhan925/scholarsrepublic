@@ -1,9 +1,12 @@
 from django.contrib import admin, messages
+from django.db.models import Count
 from django.utils.html import format_html
 from django.utils import timezone
 
 from apps.opportunities.models import (
     Opportunity,
+    OpportunityCollection,
+    OpportunityCollectionItem,
     OpportunityComment,
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
@@ -618,6 +621,79 @@ class OpportunitySocialPostLogAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ("opportunity", "plan")
     readonly_fields = ("created_at",)
+
+
+class OpportunityCollectionItemInline(admin.TabularInline):
+    model = OpportunityCollectionItem
+    extra = 0
+    raw_id_fields = ("opportunity", "social_post_plan")
+    readonly_fields = ("created_at",)
+    fields = ("position", "opportunity", "social_post_plan", "reason", "created_at")
+
+
+@admin.register(OpportunityCollection)
+class OpportunityCollectionAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "status",
+        "collection_type",
+        "item_count",
+        "priority_score",
+        "created_at",
+    )
+    list_filter = (
+        "status",
+        "source",
+        "collection_type",
+        "country",
+        "degree_level",
+        "funding_type",
+        "field_label",
+        "created_at",
+    )
+    search_fields = (
+        "title",
+        "slug",
+        "description",
+        "intro_text",
+        "social_post_text",
+        "items__opportunity__title",
+    )
+    prepopulated_fields = {"slug": ("title",)}
+    readonly_fields = ("created_at", "updated_at")
+    inlines = (OpportunityCollectionItemInline,)
+    actions = ("mark_approved", "pause_collections", "archive_collections")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(item_total=Count("items"))
+
+    @admin.display(description="Items", ordering="item_total")
+    def item_count(self, obj):
+        return obj.item_total
+
+    @admin.action(description="Mark selected collections approved")
+    def mark_approved(self, request, queryset):
+        updated = queryset.update(
+            status=OpportunityCollection.Status.APPROVED,
+            updated_at=timezone.now(),
+        )
+        self.message_user(request, f"Approved {updated} collection(s).", messages.SUCCESS)
+
+    @admin.action(description="Pause selected collections")
+    def pause_collections(self, request, queryset):
+        updated = queryset.update(
+            status=OpportunityCollection.Status.PAUSED,
+            updated_at=timezone.now(),
+        )
+        self.message_user(request, f"Paused {updated} collection(s).", messages.WARNING)
+
+    @admin.action(description="Archive selected collections")
+    def archive_collections(self, request, queryset):
+        updated = queryset.update(
+            status=OpportunityCollection.Status.ARCHIVED,
+            updated_at=timezone.now(),
+        )
+        self.message_user(request, f"Archived {updated} collection(s).", messages.WARNING)
 
 
 @admin.register(ScholarshipResearchLead)

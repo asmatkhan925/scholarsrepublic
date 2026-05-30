@@ -810,6 +810,122 @@ class OpportunitySocialPostPlan(models.Model):
         return f"{self.platform} plan for {self.opportunity}"
 
 
+class OpportunityCollection(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        READY = "ready", "Ready"
+        APPROVED = "approved", "Approved"
+        POSTED = "posted", "Posted"
+        PAUSED = "paused", "Paused"
+        ARCHIVED = "archived", "Archived"
+
+    class Source(models.TextChoices):
+        SYSTEM = "system", "System"
+        ADMIN = "admin", "Admin"
+
+    class CollectionType(models.TextChoices):
+        COUNTRY_DEGREE = "country_degree", "Country and degree"
+        COUNTRY_FUNDING = "country_funding", "Country and funding"
+        DEGREE_FUNDING = "degree_funding", "Degree and funding"
+        FIELD = "field", "Field"
+        DEADLINE_WINDOW = "deadline_window", "Deadline window"
+
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=280, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    intro_text = models.TextField(blank=True)
+    collection_type = models.CharField(
+        max_length=50,
+        choices=CollectionType.choices,
+        db_index=True,
+    )
+    country = models.CharField(max_length=120, blank=True, db_index=True)
+    degree_level = models.CharField(max_length=120, blank=True, db_index=True)
+    funding_type = models.CharField(max_length=120, blank=True, db_index=True)
+    field_label = models.CharField(max_length=160, blank=True, db_index=True)
+    deadline_start = models.DateField(null=True, blank=True, db_index=True)
+    deadline_end = models.DateField(null=True, blank=True, db_index=True)
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    source = models.CharField(
+        max_length=30,
+        choices=Source.choices,
+        default=Source.SYSTEM,
+        db_index=True,
+    )
+    social_post_text = models.TextField(blank=True)
+    priority_score = models.IntegerField(default=0, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-priority_score", "-created_at")
+        indexes = [
+            models.Index(fields=["status", "source"]),
+            models.Index(fields=["collection_type", "status"]),
+            models.Index(fields=["priority_score"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title)[:250] or "opportunity-collection"
+            slug = base_slug
+            counter = 2
+            while type(self).objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"[:280]
+                counter += 1
+            self.slug = slug
+
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class OpportunityCollectionItem(models.Model):
+    collection = models.ForeignKey(
+        "opportunities.OpportunityCollection",
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.CASCADE,
+        related_name="collection_items",
+    )
+    social_post_plan = models.ForeignKey(
+        "opportunities.OpportunitySocialPostPlan",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="collection_items",
+    )
+    position = models.PositiveIntegerField(default=0, db_index=True)
+    reason = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("position", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["collection", "opportunity"],
+                name="unique_collection_opportunity_item",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["position"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.opportunity} in {self.collection}"
+
+
 class OpportunitySocialPostLog(models.Model):
     class Status(models.TextChoices):
         POSTED = "posted", "Posted"

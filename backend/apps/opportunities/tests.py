@@ -93,6 +93,8 @@ def create_reference_data(testcase):
 from apps.opportunities.admin import OpportunityAdmin, OpportunityDraftAdmin
 from apps.opportunities.models import (
     Opportunity,
+    OpportunityCollection,
+    OpportunityCollectionItem,
     OpportunityComment,
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
@@ -103,6 +105,7 @@ from apps.opportunities.models import (
     OpportunitySourceLinkCorrectionLog,
     ScholarshipResearchLead,
 )
+from apps.opportunities.services.social_collections import generate_social_collections
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
@@ -368,6 +371,40 @@ class OpportunityAPITests(APITestCase):
             parent=program,
             pathway_type=OpportunityPathway.PathwayType.APPLICATION_TRACK,
             display_order=30,
+        )
+
+    def collection_candidate_plan(
+        self,
+        slug,
+        *,
+        country="Italy",
+        degree_level="PhD",
+        funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
+        field_label="Computer Science",
+        deadline_days=20,
+        priority_score=50,
+    ):
+        opportunity = self.opportunity(
+            slug=slug,
+            title=slug.replace("-", " ").title(),
+            country=country,
+            degree_levels=[degree_level],
+            fields_of_study=[field_label],
+            funding_type=funding_type,
+            deadline=timezone.localdate() + timedelta(days=deadline_days),
+            verified_status=True,
+            official_link=f"https://example.edu/{slug}",
+            source_url=f"https://example.edu/{slug}/source",
+            university_name="Example University",
+            published_at=timezone.now() - timedelta(days=10),
+        )
+        return OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            priority_score=priority_score,
+            priority_reason={"test_collection_candidate": True},
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.COLLECTION_CANDIDATE,
         )
 
     def draft_payload(self, **opportunity_overrides):
@@ -2733,6 +2770,103 @@ class OpportunityAPITests(APITestCase):
             result["decision"],
             OpportunitySocialPostPlan.AutoSocialDecision.COLLECTION_CANDIDATE,
         )
+
+    def test_generate_social_collections_creates_stable_collection_from_candidates(self):
+        for index in range(5):
+            self.collection_candidate_plan(
+                f"italy-phd-collection-{index}",
+                priority_score=60 - index,
+            )
+
+        result = generate_social_collections()
+
+        self.assertEqual(result["created_count"], 1)
+        collection = OpportunityCollection.objects.get()
+        self.assertEqual(collection.title, "5 PhD Scholarships in Italy")
+        self.assertEqual(collection.status, OpportunityCollection.Status.READY)
+        self.assertEqual(
+            collection.collection_type,
+            OpportunityCollection.CollectionType.COUNTRY_DEGREE,
+        )
+        self.assertEqual(collection.country, "Italy")
+        self.assertEqual(collection.degree_level, "PhD")
+        self.assertEqual(collection.items.count(), 5)
+        self.assertIn("Scholarships included:", collection.social_post_text)
+
+    def test_generate_social_collections_skips_expired_opportunities(self):
+        expired_plan = self.collection_candidate_plan(
+            "italy-expired-collection-candidate",
+            deadline_days=-1,
+            priority_score=90,
+        )
+        for index in range(3):
+            self.collection_candidate_plan(
+                f"italy-active-collection-candidate-{index}",
+                priority_score=50 - index,
+            )
+
+        result = generate_social_collections()
+
+        self.assertEqual(result["created_count"], 1)
+        collection = OpportunityCollection.objects.get()
+        self.assertEqual(collection.items.count(), 3)
+        self.assertFalse(
+            collection.items.filter(opportunity=expired_plan.opportunity).exists()
+        )
+
+    def test_generate_social_collections_skips_opportunities_in_active_collections(self):
+        used_plan = self.collection_candidate_plan(
+            "already-collected-candidate",
+            priority_score=90,
+        )
+        existing = OpportunityCollection.objects.create(
+            title="Existing Review Collection",
+            collection_type=OpportunityCollection.CollectionType.COUNTRY_DEGREE,
+            country="Italy",
+            degree_level="PhD",
+            status=OpportunityCollection.Status.READY,
+        )
+        OpportunityCollectionItem.objects.create(
+            collection=existing,
+            opportunity=used_plan.opportunity,
+            social_post_plan=used_plan,
+            position=1,
+        )
+        for index in range(3):
+            self.collection_candidate_plan(
+                f"new-uncollected-candidate-{index}",
+                priority_score=60 - index,
+            )
+
+        result = generate_social_collections()
+
+        self.assertEqual(result["created_count"], 1)
+        generated = OpportunityCollection.objects.exclude(pk=existing.pk).get()
+        self.assertEqual(generated.items.count(), 3)
+        self.assertFalse(generated.items.filter(opportunity=used_plan.opportunity).exists())
+
+    def test_generate_social_collections_dry_run_does_not_save(self):
+        for index in range(3):
+            self.collection_candidate_plan(f"dry-run-collection-{index}")
+
+        result = generate_social_collections(dry_run=True)
+
+        self.assertEqual(result["preview_count"], 1)
+        self.assertEqual(result["created_count"], 0)
+        self.assertEqual(result["previews"][0]["title"], "3 PhD Scholarships in Italy")
+        self.assertEqual(OpportunityCollection.objects.count(), 0)
+        self.assertEqual(OpportunityCollectionItem.objects.count(), 0)
+
+    def test_generate_social_collections_command_dry_run_does_not_save(self):
+        for index in range(3):
+            self.collection_candidate_plan(f"command-dry-run-collection-{index}")
+        output = StringIO()
+
+        call_command("generate_social_collections", "--dry-run", stdout=output)
+
+        self.assertIn("Dry run: yes", output.getvalue())
+        self.assertIn("3 PhD Scholarships in Italy", output.getvalue())
+        self.assertEqual(OpportunityCollection.objects.count(), 0)
 
     def test_social_scheduler_scores_low_priority_as_website_only(self):
         opportunity = self.opportunity(
