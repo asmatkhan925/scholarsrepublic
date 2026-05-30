@@ -967,6 +967,7 @@ class OpportunityCollectionSocialPostPlan(models.Model):
     image_source = models.CharField(max_length=80, blank=True)
     next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
     posted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    facebook_post_id = models.CharField(max_length=255, blank=True)
     priority_score = models.IntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)

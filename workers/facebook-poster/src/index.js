@@ -172,9 +172,13 @@ async function fetchDuePosts(env, limit) {
 }
 
 function resultPayloadForPost(duePost, status, facebookResult = {}, errorMessage = "") {
+  const itemType = String(duePost.type || "opportunity").trim() || "opportunity";
+
   return {
+    type: itemType,
     plan_id: duePost.plan_id,
     opportunity_id: duePost.opportunity_id,
+    collection_id: duePost.collection_id,
     status,
     facebook_post_id: facebookResult.facebook_post_id || "",
     facebook_post_url: facebookResult.facebook_post_url || "",
@@ -197,7 +201,28 @@ async function runDuePosts(env, limit = 10) {
   const duePosts = duePostResponse.items;
   const results = [];
 
+  if (duePosts.length === 0) {
+    return {
+      requested_limit: limit,
+      due_count: Number(duePostResponse.due_count || 0),
+      returned_count: 0,
+      posted_today: Number(duePostResponse.posted_today || 0),
+      daily_cap: Number(duePostResponse.daily_cap || 0),
+      daily_remaining: Number(duePostResponse.daily_remaining || 0),
+      per_run_cap: Number(duePostResponse.per_run_cap || 0),
+      min_spacing_minutes: Number(duePostResponse.min_spacing_minutes || 0),
+      latest_posted_at: duePostResponse.latest_posted_at || null,
+      next_allowed_post_at: duePostResponse.next_allowed_post_at || null,
+      reason: duePostResponse.reason || "no_due_posts",
+      posted_count: 0,
+      failed_count: 0,
+      results,
+    };
+  }
+
   for (const duePost of duePosts) {
+    const itemType = String(duePost.type || "opportunity").trim() || "opportunity";
+
     try {
       const facebookResult = await postToFacebook(env, duePost);
 
@@ -207,8 +232,10 @@ async function runDuePosts(env, limit = 10) {
       );
 
       results.push({
+        type: itemType,
         plan_id: duePost.plan_id,
         opportunity_id: duePost.opportunity_id,
+        collection_id: duePost.collection_id,
         status: "posted",
         facebook_post_id: facebookResult.facebook_post_id,
       });
@@ -226,8 +253,10 @@ async function runDuePosts(env, limit = 10) {
 
       console.error("Facebook scheduled post failed.");
       results.push({
+        type: itemType,
         plan_id: duePost.plan_id,
         opportunity_id: duePost.opportunity_id,
+        collection_id: duePost.collection_id,
         status: "failed",
       });
     }

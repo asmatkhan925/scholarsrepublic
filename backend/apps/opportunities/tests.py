@@ -95,6 +95,7 @@ from apps.opportunities.models import (
     Opportunity,
     OpportunityCollection,
     OpportunityCollectionItem,
+    OpportunityCollectionSocialPostLog,
     OpportunityCollectionSocialPostPlan,
     OpportunityComment,
     OpportunityDeadlineCheckLog,
@@ -2660,6 +2661,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["returned_count"], 1)
         self.assertEqual(response.data["reason"], "")
         item = response.data["items"][0]
+        self.assertEqual(item["type"], "opportunity")
         self.assertEqual(
             item["auto_social_decision"],
             OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
@@ -3329,6 +3331,250 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(result["created_count"], 1)
         self.assertEqual(OpportunityCollectionSocialPostPlan.objects.count(), 0)
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_returns_collection_item_when_due(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"mixed-due-collection-item-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection post text.",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            next_post_at=timezone.now() - timedelta(minutes=1),
+            priority_score=250,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        item = response.data["items"][0]
+        self.assertEqual(item["type"], "collection")
+        self.assertEqual(item["plan_id"], collection_plan.pk)
+        self.assertEqual(item["collection_id"], collection.pk)
+        self.assertEqual(item["collection_title"], collection.title)
+        self.assertEqual(item["message"], "Collection post text.")
+        self.assertEqual(item["priority_score"], 250)
+        self.assertEqual(item["link_url"], collection_plan.link_url)
+        self.assertIsNotNone(item["next_post_at"])
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=1,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_collection_respects_daily_cap(self):
+        posted = self.opportunity(slug="collection-cap-posted")
+        posted_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=posted,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=posted,
+            plan=posted_plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at=timezone.now(),
+        )
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-cap-due-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            next_post_at=timezone.now() - timedelta(minutes=1),
+            priority_score=250,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["reason"], "daily_cap_reached")
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=30,
+    )
+    def test_social_worker_due_posts_collection_respects_spacing(self):
+        posted_plans = [
+            self.collection_candidate_plan(
+                f"collection-spacing-posted-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        posted_collection = self.collection_from_plans(
+            "5 Posted PhD Scholarships in Italy",
+            posted_plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        OpportunityCollectionSocialPostLog.objects.create(
+            collection=posted_collection,
+            platform="facebook",
+            status=OpportunityCollectionSocialPostLog.Status.POSTED,
+        )
+        due_plans = [
+            self.collection_candidate_plan(
+                f"collection-spacing-due-{index}",
+                country="Germany",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        due_collection = self.collection_from_plans(
+            "5 PhD Scholarships in Germany",
+            due_plans,
+            country="Germany",
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        OpportunityCollectionSocialPostPlan.objects.create(
+            collection=due_collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            next_post_at=timezone.now() - timedelta(minutes=1),
+            priority_score=250,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["reason"], "minimum_interval_not_reached")
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_excludes_unapproved_collection(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-unapproved-due-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.READY,
+            priority_score=250,
+        )
+        OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            next_post_at=timezone.now() - timedelta(minutes=1),
+            priority_score=250,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+
+    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    def test_social_worker_post_result_updates_successful_collection_plan(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-result-success-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection post.",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            next_post_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/post-result/",
+            {
+                "type": "collection",
+                "plan_id": plan.pk,
+                "collection_id": collection.pk,
+                "status": "posted",
+                "facebook_post_id": "fb_collection_123",
+                "facebook_post_url": "https://facebook.com/fb_collection_123",
+                "message": "Collection post.",
+                "link_url": plan.link_url,
+            },
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plan.refresh_from_db()
+        collection.refresh_from_db()
+        self.assertEqual(plan.status, OpportunityCollectionSocialPostPlan.Status.POSTED)
+        self.assertIsNotNone(plan.posted_at)
+        self.assertEqual(plan.facebook_post_id, "fb_collection_123")
+        self.assertEqual(collection.status, OpportunityCollection.Status.POSTED)
+        self.assertTrue(
+            OpportunityCollectionSocialPostLog.objects.filter(
+                plan=plan,
+                status=OpportunityCollectionSocialPostLog.Status.POSTED,
+            ).exists()
+        )
 
     def test_social_scheduler_scores_low_priority_as_website_only(self):
         opportunity = self.opportunity(

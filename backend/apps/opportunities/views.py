@@ -2355,8 +2355,10 @@ class AgentFacebookPostResultView(SocialWorkerBaseView):
         return Response(
             {
                 "log_id": log.pk,
+                "type": request.data.get("type") or "opportunity",
                 "plan_id": log.plan_id,
-                "opportunity_id": log.opportunity_id,
+                "opportunity_id": getattr(log, "opportunity_id", None),
+                "collection_id": getattr(log, "collection_id", None),
                 "status": log.status,
             }
         )

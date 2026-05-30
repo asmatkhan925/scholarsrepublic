@@ -766,6 +766,7 @@ class OpportunityCollectionSocialPostPlanAdmin(admin.ModelAdmin):
         "priority_score",
         "next_post_at",
         "posted_at",
+        "facebook_post_id",
         "updated_at",
     )
     list_filter = ("platform", "status", "next_post_at", "posted_at", "created_at")
@@ -776,6 +777,7 @@ class OpportunityCollectionSocialPostPlanAdmin(admin.ModelAdmin):
         "link_url",
         "image_url",
         "image_source",
+        "facebook_post_id",
     )
     raw_id_fields = ("collection",)
     readonly_fields = ("created_at", "updated_at", "posted_at")

@@ -8,10 +8,17 @@ from django.utils import timezone
 
 from apps.opportunities.models import (
     Opportunity,
+    OpportunityCollection,
+    OpportunityCollectionSocialPostLog,
+    OpportunityCollectionSocialPostPlan,
     OpportunityDraft,
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
+)
+from apps.opportunities.services.social_collection_posting import (
+    build_collection_social_post_text,
+    collection_public_url,
 )
 from apps.opportunities.services.social_image_uploads import (
     get_preferred_social_image_source,
@@ -381,6 +388,7 @@ def serialize_due_plan(plan):
     image_url = plan_image_url(plan)
 
     return {
+        "type": "opportunity",
         "plan_id": plan.pk,
         "opportunity_id": opportunity.pk,
         "slug": opportunity.slug,
@@ -395,6 +403,33 @@ def serialize_due_plan(plan):
         "auto_social_decision": plan.auto_social_decision,
         "priority_score": plan.priority_score,
         "priority_reason": plan.priority_reason,
+    }
+
+
+def serialize_due_collection_plan(plan):
+    collection = plan.collection
+    link_url = plan.link_url or collection_public_url(collection)
+    if not plan.link_url:
+        plan.link_url = link_url
+        plan.save(update_fields=["link_url", "updated_at"])
+    message = str(plan.post_text or "").strip()
+    if not message:
+        message = build_collection_social_post_text(collection)
+        plan.post_text = message
+        plan.save(update_fields=["post_text", "updated_at"])
+
+    return {
+        "type": "collection",
+        "plan_id": plan.pk,
+        "collection_id": collection.pk,
+        "collection_title": collection.title,
+        "message": message,
+        "image_url": str(plan.image_url or ""),
+        "image_source": str(plan.image_source or ""),
+        "has_image": bool(plan.image_url),
+        "link_url": link_url,
+        "priority_score": plan.priority_score,
+        "next_post_at": serialize_cap_datetime(plan.next_post_at),
     }
 
 
@@ -452,15 +487,21 @@ def facebook_posting_cap_status(now=None):
     )
     tomorrow_start = today_start + timedelta(days=1)
     settings_data = facebook_post_cap_settings()
-    successful_posts = OpportunitySocialPostLog.objects.filter(
+    successful_opportunity_posts = OpportunitySocialPostLog.objects.filter(
         platform=DEFAULT_PLATFORM,
         status=OpportunitySocialPostLog.Status.POSTED,
         posted_at__gte=today_start,
         posted_at__lt=tomorrow_start,
     )
-    posted_today = successful_posts.count()
+    successful_collection_posts = OpportunityCollectionSocialPostLog.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunityCollectionSocialPostLog.Status.POSTED,
+        created_at__gte=today_start,
+        created_at__lt=tomorrow_start,
+    )
+    posted_today = successful_opportunity_posts.count() + successful_collection_posts.count()
     daily_remaining = max(0, settings_data["daily_cap"] - posted_today)
-    latest_log = (
+    latest_opportunity_log = (
         OpportunitySocialPostLog.objects.filter(
             platform=DEFAULT_PLATFORM,
             status=OpportunitySocialPostLog.Status.POSTED,
@@ -469,7 +510,19 @@ def facebook_posting_cap_status(now=None):
         .order_by("-posted_at", "-created_at")
         .first()
     )
-    latest_posted_at = latest_log.posted_at if latest_log else None
+    latest_collection_log = (
+        OpportunityCollectionSocialPostLog.objects.filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunityCollectionSocialPostLog.Status.POSTED,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    latest_posted_at = latest_opportunity_log.posted_at if latest_opportunity_log else None
+    if latest_collection_log and (
+        not latest_posted_at or latest_collection_log.created_at > latest_posted_at
+    ):
+        latest_posted_at = latest_collection_log.created_at
     next_allowed_post_at = None
     if latest_posted_at and settings_data["min_spacing_minutes"] > 0:
         next_allowed_post_at = latest_posted_at + timedelta(
@@ -847,6 +900,49 @@ def due_plan_sort_key(plan, today):
     return (1, decision_rank, priority, date.max, plan.pk)
 
 
+def due_collection_plan_sort_key(plan):
+    return (
+        1,
+        -int(plan.priority_score or 0),
+        plan.next_post_at or timezone.now(),
+        plan.pk,
+    )
+
+
+def mixed_due_candidate_sort_key(candidate, today):
+    if candidate["type"] == "opportunity":
+        plan = candidate["plan"]
+        opportunity = plan.opportunity
+        urgency_rank = 1
+        scheduled_at = plan.next_post_at or timezone.now()
+        if opportunity.deadline and not opportunity.is_rolling_deadline:
+            days_left = (opportunity.deadline - today).days
+            urgency_rank = 0 if days_left <= 7 else 2
+            scheduled_at = timezone.make_aware(
+                datetime.combine(opportunity.deadline, time.min),
+                timezone.get_current_timezone(),
+            )
+        decision_rank = 0
+        if plan.auto_social_decision != OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL:
+            decision_rank = 1
+        return (
+            urgency_rank,
+            decision_rank,
+            -int(plan.priority_score or 0),
+            scheduled_at,
+            plan.pk,
+        )
+
+    plan = candidate["plan"]
+    return (
+        1,
+        0,
+        -int(plan.priority_score or 0),
+        plan.next_post_at or timezone.now(),
+        plan.pk,
+    )
+
+
 def record_skipped_expired_automatic_post(plan):
     if plan.last_error == EXPIRED_AUTOMATIC_SKIP_MESSAGE:
         return None
@@ -944,7 +1040,7 @@ def get_due_facebook_post_plans(limit=10, now=None):
     )
 
     today = timezone.localtime(now).date()
-    due_plans = []
+    due_candidates = []
     due_count = 0
     for plan in plans:
         if is_opportunity_expired_for_social(plan.opportunity, today=today):
@@ -990,12 +1086,31 @@ def get_due_facebook_post_plans(limit=10, now=None):
             continue
         else:
             due_count += 1
-            due_plans.append(plan)
-            if len(due_plans) >= effective_limit:
-                break
+            due_candidates.append({"type": "opportunity", "plan": plan})
 
-    due_plans.sort(key=lambda plan: due_plan_sort_key(plan, today))
-    items = [serialize_due_plan(plan) for plan in due_plans[:effective_limit]]
+    collection_plans = (
+        OpportunityCollectionSocialPostPlan.objects.select_related("collection")
+        .filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            collection__status=OpportunityCollection.Status.APPROVED,
+            next_post_at__isnull=False,
+            next_post_at__lte=now,
+        )
+        .order_by("id")
+    )
+    for plan in collection_plans:
+        due_count += 1
+        due_candidates.append({"type": "collection", "plan": plan})
+
+    due_candidates.sort(key=lambda candidate: mixed_due_candidate_sort_key(candidate, today))
+    selected_candidates = due_candidates[:effective_limit]
+    items = []
+    for candidate in selected_candidates:
+        if candidate["type"] == "opportunity":
+            items.append(serialize_due_plan(candidate["plan"]))
+        else:
+            items.append(serialize_due_collection_plan(candidate["plan"]))
     return build_due_posts_response(items, due_count, cap_status)
 
 
@@ -1004,6 +1119,12 @@ def get_due_facebook_post_plan_items(limit=10, now=None):
 
 
 def record_facebook_post_result(payload):
+    item_type = str(payload.get("type") or "opportunity").strip() or "opportunity"
+    if item_type == "collection":
+        return record_collection_facebook_post_result(payload)
+    if item_type != "opportunity":
+        return None, {"detail": "Invalid post type."}
+
     status_value = payload.get("status")
     valid_statuses = {choice[0] for choice in OpportunitySocialPostLog.Status.choices}
     if status_value not in valid_statuses:
@@ -1065,5 +1186,65 @@ def record_facebook_post_result(payload):
     elif status_value == OpportunitySocialPostLog.Status.FAILED:
         plan.last_error = log.error_message
         plan.save(update_fields=["last_error", "updated_at"])
+
+    return log, None
+
+
+def record_collection_facebook_post_result(payload):
+    status_value = payload.get("status")
+    valid_statuses = {choice[0] for choice in OpportunityCollectionSocialPostLog.Status.choices}
+    if status_value not in valid_statuses:
+        return None, {"detail": "Invalid status."}
+
+    plan = None
+    plan_id = payload.get("plan_id")
+    collection_id = payload.get("collection_id")
+
+    if plan_id:
+        plan = (
+            OpportunityCollectionSocialPostPlan.objects.select_related("collection")
+            .filter(pk=plan_id)
+            .first()
+        )
+
+    if not plan and collection_id:
+        plan = (
+            OpportunityCollectionSocialPostPlan.objects.select_related("collection")
+            .filter(collection_id=collection_id, platform=DEFAULT_PLATFORM)
+            .order_by("-updated_at")
+            .first()
+        )
+
+    if not plan:
+        return None, {"detail": "Collection social post plan not found."}
+
+    now = timezone.now()
+    log = OpportunityCollectionSocialPostLog.objects.create(
+        collection=plan.collection,
+        plan=plan,
+        platform=DEFAULT_PLATFORM,
+        status=status_value,
+        facebook_post_id=str(payload.get("facebook_post_id") or ""),
+        error_message=str(payload.get("error_message") or ""),
+        response_payload={
+            "facebook_post_url": str(payload.get("facebook_post_url") or ""),
+            "message": str(payload.get("message") or ""),
+            "image_url": str(payload.get("image_url") or ""),
+            "image_source": str(payload.get("image_source") or ""),
+            "link_url": str(payload.get("link_url") or ""),
+        },
+    )
+
+    if status_value == OpportunityCollectionSocialPostLog.Status.POSTED:
+        plan.status = OpportunityCollectionSocialPostPlan.Status.POSTED
+        plan.posted_at = now
+        plan.facebook_post_id = log.facebook_post_id
+        plan.save(update_fields=["status", "posted_at", "facebook_post_id", "updated_at"])
+
+        plan.collection.status = OpportunityCollection.Status.POSTED
+        plan.collection.save(update_fields=["status", "updated_at"])
+    elif status_value == OpportunityCollectionSocialPostLog.Status.FAILED:
+        plan.status = OpportunityCollectionSocialPostPlan.Status.FAILED
+        plan.save(update_fields=["status", "updated_at"])
 
     return log, None
