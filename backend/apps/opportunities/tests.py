@@ -105,7 +105,11 @@ from apps.opportunities.models import (
     OpportunitySourceLinkCorrectionLog,
     ScholarshipResearchLead,
 )
-from apps.opportunities.services.social_collections import generate_social_collections
+from apps.opportunities.services.social_collections import (
+    approve_social_collections,
+    evaluate_collection_auto_approval,
+    generate_social_collections,
+)
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
@@ -406,6 +410,39 @@ class OpportunityAPITests(APITestCase):
             priority_reason={"test_collection_candidate": True},
             auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.COLLECTION_CANDIDATE,
         )
+
+    def collection_from_plans(
+        self,
+        title,
+        plans,
+        *,
+        collection_type=OpportunityCollection.CollectionType.COUNTRY_DEGREE,
+        country="Italy",
+        degree_level="PhD",
+        funding_type="",
+        status=OpportunityCollection.Status.READY,
+        priority_score=None,
+    ):
+        collection = OpportunityCollection.objects.create(
+            title=title,
+            collection_type=collection_type,
+            country=country,
+            degree_level=degree_level,
+            funding_type=funding_type,
+            status=status,
+            source=OpportunityCollection.Source.SYSTEM,
+            priority_score=priority_score
+            if priority_score is not None
+            else sum(plan.priority_score for plan in plans),
+        )
+        for index, plan in enumerate(plans, start=1):
+            OpportunityCollectionItem.objects.create(
+                collection=collection,
+                opportunity=plan.opportunity,
+                social_post_plan=plan,
+                position=index,
+            )
+        return collection
 
     def draft_payload(self, **opportunity_overrides):
         pathway = opportunity_overrides.pop("pathway", None)
@@ -2867,6 +2904,158 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("Dry run: yes", output.getvalue())
         self.assertIn("3 PhD Scholarships in Italy", output.getvalue())
         self.assertEqual(OpportunityCollection.objects.count(), 0)
+
+    def test_high_quality_country_degree_collection_auto_approves(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"auto-approve-country-degree-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            priority_score=250,
+        )
+
+        evaluation = evaluate_collection_auto_approval(collection)
+
+        self.assertTrue(evaluation["can_auto_approve"])
+        self.assertEqual(evaluation["score"], 250)
+        result = approve_social_collections(include_ready=True)
+        collection.refresh_from_db()
+        self.assertEqual(result["approved_count"], 1)
+        self.assertEqual(collection.status, OpportunityCollection.Status.APPROVED)
+        self.assertEqual(collection.approval_source, OpportunityCollection.ApprovalSource.SYSTEM)
+        self.assertIsNotNone(collection.auto_approved_at)
+
+    def test_low_score_generic_deadline_window_does_not_auto_approve(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"generic-deadline-window-{index}",
+                country="",
+                degree_level="",
+                funding_type="",
+                field_label="All Fields",
+                deadline_days=5,
+                priority_score=49,
+            )
+            for index in range(3)
+        ]
+        collection = self.collection_from_plans(
+            "3 Scholarships Closing Soon",
+            plans,
+            collection_type=OpportunityCollection.CollectionType.DEADLINE_WINDOW,
+            country="",
+            degree_level="",
+            priority_score=147,
+        )
+
+        evaluation = evaluate_collection_auto_approval(collection)
+
+        self.assertFalse(evaluation["can_auto_approve"])
+        self.assertIn("deadline_window_needs_at_least_5_items", evaluation["blockers"])
+        self.assertIn("priority_score_below_250", evaluation["blockers"])
+        self.assertIn("title_too_generic", evaluation["blockers"])
+
+    def test_expired_opportunity_blocks_collection_auto_approval(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"expired-auto-approval-{index}",
+                deadline_days=-1 if index == 0 else 20,
+                priority_score=80,
+            )
+            for index in range(3)
+        ]
+        collection = self.collection_from_plans(
+            "3 PhD Scholarships in Italy",
+            plans,
+            priority_score=240,
+        )
+
+        evaluation = evaluate_collection_auto_approval(collection)
+
+        self.assertFalse(evaluation["can_auto_approve"])
+        self.assertIn("inactive_or_expired_opportunities", evaluation["blockers"])
+
+    def test_missing_source_url_blocks_collection_auto_approval(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"missing-source-auto-approval-{index}",
+                priority_score=80,
+            )
+            for index in range(3)
+        ]
+        Opportunity.objects.filter(pk=plans[0].opportunity_id).update(
+            official_link="",
+            source_url="",
+        )
+        collection = self.collection_from_plans(
+            "3 PhD Scholarships in Italy",
+            plans,
+            priority_score=240,
+        )
+
+        evaluation = evaluate_collection_auto_approval(collection)
+
+        self.assertFalse(evaluation["can_auto_approve"])
+        self.assertIn("missing_official_or_source_url", evaluation["blockers"])
+
+    def test_approve_social_collections_dry_run_does_not_save(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"dry-run-auto-approval-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            priority_score=250,
+        )
+
+        result = approve_social_collections(dry_run=True, include_ready=True)
+
+        collection.refresh_from_db()
+        self.assertEqual(result["approved_count"], 1)
+        self.assertEqual(collection.status, OpportunityCollection.Status.READY)
+        self.assertIsNone(collection.auto_approved_at)
+
+    def test_generate_social_collections_auto_approve_only_high_confidence(self):
+        for index in range(5):
+            self.collection_candidate_plan(
+                f"generate-auto-approve-high-{index}",
+                priority_score=50,
+            )
+        for index in range(3):
+            self.collection_candidate_plan(
+                f"generate-auto-approve-low-{index}",
+                country="",
+                degree_level="",
+                funding_type="",
+                field_label="All Fields",
+                deadline_days=5,
+                priority_score=49,
+            )
+
+        result = generate_social_collections(auto_approve=True)
+
+        self.assertEqual(result["created_count"], 2)
+        self.assertEqual(result["auto_approved_count"], 1)
+        approved_titles = list(
+            OpportunityCollection.objects.filter(
+                status=OpportunityCollection.Status.APPROVED
+            ).values_list("title", flat=True)
+        )
+        ready_titles = list(
+            OpportunityCollection.objects.filter(
+                status=OpportunityCollection.Status.READY
+            ).values_list("title", flat=True)
+        )
+        self.assertEqual(approved_titles, ["5 PhD Scholarships in Italy"])
+        self.assertEqual(ready_titles, ["3 Scholarships Closing Soon"])
 
     def test_social_scheduler_scores_low_priority_as_website_only(self):
         opportunity = self.opportunity(

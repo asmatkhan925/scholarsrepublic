@@ -21,6 +21,7 @@ from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
 )
+from apps.opportunities.services.social_collections import approve_social_collection
 
 
 @admin.register(OpportunityPathway)
@@ -639,6 +640,9 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
         "collection_type",
         "item_count",
         "priority_score",
+        "auto_approval_score",
+        "approval_source",
+        "auto_approved_at",
         "created_at",
     )
     list_filter = (
@@ -649,6 +653,8 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
         "degree_level",
         "funding_type",
         "field_label",
+        "approval_source",
+        "auto_approved_at",
         "created_at",
     )
     search_fields = (
@@ -660,9 +666,20 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
         "items__opportunity__title",
     )
     prepopulated_fields = {"slug": ("title",)}
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = (
+        "auto_approval_score",
+        "auto_approval_reason",
+        "auto_approved_at",
+        "created_at",
+        "updated_at",
+    )
     inlines = (OpportunityCollectionItemInline,)
-    actions = ("mark_approved", "pause_collections", "archive_collections")
+    actions = (
+        "auto_evaluate_approval",
+        "mark_approved",
+        "pause_collections",
+        "archive_collections",
+    )
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(item_total=Count("items"))
@@ -671,10 +688,40 @@ class OpportunityCollectionAdmin(admin.ModelAdmin):
     def item_count(self, obj):
         return obj.item_total
 
+    @admin.action(description="Auto-evaluate approval")
+    def auto_evaluate_approval(self, request, queryset):
+        approved_count = 0
+        blocked_count = 0
+        for collection in queryset.prefetch_related("items__opportunity"):
+            evaluation = approve_social_collection(collection)
+            if evaluation["can_auto_approve"]:
+                approved_count += 1
+            else:
+                blocked_count += 1
+                collection.auto_approval_score = evaluation["score"]
+                collection.auto_approval_reason = {
+                    "reasons": evaluation["reasons"],
+                    "blockers": evaluation["blockers"],
+                }
+                collection.save(
+                    update_fields=[
+                        "auto_approval_score",
+                        "auto_approval_reason",
+                        "updated_at",
+                    ]
+                )
+        self.message_user(
+            request,
+            f"Auto-approved {approved_count} collection(s); "
+            f"{blocked_count} collection(s) kept for review.",
+            messages.INFO,
+        )
+
     @admin.action(description="Mark selected collections approved")
     def mark_approved(self, request, queryset):
         updated = queryset.update(
             status=OpportunityCollection.Status.APPROVED,
+            approval_source=OpportunityCollection.ApprovalSource.ADMIN,
             updated_at=timezone.now(),
         )
         self.message_user(request, f"Approved {updated} collection(s).", messages.SUCCESS)

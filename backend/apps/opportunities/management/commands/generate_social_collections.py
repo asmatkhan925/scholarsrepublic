@@ -54,6 +54,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Ignore active collection exclusions and existing group checks.",
         )
+        parser.add_argument(
+            "--auto-approve",
+            action="store_true",
+            help="Immediately approve generated collections that pass quality checks.",
+        )
 
     def handle(self, *args, **options):
         try:
@@ -66,6 +71,7 @@ class Command(BaseCommand):
                 country=options["country"],
                 degree_level=options["degree_level"],
                 force=options["force"],
+                auto_approve=options["auto_approve"],
             )
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
@@ -75,6 +81,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Eligible candidate plans: {result['eligible_count']}")
         self.stdout.write(f"Collections previewed: {result['preview_count']}")
         self.stdout.write(f"Collections created: {result['created_count']}")
+        self.stdout.write(f"Collections auto-approved: {result['auto_approved_count']}")
         if options["country"]:
             self.stdout.write(f"Country filter: {options['country']}")
         if options["degree_level"]:
@@ -83,6 +90,8 @@ class Command(BaseCommand):
             self.stdout.write(f"Limit: {options['limit']}")
         if options["force"]:
             self.stdout.write("Force: yes")
+        if options["auto_approve"]:
+            self.stdout.write("Auto approve: yes")
 
         if result["previews"]:
             self.stdout.write("")
@@ -100,4 +109,19 @@ class Command(BaseCommand):
                     f"priority_score={preview['priority_score']}; "
                     f"plan_ids={plan_ids}; "
                     f"opportunity_ids={opportunity_ids})"
+                )
+
+        if result["auto_approval_evaluations"]:
+            self.stdout.write("")
+            self.stdout.write("Auto-approval evaluations:")
+            for item in result["auto_approval_evaluations"]:
+                collection = item["collection"]
+                evaluation = item["evaluation"]
+                title = collection.title if collection else "preview"
+                self.stdout.write(
+                    " - "
+                    f"{title}: "
+                    f"can_auto_approve={evaluation['can_auto_approve']}; "
+                    f"score={evaluation['score']}; "
+                    f"blockers={', '.join(evaluation['blockers']) or '-'}"
                 )

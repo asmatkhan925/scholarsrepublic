@@ -18,6 +18,19 @@ ACTIVE_COLLECTION_STATUSES = [
     OpportunityCollection.Status.READY,
     OpportunityCollection.Status.APPROVED,
 ]
+AUTO_APPROVAL_DUPLICATE_STATUSES = [
+    OpportunityCollection.Status.APPROVED,
+    OpportunityCollection.Status.POSTED,
+]
+AUTO_APPROVAL_STRONG_TYPES = {
+    OpportunityCollection.CollectionType.COUNTRY_DEGREE,
+    OpportunityCollection.CollectionType.COUNTRY_FUNDING,
+    OpportunityCollection.CollectionType.DEGREE_FUNDING,
+    OpportunityCollection.CollectionType.FIELD,
+}
+AUTO_APPROVAL_STRONG_SCORE = 220
+AUTO_APPROVAL_DEADLINE_WINDOW_SCORE = 250
+AUTO_APPROVAL_GENERIC_TITLE_SCORE = 300
 DEFAULT_MIN_SIZE = 3
 DEFAULT_MAX_SIZE = 5
 
@@ -347,6 +360,239 @@ def _save_collection(preview, status):
     return collection
 
 
+def _opportunities_from_collection_or_preview(collection_or_preview):
+    if isinstance(collection_or_preview, dict):
+        return [plan.opportunity for plan in collection_or_preview.get("plans", [])]
+
+    return [
+        item.opportunity
+        for item in collection_or_preview.items.select_related(
+            "opportunity",
+            "opportunity__country_ref",
+        ).all()
+    ]
+
+
+def _collection_value(collection_or_preview, key, default=None):
+    if isinstance(collection_or_preview, dict):
+        return collection_or_preview.get(key, default)
+    return getattr(collection_or_preview, key, default)
+
+
+def _is_opportunity_active(opportunity, today):
+    if opportunity.status != Opportunity.Status.PUBLISHED:
+        return False
+    if opportunity.deadline_check_status in {
+        Opportunity.DeadlineCheckStatus.EXPIRED,
+        Opportunity.DeadlineCheckStatus.VERIFIED_EXPIRED,
+    }:
+        return False
+    return not (
+        opportunity.deadline
+        and not opportunity.is_rolling_deadline
+        and opportunity.deadline < today
+    )
+
+
+def _title_is_too_generic(title, collection_type):
+    normalized = str(title or "").strip().casefold()
+    generic_titles = {
+        "scholarships closing soon",
+        "scholarships with upcoming deadlines",
+        "scholarship opportunities",
+    }
+    if normalized in generic_titles:
+        return True
+    if collection_type == OpportunityCollection.CollectionType.DEADLINE_WINDOW:
+        return True
+    return normalized.startswith("3 scholarships") or normalized.startswith("4 scholarships")
+
+
+def evaluate_collection_auto_approval(
+    collection_or_preview,
+    *,
+    force=False,
+    min_score=None,
+    now=None,
+):
+    now = now or timezone.now()
+    today = timezone.localtime(now).date()
+    reasons = []
+    blockers = []
+
+    title = _collection_value(collection_or_preview, "title", "")
+    collection_type = _collection_value(collection_or_preview, "collection_type", "")
+    priority_score = int(_collection_value(collection_or_preview, "priority_score", 0) or 0)
+    opportunities = _opportunities_from_collection_or_preview(collection_or_preview)
+    item_count = len(opportunities)
+    collection_id = None
+    if not isinstance(collection_or_preview, dict):
+        collection_id = collection_or_preview.pk
+
+    if 3 <= item_count <= 5:
+        reasons.append("item_count_in_range")
+    else:
+        blockers.append("item_count_out_of_range")
+
+    required_score = AUTO_APPROVAL_STRONG_SCORE
+    if collection_type in AUTO_APPROVAL_STRONG_TYPES:
+        reasons.append("strong_collection_type")
+    elif collection_type == OpportunityCollection.CollectionType.DEADLINE_WINDOW:
+        required_score = AUTO_APPROVAL_DEADLINE_WINDOW_SCORE
+        if item_count >= 5:
+            reasons.append("deadline_window_has_enough_items")
+        else:
+            blockers.append("deadline_window_needs_at_least_5_items")
+    else:
+        blockers.append("unsupported_collection_type")
+
+    if min_score is not None:
+        required_score = max(required_score, int(min_score))
+
+    if priority_score >= required_score:
+        reasons.append(f"priority_score_at_least_{required_score}")
+    else:
+        blockers.append(f"priority_score_below_{required_score}")
+
+    if _title_is_too_generic(title, collection_type):
+        if priority_score >= AUTO_APPROVAL_GENERIC_TITLE_SCORE:
+            reasons.append("generic_title_allowed_by_high_score")
+        else:
+            blockers.append("title_too_generic")
+    else:
+        reasons.append("title_specific")
+
+    expired_or_inactive_ids = [
+        opportunity.pk
+        for opportunity in opportunities
+        if not _is_opportunity_active(opportunity, today)
+    ]
+    if expired_or_inactive_ids:
+        blockers.append("inactive_or_expired_opportunities")
+    else:
+        reasons.append("all_opportunities_active")
+
+    missing_source_ids = [
+        opportunity.pk
+        for opportunity in opportunities
+        if not (opportunity.official_link or opportunity.source_url)
+    ]
+    if missing_source_ids:
+        blockers.append("missing_official_or_source_url")
+    else:
+        reasons.append("all_opportunities_have_source_url")
+
+    if not force and opportunities:
+        duplicate_queryset = OpportunityCollectionItem.objects.filter(
+            opportunity_id__in=[opportunity.pk for opportunity in opportunities],
+            collection__status__in=AUTO_APPROVAL_DUPLICATE_STATUSES,
+        )
+        if collection_id:
+            duplicate_queryset = duplicate_queryset.exclude(collection_id=collection_id)
+        if duplicate_queryset.exists():
+            blockers.append("opportunity_already_in_approved_or_posted_collection")
+        else:
+            reasons.append("no_approved_or_posted_collection_duplicates")
+    elif force:
+        reasons.append("duplicate_check_bypassed")
+
+    return {
+        "can_auto_approve": not blockers,
+        "score": priority_score,
+        "reasons": reasons,
+        "blockers": blockers,
+    }
+
+
+def approve_social_collection(collection, *, dry_run=False, force=False, min_score=None, now=None):
+    evaluation = evaluate_collection_auto_approval(
+        collection,
+        force=force,
+        min_score=min_score,
+        now=now,
+    )
+    if evaluation["can_auto_approve"] and not dry_run:
+        collection.status = OpportunityCollection.Status.APPROVED
+        collection.auto_approval_score = evaluation["score"]
+        collection.auto_approval_reason = {
+            "reasons": evaluation["reasons"],
+            "blockers": evaluation["blockers"],
+        }
+        collection.auto_approved_at = now or timezone.now()
+        collection.approval_source = OpportunityCollection.ApprovalSource.SYSTEM
+        collection.save(
+            update_fields=[
+                "status",
+                "auto_approval_score",
+                "auto_approval_reason",
+                "auto_approved_at",
+                "approval_source",
+                "updated_at",
+            ]
+        )
+
+    return evaluation
+
+
+def approve_social_collections(
+    *,
+    dry_run=False,
+    limit=None,
+    min_score=None,
+    include_ready=False,
+    force=False,
+    collection_id=None,
+    now=None,
+):
+    if limit is not None and limit < 1:
+        raise ValueError("limit must be greater than 0.")
+    if min_score is not None and min_score < 0:
+        raise ValueError("min_score must be greater than or equal to 0.")
+
+    statuses = [OpportunityCollection.Status.DRAFT]
+    if include_ready:
+        statuses.append(OpportunityCollection.Status.READY)
+
+    queryset = (
+        OpportunityCollection.objects.prefetch_related(
+            "items__opportunity",
+            "items__opportunity__country_ref",
+        )
+        .filter(status__in=statuses)
+        .order_by("-priority_score", "id")
+    )
+    if collection_id:
+        queryset = queryset.filter(pk=collection_id)
+
+    collections = list(queryset[:limit] if limit else queryset)
+    results = []
+    approved_count = 0
+    for collection in collections:
+        evaluation = approve_social_collection(
+            collection,
+            dry_run=dry_run,
+            force=force,
+            min_score=min_score,
+            now=now,
+        )
+        if evaluation["can_auto_approve"]:
+            approved_count += 1
+        results.append(
+            {
+                "collection": collection,
+                "evaluation": evaluation,
+            }
+        )
+
+    return {
+        "ok": True,
+        "dry_run": dry_run,
+        "evaluated_count": len(results),
+        "approved_count": approved_count,
+        "results": results,
+    }
+
+
 def generate_social_collections(
     *,
     dry_run=False,
@@ -357,6 +603,7 @@ def generate_social_collections(
     country="",
     degree_level="",
     force=False,
+    auto_approve=False,
     now=None,
 ):
     if min_size < 2:
@@ -408,9 +655,29 @@ def generate_social_collections(
             break
 
     collections = []
+    auto_approved_count = 0
+    evaluations = []
     if not dry_run:
         for preview in previews:
-            collections.append(_save_collection(preview, status))
+            collection = _save_collection(preview, status)
+            collections.append(collection)
+            if auto_approve:
+                evaluation = approve_social_collection(collection, force=force, now=now)
+                evaluations.append({"collection": collection, "evaluation": evaluation})
+                if evaluation["can_auto_approve"]:
+                    auto_approved_count += 1
+    elif auto_approve:
+        for preview in previews:
+            evaluations.append(
+                {
+                    "collection": None,
+                    "evaluation": evaluate_collection_auto_approval(
+                        preview,
+                        force=force,
+                        now=now,
+                    ),
+                }
+            )
 
     return {
         "ok": True,
@@ -418,6 +685,8 @@ def generate_social_collections(
         "eligible_count": len(plans),
         "preview_count": len(previews),
         "created_count": len(collections),
+        "auto_approved_count": auto_approved_count,
+        "auto_approval_evaluations": evaluations,
         "previews": previews,
         "collections": collections,
     }

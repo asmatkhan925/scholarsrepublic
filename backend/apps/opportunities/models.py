@@ -823,6 +823,11 @@ class OpportunityCollection(models.Model):
         SYSTEM = "system", "System"
         ADMIN = "admin", "Admin"
 
+    class ApprovalSource(models.TextChoices):
+        SYSTEM = "system", "System"
+        ADMIN = "admin", "Admin"
+        MANUAL = "manual", "Manual"
+
     class CollectionType(models.TextChoices):
         COUNTRY_DEGREE = "country_degree", "Country and degree"
         COUNTRY_FUNDING = "country_funding", "Country and funding"
@@ -859,6 +864,15 @@ class OpportunityCollection(models.Model):
     )
     social_post_text = models.TextField(blank=True)
     priority_score = models.IntegerField(default=0, db_index=True)
+    auto_approval_score = models.IntegerField(default=0, db_index=True)
+    auto_approval_reason = models.JSONField(default=dict, blank=True)
+    auto_approved_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    approval_source = models.CharField(
+        max_length=30,
+        choices=ApprovalSource.choices,
+        blank=True,
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
