@@ -107,6 +107,10 @@ from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
 )
+from apps.opportunities.services.social_scheduler import (
+    apply_social_priority,
+    score_opportunity_for_social,
+)
 from apps.opportunities.services.social_image_uploads import save_social_image_from_base64
 from apps.opportunities.services.social_posting import generate_facebook_post_text, plan_image_url
 from apps.opportunities.services.deadline_checker import classify_deadline_candidates
@@ -1755,6 +1759,43 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(kwargs["headers"]["User-Agent"], "ScholarsRepublicBackend/1.0")
         self.assertEqual(kwargs["headers"]["X-Social-Worker-Token"], "worker-token")
 
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=1,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_admin_facebook_post_now_obeys_daily_cap(self):
+        posted = self.opportunity(slug="manual-cap-posted")
+        posted_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=posted,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=posted,
+            plan=posted_plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at=timezone.now(),
+        )
+        due = self.opportunity(slug="manual-cap-due")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=due,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f"/api/admin/scholarships/{due.pk}/facebook/post-now/",
+            {"force": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertFalse(response.data["ok"])
+        self.assertEqual(response.data["status"], "daily_cap_reached")
+        self.assertEqual(response.data["daily_cap"], 1)
+        self.assertEqual(response.data["daily_remaining"], 0)
+
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_admin_facebook_post_now_preserves_worker_http_error_body(self):
         opportunity = self.opportunity(slug="post-now-worker-1010")
@@ -1984,7 +2025,10 @@ class OpportunityAPITests(APITestCase):
             "This scholarship has already been posted today.",
         )
 
-    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
     def test_admin_facebook_post_now_allows_duplicate_when_forced(self):
         opportunity = self.opportunity(slug="post-now-force-duplicate")
         plan = OpportunitySocialPostPlan.objects.create(
@@ -2327,6 +2371,321 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["items"]), 2)
 
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=2,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_respects_per_run_cap(self):
+        for index in range(4):
+            opportunity = self.opportunity(
+                slug=f"per-run-capped-social-due-{index}",
+                status=Opportunity.Status.PUBLISHED,
+                deadline=timezone.localdate() + timedelta(days=index + 10),
+            )
+            OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+            )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 10},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["per_run_cap"], 2)
+        self.assertEqual(response.data["returned_count"], 2)
+        self.assertEqual(len(response.data["items"]), 2)
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=1,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_respects_daily_cap(self):
+        posted = self.opportunity(slug="daily-cap-already-posted")
+        posted_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=posted,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=posted,
+            plan=posted_plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at=timezone.now(),
+        )
+        due = self.opportunity(slug="daily-cap-due")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=due,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["posted_today"], 1)
+        self.assertEqual(response.data["daily_cap"], 1)
+        self.assertEqual(response.data["daily_remaining"], 0)
+        self.assertEqual(response.data["reason"], "daily_cap_reached")
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=30,
+    )
+    def test_social_worker_due_posts_respects_minimum_spacing(self):
+        posted = self.opportunity(slug="spacing-already-posted")
+        posted_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=posted,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+        latest_posted_at = timezone.now()
+        OpportunitySocialPostLog.objects.create(
+            opportunity=posted,
+            plan=posted_plan,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at=latest_posted_at,
+        )
+        due = self.opportunity(slug="spacing-due")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=due,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["reason"], "min_spacing_active")
+        self.assertEqual(response.data["min_spacing_minutes"], 30)
+        self.assertIsNotNone(response.data["latest_posted_at"])
+        self.assertIsNotNone(response.data["next_allowed_post_at"])
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=2,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_skipped_expired_items_do_not_consume_returned_quota(self):
+        expired = self.opportunity(
+            slug="expired-before-valid-quota",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        expired_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=expired,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+        valid_plans = []
+        for index in range(2):
+            opportunity = self.opportunity(
+                slug=f"valid-after-expired-quota-{index}",
+                status=Opportunity.Status.PUBLISHED,
+                deadline=timezone.localdate() + timedelta(days=index + 10),
+            )
+            valid_plans.append(
+                OpportunitySocialPostPlan.objects.create(
+                    opportunity=opportunity,
+                    status=OpportunitySocialPostPlan.Status.READY,
+                )
+            )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 2},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["returned_count"], 2)
+        self.assertEqual(
+            [item["plan_id"] for item in response.data["items"]],
+            [plan.pk for plan in valid_plans],
+        )
+        expired_plan.refresh_from_db()
+        self.assertEqual(expired_plan.status, OpportunitySocialPostPlan.Status.PAUSED)
+        self.assertTrue(
+            OpportunitySocialPostLog.objects.filter(
+                plan=expired_plan,
+                status=OpportunitySocialPostLog.Status.SKIPPED,
+            ).exists()
+        )
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_response_includes_scheduler_metadata(self):
+        opportunity = self.opportunity(slug="metadata-social-due")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key in [
+            "ok",
+            "due_count",
+            "returned_count",
+            "posted_today",
+            "daily_cap",
+            "daily_remaining",
+            "per_run_cap",
+            "min_spacing_minutes",
+            "latest_posted_at",
+            "next_allowed_post_at",
+            "reason",
+            "items",
+        ]:
+            self.assertIn(key, response.data)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["returned_count"], 1)
+        self.assertEqual(response.data["reason"], "")
+
+    def test_social_scheduler_scores_high_priority_as_individual(self):
+        opportunity = self.opportunity(
+            slug="priority-individual",
+            deadline=timezone.localdate() + timedelta(days=7),
+            verified_status=True,
+            official_link="https://example.edu/priority-individual",
+            source_url="https://example.edu/priority-individual",
+            university_name="Example University",
+            pathway=self.pathway(),
+            degree_levels=["Master", "PhD"],
+            eligible_countries=["Pakistan", "International students"],
+            published_at=timezone.now(),
+        )
+
+        result = score_opportunity_for_social(opportunity)
+
+        self.assertGreaterEqual(result["score"], 80)
+        self.assertEqual(
+            result["decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+        )
+        self.assertIn("fully_funded", result["reasons"])
+
+    def test_social_scheduler_scores_mid_priority_as_collection_candidate(self):
+        opportunity = self.opportunity(
+            slug="priority-collection-candidate",
+            funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
+            deadline=timezone.localdate() + timedelta(days=20),
+            verified_status=True,
+            official_link="https://example.edu/priority-collection",
+            source_url="https://example.edu/priority-collection",
+            university_name="Example University",
+            pathway=self.pathway(),
+            degree_levels=["Bachelor"],
+            eligible_countries=["Pakistan"],
+            published_at=timezone.now() - timedelta(days=20),
+        )
+
+        result = score_opportunity_for_social(opportunity)
+
+        self.assertGreaterEqual(result["score"], 35)
+        self.assertLess(result["score"], 80)
+        self.assertEqual(
+            result["decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.COLLECTION_CANDIDATE,
+        )
+
+    def test_social_scheduler_scores_low_priority_as_website_only(self):
+        opportunity = self.opportunity(
+            slug="priority-website-only",
+            funding_type="",
+            deadline=None,
+            official_link="",
+            source_url="",
+            provider_name="",
+            short_description="",
+            description="",
+            how_to_apply="",
+            degree_levels=[],
+            eligible_countries=[],
+            published_at=timezone.now() - timedelta(days=20),
+        )
+
+        result = score_opportunity_for_social(opportunity)
+
+        self.assertLess(result["score"], 35)
+        self.assertEqual(
+            result["decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+        )
+        self.assertIn("missing_key_fields", result["reasons"])
+
+    def test_social_scheduler_marks_near_deadline_without_recent_verification_manual_review(self):
+        opportunity = self.opportunity(
+            slug="priority-manual-review",
+            deadline=timezone.localdate() + timedelta(days=2),
+            deadline_last_checked_at=None,
+            verified_status=True,
+            official_link="https://example.edu/priority-manual",
+            university_name="Example University",
+            pathway=self.pathway(),
+            degree_levels=["Master", "PhD"],
+            eligible_countries=["Pakistan"],
+        )
+
+        result = score_opportunity_for_social(opportunity)
+
+        self.assertEqual(
+            result["decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.MANUAL_REVIEW,
+        )
+        self.assertTrue(result["reasons"]["near_deadline_not_recently_verified"])
+
+    def test_apply_social_priority_updates_plan_fields(self):
+        opportunity = self.opportunity(
+            slug="priority-plan-update",
+            deadline=timezone.localdate() + timedelta(days=7),
+            verified_status=True,
+            official_link="https://example.edu/priority-plan-update",
+            university_name="Example University",
+            pathway=self.pathway(),
+            degree_levels=["Master"],
+            eligible_countries=["Pakistan"],
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        result = apply_social_priority(plan)
+        plan.refresh_from_db()
+
+        self.assertEqual(plan.priority_score, result["score"])
+        self.assertEqual(plan.priority_reason, result["reasons"])
+        self.assertEqual(plan.auto_social_decision, result["decision"])
+
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_orders_by_deadline_urgency(self):
         far = self.opportunity(
@@ -2371,6 +2730,63 @@ class OpportunityAPITests(APITestCase):
                 "ordering-no-deadline",
                 "ordering-far-deadline",
             ],
+        )
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_prefers_higher_priority_individual_posts(self):
+        pathway = self.pathway()
+        lower = self.opportunity(
+            slug="priority-order-lower",
+            status=Opportunity.Status.PUBLISHED,
+            funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
+            deadline=timezone.localdate() + timedelta(days=20),
+            verified_status=True,
+            official_link="https://example.edu/lower",
+            university_name="Example University",
+            pathway=pathway,
+            degree_levels=["Bachelor"],
+            eligible_countries=["Pakistan"],
+            published_at=timezone.now() - timedelta(days=20),
+        )
+        higher = self.opportunity(
+            slug="priority-order-higher",
+            status=Opportunity.Status.PUBLISHED,
+            deadline=timezone.localdate() + timedelta(days=7),
+            verified_status=True,
+            official_link="https://example.edu/higher",
+            source_url="https://example.edu/higher",
+            university_name="Example University",
+            pathway=pathway,
+            degree_levels=["Master", "PhD"],
+            eligible_countries=["Pakistan", "International students"],
+            published_at=timezone.now(),
+        )
+        for opportunity in [lower, higher]:
+            OpportunitySocialPostPlan.objects.create(
+                opportunity=opportunity,
+                status=OpportunitySocialPostPlan.Status.READY,
+            )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 2},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"][0]["slug"], "priority-order-higher")
+        high_plan = OpportunitySocialPostPlan.objects.get(opportunity=higher)
+        low_plan = OpportunitySocialPostPlan.objects.get(opportunity=lower)
+        self.assertGreater(high_plan.priority_score, low_plan.priority_score)
+        self.assertEqual(
+            high_plan.auto_social_decision,
+            OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")

@@ -713,6 +713,12 @@ class OpportunitySocialPostPlan(models.Model):
         PAUSED = "paused", "Paused"
         ARCHIVED = "archived", "Archived"
 
+    class AutoSocialDecision(models.TextChoices):
+        INDIVIDUAL = "individual", "Individual"
+        COLLECTION_CANDIDATE = "collection_candidate", "Collection candidate"
+        WEBSITE_ONLY = "website_only", "Website only"
+        MANUAL_REVIEW = "manual_review", "Manual review"
+
     class SocialImageSource(models.TextChoices):
         GPT_UPLOADED = "gpt_uploaded", "GPT uploaded"
         GPT_IMAGE_URL = "gpt_image_url", "GPT image URL"
@@ -766,6 +772,14 @@ class OpportunitySocialPostPlan(models.Model):
     last_posted_at = models.DateTimeField(null=True, blank=True)
     next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
     post_count = models.PositiveIntegerField(default=0)
+    priority_score = models.IntegerField(default=0, db_index=True)
+    priority_reason = models.JSONField(default=dict, blank=True)
+    auto_social_decision = models.CharField(
+        max_length=40,
+        choices=AutoSocialDecision.choices,
+        default=AutoSocialDecision.WEBSITE_ONLY,
+        db_index=True,
+    )
     last_error = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -780,6 +794,7 @@ class OpportunitySocialPostPlan(models.Model):
         ]
         indexes = [
             models.Index(fields=["platform", "enabled", "status"]),
+            models.Index(fields=["auto_social_decision", "priority_score"]),
             models.Index(fields=["last_posted_at"]),
             models.Index(fields=["created_at"]),
         ]

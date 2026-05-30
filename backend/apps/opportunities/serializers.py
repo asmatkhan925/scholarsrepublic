@@ -317,6 +317,9 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             "link_url": plan.link_url,
             "plan_status": plan.status,
             "next_post_at": plan.next_post_at,
+            "priority_score": plan.priority_score,
+            "priority_reason": plan.priority_reason,
+            "auto_social_decision": plan.auto_social_decision,
             "saved_at": plan.social_image_saved_at,
         }
 

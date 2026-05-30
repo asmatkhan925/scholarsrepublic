@@ -504,6 +504,8 @@ class OpportunitySocialPostPlanAdmin(admin.ModelAdmin):
         "next_post_at",
         "last_posted_at",
         "post_count",
+        "priority_score",
+        "auto_social_decision",
         "social_image_source",
         "social_image_status",
         "updated_at",
@@ -512,6 +514,7 @@ class OpportunitySocialPostPlanAdmin(admin.ModelAdmin):
         "platform",
         "status",
         "enabled",
+        "auto_social_decision",
         "social_image_source",
         "social_image_status",
         "last_posted_at",
@@ -523,6 +526,7 @@ class OpportunitySocialPostPlanAdmin(admin.ModelAdmin):
         "post_text",
         "image_prompt",
         "image_url",
+        "priority_reason",
         "last_error",
     )
     raw_id_fields = ("opportunity",)
@@ -532,6 +536,9 @@ class OpportunitySocialPostPlanAdmin(admin.ModelAdmin):
         "updated_at",
         "last_posted_at",
         "post_count",
+        "priority_score",
+        "priority_reason",
+        "auto_social_decision",
     )
     actions = ("clear_social_image", "regenerate_fallback_image")
 

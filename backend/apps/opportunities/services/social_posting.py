@@ -17,6 +17,7 @@ from apps.opportunities.services.social_image_uploads import (
     get_preferred_social_image_source,
     get_preferred_social_image_url,
 )
+from apps.opportunities.services.social_scheduler import apply_social_priority
 
 
 DEFAULT_PLATFORM = "facebook"
@@ -279,6 +280,7 @@ def promote_social_draft_to_plan(draft):
     if status == OpportunitySocialPostPlan.Status.READY and plan.next_post_at is None:
         plan.next_post_at = timezone.now()
     plan.last_error = "" if plan.post_text else "Facebook caption could not be generated from scholarship fields."
+    apply_social_priority(plan, save=False)
     plan.save(
         update_fields=[
             "enabled",
@@ -293,6 +295,9 @@ def promote_social_draft_to_plan(draft):
             "social_image_saved_at",
             "link_url",
             "next_post_at",
+            "priority_score",
+            "priority_reason",
+            "auto_social_decision",
             "last_error",
             "updated_at",
         ]
@@ -404,6 +409,103 @@ def latest_successful_facebook_log(plan):
         .order_by("-posted_at", "-created_at")
         .first()
     )
+
+
+def facebook_post_cap_settings():
+    daily_cap = getattr(settings, "SCHOLARS_FACEBOOK_DAILY_POST_CAP", 20)
+    per_run_cap = getattr(settings, "SCHOLARS_FACEBOOK_PER_RUN_POST_CAP", 5)
+    min_spacing_minutes = getattr(
+        settings,
+        "SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES",
+        30,
+    )
+    try:
+        daily_cap = int(daily_cap)
+    except (TypeError, ValueError):
+        daily_cap = 20
+    try:
+        per_run_cap = int(per_run_cap)
+    except (TypeError, ValueError):
+        per_run_cap = 5
+    try:
+        min_spacing_minutes = int(min_spacing_minutes)
+    except (TypeError, ValueError):
+        min_spacing_minutes = 30
+
+    return {
+        "daily_cap": max(0, daily_cap),
+        "per_run_cap": max(1, per_run_cap),
+        "min_spacing_minutes": max(0, min_spacing_minutes),
+    }
+
+
+def facebook_posting_cap_status(now=None):
+    now = now or timezone.now()
+    local_now = timezone.localtime(now)
+    current_tz = timezone.get_current_timezone()
+    today_start = timezone.make_aware(
+        datetime.combine(local_now.date(), time.min),
+        current_tz,
+    )
+    tomorrow_start = today_start + timedelta(days=1)
+    settings_data = facebook_post_cap_settings()
+    successful_posts = OpportunitySocialPostLog.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunitySocialPostLog.Status.POSTED,
+        posted_at__gte=today_start,
+        posted_at__lt=tomorrow_start,
+    )
+    posted_today = successful_posts.count()
+    daily_remaining = max(0, settings_data["daily_cap"] - posted_today)
+    latest_log = (
+        OpportunitySocialPostLog.objects.filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at__isnull=False,
+        )
+        .order_by("-posted_at", "-created_at")
+        .first()
+    )
+    latest_posted_at = latest_log.posted_at if latest_log else None
+    next_allowed_post_at = None
+    if latest_posted_at and settings_data["min_spacing_minutes"] > 0:
+        next_allowed_post_at = latest_posted_at + timedelta(
+            minutes=settings_data["min_spacing_minutes"],
+        )
+
+    reason = ""
+    if daily_remaining <= 0:
+        reason = "daily_cap_reached"
+    elif next_allowed_post_at and next_allowed_post_at > now:
+        reason = "min_spacing_active"
+
+    return {
+        **settings_data,
+        "posted_today": posted_today,
+        "daily_remaining": daily_remaining,
+        "latest_posted_at": latest_posted_at,
+        "next_allowed_post_at": next_allowed_post_at,
+        "reason": reason,
+    }
+
+
+def facebook_posting_block_response(now=None):
+    cap_status = facebook_posting_cap_status(now=now)
+    if cap_status["daily_remaining"] <= 0:
+        return {
+            "ok": False,
+            "status": "daily_cap_reached",
+            "error": "Facebook daily post cap has been reached.",
+            **cap_status,
+        }
+    if cap_status["reason"] == "min_spacing_active":
+        return {
+            "ok": False,
+            "status": "min_spacing_active",
+            "error": "Minimum spacing between Facebook posts is still active.",
+            **cap_status,
+        }
+    return None
 
 
 def latest_successful_facebook_log_today(opportunity, today=None):
@@ -537,6 +639,7 @@ def get_or_create_facebook_plan(opportunity):
             "link_url": scholarship_detail_url(opportunity),
         },
     )
+    apply_social_priority(plan)
     return plan
 
 
@@ -545,6 +648,7 @@ def post_plan_to_facebook_now(opportunity, force=False):
         return {"ok": False, "status": "not_found", "error": "Scholarship not found."}
 
     plan = get_or_create_facebook_plan(opportunity)
+    apply_social_priority(plan)
     plan.link_url = plan.link_url or scholarship_detail_url(opportunity)
     plan.enabled = True
 
@@ -579,6 +683,14 @@ def post_plan_to_facebook_now(opportunity, force=False):
             "error": "Scholarship deadline has passed. Use force=true to repost anyway."
             if post_check["status"] == "expired"
             else "",
+        }
+
+    cap_response = facebook_posting_block_response()
+    if cap_response:
+        return {
+            **cap_response,
+            "plan_id": plan.pk,
+            "opportunity_id": opportunity.pk,
         }
 
     plan.status = OpportunitySocialPostPlan.Status.READY
@@ -706,6 +818,7 @@ def post_plan_to_facebook_now(opportunity, force=False):
 
 def schedule_facebook_plan(opportunity, next_post_at):
     plan = get_or_create_facebook_plan(opportunity)
+    apply_social_priority(plan)
     plan.enabled = True
     plan.status = OpportunitySocialPostPlan.Status.READY
     plan.link_url = plan.link_url or scholarship_detail_url(opportunity)
@@ -717,14 +830,18 @@ def schedule_facebook_plan(opportunity, next_post_at):
 
 def due_plan_sort_key(plan, today):
     opportunity = plan.opportunity
+    decision_rank = 0
+    if plan.auto_social_decision != OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL:
+        decision_rank = 1
+    priority = -int(plan.priority_score or 0)
 
     if opportunity.deadline and not opportunity.is_rolling_deadline:
         days_left = (opportunity.deadline - today).days
         if days_left <= 7:
-            return (0, opportunity.deadline, plan.pk)
-        return (2, opportunity.deadline, plan.pk)
+            return (0, decision_rank, priority, opportunity.deadline, plan.pk)
+        return (2, decision_rank, priority, opportunity.deadline, plan.pk)
 
-    return (1, date.max, plan.pk)
+    return (1, decision_rank, priority, date.max, plan.pk)
 
 
 def record_skipped_expired_automatic_post(plan):
@@ -752,13 +869,59 @@ def record_skipped_expired_automatic_post(plan):
     return log
 
 
-def get_due_facebook_post_plans(limit=10, now=None):
+def parse_due_post_limit(limit):
     try:
         limit = int(limit)
     except (TypeError, ValueError):
         limit = 10
 
-    limit = max(1, min(limit, 50))
+    return max(1, min(limit, 50))
+
+
+def serialize_cap_datetime(value):
+    if not value:
+        return None
+    return timezone.localtime(value).isoformat()
+
+
+def build_due_posts_response(items, due_count, cap_status, reason=""):
+    latest_posted_at = cap_status["latest_posted_at"]
+    next_allowed_post_at = cap_status["next_allowed_post_at"]
+    returned_count = len(items)
+    response_reason = reason
+    if returned_count:
+        response_reason = ""
+    elif not response_reason:
+        response_reason = cap_status["reason"] or "no_due_posts"
+
+    return {
+        "ok": True,
+        "due_count": due_count,
+        "returned_count": returned_count,
+        "posted_today": cap_status["posted_today"],
+        "daily_cap": cap_status["daily_cap"],
+        "daily_remaining": cap_status["daily_remaining"],
+        "per_run_cap": cap_status["per_run_cap"],
+        "min_spacing_minutes": cap_status["min_spacing_minutes"],
+        "latest_posted_at": serialize_cap_datetime(latest_posted_at),
+        "next_allowed_post_at": serialize_cap_datetime(next_allowed_post_at),
+        "reason": response_reason,
+        "items": items,
+    }
+
+
+def get_due_facebook_post_plan_response(limit=10, now=None):
+    limit = parse_due_post_limit(limit)
+    now = now or timezone.now()
+    cap_status = facebook_posting_cap_status(now=now)
+    effective_limit = min(limit, cap_status["per_run_cap"], cap_status["daily_remaining"])
+
+    if cap_status["daily_remaining"] <= 0 or cap_status["reason"] == "min_spacing_active":
+        return build_due_posts_response([], 0, cap_status)
+
+    if effective_limit <= 0:
+        return build_due_posts_response([], 0, cap_status, reason="no_capacity")
+
     plans = (
         OpportunitySocialPostPlan.objects.select_related("opportunity", "opportunity__country_ref")
         .filter(
@@ -770,15 +933,16 @@ def get_due_facebook_post_plans(limit=10, now=None):
         .order_by("id")
     )
 
-    now = now or timezone.now()
     today = timezone.localtime(now).date()
     due_plans = []
+    due_count = 0
     for plan in plans:
         if is_opportunity_expired_for_social(plan.opportunity, today=today):
             record_skipped_expired_automatic_post(plan)
             continue
         if not is_plan_due(plan, now=now):
             continue
+        apply_social_priority(plan)
         days_left = deadline_days_left(plan.opportunity, today=today)
         recently_checked = (
             plan.opportunity.deadline_last_checked_at
@@ -810,11 +974,18 @@ def get_due_facebook_post_plans(limit=10, now=None):
         if not ensure_plan_post_text(plan):
             continue
         else:
+            due_count += 1
             due_plans.append(plan)
+            if len(due_plans) >= effective_limit:
+                break
 
     due_plans.sort(key=lambda plan: due_plan_sort_key(plan, today))
-    items = [serialize_due_plan(plan) for plan in due_plans[:limit]]
-    return items
+    items = [serialize_due_plan(plan) for plan in due_plans[:effective_limit]]
+    return build_due_posts_response(items, due_count, cap_status)
+
+
+def get_due_facebook_post_plans(limit=10, now=None):
+    return get_due_facebook_post_plan_response(limit=limit, now=now)["items"]
 
 
 def record_facebook_post_result(payload):

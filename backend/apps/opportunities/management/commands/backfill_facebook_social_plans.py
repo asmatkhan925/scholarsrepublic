@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.opportunities.models import Opportunity, OpportunitySocialPostPlan
 from apps.opportunities.services.social_posting import generate_facebook_post_text
+from apps.opportunities.services.social_scheduler import apply_social_priority
 
 
 SITE_URL = "https://scholarsrepublic.org"
@@ -115,25 +116,27 @@ class Command(BaseCommand):
                 if stagger
                 else immediate_next_post_at
             )
-            plans_to_create.append(
-                OpportunitySocialPostPlan(
-                    opportunity=opportunity,
-                    platform="facebook",
-                    enabled=True,
-                    status=OpportunitySocialPostPlan.Status.READY,
-                    image_url="",
-                    link_url=self.link_url(opportunity),
-                    next_post_at=next_post_at,
-                    post_text=generate_facebook_post_text(
-                        opportunity,
-                        self.link_url(opportunity),
-                    ),
-                )
+            plan = OpportunitySocialPostPlan(
+                opportunity=opportunity,
+                platform="facebook",
+                enabled=True,
+                status=OpportunitySocialPostPlan.Status.READY,
+                image_url="",
+                link_url=self.link_url(opportunity),
+                next_post_at=next_post_at,
+                post_text=generate_facebook_post_text(
+                    opportunity,
+                    self.link_url(opportunity),
+                ),
             )
+            apply_social_priority(plan, save=False)
+            plans_to_create.append(plan)
             self.stdout.write(
                 " - "
                 f"id={opportunity.id}; "
                 f"slug={opportunity.slug}; "
+                f"priority_score={plan.priority_score}; "
+                f"decision={plan.auto_social_decision}; "
                 f"next_post_at={next_post_at.isoformat()}"
             )
 

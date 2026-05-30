@@ -55,7 +55,7 @@ from apps.opportunities.services.deadline_checker import prepare_deadline_verifi
 from apps.opportunities.services.social_posting import (
     DEFAULT_PLATFORM,
     generate_facebook_post_text,
-    get_due_facebook_post_plans,
+    get_due_facebook_post_plan_response,
     mark_social_image_stale_for_deadline_change,
     post_plan_to_facebook_now,
     record_facebook_post_result,
@@ -63,6 +63,7 @@ from apps.opportunities.services.social_posting import (
     schedule_facebook_plan,
     scholarship_detail_url,
 )
+from apps.opportunities.services.social_scheduler import apply_social_priority
 from apps.opportunities.services.social_image_uploads import (
     SocialImageError,
     get_preferred_social_image_source,
@@ -339,6 +340,9 @@ def _social_image_response(obj, draft_id=None):
         "link_url": link_url,
         "plan_status": getattr(obj, "status", ""),
         "next_post_at": getattr(obj, "next_post_at", None),
+        "priority_score": getattr(obj, "priority_score", None),
+        "priority_reason": getattr(obj, "priority_reason", None),
+        "auto_social_decision": getattr(obj, "auto_social_decision", ""),
     }
 
 
@@ -1024,6 +1028,7 @@ class AgentScholarshipOpportunitySocialImageView(AgentScholarshipBaseView):
                 "link_url": scholarship_detail_url(opportunity),
             },
         )
+        apply_social_priority(plan)
         image_prompt = str(request.data.get("image_prompt") or "").strip()
         if image_prompt:
             plan.image_prompt = image_prompt
@@ -1137,6 +1142,7 @@ class AdminScholarshipSocialImageUploadView(APIView):
                 "link_url": scholarship_detail_url(opportunity),
             },
         )
+        apply_social_priority(plan)
         image_prompt = str(request.data.get("image_prompt") or "").strip()
         if image_prompt:
             plan.image_prompt = image_prompt
@@ -1227,7 +1233,18 @@ class AdminScholarshipSocialPostReviewView(APIView):
         image_prompt = str(request.data.get("image_prompt") or "").strip()
         if image_prompt:
             plan.image_prompt = image_prompt
-        plan.save(update_fields=["post_text", "link_url", "image_prompt", "updated_at"])
+        apply_social_priority(plan, save=False)
+        plan.save(
+            update_fields=[
+                "post_text",
+                "link_url",
+                "image_prompt",
+                "priority_score",
+                "priority_reason",
+                "auto_social_decision",
+                "updated_at",
+            ]
+        )
 
         response_data = _social_image_response(plan)
         response_data["opportunity_id"] = opportunity.pk
@@ -1280,6 +1297,8 @@ class AdminScholarshipFacebookPostNowView(APIView):
         response_status = status.HTTP_200_OK
         if result.get("status") in {"not_published", "expired"}:
             response_status = status.HTTP_400_BAD_REQUEST
+        elif result.get("status") in {"daily_cap_reached", "min_spacing_active"}:
+            response_status = status.HTTP_429_TOO_MANY_REQUESTS
         elif result.get("status") == "failed":
             response_status = status.HTTP_502_BAD_GATEWAY
 
@@ -2305,11 +2324,9 @@ class AgentFacebookDuePostsView(SocialWorkerBaseView):
             )
 
         return Response(
-            {
-                "items": get_due_facebook_post_plans(
-                    limit=request.data.get("limit", 5),
-                )
-            }
+            get_due_facebook_post_plan_response(
+                limit=request.data.get("limit", 5),
+            )
         )
 
 

@@ -155,7 +155,10 @@ async function fetchDuePosts(env, limit) {
     throw new Error(`Backend due-posts returned HTTP ${response.status}`);
   }
 
-  return Array.isArray(data.items) ? data.items : [];
+  return {
+    ...data,
+    items: Array.isArray(data.items) ? data.items : [],
+  };
 }
 
 function resultPayloadForPost(duePost, status, facebookResult = {}, errorMessage = "") {
@@ -180,7 +183,8 @@ async function runDuePosts(env, limit = 10) {
     "SCHOLARS_SOCIAL_WORKER_TOKEN",
   ]);
 
-  const duePosts = await fetchDuePosts(env, limit);
+  const duePostResponse = await fetchDuePosts(env, limit);
+  const duePosts = duePostResponse.items;
   const results = [];
 
   for (const duePost of duePosts) {
@@ -221,7 +225,16 @@ async function runDuePosts(env, limit = 10) {
 
   return {
     requested_limit: limit,
-    due_count: duePosts.length,
+    due_count: Number(duePostResponse.due_count || duePosts.length),
+    returned_count: Number(duePostResponse.returned_count || duePosts.length),
+    posted_today: Number(duePostResponse.posted_today || 0),
+    daily_cap: Number(duePostResponse.daily_cap || 0),
+    daily_remaining: Number(duePostResponse.daily_remaining || 0),
+    per_run_cap: Number(duePostResponse.per_run_cap || 0),
+    min_spacing_minutes: Number(duePostResponse.min_spacing_minutes || 0),
+    latest_posted_at: duePostResponse.latest_posted_at || null,
+    next_allowed_post_at: duePostResponse.next_allowed_post_at || null,
+    reason: duePostResponse.reason || "",
     posted_count: results.filter((item) => item.status === "posted").length,
     failed_count: results.filter((item) => item.status === "failed").length,
     results,
