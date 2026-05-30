@@ -19,7 +19,7 @@ function resolveServerApiBaseUrl() {
     process.env.SERVER_API_BASE_URL?.trim() || process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
 
   if (configuredBaseUrl) {
-    return configuredBaseUrl;
+    return normalizeApiBaseUrl(configuredBaseUrl);
   }
 
   if (process.env.NODE_ENV !== "production") {
@@ -29,10 +29,20 @@ function resolveServerApiBaseUrl() {
   throw new MissingServerApiBaseUrlError();
 }
 
+function normalizeApiBaseUrl(value: string) {
+  const trimmed = value.replace(/\/+$/, "");
+
+  if (/\/api$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `${trimmed}/api`;
+}
+
 type ServerFetchResult<T> =
-  | { data: T; notFound: false }
-  | { data: null; notFound: true }
-  | { data: null; notFound: false };
+  | { data: T; notFound: false; status: number; url: string }
+  | { data: null; notFound: true; status: number; url: string }
+  | { data: null; notFound: false; status: number; url: string };
 
 function buildApiUrl(path: string, params?: Record<string, string | number | boolean | undefined>) {
   const normalizedBase = resolveServerApiBaseUrl().replace(/\/$/, "");
@@ -52,8 +62,10 @@ async function serverFetchJson<T>(
   path: string,
   params?: Record<string, string | number | boolean | undefined>,
 ): Promise<ServerFetchResult<T>> {
+  const url = buildApiUrl(path, params);
+
   try {
-    const response = await fetch(buildApiUrl(path, params), {
+    const response = await fetch(url, {
       cache: "no-store",
       headers: {
         Accept: "application/json",
@@ -62,20 +74,25 @@ async function serverFetchJson<T>(
     });
 
     if (response.status === 404) {
-      return { data: null, notFound: true };
+      return { data: null, notFound: true, status: response.status, url: url.toString() };
     }
 
     if (!response.ok) {
-      return { data: null, notFound: false };
+      return { data: null, notFound: false, status: response.status, url: url.toString() };
     }
 
-    return { data: (await response.json()) as T, notFound: false };
+    return {
+      data: (await response.json()) as T,
+      notFound: false,
+      status: response.status,
+      url: url.toString(),
+    };
   } catch (error) {
     if (error instanceof MissingServerApiBaseUrlError) {
       throw error;
     }
 
-    return { data: null, notFound: false };
+    return { data: null, notFound: false, status: 0, url: url.toString() };
   }
 }
 
@@ -89,8 +106,12 @@ export async function getPublicScholarshipInitial(slug: string) {
   return serverFetchJson<OpportunityDetail>(`/scholarships/${encodeURIComponent(slug)}/`);
 }
 
-export async function getPublicScholarshipCollectionInitial(slug: string) {
+export async function getPublicScholarshipCollection(slug: string) {
   return serverFetchJson<OpportunityCollectionDetail>(
     `/scholarships/collections/${encodeURIComponent(slug)}/`,
   );
+}
+
+export async function getPublicScholarshipCollectionInitial(slug: string) {
+  return getPublicScholarshipCollection(slug);
 }

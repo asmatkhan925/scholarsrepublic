@@ -7,7 +7,7 @@ import { ArrowLeft, CalendarDays, ExternalLink, GraduationCap, MapPin } from "lu
 import { JsonLd } from "@/components/seo/JsonLd";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
-import { getPublicScholarshipCollectionInitial } from "@/lib/serverApi";
+import { getPublicScholarshipCollection } from "@/lib/serverApi";
 import { absoluteUrl, createBreadcrumbJsonLd, createWebPageJsonLd } from "@/lib/seo/jsonLd";
 import type { OpportunityCollectionDetail } from "@/types/opportunity";
 
@@ -59,7 +59,7 @@ export async function generateMetadata({
   params,
 }: CollectionRoutePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await getPublicScholarshipCollectionInitial(slug);
+  const result = await getPublicScholarshipCollection(slug);
   const collection = result.data;
   const title = collection
     ? `${collection.title} - Scholars Republic`
@@ -92,10 +92,29 @@ export default async function ScholarshipCollectionRoutePage({
   params,
 }: CollectionRoutePageProps) {
   const { slug } = await params;
-  const result = await getPublicScholarshipCollectionInitial(slug);
+  const result = await getPublicScholarshipCollection(slug);
 
-  if (result.notFound || !result.data) {
+  if (result.notFound) {
+    console.error("[collection-page] Failed to load collection", {
+      slug,
+      status: result.status,
+      url: result.url,
+    });
     notFound();
+  }
+
+  if (!result.data) {
+    console.error("[collection-page] Failed to load collection", {
+      slug,
+      status: result.status,
+      url: result.url,
+    });
+
+    if (result.status === 200) {
+      notFound();
+    }
+
+    throw new Error("Failed to load scholarship collection.");
   }
 
   const collection = result.data;
