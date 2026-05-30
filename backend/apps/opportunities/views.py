@@ -784,15 +784,41 @@ class AgentScholarshipCreateDraftView(AgentScholarshipBaseView):
                 draft_payload["source_url"] = source_url
             if source_text:
                 draft_payload["source_text"] = source_text
+            source_name = opportunity.get("source_name", "")
+            draft_source_url = source_url or opportunity.get("source_url", "")
+            logger.info(
+                "Creating agent scholarship draft: title_length=%s source_url_length=%s source_name_length=%s",
+                len(title or ""),
+                len(draft_source_url or ""),
+                len(source_name or ""),
+            )
             draft = OpportunityDraft.objects.create(
                 title=title or "Imported scholarship draft",
                 raw_payload=draft_payload,
                 status=OpportunityDraft.Status.VALIDATED,
-                source_url=source_url or opportunity.get("source_url", ""),
-                source_name=opportunity.get("source_name", ""),
+                source_url=draft_source_url,
+                source_name=source_name,
                 confidence=cleaned.get("confidence", ""),
                 validation_warnings=warnings,
                 validation_errors=[],
+            )
+        except DataError:
+            logger.exception(
+                "Agent scholarship draft creation hit database length limit: title_length=%s source_url_length=%s source_name_length=%s",
+                len((locals().get("title") or "")),
+                len((locals().get("draft_source_url") or "")),
+                len((locals().get("source_name") or "")),
+            )
+            return Response(
+                {
+                    "ok": False,
+                    "error": "create_draft_failed",
+                    "stage": "draft_creation",
+                    "detail": "A URL or draft field exceeded the database length limit.",
+                    "field": "source_url",
+                    "max_length": OpportunityDraft._meta.get_field("source_url").max_length,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception:
             logger.exception("Agent scholarship draft creation failed.")

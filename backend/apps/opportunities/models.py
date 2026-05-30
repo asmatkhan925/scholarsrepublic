@@ -41,7 +41,7 @@ class OpportunityPathway(models.Model):
         db_index=True,
     )
     description = models.TextField(blank=True)
-    official_link = models.URLField(blank=True)
+    official_link = models.URLField(max_length=1000, blank=True)
     display_order = models.PositiveIntegerField(default=100, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -234,8 +234,8 @@ class Opportunity(models.Model):
     benefits = models.TextField(blank=True)
     eligibility = models.TextField(blank=True)
     how_to_apply = models.TextField(blank=True)
-    official_link = models.URLField(blank=True)
-    source_url = models.URLField(blank=True)
+    official_link = models.URLField(max_length=1000, blank=True)
+    source_url = models.URLField(max_length=1000, blank=True)
     source_name = models.CharField(max_length=255, blank=True)
 
     pathway = models.ForeignKey(
@@ -321,7 +321,7 @@ class Opportunity(models.Model):
         db_index=True,
     )
     deadline_check_note = models.TextField(blank=True)
-    deadline_check_source_url = models.URLField(blank=True)
+    deadline_check_source_url = models.URLField(max_length=1000, blank=True)
     deadline_check_evidence = models.TextField(blank=True)
     deadline_check_confidence = models.CharField(
         max_length=20,
@@ -584,7 +584,7 @@ class OpportunityDraft(models.Model):
         default=Status.NEW,
         db_index=True,
     )
-    source_url = models.URLField(blank=True)
+    source_url = models.URLField(max_length=1000, blank=True)
     source_name = models.CharField(max_length=255, blank=True)
     confidence = models.CharField(max_length=32, blank=True)
     validation_warnings = models.JSONField(default=list, blank=True)
@@ -873,7 +873,7 @@ class OpportunityDeadlineCheckLog(models.Model):
         choices=Opportunity.DeadlineCheckStatus.choices,
         db_index=True,
     )
-    source_url = models.URLField(blank=True)
+    source_url = models.URLField(max_length=1000, blank=True)
     evidence = models.TextField(blank=True)
     evidence_text = models.TextField(blank=True)
     note = models.TextField(blank=True)

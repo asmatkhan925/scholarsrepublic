@@ -114,6 +114,17 @@ REQUIRED_TEXT_FIELDS = (
     "benefits",
     "how_to_apply",
 )
+OPPORTUNITY_URL_FIELDS = {
+    "official_link": "official_link",
+    "source_url": "source_url",
+    "application_url": "official_link",
+}
+OPPORTUNITY_DRAFT_FIELD_LIMITS = {
+    "title": "title",
+    "source_url": "source_url",
+    "source_name": "source_name",
+    "confidence": "confidence",
+}
 
 
 def validate_opportunity_draft_payload(payload):
@@ -150,13 +161,17 @@ def validate_opportunity_draft_payload(payload):
     source_url = clean_text(opportunity_payload.get("source_url"))
     source_name = clean_text(opportunity_payload.get("source_name"))
     official_link = clean_text(opportunity_payload.get("official_link"))
+    application_url = clean_text(opportunity_payload.get("application_url"))
 
     opportunity["official_link"] = official_link
     opportunity["source_url"] = source_url
     opportunity["source_name"] = source_name
+    opportunity["application_url"] = application_url
 
     if not official_link and not source_url:
         errors.append("Missing required opportunity field: official_link or source_url.")
+
+    validate_draft_field_lengths(cleaned, errors)
 
     country_region = clean_text(opportunity_payload.get("country_region"))
     country = resolve_or_create_country(
@@ -475,6 +490,38 @@ def clean_text(value):
         return ""
 
     return str(value).strip()
+
+
+def max_length_for(model, field_name):
+    return model._meta.get_field(field_name).max_length
+
+
+def add_max_length_error(errors, field_name, value, max_length):
+    if max_length and len(value) > max_length:
+        errors.append(
+            f"{field_name} is too long. Maximum length is {max_length} characters."
+        )
+
+
+def validate_draft_field_lengths(cleaned, errors):
+    opportunity = cleaned.get("opportunity", {})
+
+    for payload_field, model_field in OPPORTUNITY_URL_FIELDS.items():
+        add_max_length_error(
+            errors,
+            payload_field,
+            clean_text(opportunity.get(payload_field)),
+            max_length_for(Opportunity, model_field),
+        )
+
+    for payload_field, model_field in OPPORTUNITY_DRAFT_FIELD_LIMITS.items():
+        value_source = cleaned if payload_field == "confidence" else opportunity
+        add_max_length_error(
+            errors,
+            payload_field,
+            clean_text(value_source.get(payload_field)),
+            max_length_for(OpportunityDraft, model_field),
+        )
 
 
 def clean_string_list(value):

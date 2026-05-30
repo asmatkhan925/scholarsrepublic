@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db.utils import DataError
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
 from rest_framework import status
@@ -504,6 +505,29 @@ class OpportunityAPITests(APITestCase):
         self.assert_json_response(response)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_validate_rejects_url_longer_than_model_limit(self):
+        max_length = Opportunity._meta.get_field("source_url").max_length
+        payload = self.draft_payload(
+            source_url="https://example.edu/" + ("a" * max_length)
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/validate/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["valid"])
+        self.assertIn(
+            f"source_url is too long. Maximum length is {max_length} characters.",
+            response.data["errors"],
+        )
+        self.assertEqual(OpportunityDraft.objects.count(), 0)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_validate_does_not_create_draft_or_opportunity(self):
         draft_count = OpportunityDraft.objects.count()
         opportunity_count = Opportunity.objects.count()
@@ -760,6 +784,57 @@ class OpportunityAPITests(APITestCase):
             response.data["edit_url"],
         )
         self.assertEqual(Opportunity.objects.count(), 0)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_accepts_source_url_longer_than_200(self):
+        source_url = "https://example.edu/" + ("a" * 240)
+        payload = self.draft_payload(
+            slug="agent-long-source-url",
+            source_url=source_url,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/create-draft/",
+            {"payload": payload},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        draft = OpportunityDraft.objects.get(pk=response.data["draft_id"])
+        self.assertEqual(draft.source_url, source_url)
+        self.assertEqual(draft.raw_payload["opportunity"]["source_url"], source_url)
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_create_draft_returns_structured_json_on_data_error(self):
+        payload = self.draft_payload(slug="agent-data-error")
+        max_length = OpportunityDraft._meta.get_field("source_url").max_length
+
+        with patch(
+            "apps.opportunities.views.OpportunityDraft.objects.create",
+            side_effect=DataError("value too long for type character varying"),
+        ):
+            response = self.client.post(
+                "/api/admin/agent/scholarships/create-draft/",
+                {"payload": payload},
+                format="json",
+                **self.agent_headers(),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data,
+            {
+                "ok": False,
+                "error": "create_draft_failed",
+                "stage": "draft_creation",
+                "detail": "A URL or draft field exceeded the database length limit.",
+                "field": "source_url",
+                "max_length": max_length,
+            },
+        )
         self.assert_json_response(response)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
