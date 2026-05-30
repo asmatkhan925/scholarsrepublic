@@ -2579,6 +2579,15 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(response.data["ok"])
         self.assertEqual(response.data["returned_count"], 1)
         self.assertEqual(response.data["reason"], "")
+        item = response.data["items"][0]
+        self.assertEqual(
+            item["auto_social_decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+        )
+        self.assertIsInstance(item["priority_score"], int)
+        self.assertGreater(item["priority_score"], 0)
+        self.assertIsInstance(item["priority_reason"], dict)
+        self.assertIn("fully_funded", item["priority_reason"])
 
     @override_settings(
         SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
@@ -2598,6 +2607,13 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("items", result)
         self.assertEqual(result["returned_count"], 1)
         self.assertEqual(len(result["items"]), 1)
+        item = result["items"][0]
+        self.assertEqual(
+            item["auto_social_decision"],
+            OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+        )
+        self.assertIsInstance(item["priority_score"], int)
+        self.assertIsInstance(item["priority_reason"], dict)
 
     @override_settings(
         SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",

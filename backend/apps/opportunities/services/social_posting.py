@@ -392,6 +392,9 @@ def serialize_due_plan(plan):
         "link_url": link_url,
         "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
         "days_left": days_left,
+        "auto_social_decision": plan.auto_social_decision,
+        "priority_score": plan.priority_score,
+        "priority_reason": plan.priority_reason,
     }
 
 
