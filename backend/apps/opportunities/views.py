@@ -2547,6 +2547,31 @@ def _filter_text_search(queryset, query, fields):
     return queryset.filter(condition)
 
 
+def _admin_social_log_date_range(request):
+    date_from = parse_date(str(request.query_params.get("date_from") or "").strip())
+    date_to = parse_date(str(request.query_params.get("date_to") or "").strip())
+    current_tz = timezone.get_current_timezone()
+    start_at = None
+    end_at = None
+    if date_from:
+        start_at = timezone.make_aware(datetime.combine(date_from, datetime.min.time()), current_tz)
+    if date_to:
+        end_at = timezone.make_aware(datetime.combine(date_to, datetime.max.time()), current_tz)
+    return start_at, end_at
+
+
+def _apply_social_log_filters(queryset, request, title_field):
+    status_filter = str(request.query_params.get("status") or "").strip()
+    if status_filter and status_filter != "all":
+        queryset = queryset.filter(status=status_filter)
+    start_at, end_at = _admin_social_log_date_range(request)
+    if start_at:
+        queryset = queryset.filter(created_at__gte=start_at)
+    if end_at:
+        queryset = queryset.filter(created_at__lte=end_at)
+    return _filter_text_search(queryset, request.query_params.get("q"), [title_field])
+
+
 def _serialize_admin_opportunity_social_plan(plan):
     opportunity = plan.opportunity
     return {
@@ -2639,6 +2664,41 @@ def _latest_social_posted_at():
     return latest_posted_at
 
 
+def _serialize_admin_opportunity_social_log(log):
+    return {
+        "id": log.pk,
+        "type": "opportunity",
+        "created_at": _serialize_social_datetime(log.created_at),
+        "status": log.status,
+        "title": log.opportunity.title,
+        "plan_id": log.plan_id,
+        "facebook_post_id": log.facebook_post_id,
+        "error_message": log.error_message,
+        "link_url": log.link_url or scholarship_detail_url(log.opportunity),
+        "admin_url": f"/admin/opportunities/opportunitysocialpostlog/{log.pk}/change/",
+        "record_admin_url": f"/admin/opportunities/opportunity/{log.opportunity_id}/change/",
+    }
+
+
+def _serialize_admin_collection_social_log(log):
+    link_url = ""
+    if log.collection.slug:
+        link_url = f"https://scholarsrepublic.org/scholarships/collections/{log.collection.slug}"
+    return {
+        "id": log.pk,
+        "type": "collection",
+        "created_at": _serialize_social_datetime(log.created_at),
+        "status": log.status,
+        "title": log.collection.title,
+        "plan_id": log.plan_id,
+        "facebook_post_id": log.facebook_post_id,
+        "error_message": log.error_message,
+        "link_url": link_url,
+        "admin_url": f"/admin/opportunities/opportunitycollectionsocialpostlog/{log.pk}/change/",
+        "record_admin_url": f"/admin/opportunities/opportunitycollection/{log.collection_id}/change/",
+    }
+
+
 def _build_social_health_alerts(
     *,
     now,
@@ -2701,8 +2761,8 @@ def _build_social_health_alerts(
                 "failed_posts_today",
                 "Social posts failed today",
                 f"{opportunity_failed_today + collection_failed_today} social post result(s) failed today.",
-                "Open the social logs, inspect the error messages, and confirm the Worker/backend credentials are healthy.",
-                "/dashboard/admin/social/scheduler",
+                "Open Social Logs, inspect the error messages, and confirm the Worker/backend credentials are healthy.",
+                "/dashboard/admin/social/logs",
             )
         )
     if collection_failed_today > 0:
@@ -2713,7 +2773,7 @@ def _build_social_health_alerts(
                 "Collection posts failed today",
                 f"{collection_failed_today} collection social post result(s) failed today.",
                 "Review collection social logs and collection post plans before the next Worker run.",
-                "/dashboard/admin/social/collection-plans",
+                "/dashboard/admin/social/logs",
             )
         )
     if empty_opportunity_count > 0:
@@ -2957,6 +3017,104 @@ class AdminSocialCollectionPlanCaptionView(APIView):
         plan.post_text = post_text
         plan.save(update_fields=["post_text", "updated_at"])
         return Response(_serialize_admin_collection_social_plan(plan))
+
+
+class AdminSocialLogListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        type_filter = str(request.query_params.get("type") or "all").strip()
+        if type_filter not in {"all", "opportunity", "collection"}:
+            type_filter = "all"
+        limit = _admin_social_plan_limit(request)
+        now = timezone.now()
+        local_now = timezone.localtime(now)
+        today_start = timezone.make_aware(
+            datetime.combine(local_now.date(), datetime.min.time()),
+            timezone.get_current_timezone(),
+        )
+        tomorrow_start = today_start + timedelta(days=1)
+
+        opportunity_base = OpportunitySocialPostLog.objects.select_related(
+            "opportunity",
+            "plan",
+        ).filter(platform=DEFAULT_PLATFORM)
+        collection_base = OpportunityCollectionSocialPostLog.objects.select_related(
+            "collection",
+            "plan",
+        ).filter(platform=DEFAULT_PLATFORM)
+
+        opportunity_queryset = _apply_social_log_filters(
+            opportunity_base,
+            request,
+            "opportunity__title",
+        )
+        collection_queryset = _apply_social_log_filters(
+            collection_base,
+            request,
+            "collection__title",
+        )
+
+        logs = []
+        if type_filter in {"all", "opportunity"}:
+            logs.extend(
+                _serialize_admin_opportunity_social_log(log)
+                for log in opportunity_queryset.order_by("-created_at")[:limit]
+            )
+        if type_filter in {"all", "collection"}:
+            logs.extend(
+                _serialize_admin_collection_social_log(log)
+                for log in collection_queryset.order_by("-created_at")[:limit]
+            )
+        logs = sorted(logs, key=lambda item: item["created_at"] or "", reverse=True)[:limit]
+
+        opportunity_today = opportunity_base.filter(
+            created_at__gte=today_start,
+            created_at__lt=tomorrow_start,
+        )
+        collection_today = collection_base.filter(
+            created_at__gte=today_start,
+            created_at__lt=tomorrow_start,
+        )
+
+        return Response(
+            {
+                "count": opportunity_queryset.count() + collection_queryset.count()
+                if type_filter == "all"
+                else (
+                    opportunity_queryset.count()
+                    if type_filter == "opportunity"
+                    else collection_queryset.count()
+                ),
+                "items": logs,
+                "summary": {
+                    "posted_today": opportunity_today.filter(
+                        status=OpportunitySocialPostLog.Status.POSTED,
+                    ).count()
+                    + collection_today.filter(
+                        status=OpportunityCollectionSocialPostLog.Status.POSTED,
+                    ).count(),
+                    "failed_today": opportunity_today.filter(
+                        status=OpportunitySocialPostLog.Status.FAILED,
+                    ).count()
+                    + collection_today.filter(
+                        status=OpportunityCollectionSocialPostLog.Status.FAILED,
+                    ).count(),
+                    "skipped_today": opportunity_today.filter(
+                        status=OpportunitySocialPostLog.Status.SKIPPED,
+                    ).count()
+                    + collection_today.filter(
+                        status=OpportunityCollectionSocialPostLog.Status.SKIPPED,
+                    ).count(),
+                    "collection_posts_today": collection_today.filter(
+                        status=OpportunityCollectionSocialPostLog.Status.POSTED,
+                    ).count(),
+                    "opportunity_posts_today": opportunity_today.filter(
+                        status=OpportunitySocialPostLog.Status.POSTED,
+                    ).count(),
+                },
+            }
+        )
 
 
 class AdminSocialSchedulerStatusView(APIView):

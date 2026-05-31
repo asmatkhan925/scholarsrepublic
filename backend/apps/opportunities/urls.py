@@ -25,6 +25,7 @@ from apps.opportunities.views import (
     AdminScholarshipResearchLeadListView,
     AdminSocialCollectionPlanCaptionView,
     AdminSocialCollectionPlanListView,
+    AdminSocialLogListView,
     AdminSocialOpportunityPlanCaptionView,
     AdminSocialOpportunityPlanListView,
     AdminSocialSchedulerStatusView,
@@ -169,6 +170,11 @@ urlpatterns = [
         "admin/social/scheduler-status/",
         AdminSocialSchedulerStatusView.as_view(),
         name="admin-social-scheduler-status",
+    ),
+    path(
+        "admin/social/logs/",
+        AdminSocialLogListView.as_view(),
+        name="admin-social-log-list",
     ),
     path(
         "admin/social/opportunity-plans/",

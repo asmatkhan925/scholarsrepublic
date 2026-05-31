@@ -296,6 +296,41 @@ export type AdminSocialPlanQuery = {
   limit?: number;
 };
 
+export type AdminSocialLogQuery = {
+  type?: "all" | "opportunity" | "collection";
+  status?: "all" | "posted" | "skipped" | "failed";
+  date_from?: string;
+  date_to?: string;
+  q?: string;
+  limit?: number;
+};
+
+export type AdminSocialLogItem = {
+  id: number;
+  type: "opportunity" | "collection";
+  created_at: string | null;
+  status: string;
+  title: string;
+  plan_id: number | null;
+  facebook_post_id: string;
+  error_message: string;
+  link_url: string;
+  admin_url: string;
+  record_admin_url: string;
+};
+
+export type AdminSocialLogListResponse = {
+  count: number;
+  items: AdminSocialLogItem[];
+  summary: {
+    posted_today: number;
+    failed_today: number;
+    skipped_today: number;
+    collection_posts_today: number;
+    opportunity_posts_today: number;
+  };
+};
+
 export type HealthResponse = {
   status: "ok";
   message: string;
@@ -513,6 +548,13 @@ export async function getSocialSchedulerStatus() {
   const response = await api.get<SocialSchedulerStatusResponse>(
     "/admin/social/scheduler-status/",
   );
+  return response.data;
+}
+
+export async function getAdminSocialLogs(params?: AdminSocialLogQuery) {
+  const response = await api.get<AdminSocialLogListResponse>("/admin/social/logs/", {
+    params,
+  });
   return response.data;
 }
 

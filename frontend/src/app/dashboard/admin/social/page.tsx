@@ -74,7 +74,7 @@ const socialTools: SocialTool[] = [
   {
     title: "Logs",
     description: "Audit posted, skipped, and failed social activity with backend error messages.",
-    href: "/admin/opportunities/opportunitysocialpostlog/",
+    href: "/dashboard/admin/social/logs",
     icon: MessageSquareText,
   },
   {
@@ -138,7 +138,7 @@ const customGPTWorkflows: CustomGPTWorkflow[] = [
     whenToUse: "Use when captions already exist but need a fact-safety and tone pass.",
     links: [
       { label: "Social drafts", href: "/admin/opportunities/opportunitysocialdraft/" },
-      { label: "Social logs", href: "/admin/opportunities/opportunitysocialpostlog/" },
+      { label: "Social logs", href: "/dashboard/admin/social/logs" },
     ],
     prompt:
       "Review these Scholars Republic social post plans and improve captions.\n\nRules:\n- Keep every claim supported by the supplied plan data.\n- Preserve official links and Scholars Republic page links.\n- Remove unsupported deadline, funding, or eligibility claims.\n- Make the caption professional and concise.\n- Return: risk notes, improved Facebook caption, optional WhatsApp text, optional LinkedIn text.\n- Keep everything reviewable. Do not post directly.",

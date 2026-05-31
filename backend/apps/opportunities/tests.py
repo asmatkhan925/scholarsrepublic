@@ -3960,6 +3960,74 @@ class OpportunityAPITests(APITestCase):
         alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
         self.assertIn("manual_review_opportunity_plans", alert_codes)
 
+    def test_admin_social_logs_requires_admin_access(self):
+        response = self.client.get("/api/admin/social/logs/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/admin/social/logs/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_social_logs_returns_unified_filtered_logs(self):
+        opportunity = self.opportunity(slug="social-log-filter-opportunity")
+        opportunity_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+            post_text="Opportunity caption.",
+            link_url="https://scholarsrepublic.org/scholarships/social-log-filter-opportunity",
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            plan=opportunity_plan,
+            platform="facebook",
+            status=OpportunitySocialPostLog.Status.POSTED,
+            facebook_post_id="fb_opp_123",
+            posted_at=timezone.now(),
+        )
+        plans = [
+            self.collection_candidate_plan(
+                f"social-log-filter-collection-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 Social Log Filter Collection Scholarships",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+        )
+        collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection caption.",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+        )
+        OpportunityCollectionSocialPostLog.objects.create(
+            collection=collection,
+            plan=collection_plan,
+            platform="facebook",
+            status=OpportunityCollectionSocialPostLog.Status.FAILED,
+            facebook_post_id="fb_collection_123",
+            error_message="Collection failed.",
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/api/admin/social/logs/",
+            {"type": "collection", "status": "failed", "q": "Filter Collection"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["items"][0]["type"], "collection")
+        self.assertEqual(response.data["items"][0]["status"], "failed")
+        self.assertEqual(response.data["items"][0]["facebook_post_id"], "fb_collection_123")
+        self.assertIn("summary", response.data)
+
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_post_result_updates_successful_collection_plan(self):
         plans = [
