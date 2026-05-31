@@ -59,6 +59,10 @@ from apps.opportunities.services.opportunity_draft_importer import (
 from apps.opportunities.services.deadline_checker import prepare_deadline_verification_package
 from apps.opportunities.services.social_posting import (
     DEFAULT_PLATFORM,
+    AUTO_POST_BLOCKED_REASON_CODES,
+    count_blocked_reasons,
+    evaluate_collection_auto_post_eligibility,
+    evaluate_opportunity_auto_post_eligibility,
     generate_facebook_post_text,
     get_due_facebook_post_plan_response,
     mark_social_image_stale_for_deadline_change,
@@ -2574,6 +2578,7 @@ def _apply_social_log_filters(queryset, request, title_field):
 
 def _serialize_admin_opportunity_social_plan(plan):
     opportunity = plan.opportunity
+    eligibility = evaluate_opportunity_auto_post_eligibility(plan)
     return {
         "id": plan.pk,
         "type": "opportunity",
@@ -2587,10 +2592,16 @@ def _serialize_admin_opportunity_social_plan(plan):
         "provider_name": opportunity.provider_name,
         "country": opportunity.country,
         "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
+        "days_until_deadline": eligibility["days_until_deadline"],
         "post_text": plan.post_text,
         "link_url": plan.link_url,
         "image_url": get_preferred_social_image_url(plan),
         "image_source": get_preferred_social_image_source(plan),
+        "has_image": eligibility["has_image"],
+        "has_caption": eligibility["has_caption"],
+        "is_near_deadline": eligibility["is_near_deadline"],
+        "auto_post_eligible": eligibility["auto_post_eligible"],
+        "blocking_reasons": eligibility["blocking_reasons"],
         "next_post_at": _serialize_social_datetime(plan.next_post_at),
         "last_posted_at": _serialize_social_datetime(plan.last_posted_at),
         "priority_score": plan.priority_score,
@@ -2604,6 +2615,7 @@ def _serialize_admin_opportunity_social_plan(plan):
 
 def _serialize_admin_collection_social_plan(plan):
     collection = plan.collection
+    eligibility = evaluate_collection_auto_post_eligibility(plan)
     return {
         "id": plan.pk,
         "type": "collection",
@@ -2618,6 +2630,12 @@ def _serialize_admin_collection_social_plan(plan):
         "link_url": plan.link_url,
         "image_url": plan.image_url,
         "image_source": plan.image_source,
+        "has_image": eligibility["has_image"],
+        "has_caption": eligibility["has_caption"],
+        "has_near_deadline_item": eligibility["has_near_deadline_item"],
+        "has_expired_item": eligibility["has_expired_item"],
+        "auto_post_eligible": eligibility["auto_post_eligible"],
+        "blocking_reasons": eligibility["blocking_reasons"],
         "next_post_at": _serialize_social_datetime(plan.next_post_at),
         "posted_at": _serialize_social_datetime(plan.posted_at),
         "priority_score": plan.priority_score,
@@ -2625,6 +2643,26 @@ def _serialize_admin_collection_social_plan(plan):
         "updated_at": _serialize_social_datetime(plan.updated_at),
         "admin_url": f"/admin/opportunities/opportunitycollectionsocialpostplan/{plan.pk}/change/",
     }
+
+
+def _matches_social_plan_quality_filters(item, request):
+    if parse_bool(request.query_params.get("auto_post_eligible")) is True and not item.get(
+        "auto_post_eligible"
+    ):
+        return False
+    if parse_bool(request.query_params.get("missing_image")) is True and item.get("has_image"):
+        return False
+    if parse_bool(request.query_params.get("missing_caption")) is True and item.get("has_caption"):
+        return False
+    if parse_bool(request.query_params.get("near_deadline")) is True:
+        if item.get("type") == "collection":
+            if not item.get("has_near_deadline_item"):
+                return False
+        elif not item.get("is_near_deadline"):
+            return False
+    if parse_bool(request.query_params.get("blocked")) is True and item.get("auto_post_eligible"):
+        return False
+    return True
 
 
 def _social_health_alert(level, code, title, message, suggested_action, related_url=""):
@@ -2662,6 +2700,42 @@ def _latest_social_posted_at():
     ):
         latest_posted_at = latest_collection.created_at
     return latest_posted_at
+
+
+def _ready_opportunity_quality_counts(now):
+    counts = {reason: 0 for reason in AUTO_POST_BLOCKED_REASON_CODES}
+    counts["near_deadline_missing_image"] = 0
+    counts["near_deadline_missing_caption"] = 0
+    queryset = OpportunitySocialPostPlan.objects.select_related(
+        "opportunity",
+        "opportunity__country_ref",
+    ).filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunitySocialPostPlan.Status.READY,
+        enabled=True,
+    )
+    for plan in queryset:
+        eligibility = evaluate_opportunity_auto_post_eligibility(plan, now=now)
+        count_blocked_reasons(eligibility["blocking_reasons"], counts)
+        if eligibility["is_near_deadline"] and not eligibility["has_image"]:
+            counts["near_deadline_missing_image"] += 1
+        if eligibility["is_near_deadline"] and not eligibility["has_caption"]:
+            counts["near_deadline_missing_caption"] += 1
+    return counts
+
+
+def _ready_collection_quality_counts(now):
+    counts = {reason: 0 for reason in AUTO_POST_BLOCKED_REASON_CODES}
+    queryset = OpportunityCollectionSocialPostPlan.objects.select_related(
+        "collection",
+    ).prefetch_related("collection__items__opportunity").filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunityCollectionSocialPostPlan.Status.READY,
+    )
+    for plan in queryset:
+        eligibility = evaluate_collection_auto_post_eligibility(plan, now=now)
+        count_blocked_reasons(eligibility["blocking_reasons"], counts)
+    return counts
 
 
 def _serialize_admin_opportunity_social_log(log):
@@ -2709,6 +2783,8 @@ def _build_social_health_alerts(
     alerts = []
     overdue_cutoff = now - timedelta(hours=2)
     next_day = now + timedelta(hours=24)
+    ready_opportunity_quality_counts = _ready_opportunity_quality_counts(now)
+    ready_collection_quality_counts = _ready_collection_quality_counts(now)
 
     empty_opportunity_count = OpportunitySocialPostPlan.objects.filter(
         platform=DEFAULT_PLATFORM,
@@ -2787,6 +2863,66 @@ def _build_social_health_alerts(
                 "/dashboard/admin/social/opportunity-plans",
             )
         )
+    missing_image_count = ready_opportunity_quality_counts.get("missing_image", 0)
+    if missing_image_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "ready_opportunity_missing_image",
+                "Ready opportunity plans need images",
+                f"{missing_image_count} ready opportunity social plan(s) are blocked because they are missing a reviewed social image.",
+                "Open Opportunity Social Plans and add image URLs or uploads before auto-posting.",
+                "/dashboard/admin/social/opportunity-plans?missing_image=true",
+            )
+        )
+    missing_caption_count = ready_opportunity_quality_counts.get("missing_caption", 0)
+    if missing_caption_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "ready_opportunity_missing_caption",
+                "Ready opportunity plans need captions",
+                f"{missing_caption_count} ready opportunity social plan(s) are blocked because they are missing captions.",
+                "Use the Custom GPT workflow, review the caption, and save it to the plan.",
+                "/dashboard/admin/social/opportunity-plans?missing_caption=true",
+            )
+        )
+    deadline_not_near_count = ready_opportunity_quality_counts.get("deadline_not_near", 0)
+    if deadline_not_near_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "ready_opportunity_deadline_not_near",
+                "Ready opportunity plans are outside the posting window",
+                f"{deadline_not_near_count} ready opportunity social plan(s) are blocked because their deadline is not within 21 days.",
+                "Leave them for later review; they will become eligible when the deadline is closer.",
+                "/dashboard/admin/social/opportunity-plans?blocked=true",
+            )
+        )
+    near_missing_image_count = ready_opportunity_quality_counts.get("near_deadline_missing_image", 0)
+    if near_missing_image_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "near_deadline_opportunity_missing_image",
+                "Near-deadline opportunity plans need images",
+                f"{near_missing_image_count} ready near-deadline opportunity plan(s) cannot auto-post until an image is added.",
+                "Prioritize image review for these near-deadline plans.",
+                "/dashboard/admin/social/opportunity-plans?near_deadline=true&missing_image=true",
+            )
+        )
+    near_missing_caption_count = ready_opportunity_quality_counts.get("near_deadline_missing_caption", 0)
+    if near_missing_caption_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "near_deadline_opportunity_missing_caption",
+                "Near-deadline opportunity plans need captions",
+                f"{near_missing_caption_count} ready near-deadline opportunity plan(s) cannot auto-post until a caption is saved.",
+                "Prioritize caption review for these near-deadline plans.",
+                "/dashboard/admin/social/opportunity-plans?near_deadline=true&missing_caption=true",
+            )
+        )
     if empty_collection_count > 0:
         alerts.append(
             _social_health_alert(
@@ -2796,6 +2932,48 @@ def _build_social_health_alerts(
                 f"{empty_collection_count} ready collection social plan(s) have empty post text.",
                 "Open Collection Social Plans and add or review captions before posting.",
                 "/dashboard/admin/social/collection-plans",
+            )
+        )
+    collection_missing_image_count = ready_collection_quality_counts.get(
+        "collection_missing_image", 0
+    )
+    if collection_missing_image_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "ready_collection_missing_image",
+                "Ready collection plans need images",
+                f"{collection_missing_image_count} ready collection social plan(s) are blocked because they are missing image URLs.",
+                "Add collection social images before enabling collection auto-posting.",
+                "/dashboard/admin/social/collection-plans?missing_image=true",
+            )
+        )
+    collection_missing_caption_count = ready_collection_quality_counts.get(
+        "collection_missing_caption", 0
+    )
+    if collection_missing_caption_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "ready_collection_missing_caption",
+                "Ready collection plans need captions",
+                f"{collection_missing_caption_count} ready collection social plan(s) are blocked because they are missing captions.",
+                "Review and save collection captions before posting.",
+                "/dashboard/admin/social/collection-plans?missing_caption=true",
+            )
+        )
+    collection_no_near_deadline_count = ready_collection_quality_counts.get(
+        "collection_no_near_deadline_item", 0
+    )
+    if collection_no_near_deadline_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "ready_collection_no_near_deadline_item",
+                "Ready collection plans have no near-deadline item",
+                f"{collection_no_near_deadline_count} ready collection social plan(s) are blocked because no item has a deadline within 21 days.",
+                "Leave these for manual review or update the collection items.",
+                "/dashboard/admin/social/collection-plans?blocked=true",
             )
         )
     if overdue_opportunity_count > 0:
@@ -2942,13 +3120,13 @@ class AdminSocialOpportunityPlanListView(APIView):
             request.query_params.get("q"),
             ["opportunity__title", "opportunity__provider_name", "link_url", "post_text"],
         )
-        count = queryset.count()
         items = [
             _serialize_admin_opportunity_social_plan(plan)
-            for plan in queryset.order_by("next_post_at", "-priority_score", "-updated_at")[
-                : _admin_social_plan_limit(request)
-            ]
+            for plan in queryset.order_by("next_post_at", "-priority_score", "-updated_at")
         ]
+        items = [item for item in items if _matches_social_plan_quality_filters(item, request)]
+        count = len(items)
+        items = items[: _admin_social_plan_limit(request)]
         return Response({"count": count, "items": items})
 
 
@@ -2989,13 +3167,13 @@ class AdminSocialCollectionPlanListView(APIView):
             request.query_params.get("q"),
             ["collection__title", "link_url", "post_text"],
         )
-        count = queryset.count()
         items = [
             _serialize_admin_collection_social_plan(plan)
-            for plan in queryset.order_by("next_post_at", "-priority_score", "-updated_at")[
-                : _admin_social_plan_limit(request)
-            ]
+            for plan in queryset.order_by("next_post_at", "-priority_score", "-updated_at")
         ]
+        items = [item for item in items if _matches_social_plan_quality_filters(item, request)]
+        count = len(items)
+        items = items[: _admin_social_plan_limit(request)]
         return Response({"count": count, "items": items})
 
 
@@ -3185,6 +3363,7 @@ class AdminSocialSchedulerStatusView(APIView):
                 "due_count": due_response["due_count"],
                 "returned_count": due_response["returned_count"],
                 "reason": due_response["reason"],
+                "blocked_reason_counts": due_response.get("blocked_reason_counts", {}),
                 "due_items": [_serialize_due_preview_item(item) for item in due_response["items"]],
                 "health_alerts": _build_social_health_alerts(
                     now=now,

@@ -6,6 +6,7 @@ import json
 import tempfile
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -218,6 +219,36 @@ class OpportunityAPITests(APITestCase):
             opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
             status=Opportunity.Status.PUBLISHED,
         )
+
+    def ready_social_plan(self, opportunity, **overrides):
+        data = {
+            "opportunity": opportunity,
+            "status": OpportunitySocialPostPlan.Status.READY,
+            "post_text": "Reviewed Facebook caption.",
+            "image_url": "https://example.com/social-image.jpg",
+            "auto_social_decision": OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+            "next_post_at": timezone.now() - timedelta(minutes=1),
+        }
+        data.update(overrides)
+        return OpportunitySocialPostPlan.objects.create(**data)
+
+    def collection_with_items(self, slug, opportunities, **overrides):
+        data = {
+            "title": slug.replace("-", " ").title(),
+            "slug": slug,
+            "collection_type": OpportunityCollection.CollectionType.DEADLINE_WINDOW,
+            "status": OpportunityCollection.Status.APPROVED,
+            "priority_score": 80,
+        }
+        data.update(overrides)
+        collection = OpportunityCollection.objects.create(**data)
+        for index, opportunity in enumerate(opportunities):
+            OpportunityCollectionItem.objects.create(
+                collection=collection,
+                opportunity=opportunity,
+                position=index,
+            )
+        return collection
 
     def test_opportunity_save_generates_slug(self):
         opportunity = Opportunity.objects.create(
@@ -2169,6 +2200,8 @@ class OpportunityAPITests(APITestCase):
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=timezone.now() - timedelta(days=8),
             post_text="Weekly due post.",
+            image_url="https://example.com/weekly.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(
@@ -2193,6 +2226,8 @@ class OpportunityAPITests(APITestCase):
                 opportunity=opportunity,
                 status=OpportunitySocialPostPlan.Status.READY,
                 last_posted_at=timezone.now() - timedelta(days=8),
+                post_text="Saved image caption.",
+                auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
             )
             save_social_image_from_base64(
                 plan,
@@ -2216,7 +2251,7 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(item["has_image"])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
-    def test_due_posts_fall_back_to_og_image(self):
+    def test_due_posts_block_missing_plan_image_instead_of_og_fallback(self):
         opportunity = self.opportunity(
             slug="og-fallback-social-image-due",
             status=Opportunity.Status.PUBLISHED,
@@ -2225,6 +2260,8 @@ class OpportunityAPITests(APITestCase):
         plan = OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Reviewed caption.",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
             last_posted_at=timezone.now() - timedelta(days=8),
         )
 
@@ -2235,15 +2272,12 @@ class OpportunityAPITests(APITestCase):
             HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
         )
 
-        item = response.data["items"][0]
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(item["plan_id"], plan.pk)
-        self.assertIn("/scholarships/og-fallback-social-image-due/opengraph-image", item["image_url"])
-        self.assertEqual(item["image_source"], plan.SocialImageSource.OG_FALLBACK)
-        self.assertTrue(item["has_image"])
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["blocked_reason_counts"]["missing_image"], 1)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
-    def test_due_posts_auto_generate_empty_post_text_before_returning(self):
+    def test_due_posts_block_empty_post_text_instead_of_auto_generating(self):
         opportunity = self.opportunity(
             slug="empty-caption-due",
             status=Opportunity.Status.PUBLISHED,
@@ -2253,6 +2287,8 @@ class OpportunityAPITests(APITestCase):
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
             post_text="",
+            image_url="https://example.com/social.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(
@@ -2263,12 +2299,160 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        item = response.data["items"][0]
-        self.assertEqual(item["plan_id"], plan.pk)
-        self.assertTrue(item["message"])
-        self.assertIn("Key Details:", item["message"])
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["blocked_reason_counts"]["missing_caption"], 1)
         plan.refresh_from_db()
-        self.assertEqual(plan.post_text, item["message"])
+        self.assertEqual(plan.post_text, "")
+
+    def test_facebook_daily_post_cap_default_is_15(self):
+        self.assertEqual(settings.SCHOLARS_FACEBOOK_DAILY_POST_CAP, 15)
+
+    def test_due_queue_blocks_missing_image(self):
+        opportunity = self.opportunity(slug="missing-image-policy")
+        plan = self.ready_social_plan(opportunity, image_url="")
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["blocked_reason_counts"]["missing_image"], 1)
+
+    def test_due_queue_blocks_missing_caption(self):
+        opportunity = self.opportunity(slug="missing-caption-policy")
+        plan = self.ready_social_plan(opportunity, post_text="")
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["blocked_reason_counts"]["missing_caption"], 1)
+
+    def test_due_queue_blocks_far_deadline(self):
+        opportunity = self.opportunity(
+            slug="far-deadline-policy",
+            deadline=timezone.localdate() + timedelta(days=45),
+        )
+        plan = self.ready_social_plan(opportunity)
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["blocked_reason_counts"]["deadline_not_near"], 1)
+
+    def test_due_queue_returns_near_deadline_with_image_and_caption(self):
+        opportunity = self.opportunity(
+            slug="near-deadline-policy",
+            deadline=timezone.localdate() + timedelta(days=21),
+        )
+        plan = self.ready_social_plan(opportunity)
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertIn(plan.pk, [item["plan_id"] for item in response["items"]])
+
+    def test_due_queue_blocks_expired_opportunity(self):
+        opportunity = self.opportunity(
+            slug="expired-policy",
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        plan = self.ready_social_plan(opportunity)
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["blocked_reason_counts"]["expired"], 1)
+
+    def test_due_queue_blocks_non_individual_decision(self):
+        opportunity = self.opportunity(slug="non-individual-policy")
+        plan = self.ready_social_plan(
+            opportunity,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
+        )
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["blocked_reason_counts"]["not_individual_decision"], 1)
+
+    def test_due_queue_blocks_collection_without_image(self):
+        opportunity = self.opportunity(slug="collection-missing-image-item")
+        collection = self.collection_with_items("collection-missing-image", [opportunity])
+        plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Reviewed collection caption.",
+            next_post_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["blocked_reason_counts"]["collection_missing_image"], 1)
+
+    def test_due_queue_blocks_collection_with_expired_item(self):
+        expired = self.opportunity(
+            slug="collection-expired-item",
+            deadline=timezone.localdate() - timedelta(days=1),
+        )
+        collection = self.collection_with_items("collection-has-expired-item", [expired])
+        plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Reviewed collection caption.",
+            image_url="https://example.com/collection.jpg",
+            next_post_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["blocked_reason_counts"]["collection_has_expired_item"], 1)
+
+    def test_due_queue_blocks_collection_without_near_deadline_item(self):
+        far = self.opportunity(
+            slug="collection-far-item",
+            deadline=timezone.localdate() + timedelta(days=60),
+        )
+        collection = self.collection_with_items("collection-no-near-item", [far])
+        plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Reviewed collection caption.",
+            image_url="https://example.com/collection.jpg",
+            next_post_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(
+            response["blocked_reason_counts"]["collection_no_near_deadline_item"],
+            1,
+        )
+
+    def test_scheduler_status_includes_blocked_reason_counts(self):
+        self.client.force_authenticate(user=self.admin)
+        opportunity = self.opportunity(slug="scheduler-status-missing-image")
+        self.ready_social_plan(opportunity, image_url="")
+
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("blocked_reason_counts", response.data)
+        self.assertGreaterEqual(response.data["blocked_reason_counts"].get("missing_image", 0), 1)
+
+    def test_review_plan_api_exposes_eligibility_fields(self):
+        self.client.force_authenticate(user=self.admin)
+        opportunity = self.opportunity(slug="review-api-eligibility")
+        self.ready_social_plan(opportunity)
+
+        response = self.client.get("/api/admin/social/opportunity-plans/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        item = response.data["items"][0]
+        self.assertTrue(item["has_image"])
+        self.assertTrue(item["has_caption"])
+        self.assertTrue(item["is_near_deadline"])
+        self.assertTrue(item["auto_post_eligible"])
+        self.assertEqual(item["blocking_reasons"], [])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_daily_within_7_days(self):
@@ -2276,11 +2460,15 @@ class OpportunityAPITests(APITestCase):
             slug="daily-social-due",
             status=Opportunity.Status.PUBLISHED,
             deadline=timezone.localdate() + timedelta(days=3),
+            deadline_last_checked_at=timezone.now(),
         )
         plan = OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=timezone.now() - timedelta(hours=25),
+            post_text="Daily due caption.",
+            image_url="https://example.com/daily.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(
@@ -2298,13 +2486,16 @@ class OpportunityAPITests(APITestCase):
         opportunity = self.opportunity(
             slug="never-posted-social-due",
             status=Opportunity.Status.PUBLISHED,
-            deadline=timezone.localdate() + timedelta(days=30),
+            deadline=timezone.localdate() + timedelta(days=20),
         )
         plan = OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=None,
             next_post_at=timezone.now() - timedelta(minutes=1),
+            post_text="Never posted caption.",
+            image_url="https://example.com/never.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(
@@ -2348,6 +2539,9 @@ class OpportunityAPITests(APITestCase):
             opportunity=no_deadline_due,
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=timezone.now() - timedelta(days=8),
+            post_text="No deadline caption.",
+            image_url="https://example.com/no-deadline.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
         OpportunitySocialPostPlan.objects.create(
             opportunity=far_recent,
@@ -2358,6 +2552,9 @@ class OpportunityAPITests(APITestCase):
             opportunity=far_due,
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=timezone.now() - timedelta(days=8),
+            post_text="Far deadline caption.",
+            image_url="https://example.com/far.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(
@@ -2369,9 +2566,10 @@ class OpportunityAPITests(APITestCase):
 
         plan_ids = [item["plan_id"] for item in response.data["items"]]
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn(no_deadline_plan.pk, plan_ids)
-        self.assertIn(far_plan.pk, plan_ids)
-        self.assertEqual(len(plan_ids), 2)
+        self.assertNotIn(no_deadline_plan.pk, plan_ids)
+        self.assertNotIn(far_plan.pk, plan_ids)
+        self.assertEqual(response.data["blocked_reason_counts"]["deadline_missing"], 1)
+        self.assertEqual(response.data["blocked_reason_counts"]["deadline_not_near"], 1)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_daily_rule_for_deadline_within_7_days(self):
@@ -2379,16 +2577,21 @@ class OpportunityAPITests(APITestCase):
             slug="near-deadline-posted-today-skip",
             status=Opportunity.Status.PUBLISHED,
             deadline=timezone.localdate() + timedelta(days=2),
+            deadline_last_checked_at=timezone.now(),
         )
         due = self.opportunity(
             slug="near-deadline-posted-yesterday-due",
             status=Opportunity.Status.PUBLISHED,
             deadline=timezone.localdate() + timedelta(days=2),
+            deadline_last_checked_at=timezone.now(),
         )
         OpportunitySocialPostPlan.objects.create(
             opportunity=recent,
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=timezone.now(),
+            post_text="Recent caption.",
+            image_url="https://example.com/recent.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
         due_plan = OpportunitySocialPostPlan.objects.create(
             opportunity=due,
@@ -2398,6 +2601,9 @@ class OpportunityAPITests(APITestCase):
                 datetime.min.time(),
                 tzinfo=dt_timezone.utc,
             ),
+            post_text="Due caption.",
+            image_url="https://example.com/due.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(
@@ -2416,11 +2622,15 @@ class OpportunityAPITests(APITestCase):
             slug="near-deadline-today-log-skip",
             status=Opportunity.Status.PUBLISHED,
             deadline=timezone.localdate() + timedelta(days=2),
+            deadline_last_checked_at=timezone.now(),
         )
         plan = OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=timezone.now() - timedelta(days=1),
+            post_text="Posted today caption.",
+            image_url="https://example.com/posted-today.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
         OpportunitySocialPostLog.objects.create(
             opportunity=opportunity,
@@ -2446,10 +2656,14 @@ class OpportunityAPITests(APITestCase):
                 slug=f"limited-social-due-{index}",
                 status=Opportunity.Status.PUBLISHED,
                 deadline=timezone.localdate() + timedelta(days=index + 1),
+                deadline_last_checked_at=timezone.now(),
             )
             OpportunitySocialPostPlan.objects.create(
                 opportunity=opportunity,
                 status=OpportunitySocialPostPlan.Status.READY,
+                post_text=f"Limited caption {index}.",
+                image_url=f"https://example.com/limited-{index}.jpg",
+                auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
             )
 
         response = self.client.post(
@@ -2478,6 +2692,9 @@ class OpportunityAPITests(APITestCase):
             OpportunitySocialPostPlan.objects.create(
                 opportunity=opportunity,
                 status=OpportunitySocialPostPlan.Status.READY,
+                post_text=f"Per-run caption {index}.",
+                image_url=f"https://example.com/per-run-{index}.jpg",
+                auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
             )
 
         response = self.client.post(
@@ -2596,6 +2813,9 @@ class OpportunityAPITests(APITestCase):
                 OpportunitySocialPostPlan.objects.create(
                     opportunity=opportunity,
                     status=OpportunitySocialPostPlan.Status.READY,
+                    post_text=f"Valid caption {index}.",
+                    image_url=f"https://example.com/valid-{index}.jpg",
+                    auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
                 )
             )
 
@@ -2632,6 +2852,9 @@ class OpportunityAPITests(APITestCase):
         OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Metadata caption.",
+            image_url="https://example.com/metadata.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(
@@ -2681,6 +2904,9 @@ class OpportunityAPITests(APITestCase):
         OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Service metadata caption.",
+            image_url="https://example.com/service-metadata.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         result = get_due_facebook_post_plans(limit=5)
@@ -2730,6 +2956,8 @@ class OpportunityAPITests(APITestCase):
             OpportunitySocialPostPlan.objects.create(
                 opportunity=opportunity,
                 status=OpportunitySocialPostPlan.Status.READY,
+                post_text=f"Reviewed caption for {opportunity.slug}.",
+                image_url=f"https://example.com/{opportunity.slug}.jpg",
             )
 
         response = self.client.post(
@@ -3436,6 +3664,7 @@ class OpportunityAPITests(APITestCase):
             status=OpportunityCollectionSocialPostPlan.Status.READY,
             post_text="Collection post text.",
             link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            image_url="https://example.com/collection-due.jpg",
             next_post_at=timezone.now() - timedelta(minutes=1),
             priority_score=250,
         )
@@ -3492,6 +3721,8 @@ class OpportunityAPITests(APITestCase):
         OpportunityCollectionSocialPostPlan.objects.create(
             collection=collection,
             status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection cap caption.",
+            image_url="https://example.com/collection-cap.jpg",
             next_post_at=timezone.now() - timedelta(minutes=1),
             priority_score=250,
         )
@@ -3550,6 +3781,8 @@ class OpportunityAPITests(APITestCase):
         OpportunityCollectionSocialPostPlan.objects.create(
             collection=due_collection,
             status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection spacing caption.",
+            image_url="https://example.com/collection-spacing.jpg",
             next_post_at=timezone.now() - timedelta(minutes=1),
             priority_score=250,
         )
@@ -3588,6 +3821,8 @@ class OpportunityAPITests(APITestCase):
         OpportunityCollectionSocialPostPlan.objects.create(
             collection=collection,
             status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection unapproved caption.",
+            image_url="https://example.com/collection-unapproved.jpg",
             next_post_at=timezone.now() - timedelta(minutes=1),
             priority_score=250,
         )
@@ -3625,6 +3860,8 @@ class OpportunityAPITests(APITestCase):
         OpportunityCollectionSocialPostPlan.objects.create(
             collection=collection,
             status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection future caption.",
+            image_url="https://example.com/collection-future.jpg",
             next_post_at=timezone.now() + timedelta(hours=1),
             priority_score=250,
         )
@@ -3662,6 +3899,8 @@ class OpportunityAPITests(APITestCase):
         collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
             collection=collection,
             status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection after due caption.",
+            image_url="https://example.com/collection-after.jpg",
             next_post_at=timezone.now() - timedelta(minutes=1),
             priority_score=250,
         )
@@ -3702,6 +3941,7 @@ class OpportunityAPITests(APITestCase):
             priority_score=80,
             next_post_at=timezone.now() - timedelta(minutes=5),
             post_text="Opportunity post text.",
+            image_url="https://example.com/scheduler-monitor-opportunity.jpg",
             link_url="https://scholarsrepublic.org/scholarships/scheduler-monitor-opportunity",
         )
         plans = [
@@ -3722,6 +3962,7 @@ class OpportunityAPITests(APITestCase):
             status=OpportunityCollectionSocialPostPlan.Status.READY,
             post_text="Collection post text.",
             link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            image_url="https://example.com/scheduler-monitor-collection.jpg",
             next_post_at=timezone.now() - timedelta(minutes=1),
             priority_score=250,
         )
@@ -3778,6 +4019,7 @@ class OpportunityAPITests(APITestCase):
             status=OpportunityCollectionSocialPostPlan.Status.READY,
             post_text="Collection preview post.",
             link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            image_url="https://example.com/scheduler-preview-collection.jpg",
             next_post_at=timezone.now() - timedelta(minutes=1),
             priority_score=250,
         )
@@ -4155,7 +4397,7 @@ class OpportunityAPITests(APITestCase):
         far = self.opportunity(
             slug="ordering-far-deadline",
             status=Opportunity.Status.PUBLISHED,
-            deadline=timezone.localdate() + timedelta(days=30),
+            deadline=timezone.localdate() + timedelta(days=20),
         )
         no_deadline = self.opportunity(
             slug="ordering-no-deadline",
@@ -4166,16 +4408,21 @@ class OpportunityAPITests(APITestCase):
             slug="ordering-soon-deadline",
             status=Opportunity.Status.PUBLISHED,
             deadline=timezone.localdate() + timedelta(days=2),
+            deadline_last_checked_at=timezone.now(),
         )
         today = self.opportunity(
             slug="ordering-today-deadline",
             status=Opportunity.Status.PUBLISHED,
             deadline=timezone.localdate(),
+            deadline_last_checked_at=timezone.now(),
         )
         for opportunity in [far, no_deadline, soon, today]:
             OpportunitySocialPostPlan.objects.create(
                 opportunity=opportunity,
                 status=OpportunitySocialPostPlan.Status.READY,
+                post_text=f"Ordering caption for {opportunity.slug}.",
+                image_url=f"https://example.com/{opportunity.slug}.jpg",
+                auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
             )
 
         response = self.client.post(
@@ -4191,7 +4438,6 @@ class OpportunityAPITests(APITestCase):
             [
                 "ordering-today-deadline",
                 "ordering-soon-deadline",
-                "ordering-no-deadline",
                 "ordering-far-deadline",
             ],
         )
@@ -4234,6 +4480,9 @@ class OpportunityAPITests(APITestCase):
             OpportunitySocialPostPlan.objects.create(
                 opportunity=opportunity,
                 status=OpportunitySocialPostPlan.Status.READY,
+                post_text=f"Priority caption for {opportunity.slug}.",
+                image_url=f"https://example.com/{opportunity.slug}.jpg",
+                auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
             )
 
         response = self.client.post(
@@ -4328,6 +4577,9 @@ class OpportunityAPITests(APITestCase):
         plan = OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Future select caption.",
+            image_url="https://example.com/future-select.jpg",
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
         )
 
         response = self.client.post(

@@ -65,6 +65,14 @@ function planRecordStatus(plan: SocialPlan) {
   return plan.type === "collection" ? plan.collection_status : plan.opportunity_status;
 }
 
+function planNearDeadline(plan: SocialPlan) {
+  return plan.type === "collection" ? plan.has_near_deadline_item : plan.is_near_deadline;
+}
+
+function blockingReasonLabels(plan: SocialPlan) {
+  return plan.blocking_reasons.length ? plan.blocking_reasons.map(formatLabel).join(", ") : "None";
+}
+
 function planJson(plan: SocialPlan) {
   return JSON.stringify(
     {
@@ -77,17 +85,25 @@ function planJson(plan: SocialPlan) {
       link_url: plan.link_url,
       next_post_at: plan.next_post_at,
       priority_score: plan.priority_score,
+      has_image: plan.has_image,
+      has_caption: plan.has_caption,
+      auto_post_eligible: plan.auto_post_eligible,
+      blocking_reasons: plan.blocking_reasons,
       ...(plan.type === "opportunity"
         ? {
             opportunity_id: plan.opportunity_id,
             provider_name: plan.provider_name,
             country: plan.country,
             deadline: plan.deadline,
+            days_until_deadline: plan.days_until_deadline,
+            is_near_deadline: plan.is_near_deadline,
             auto_social_decision: plan.auto_social_decision,
           }
         : {
             collection_id: plan.collection_id,
             collection_type: plan.collection_type,
+            has_near_deadline_item: plan.has_near_deadline_item,
+            has_expired_item: plan.has_expired_item,
             posted_at: plan.posted_at,
           }),
     },
@@ -166,6 +182,18 @@ function PlanCard({
             {"auto_social_decision" in plan ? (
               <Badge tone="neutral">{formatLabel(plan.auto_social_decision)}</Badge>
             ) : null}
+            <Badge tone={plan.has_image ? "mint" : "danger"}>
+              {plan.has_image ? "Has image" : "Missing image"}
+            </Badge>
+            <Badge tone={plan.has_caption ? "mint" : "danger"}>
+              {plan.has_caption ? "Has caption" : "Missing caption"}
+            </Badge>
+            <Badge tone={planNearDeadline(plan) ? "mint" : "saffron"}>
+              {planNearDeadline(plan) ? "Near deadline" : "Not near deadline"}
+            </Badge>
+            <Badge tone={plan.auto_post_eligible ? "mint" : "saffron"}>
+              {plan.auto_post_eligible ? "Auto-post eligible" : "Manual review needed"}
+            </Badge>
           </div>
           <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{planTitle(plan)}</h2>
           <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
@@ -181,6 +209,9 @@ function PlanCard({
               Collection #{plan.collection_id} · {formatLabel(plan.collection_type)}
             </p>
           )}
+          <p className="mt-2 text-xs font-semibold text-ink/55 dark:text-white/55">
+            Blocking reasons: {blockingReasonLabels(plan)}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -254,6 +285,11 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
   const [decisionFilter, setDecisionFilter] = useState("all");
   const [collectionStatusFilter, setCollectionStatusFilter] = useState("all");
   const [dueOnly, setDueOnly] = useState(false);
+  const [eligibleOnly, setEligibleOnly] = useState(false);
+  const [missingImageOnly, setMissingImageOnly] = useState(false);
+  const [missingCaptionOnly, setMissingCaptionOnly] = useState(false);
+  const [nearDeadlineOnly, setNearDeadlineOnly] = useState(false);
+  const [blockedOnly, setBlockedOnly] = useState(false);
   const [plans, setPlans] = useState<SocialPlan[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -266,6 +302,11 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
       q: query || undefined,
       status: statusFilter,
       due: dueOnly || undefined,
+      auto_post_eligible: eligibleOnly || undefined,
+      missing_image: missingImageOnly || undefined,
+      missing_caption: missingCaptionOnly || undefined,
+      near_deadline: nearDeadlineOnly || undefined,
+      blocked: blockedOnly || undefined,
       limit: 75,
     };
     if (kind === "opportunity") {
@@ -285,7 +326,19 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
     } finally {
       setLoading(false);
     }
-  }, [collectionStatusFilter, decisionFilter, dueOnly, kind, query, statusFilter]);
+  }, [
+    blockedOnly,
+    collectionStatusFilter,
+    decisionFilter,
+    dueOnly,
+    eligibleOnly,
+    kind,
+    missingCaptionOnly,
+    missingImageOnly,
+    nearDeadlineOnly,
+    query,
+    statusFilter,
+  ]);
 
   useEffect(() => {
     void loadPlans();
@@ -404,6 +457,53 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
             <Button type="button" onClick={() => void loadPlans()} disabled={loading}>
               Apply
             </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
+              <input
+                type="checkbox"
+                checked={eligibleOnly}
+                onChange={(event) => setEligibleOnly(event.target.checked)}
+                className="h-4 w-4 accent-pine"
+              />
+              Auto-post eligible only
+            </label>
+            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
+              <input
+                type="checkbox"
+                checked={missingImageOnly}
+                onChange={(event) => setMissingImageOnly(event.target.checked)}
+                className="h-4 w-4 accent-pine"
+              />
+              Missing image
+            </label>
+            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
+              <input
+                type="checkbox"
+                checked={missingCaptionOnly}
+                onChange={(event) => setMissingCaptionOnly(event.target.checked)}
+                className="h-4 w-4 accent-pine"
+              />
+              Missing caption
+            </label>
+            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
+              <input
+                type="checkbox"
+                checked={nearDeadlineOnly}
+                onChange={(event) => setNearDeadlineOnly(event.target.checked)}
+                className="h-4 w-4 accent-pine"
+              />
+              Near deadline
+            </label>
+            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
+              <input
+                type="checkbox"
+                checked={blockedOnly}
+                onChange={(event) => setBlockedOnly(event.target.checked)}
+                className="h-4 w-4 accent-pine"
+              />
+              Blocked/manual review
+            </label>
           </div>
           <p className="mt-2 text-xs font-semibold text-ink/45 dark:text-white/45">
             Showing {plans.length} of {count} matching plans. These pages do not post to Facebook.

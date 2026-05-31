@@ -2,7 +2,11 @@ from datetime import date
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.opportunities.models import Opportunity, OpportunitySocialPostPlan
+from apps.opportunities.models import (
+    Opportunity,
+    OpportunityCollectionSocialPostPlan,
+    OpportunitySocialPostPlan,
+)
 from apps.opportunities.services.social_collection_posting import (
     create_due_collection_social_post_plans,
 )
@@ -11,6 +15,11 @@ from apps.opportunities.services.social_collections import (
     generate_social_collections,
 )
 from apps.opportunities.services.social_scheduler import score_opportunity_for_social
+from apps.opportunities.services.social_posting import (
+    DEFAULT_PLATFORM,
+    evaluate_collection_auto_post_eligibility,
+    evaluate_opportunity_auto_post_eligibility,
+)
 
 
 class Command(BaseCommand):
@@ -98,6 +107,17 @@ class Command(BaseCommand):
             f"created={plans['created_count']}; evaluated={plans['evaluated_count']}"
         )
         self.stdout.write(f"Plan skipped reasons: {self.format_counts(skipped)}")
+        eligibility_counts = self.auto_post_eligibility_counts()
+        self.stdout.write(
+            "Auto-post eligibility: "
+            f"eligible_auto_post_plans={eligibility_counts['eligible_auto_post_plans']}; "
+            f"blocked_missing_image={eligibility_counts['blocked_missing_image']}; "
+            f"blocked_missing_caption={eligibility_counts['blocked_missing_caption']}; "
+            f"blocked_deadline_not_near={eligibility_counts['blocked_deadline_not_near']}; "
+            f"blocked_expired={eligibility_counts['blocked_expired']}; "
+            f"blocked_collection_missing_image={eligibility_counts['blocked_collection_missing_image']}; "
+            f"blocked_collection_no_near_deadline_item={eligibility_counts['blocked_collection_no_near_deadline_item']}"
+        )
 
     def recalculate_scores(self, *, dry_run=False, limit=None):
         queryset = OpportunitySocialPostPlan.objects.select_related("opportunity").filter(
@@ -144,3 +164,49 @@ class Command(BaseCommand):
         if not counts:
             return "-"
         return ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+
+    def auto_post_eligibility_counts(self):
+        counts = {
+            "eligible_auto_post_plans": 0,
+            "blocked_missing_image": 0,
+            "blocked_missing_caption": 0,
+            "blocked_deadline_not_near": 0,
+            "blocked_expired": 0,
+            "blocked_collection_missing_image": 0,
+            "blocked_collection_no_near_deadline_item": 0,
+        }
+        opportunity_plans = OpportunitySocialPostPlan.objects.select_related("opportunity").filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunitySocialPostPlan.Status.READY,
+            enabled=True,
+        )
+        for plan in opportunity_plans:
+            eligibility = evaluate_opportunity_auto_post_eligibility(plan)
+            if eligibility["auto_post_eligible"]:
+                counts["eligible_auto_post_plans"] += 1
+            blockers = eligibility["blocking_reasons"]
+            if "missing_image" in blockers:
+                counts["blocked_missing_image"] += 1
+            if "missing_caption" in blockers:
+                counts["blocked_missing_caption"] += 1
+            if "deadline_not_near" in blockers or "deadline_missing" in blockers:
+                counts["blocked_deadline_not_near"] += 1
+            if "expired" in blockers:
+                counts["blocked_expired"] += 1
+
+        collection_plans = OpportunityCollectionSocialPostPlan.objects.select_related(
+            "collection",
+        ).prefetch_related("collection__items__opportunity").filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+        )
+        for plan in collection_plans:
+            eligibility = evaluate_collection_auto_post_eligibility(plan)
+            if eligibility["auto_post_eligible"]:
+                counts["eligible_auto_post_plans"] += 1
+            blockers = eligibility["blocking_reasons"]
+            if "collection_missing_image" in blockers:
+                counts["blocked_collection_missing_image"] += 1
+            if "collection_no_near_deadline_item" in blockers:
+                counts["blocked_collection_no_near_deadline_item"] += 1
+        return counts

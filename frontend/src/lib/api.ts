@@ -161,6 +161,7 @@ export type SocialSchedulerStatusResponse = {
   due_count: number;
   returned_count: number;
   reason: string;
+  blocked_reason_counts: Record<string, number>;
   health_alerts: Array<{
     level: "info" | "warning" | "critical";
     code: string;
@@ -246,10 +247,16 @@ export type AdminOpportunitySocialPlan = {
   provider_name: string;
   country: string;
   deadline: string | null;
+  days_until_deadline: number | null;
   post_text: string;
   link_url: string;
   image_url: string;
   image_source: string;
+  has_image: boolean;
+  has_caption: boolean;
+  is_near_deadline: boolean;
+  auto_post_eligible: boolean;
+  blocking_reasons: string[];
   next_post_at: string | null;
   last_posted_at: string | null;
   priority_score: number;
@@ -274,6 +281,12 @@ export type AdminCollectionSocialPlan = {
   link_url: string;
   image_url: string;
   image_source: string;
+  has_image: boolean;
+  has_caption: boolean;
+  has_near_deadline_item: boolean;
+  has_expired_item: boolean;
+  auto_post_eligible: boolean;
+  blocking_reasons: string[];
   next_post_at: string | null;
   posted_at: string | null;
   priority_score: number;
@@ -293,6 +306,11 @@ export type AdminSocialPlanQuery = {
   auto_social_decision?: string;
   collection_status?: string;
   due?: boolean;
+  auto_post_eligible?: boolean;
+  missing_image?: boolean;
+  missing_caption?: boolean;
+  near_deadline?: boolean;
+  blocked?: boolean;
   limit?: number;
 };
 

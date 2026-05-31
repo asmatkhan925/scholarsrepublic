@@ -170,6 +170,16 @@ function SocialSchedulerContent() {
                   </p>
                 )}
               </div>
+              {Object.keys(status.blocked_reason_counts).length ? (
+                <div className="mt-4">
+                  <h3 className="text-sm font-bold text-ink dark:text-white">
+                    Blocked reason counts
+                  </h3>
+                  <div className="mt-2">
+                    <StatusRows values={status.blocked_reason_counts} />
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <section className="grid gap-4 xl:grid-cols-2">

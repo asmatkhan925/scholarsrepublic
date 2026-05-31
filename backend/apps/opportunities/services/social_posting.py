@@ -30,6 +30,20 @@ from apps.opportunities.services.social_scheduler import apply_social_priority
 DEFAULT_PLATFORM = "facebook"
 FACEBOOK_WORKER_TIMEOUT_SECONDS = 30
 FACEBOOK_WORKER_USER_AGENT = "ScholarsRepublicBackend/1.0"
+AUTO_POST_DEADLINE_WINDOW_DAYS = 21
+AUTO_POST_BLOCKED_REASON_CODES = [
+    "missing_image",
+    "missing_caption",
+    "deadline_not_near",
+    "deadline_missing",
+    "expired",
+    "not_individual_decision",
+    "collection_not_approved",
+    "collection_missing_image",
+    "collection_missing_caption",
+    "collection_has_expired_item",
+    "collection_no_near_deadline_item",
+]
 EXPIRED_AUTOMATIC_SKIP_MESSAGE = (
     "Skipped automatic Facebook post because opportunity is expired."
 )
@@ -104,6 +118,11 @@ def deadline_days_left(opportunity, today=None):
 def is_near_deadline(opportunity, today=None):
     days_left = deadline_days_left(opportunity, today=today)
     return days_left is not None and 0 <= days_left <= 7
+
+
+def is_near_auto_post_deadline(opportunity, today=None):
+    days_left = deadline_days_left(opportunity, today=today)
+    return days_left is not None and 0 <= days_left <= AUTO_POST_DEADLINE_WINDOW_DAYS
 
 
 def is_opportunity_expired_for_social(opportunity, today=None):
@@ -371,6 +390,128 @@ def plan_image_url(plan):
     return get_preferred_social_image_url(plan)
 
 
+def plan_has_social_image(plan):
+    if getattr(plan, "social_image_is_stale", False):
+        return False
+    return bool(getattr(plan, "image", None) or str(getattr(plan, "image_url", "") or "").strip())
+
+
+def plan_has_caption(plan):
+    return bool(str(getattr(plan, "post_text", "") or "").strip())
+
+
+def collection_plan_has_image(plan):
+    return bool(str(getattr(plan, "image_url", "") or "").strip())
+
+
+def collection_plan_has_caption(plan):
+    return bool(str(getattr(plan, "post_text", "") or "").strip())
+
+
+def collection_item_deadline_summary(collection, today=None):
+    today = today or timezone.localdate()
+    has_near_deadline_item = False
+    has_expired_item = False
+    for item in collection.items.select_related("opportunity").all():
+        opportunity = item.opportunity
+        if is_opportunity_expired_for_social(opportunity, today=today):
+            has_expired_item = True
+            continue
+        days_left = deadline_days_left(opportunity, today=today)
+        if days_left is not None and 0 <= days_left <= AUTO_POST_DEADLINE_WINDOW_DAYS:
+            has_near_deadline_item = True
+    return {
+        "has_near_deadline_item": has_near_deadline_item,
+        "has_expired_item": has_expired_item,
+    }
+
+
+def evaluate_opportunity_auto_post_eligibility(plan, now=None):
+    now = now or timezone.now()
+    today = timezone.localtime(now).date()
+    opportunity = plan.opportunity
+    days_until_deadline = deadline_days_left(opportunity, today=today)
+    has_image = plan_has_social_image(plan)
+    has_caption = plan_has_caption(plan)
+    is_near_deadline_value = (
+        days_until_deadline is not None
+        and 0 <= days_until_deadline <= AUTO_POST_DEADLINE_WINDOW_DAYS
+    )
+    blocking_reasons = []
+
+    if is_opportunity_expired_for_social(opportunity, today=today):
+        blocking_reasons.append("expired")
+    if not has_image:
+        blocking_reasons.append("missing_image")
+    if not has_caption:
+        blocking_reasons.append("missing_caption")
+    if days_until_deadline is None:
+        blocking_reasons.append("deadline_missing")
+    elif not is_near_deadline_value:
+        blocking_reasons.append("deadline_not_near")
+    if plan.auto_social_decision != OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL:
+        blocking_reasons.append("not_individual_decision")
+
+    auto_post_eligible = (
+        plan.enabled
+        and plan.status == OpportunitySocialPostPlan.Status.READY
+        and opportunity.status == Opportunity.Status.PUBLISHED
+        and (plan.next_post_at is None or plan.next_post_at <= now)
+        and not blocking_reasons
+    )
+    return {
+        "has_image": has_image,
+        "has_caption": has_caption,
+        "is_near_deadline": is_near_deadline_value,
+        "auto_post_eligible": auto_post_eligible,
+        "blocking_reasons": blocking_reasons,
+        "days_until_deadline": days_until_deadline,
+        "deadline": opportunity.deadline,
+    }
+
+
+def evaluate_collection_auto_post_eligibility(plan, now=None):
+    now = now or timezone.now()
+    today = timezone.localtime(now).date()
+    collection = plan.collection
+    item_summary = collection_item_deadline_summary(collection, today=today)
+    has_image = collection_plan_has_image(plan)
+    has_caption = collection_plan_has_caption(plan)
+    blocking_reasons = []
+
+    if collection.status != OpportunityCollection.Status.APPROVED:
+        blocking_reasons.append("collection_not_approved")
+    if not has_image:
+        blocking_reasons.append("collection_missing_image")
+    if not has_caption:
+        blocking_reasons.append("collection_missing_caption")
+    if item_summary["has_expired_item"]:
+        blocking_reasons.append("collection_has_expired_item")
+    if not item_summary["has_near_deadline_item"]:
+        blocking_reasons.append("collection_no_near_deadline_item")
+
+    auto_post_eligible = (
+        plan.status == OpportunityCollectionSocialPostPlan.Status.READY
+        and plan.next_post_at is not None
+        and plan.next_post_at <= now
+        and not blocking_reasons
+    )
+    return {
+        "has_image": has_image,
+        "has_caption": has_caption,
+        "has_near_deadline_item": item_summary["has_near_deadline_item"],
+        "has_expired_item": item_summary["has_expired_item"],
+        "auto_post_eligible": auto_post_eligible,
+        "blocking_reasons": blocking_reasons,
+    }
+
+
+def count_blocked_reasons(reasons, reason_counts):
+    for reason in reasons:
+        if reason in AUTO_POST_BLOCKED_REASON_CODES:
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
+
+
 def serialize_due_plan(plan):
     opportunity = plan.opportunity
     link_url = plan.link_url or scholarship_detail_url(opportunity)
@@ -450,7 +591,7 @@ def latest_successful_facebook_log(plan):
 
 
 def facebook_post_cap_settings():
-    daily_cap = getattr(settings, "SCHOLARS_FACEBOOK_DAILY_POST_CAP", 20)
+    daily_cap = getattr(settings, "SCHOLARS_FACEBOOK_DAILY_POST_CAP", 15)
     per_run_cap = getattr(settings, "SCHOLARS_FACEBOOK_PER_RUN_POST_CAP", 5)
     min_spacing_minutes = getattr(
         settings,
@@ -460,7 +601,7 @@ def facebook_post_cap_settings():
     try:
         daily_cap = int(daily_cap)
     except (TypeError, ValueError):
-        daily_cap = 20
+        daily_cap = 15
     try:
         per_run_cap = int(per_run_cap)
     except (TypeError, ValueError):
@@ -983,7 +1124,7 @@ def serialize_cap_datetime(value):
     return timezone.localtime(value).isoformat()
 
 
-def build_due_posts_response(items, due_count, cap_status, reason=""):
+def build_due_posts_response(items, due_count, cap_status, reason="", blocked_reason_counts=None):
     latest_posted_at = cap_status["latest_posted_at"]
     next_allowed_post_at = cap_status["next_allowed_post_at"]
     returned_count = len(items)
@@ -1005,6 +1146,7 @@ def build_due_posts_response(items, due_count, cap_status, reason=""):
         "latest_posted_at": serialize_cap_datetime(latest_posted_at),
         "next_allowed_post_at": serialize_cap_datetime(next_allowed_post_at),
         "reason": response_reason,
+        "blocked_reason_counts": blocked_reason_counts or {},
         "items": items,
     }
 
@@ -1018,15 +1160,22 @@ def get_due_facebook_post_plans(limit=10, now=None):
     now = now or timezone.now()
     cap_status = facebook_posting_cap_status(now=now)
     effective_limit = min(limit, cap_status["per_run_cap"], cap_status["daily_remaining"])
+    blocked_reason_counts = {}
 
     if (
         cap_status["daily_remaining"] <= 0
         or cap_status["reason"] == "minimum_interval_not_reached"
     ):
-        return build_due_posts_response([], 0, cap_status)
+        return build_due_posts_response([], 0, cap_status, blocked_reason_counts=blocked_reason_counts)
 
     if effective_limit <= 0:
-        return build_due_posts_response([], 0, cap_status, reason="no_capacity")
+        return build_due_posts_response(
+            [],
+            0,
+            cap_status,
+            reason="no_capacity",
+            blocked_reason_counts=blocked_reason_counts,
+        )
 
     plans = (
         OpportunitySocialPostPlan.objects.select_related("opportunity", "opportunity__country_ref")
@@ -1044,15 +1193,15 @@ def get_due_facebook_post_plans(limit=10, now=None):
     due_count = 0
     for plan in plans:
         if is_opportunity_expired_for_social(plan.opportunity, today=today):
+            count_blocked_reasons(["expired"], blocked_reason_counts)
             record_skipped_expired_automatic_post(plan)
             continue
         if not is_plan_due(plan, now=now):
             continue
         apply_social_priority(plan)
-        if (
-            plan.auto_social_decision
-            != OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL
-        ):
+        eligibility = evaluate_opportunity_auto_post_eligibility(plan, now=now)
+        if not eligibility["auto_post_eligible"]:
+            count_blocked_reasons(eligibility["blocking_reasons"], blocked_reason_counts)
             continue
         days_left = deadline_days_left(plan.opportunity, today=today)
         recently_checked = (
@@ -1082,14 +1231,12 @@ def get_due_facebook_post_plans(limit=10, now=None):
         post_check = can_post_opportunity_today(plan.opportunity, plan, today=today)
         if not post_check["can_post"]:
             continue
-        if not ensure_plan_post_text(plan):
-            continue
-        else:
-            due_count += 1
-            due_candidates.append({"type": "opportunity", "plan": plan})
+        due_count += 1
+        due_candidates.append({"type": "opportunity", "plan": plan})
 
     collection_plans = (
         OpportunityCollectionSocialPostPlan.objects.select_related("collection")
+        .prefetch_related("collection__items__opportunity")
         .filter(
             platform=DEFAULT_PLATFORM,
             status=OpportunityCollectionSocialPostPlan.Status.READY,
@@ -1100,6 +1247,10 @@ def get_due_facebook_post_plans(limit=10, now=None):
         .order_by("id")
     )
     for plan in collection_plans:
+        eligibility = evaluate_collection_auto_post_eligibility(plan, now=now)
+        if not eligibility["auto_post_eligible"]:
+            count_blocked_reasons(eligibility["blocking_reasons"], blocked_reason_counts)
+            continue
         due_count += 1
         due_candidates.append({"type": "collection", "plan": plan})
 
@@ -1111,7 +1262,12 @@ def get_due_facebook_post_plans(limit=10, now=None):
             items.append(serialize_due_plan(candidate["plan"]))
         else:
             items.append(serialize_due_collection_plan(candidate["plan"]))
-    return build_due_posts_response(items, due_count, cap_status)
+    return build_due_posts_response(
+        items,
+        due_count,
+        cap_status,
+        blocked_reason_counts=blocked_reason_counts,
+    )
 
 
 def get_due_facebook_post_plan_items(limit=10, now=None):
