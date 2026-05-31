@@ -3332,6 +3332,85 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(result["created_count"], 1)
         self.assertEqual(OpportunityCollectionSocialPostPlan.objects.count(), 0)
 
+    def test_run_daily_social_scheduler_creates_collection_plans_and_is_idempotent(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"daily-scheduler-approved-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        first_output = StringIO()
+        second_output = StringIO()
+
+        call_command(
+            "run_daily_social_scheduler",
+            "--skip-recalculate",
+            "--skip-collections",
+            "--skip-approval",
+            "--start-date",
+            "2026-06-01",
+            stdout=first_output,
+        )
+        call_command(
+            "run_daily_social_scheduler",
+            "--skip-recalculate",
+            "--skip-collections",
+            "--skip-approval",
+            "--start-date",
+            "2026-06-01",
+            stdout=second_output,
+        )
+
+        self.assertEqual(
+            OpportunityCollectionSocialPostPlan.objects.filter(collection=collection).count(),
+            1,
+        )
+        self.assertIn("created=1", first_output.getvalue())
+        self.assertIn("created=0", second_output.getvalue())
+        self.assertIn("active_plan_exists=1", second_output.getvalue())
+
+    def test_run_daily_social_scheduler_dry_run_does_not_create_plan(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"daily-scheduler-dry-run-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        output = StringIO()
+
+        call_command(
+            "run_daily_social_scheduler",
+            "--dry-run",
+            "--skip-recalculate",
+            "--skip-collections",
+            "--skip-approval",
+            stdout=output,
+        )
+
+        self.assertEqual(OpportunityCollectionSocialPostPlan.objects.count(), 0)
+        self.assertIn("Dry run: yes", output.getvalue())
+        self.assertIn("created=1", output.getvalue())
+
+    def test_facebook_worker_cron_runs_three_times_daily(self):
+        with open("../workers/facebook-poster/wrangler.toml", encoding="utf-8") as handle:
+            content = handle.read()
+
+        self.assertIn('crons = ["0 9,12,15 * * *"]', content)
+
     @override_settings(
         SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
         SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
@@ -3522,6 +3601,81 @@ class OpportunityAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["items"], [])
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_excludes_collection_before_next_post_at(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-before-due-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            next_post_at=timezone.now() + timedelta(hours=1),
+            priority_score=250,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_social_worker_due_posts_returns_collection_after_next_post_at(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"collection-after-due-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 PhD Scholarships in Italy",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            next_post_at=timezone.now() - timedelta(minutes=1),
+            priority_score=250,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/social/facebook/due-posts/",
+            {"limit": 5},
+            format="json",
+            HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"][0]["type"], "collection")
+        self.assertEqual(response.data["items"][0]["plan_id"], collection_plan.pk)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_post_result_updates_successful_collection_plan(self):

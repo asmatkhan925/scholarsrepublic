@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2026-05-25"
 
 [triggers]
-crons = ["0 9 * * *"]
+crons = ["0 9,12,15 * * *"]
 
 [[routes]]
 pattern = "facebook-poster.scholarsrepublic.org"
