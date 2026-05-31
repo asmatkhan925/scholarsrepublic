@@ -118,9 +118,9 @@ const supportActions: AdminAction[] = [
     icon: Database,
   },
   {
-    title: "Social scheduler monitor",
-    description: "Check Facebook scheduler caps, due queue, collection plans, and recent logs.",
-    href: "/dashboard/admin/social-scheduler",
+    title: "Social / Marketing Center",
+    description: "Monitor social automation, Facebook plans, drafts, logs, and marketing workflows.",
+    href: "/dashboard/admin/social",
     icon: Activity,
   },
   {

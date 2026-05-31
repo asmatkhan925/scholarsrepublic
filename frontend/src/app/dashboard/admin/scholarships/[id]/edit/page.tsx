@@ -16,6 +16,7 @@ import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
   applyAdminDetectedDeadline,
   checkAdminOpportunityDuplicates,
+  generateSocialGPTCaption,
   getAdminOpportunity,
   getAdminOpportunityPathways,
   patchAdminOpportunity,
@@ -840,6 +841,16 @@ function AdminScholarshipEditContent() {
                       image_prompt: imagePrompt,
                       link_url: linkUrl,
                     })
+                  }
+                  onGenerateGPTCaption={
+                    opportunity.social_image?.plan_id
+                      ? (save) =>
+                          generateSocialGPTCaption(
+                            "opportunity",
+                            opportunity.social_image?.plan_id ?? 0,
+                            { save },
+                          )
+                      : undefined
                   }
                   onPostNow={
                     opportunity.status === "published"

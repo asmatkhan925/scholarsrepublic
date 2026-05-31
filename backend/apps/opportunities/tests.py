@@ -3792,6 +3792,227 @@ class OpportunityAPITests(APITestCase):
             collection_plan.link_url,
         )
 
+    def test_admin_social_gpt_caption_requires_admin_access(self):
+        opportunity = self.opportunity(slug="gpt-social-auth")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        response = self.client.post(
+            f"/api/admin/social/opportunity-plans/{plan.pk}/generate-gpt-caption/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            f"/api/admin/social/opportunity-plans/{plan.pk}/generate-gpt-caption/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(SOCIAL_GPT_ENABLED=False, SOCIAL_GPT_API_KEY="")
+    def test_admin_social_gpt_caption_without_api_key_returns_configuration_error(self):
+        opportunity = self.opportunity(slug="gpt-social-not-configured")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/admin/social/opportunity-plans/{plan.pk}/generate-gpt-caption/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.data["detail"], "GPT social writer is not configured.")
+
+    @override_settings(
+        SOCIAL_GPT_ENABLED=True,
+        SOCIAL_GPT_API_KEY="test-key",
+        SOCIAL_GPT_MAX_CHARS=900,
+    )
+    @patch("apps.opportunities.services.gpt_social_writer.call_openai_caption")
+    def test_admin_social_gpt_caption_preview_does_not_save(self, mock_caption):
+        opportunity = self.opportunity(slug="gpt-social-preview")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Existing caption.",
+            link_url="https://scholarsrepublic.org/scholarships/gpt-social-preview",
+        )
+        mock_caption.return_value = (
+            "Scholars Republic spotlight: Published Scholarship is open for students. "
+            "Review the provider details, deadline, and application steps carefully before "
+            "applying. View the full scholarship page and verify all details from official "
+            "sources: https://scholarsrepublic.org/scholarships/gpt-social-preview"
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/admin/social/opportunity-plans/{plan.pk}/generate-gpt-caption/",
+            {"save": False},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["saved"])
+        plan.refresh_from_db()
+        self.assertEqual(plan.post_text, "Existing caption.")
+
+    @override_settings(
+        SOCIAL_GPT_ENABLED=True,
+        SOCIAL_GPT_API_KEY="test-key",
+        SOCIAL_GPT_MAX_CHARS=900,
+    )
+    @patch("apps.opportunities.services.gpt_social_writer.call_openai_caption")
+    def test_admin_social_gpt_caption_save_updates_post_text(self, mock_caption):
+        opportunity = self.opportunity(slug="gpt-social-save")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Existing caption.",
+            link_url="https://scholarsrepublic.org/scholarships/gpt-social-save",
+        )
+        generated = (
+            "Scholars Republic spotlight: Published Scholarship is available for students. "
+            "Check the provider, deadline, requirements, and official instructions before "
+            "applying. View the full scholarship page and verify details from official "
+            "sources: https://scholarsrepublic.org/scholarships/gpt-social-save"
+        )
+        mock_caption.return_value = generated
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/admin/social/opportunity-plans/{plan.pk}/generate-gpt-caption/",
+            {"save": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["saved"])
+        plan.refresh_from_db()
+        self.assertEqual(plan.post_text, generated)
+
+    @override_settings(
+        SOCIAL_GPT_ENABLED=True,
+        SOCIAL_GPT_API_KEY="test-key",
+        SOCIAL_GPT_MAX_CHARS=900,
+    )
+    @patch("apps.opportunities.services.gpt_social_writer.call_openai_caption")
+    def test_admin_social_gpt_collection_caption_uses_collection_link_and_title(self, mock_caption):
+        plans = [
+            self.collection_candidate_plan(
+                f"gpt-social-collection-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 GPT Social Collection Scholarships",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+        )
+        mock_caption.return_value = (
+            "Scholars Republic collection: 5 GPT Social Collection Scholarships brings "
+            "together selected scholarship opportunities in one list. Review each deadline, "
+            "provider, and official source before applying. View the full collection: "
+            f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}"
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/admin/social/collection-plans/{collection_plan.pk}/generate-gpt-caption/",
+            {"save": False},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["type"], "collection")
+        self.assertIn(collection.title, response.data["generated_text"])
+        self.assertIn(collection_plan.link_url, response.data["generated_text"])
+
+    @override_settings(
+        SOCIAL_GPT_ENABLED=True,
+        SOCIAL_GPT_API_KEY="test-key",
+        SOCIAL_GPT_MAX_CHARS=900,
+    )
+    @patch("apps.opportunities.services.gpt_social_writer.call_openai_caption")
+    def test_admin_social_gpt_opportunity_caption_uses_opportunity_fields(self, mock_caption):
+        opportunity = self.opportunity(
+            slug="gpt-social-opportunity-fields",
+            provider_name="Example Provider",
+            funding_type=Opportunity.FundingType.FULLY_FUNDED,
+            deadline=date(2026, 12, 31),
+        )
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            link_url="https://scholarsrepublic.org/scholarships/gpt-social-opportunity-fields",
+        )
+        mock_caption.return_value = (
+            "Scholars Republic spotlight: Published Scholarship from Example Provider is "
+            "listed as Fully funded with a 2026-12-31 deadline. Review eligibility and "
+            "application steps from official sources before applying. View details: "
+            "https://scholarsrepublic.org/scholarships/gpt-social-opportunity-fields"
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/admin/social/opportunity-plans/{plan.pk}/generate-gpt-caption/",
+            {"save": False},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(opportunity.provider_name, response.data["generated_text"])
+        self.assertIn("2026-12-31", response.data["generated_text"])
+
+    @override_settings(
+        SOCIAL_GPT_ENABLED=True,
+        SOCIAL_GPT_API_KEY="test-key",
+        SOCIAL_GPT_MAX_CHARS=280,
+    )
+    @patch("apps.opportunities.services.gpt_social_writer.call_openai_caption")
+    def test_admin_social_gpt_caption_over_max_chars_is_rejected(self, mock_caption):
+        opportunity = self.opportunity(slug="gpt-social-too-long")
+        plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Existing caption.",
+            link_url="https://scholarsrepublic.org/scholarships/gpt-social-too-long",
+        )
+        mock_caption.return_value = (
+            "Scholars Republic spotlight: "
+            + ("This generated scholarship caption is intentionally too long. " * 10)
+            + "https://scholarsrepublic.org/scholarships/gpt-social-too-long"
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/admin/social/opportunity-plans/{plan.pk}/generate-gpt-caption/",
+            {"save": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("length", response.data["detail"])
+        plan.refresh_from_db()
+        self.assertEqual(plan.post_text, "Existing caption.")
+
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_post_result_updates_successful_collection_plan(self):
         plans = [

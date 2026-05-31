@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 
-import { ExternalLink, ImageUp, Loader2, Send } from "lucide-react";
+import { ExternalLink, ImageUp, Loader2, Save, Send, Sparkles } from "lucide-react";
 
 import { Button, Card, CardContent } from "@/components/ui";
+import type { SocialGPTCaptionResponse } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import type { FacebookPostNowResponse, SocialImageState } from "@/types/opportunity";
 
@@ -12,6 +13,7 @@ type SocialImageUploadCardProps = {
   initialImage: SocialImageState | null;
   onUpload: (image: File, imagePrompt?: string) => Promise<SocialImageState>;
   onSavePost: (postText: string, imagePrompt?: string, linkUrl?: string) => Promise<SocialImageState>;
+  onGenerateGPTCaption?: (save: boolean) => Promise<SocialGPTCaptionResponse>;
   onPostNow?: (force?: boolean) => Promise<FacebookPostNowResponse>;
 };
 
@@ -21,6 +23,7 @@ export function SocialImageUploadCard({
   initialImage,
   onUpload,
   onSavePost,
+  onGenerateGPTCaption,
   onPostNow,
 }: SocialImageUploadCardProps) {
   const [socialImage, setSocialImage] = useState<SocialImageState | null>(initialImage);
@@ -31,6 +34,8 @@ export function SocialImageUploadCard({
   const [uploading, setUploading] = useState(false);
   const [savingPost, setSavingPost] = useState(false);
   const [postingNow, setPostingNow] = useState(false);
+  const [generatingCaption, setGeneratingCaption] = useState<"preview" | "save" | null>(null);
+  const [gptPreview, setGptPreview] = useState<SocialGPTCaptionResponse | null>(null);
   const [postNowResult, setPostNowResult] = useState<FacebookPostNowResponse | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -111,6 +116,29 @@ export function SocialImageUploadCard({
     }
   }
 
+  async function handleGenerateGPTCaption(save: boolean) {
+    if (!onGenerateGPTCaption) return;
+
+    setGeneratingCaption(save ? "save" : "preview");
+    setError("");
+    setMessage("");
+
+    try {
+      const result = await onGenerateGPTCaption(save);
+      setGptPreview(result);
+      if (result.saved) {
+        setPostText(result.generated_text);
+        setMessage("GPT caption saved to post text.");
+      } else {
+        setMessage("GPT caption generated for review.");
+      }
+    } catch (captionError) {
+      setError(getErrorMessage(captionError) ?? "GPT caption generation failed.");
+    } finally {
+      setGeneratingCaption(null);
+    }
+  }
+
   return (
     <Card className="dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="grid gap-3 p-3 md:p-4">
@@ -181,6 +209,61 @@ export function SocialImageUploadCard({
             placeholder="Professional Facebook caption"
           />
         </label>
+
+        {onGenerateGPTCaption ? (
+          <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
+            <div className="flex items-center gap-2">
+              <Sparkles size={15} className="text-pine" aria-hidden="true" />
+              <h3 className="text-sm font-bold text-ink dark:text-white">GPT caption assistant</h3>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-ink/60 dark:text-white/55">
+              Generates draft text only. Review the caption before saving or scheduling.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleGenerateGPTCaption(false)}
+                disabled={Boolean(generatingCaption)}
+              >
+                {generatingCaption === "preview" ? (
+                  <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles size={15} aria-hidden="true" />
+                )}
+                {gptPreview ? "Regenerate" : "Generate GPT Caption"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleGenerateGPTCaption(true)}
+                disabled={Boolean(generatingCaption)}
+              >
+                {generatingCaption === "save" ? (
+                  <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Save size={15} aria-hidden="true" />
+                )}
+                Save GPT Caption
+              </Button>
+            </div>
+            {gptPreview ? (
+              <div className="mt-3 rounded-xl border border-pine/10 bg-white p-3 dark:border-white/10 dark:bg-[#101214]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-pine">
+                    GPT preview
+                  </p>
+                  <span className="text-xs font-semibold text-ink/45 dark:text-white/45">
+                    {gptPreview.generated_text.length}/{gptPreview.max_chars}
+                  </span>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70 dark:text-white/65">
+                  {gptPreview.generated_text}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {linkUrl ? (
           <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
