@@ -60,6 +60,7 @@ from apps.opportunities.services.deadline_checker import prepare_deadline_verifi
 from apps.opportunities.services.social_posting import (
     DEFAULT_PLATFORM,
     AUTO_POST_BLOCKED_REASON_CODES,
+    AUTO_POST_TIER_RANKS,
     count_blocked_reasons,
     evaluate_collection_auto_post_eligibility,
     evaluate_opportunity_auto_post_eligibility,
@@ -2510,6 +2511,12 @@ def _serialize_due_preview_item(item):
         "image_source": item.get("image_source"),
         "link_url": item.get("link_url"),
         "priority_score": item.get("priority_score"),
+        "auto_post_tier": item.get("auto_post_tier"),
+        "auto_post_tier_label": item.get("auto_post_tier_label"),
+        "auto_post_rank_score": item.get("auto_post_rank_score"),
+        "fallback_eligible": item.get("fallback_eligible"),
+        "hard_blocking_reasons": item.get("hard_blocking_reasons") or [],
+        "quality_warnings": item.get("quality_warnings") or [],
     }
     if item_type == "collection":
         data.update(
@@ -2601,6 +2608,13 @@ def _serialize_admin_opportunity_social_plan(plan):
         "has_caption": eligibility["has_caption"],
         "is_near_deadline": eligibility["is_near_deadline"],
         "auto_post_eligible": eligibility["auto_post_eligible"],
+        "fallback_eligible": eligibility["fallback_eligible"],
+        "auto_post_tier": eligibility["auto_post_tier"],
+        "auto_post_tier_label": eligibility["auto_post_tier_label"],
+        "auto_post_rank_score": eligibility["auto_post_rank_score"],
+        "ranking_explanation": eligibility["ranking_explanation"],
+        "hard_blocking_reasons": eligibility["hard_blocking_reasons"],
+        "quality_warnings": eligibility["quality_warnings"],
         "blocking_reasons": eligibility["blocking_reasons"],
         "next_post_at": _serialize_social_datetime(plan.next_post_at),
         "last_posted_at": _serialize_social_datetime(plan.last_posted_at),
@@ -2635,6 +2649,13 @@ def _serialize_admin_collection_social_plan(plan):
         "has_near_deadline_item": eligibility["has_near_deadline_item"],
         "has_expired_item": eligibility["has_expired_item"],
         "auto_post_eligible": eligibility["auto_post_eligible"],
+        "fallback_eligible": eligibility["fallback_eligible"],
+        "auto_post_tier": eligibility["auto_post_tier"],
+        "auto_post_tier_label": eligibility["auto_post_tier_label"],
+        "auto_post_rank_score": eligibility["auto_post_rank_score"],
+        "ranking_explanation": eligibility["ranking_explanation"],
+        "hard_blocking_reasons": eligibility["hard_blocking_reasons"],
+        "quality_warnings": eligibility["quality_warnings"],
         "blocking_reasons": eligibility["blocking_reasons"],
         "next_post_at": _serialize_social_datetime(plan.next_post_at),
         "posted_at": _serialize_social_datetime(plan.posted_at),
@@ -2650,6 +2671,16 @@ def _matches_social_plan_quality_filters(item, request):
         "auto_post_eligible"
     ):
         return False
+    if parse_bool(request.query_params.get("strict_best")) is True and item.get("auto_post_rank_score") != 1:
+        return False
+    if parse_bool(request.query_params.get("fallback_eligible")) is True and not item.get(
+        "fallback_eligible"
+    ):
+        return False
+    if parse_bool(request.query_params.get("hard_blocked")) is True and not item.get(
+        "hard_blocking_reasons"
+    ):
+        return False
     if parse_bool(request.query_params.get("missing_image")) is True and item.get("has_image"):
         return False
     if parse_bool(request.query_params.get("missing_caption")) is True and item.get("has_caption"):
@@ -2660,7 +2691,9 @@ def _matches_social_plan_quality_filters(item, request):
                 return False
         elif not item.get("is_near_deadline"):
             return False
-    if parse_bool(request.query_params.get("blocked")) is True and item.get("auto_post_eligible"):
+    if parse_bool(request.query_params.get("blocked")) is True and not item.get(
+        "hard_blocking_reasons"
+    ):
         return False
     return True
 
@@ -2785,6 +2818,11 @@ def _build_social_health_alerts(
     next_day = now + timedelta(hours=24)
     ready_opportunity_quality_counts = _ready_opportunity_quality_counts(now)
     ready_collection_quality_counts = _ready_collection_quality_counts(now)
+    strict_candidate_count = sum(
+        due_response.get("candidate_counts_by_tier", {}).get(tier, 0)
+        for tier in ("strict_best", "collection_strict_best")
+    )
+    fallback_candidate_count = max(0, due_response.get("due_count", 0) - strict_candidate_count)
 
     empty_opportunity_count = OpportunitySocialPostPlan.objects.filter(
         platform=DEFAULT_PLATFORM,
@@ -2841,6 +2879,39 @@ def _build_social_health_alerts(
                 "/dashboard/admin/social/logs",
             )
         )
+    if due_response.get("fallback_used"):
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "using_fallback_social_candidates",
+                "Using fallback social candidates",
+                f"{strict_candidate_count} strict candidate(s) are available, so the queue is filling remaining slots from {fallback_candidate_count} safe fallback candidate(s).",
+                "Review fallback candidates for image and deadline quality when possible.",
+                "/dashboard/admin/social/scheduler",
+            )
+        )
+    elif strict_candidate_count == 0 and fallback_candidate_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "fallback_candidates_available",
+                "Fallback social candidates are available",
+                f"No strict candidates are available, but {fallback_candidate_count} safe fallback candidate(s) can still post.",
+                "Review missing images and deadline quality to improve future strict candidates.",
+                "/dashboard/admin/social/scheduler",
+            )
+        )
+    if due_response.get("due_count", 0) == 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "no_safe_social_candidates",
+                "No safe social candidates available",
+                "No ready due opportunity or collection plans currently pass the hard safety checks.",
+                "Add reviewed captions and links, publish active opportunities, or approve safe collections.",
+                "/dashboard/admin/social",
+            )
+        )
     if collection_failed_today > 0:
         alerts.append(
             _social_health_alert(
@@ -2870,8 +2941,8 @@ def _build_social_health_alerts(
                 "warning",
                 "ready_opportunity_missing_image",
                 "Ready opportunity plans need images",
-                f"{missing_image_count} ready opportunity social plan(s) are blocked because they are missing a reviewed social image.",
-                "Open Opportunity Social Plans and add image URLs or uploads before auto-posting.",
+                f"{missing_image_count} ready opportunity social plan(s) are lower-ranked fallback candidates because they are missing a reviewed social image.",
+                "Open Opportunity Social Plans and add image URLs or uploads to improve ranking.",
                 "/dashboard/admin/social/opportunity-plans?missing_image=true",
             )
         )
@@ -2894,8 +2965,8 @@ def _build_social_health_alerts(
                 "info",
                 "ready_opportunity_deadline_not_near",
                 "Ready opportunity plans are outside the posting window",
-                f"{deadline_not_near_count} ready opportunity social plan(s) are blocked because their deadline is not within 21 days.",
-                "Leave them for later review; they will become eligible when the deadline is closer.",
+                f"{deadline_not_near_count} ready opportunity social plan(s) are fallback candidates because their deadline is not within 21 days.",
+                "Leave them for lower-priority fallback unless closer-deadline candidates run out.",
                 "/dashboard/admin/social/opportunity-plans?blocked=true",
             )
         )
@@ -2906,8 +2977,8 @@ def _build_social_health_alerts(
                 "warning",
                 "near_deadline_opportunity_missing_image",
                 "Near-deadline opportunity plans need images",
-                f"{near_missing_image_count} ready near-deadline opportunity plan(s) cannot auto-post until an image is added.",
-                "Prioritize image review for these near-deadline plans.",
+                f"{near_missing_image_count} ready near-deadline opportunity plan(s) may post as fallback because they are missing an image.",
+                "Prioritize image review for these near-deadline plans to make them strict candidates.",
                 "/dashboard/admin/social/opportunity-plans?near_deadline=true&missing_image=true",
             )
         )
@@ -2943,8 +3014,8 @@ def _build_social_health_alerts(
                 "warning",
                 "ready_collection_missing_image",
                 "Ready collection plans need images",
-                f"{collection_missing_image_count} ready collection social plan(s) are blocked because they are missing image URLs.",
-                "Add collection social images before enabling collection auto-posting.",
+                f"{collection_missing_image_count} ready collection social plan(s) are fallback candidates because they are missing image URLs.",
+                "Add collection social images to improve ranking.",
                 "/dashboard/admin/social/collection-plans?missing_image=true",
             )
         )
@@ -2971,8 +3042,8 @@ def _build_social_health_alerts(
                 "info",
                 "ready_collection_no_near_deadline_item",
                 "Ready collection plans have no near-deadline item",
-                f"{collection_no_near_deadline_count} ready collection social plan(s) are blocked because no item has a deadline within 21 days.",
-                "Leave these for manual review or update the collection items.",
+                f"{collection_no_near_deadline_count} ready collection social plan(s) are general fallback candidates because no item has a deadline within 21 days.",
+                "Use these only after stronger opportunity and collection candidates.",
                 "/dashboard/admin/social/collection-plans?blocked=true",
             )
         )
@@ -3364,6 +3435,24 @@ class AdminSocialSchedulerStatusView(APIView):
                 "returned_count": due_response["returned_count"],
                 "reason": due_response["reason"],
                 "blocked_reason_counts": due_response.get("blocked_reason_counts", {}),
+                "candidate_counts_by_tier": due_response.get("candidate_counts_by_tier", {}),
+                "selected_counts_by_tier": due_response.get("selected_counts_by_tier", {}),
+                "fallback_used": due_response.get("fallback_used", False),
+                "selection_policy": due_response.get("selection_policy", "ranked_fallback"),
+                "daily_target": due_response.get("daily_target", due_response["daily_cap"]),
+                "per_run_target": due_response.get("per_run_target", due_response["per_run_cap"]),
+                "strict_candidate_count": sum(
+                    due_response.get("candidate_counts_by_tier", {}).get(tier, 0)
+                    for tier in ("strict_best", "collection_strict_best")
+                ),
+                "fallback_candidate_count": max(
+                    0,
+                    due_response["due_count"]
+                    - sum(
+                        due_response.get("candidate_counts_by_tier", {}).get(tier, 0)
+                        for tier in ("strict_best", "collection_strict_best")
+                    ),
+                ),
                 "due_items": [_serialize_due_preview_item(item) for item in due_response["items"]],
                 "health_alerts": _build_social_health_alerts(
                     now=now,

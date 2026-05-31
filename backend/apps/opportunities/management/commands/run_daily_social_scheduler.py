@@ -17,6 +17,7 @@ from apps.opportunities.services.social_collections import (
 from apps.opportunities.services.social_scheduler import score_opportunity_for_social
 from apps.opportunities.services.social_posting import (
     DEFAULT_PLATFORM,
+    build_ranked_facebook_post_candidates,
     evaluate_collection_auto_post_eligibility,
     evaluate_opportunity_auto_post_eligibility,
 )
@@ -110,13 +111,11 @@ class Command(BaseCommand):
         eligibility_counts = self.auto_post_eligibility_counts()
         self.stdout.write(
             "Auto-post eligibility: "
-            f"eligible_auto_post_plans={eligibility_counts['eligible_auto_post_plans']}; "
-            f"blocked_missing_image={eligibility_counts['blocked_missing_image']}; "
-            f"blocked_missing_caption={eligibility_counts['blocked_missing_caption']}; "
-            f"blocked_deadline_not_near={eligibility_counts['blocked_deadline_not_near']}; "
-            f"blocked_expired={eligibility_counts['blocked_expired']}; "
-            f"blocked_collection_missing_image={eligibility_counts['blocked_collection_missing_image']}; "
-            f"blocked_collection_no_near_deadline_item={eligibility_counts['blocked_collection_no_near_deadline_item']}"
+            f"strict_best_count={eligibility_counts['strict_best_count']}; "
+            f"fallback_candidate_count={eligibility_counts['fallback_candidate_count']}; "
+            f"hard_blocked_count={eligibility_counts['hard_blocked_count']}; "
+            f"selected_next_run_estimate={eligibility_counts['selected_next_run_estimate']}; "
+            f"candidate_counts_by_tier={self.format_counts(eligibility_counts['candidate_counts_by_tier'])}"
         )
 
     def recalculate_scores(self, *, dry_run=False, limit=None):
@@ -167,14 +166,24 @@ class Command(BaseCommand):
 
     def auto_post_eligibility_counts(self):
         counts = {
-            "eligible_auto_post_plans": 0,
-            "blocked_missing_image": 0,
-            "blocked_missing_caption": 0,
-            "blocked_deadline_not_near": 0,
-            "blocked_expired": 0,
-            "blocked_collection_missing_image": 0,
-            "blocked_collection_no_near_deadline_item": 0,
+            "strict_best_count": 0,
+            "fallback_candidate_count": 0,
+            "hard_blocked_count": 0,
+            "selected_next_run_estimate": 0,
+            "candidate_counts_by_tier": {},
         }
+        candidate_data = build_ranked_facebook_post_candidates()
+        candidate_counts_by_tier = candidate_data["candidate_counts_by_tier"]
+        counts["candidate_counts_by_tier"] = candidate_counts_by_tier
+        counts["strict_best_count"] = (
+            candidate_counts_by_tier.get("strict_best", 0)
+            + candidate_counts_by_tier.get("collection_strict_best", 0)
+        )
+        counts["fallback_candidate_count"] = max(
+            0,
+            len(candidate_data["candidates"]) - counts["strict_best_count"],
+        )
+        counts["selected_next_run_estimate"] = min(5, len(candidate_data["candidates"]))
         opportunity_plans = OpportunitySocialPostPlan.objects.select_related("opportunity").filter(
             platform=DEFAULT_PLATFORM,
             status=OpportunitySocialPostPlan.Status.READY,
@@ -182,17 +191,8 @@ class Command(BaseCommand):
         )
         for plan in opportunity_plans:
             eligibility = evaluate_opportunity_auto_post_eligibility(plan)
-            if eligibility["auto_post_eligible"]:
-                counts["eligible_auto_post_plans"] += 1
-            blockers = eligibility["blocking_reasons"]
-            if "missing_image" in blockers:
-                counts["blocked_missing_image"] += 1
-            if "missing_caption" in blockers:
-                counts["blocked_missing_caption"] += 1
-            if "deadline_not_near" in blockers or "deadline_missing" in blockers:
-                counts["blocked_deadline_not_near"] += 1
-            if "expired" in blockers:
-                counts["blocked_expired"] += 1
+            if eligibility["hard_blocking_reasons"]:
+                counts["hard_blocked_count"] += 1
 
         collection_plans = OpportunityCollectionSocialPostPlan.objects.select_related(
             "collection",
@@ -202,11 +202,6 @@ class Command(BaseCommand):
         )
         for plan in collection_plans:
             eligibility = evaluate_collection_auto_post_eligibility(plan)
-            if eligibility["auto_post_eligible"]:
-                counts["eligible_auto_post_plans"] += 1
-            blockers = eligibility["blocking_reasons"]
-            if "collection_missing_image" in blockers:
-                counts["blocked_collection_missing_image"] += 1
-            if "collection_no_near_deadline_item" in blockers:
-                counts["blocked_collection_no_near_deadline_item"] += 1
+            if eligibility["hard_blocking_reasons"]:
+                counts["hard_blocked_count"] += 1
         return counts

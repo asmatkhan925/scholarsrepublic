@@ -142,7 +142,8 @@ function SocialSchedulerContent() {
               <p className="mt-1 text-sm text-ink/60 dark:text-white/58">
                 Due count {status.due_count}, returned {status.returned_count}, cap{" "}
                 {status.daily_cap}, per run {status.per_run_cap}, spacing{" "}
-                {status.min_spacing_minutes} minutes.
+                {status.min_spacing_minutes} minutes. Policy {status.selection_policy}; strict{" "}
+                {status.strict_candidate_count}; fallback {status.fallback_candidate_count}.
               </p>
               <div className="mt-3 grid gap-2">
                 {status.due_items.length ? (
@@ -155,6 +156,11 @@ function SocialSchedulerContent() {
                         <Badge tone={item.type === "collection" ? "sky" : "mint"}>
                           {item.type}
                         </Badge>
+                        {item.auto_post_tier_label ? (
+                          <Badge tone={item.fallback_eligible ? "saffron" : "mint"}>
+                            {item.auto_post_tier_label}
+                          </Badge>
+                        ) : null}
                         <p className="font-bold text-ink dark:text-white">
                           {item.collection_title || item.title || `Plan ${item.plan_id}`}
                         </p>
@@ -180,6 +186,24 @@ function SocialSchedulerContent() {
                   </div>
                 </div>
               ) : null}
+              <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                <div>
+                  <h3 className="text-sm font-bold text-ink dark:text-white">
+                    Candidate counts by tier
+                  </h3>
+                  <div className="mt-2">
+                    <StatusRows values={status.candidate_counts_by_tier} />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-ink dark:text-white">
+                    Selected counts by tier
+                  </h3>
+                  <div className="mt-2">
+                    <StatusRows values={status.selected_counts_by_tier} />
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section className="grid gap-4 xl:grid-cols-2">

@@ -70,7 +70,23 @@ function planNearDeadline(plan: SocialPlan) {
 }
 
 function blockingReasonLabels(plan: SocialPlan) {
-  return plan.blocking_reasons.length ? plan.blocking_reasons.map(formatLabel).join(", ") : "None";
+  return plan.hard_blocking_reasons.length
+    ? plan.hard_blocking_reasons.map(formatLabel).join(", ")
+    : "None";
+}
+
+function qualityWarningLabels(plan: SocialPlan) {
+  return plan.quality_warnings.length ? plan.quality_warnings.map(formatLabel).join(", ") : "None";
+}
+
+function tierBadge(plan: SocialPlan) {
+  if (plan.hard_blocking_reasons.length) {
+    return { tone: "danger" as const, label: "Hard blocked" };
+  }
+  if (plan.fallback_eligible) {
+    return { tone: "saffron" as const, label: "Fallback eligible" };
+  }
+  return { tone: "mint" as const, label: "Strict best" };
 }
 
 function planJson(plan: SocialPlan) {
@@ -87,8 +103,12 @@ function planJson(plan: SocialPlan) {
       priority_score: plan.priority_score,
       has_image: plan.has_image,
       has_caption: plan.has_caption,
-      auto_post_eligible: plan.auto_post_eligible,
-      blocking_reasons: plan.blocking_reasons,
+      auto_post_tier: plan.auto_post_tier,
+      auto_post_tier_label: plan.auto_post_tier_label,
+      auto_post_rank_score: plan.auto_post_rank_score,
+      fallback_eligible: plan.fallback_eligible,
+      hard_blocking_reasons: plan.hard_blocking_reasons,
+      quality_warnings: plan.quality_warnings,
       ...(plan.type === "opportunity"
         ? {
             opportunity_id: plan.opportunity_id,
@@ -170,6 +190,7 @@ function PlanCard({
       setSaving(false);
     }
   }
+  const statusBadge = tierBadge(plan);
 
   return (
     <article className="rounded-xl border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
@@ -191,9 +212,8 @@ function PlanCard({
             <Badge tone={planNearDeadline(plan) ? "mint" : "saffron"}>
               {planNearDeadline(plan) ? "Near deadline" : "Not near deadline"}
             </Badge>
-            <Badge tone={plan.auto_post_eligible ? "mint" : "saffron"}>
-              {plan.auto_post_eligible ? "Auto-post eligible" : "Manual review needed"}
-            </Badge>
+            <Badge tone={statusBadge.tone}>{statusBadge.label}</Badge>
+            <Badge tone="neutral">{plan.auto_post_tier_label}</Badge>
           </div>
           <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{planTitle(plan)}</h2>
           <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
@@ -210,7 +230,8 @@ function PlanCard({
             </p>
           )}
           <p className="mt-2 text-xs font-semibold text-ink/55 dark:text-white/55">
-            Blocking reasons: {blockingReasonLabels(plan)}
+            Rank: {plan.auto_post_rank_score} · Hard blockers: {blockingReasonLabels(plan)} ·
+            Quality warnings: {qualityWarningLabels(plan)}
           </p>
         </div>
 
@@ -285,11 +306,12 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
   const [decisionFilter, setDecisionFilter] = useState("all");
   const [collectionStatusFilter, setCollectionStatusFilter] = useState("all");
   const [dueOnly, setDueOnly] = useState(false);
-  const [eligibleOnly, setEligibleOnly] = useState(false);
+  const [strictBestOnly, setStrictBestOnly] = useState(false);
+  const [fallbackEligibleOnly, setFallbackEligibleOnly] = useState(false);
+  const [hardBlockedOnly, setHardBlockedOnly] = useState(false);
   const [missingImageOnly, setMissingImageOnly] = useState(false);
   const [missingCaptionOnly, setMissingCaptionOnly] = useState(false);
   const [nearDeadlineOnly, setNearDeadlineOnly] = useState(false);
-  const [blockedOnly, setBlockedOnly] = useState(false);
   const [plans, setPlans] = useState<SocialPlan[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -302,11 +324,12 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
       q: query || undefined,
       status: statusFilter,
       due: dueOnly || undefined,
-      auto_post_eligible: eligibleOnly || undefined,
+      strict_best: strictBestOnly || undefined,
+      fallback_eligible: fallbackEligibleOnly || undefined,
+      hard_blocked: hardBlockedOnly || undefined,
       missing_image: missingImageOnly || undefined,
       missing_caption: missingCaptionOnly || undefined,
       near_deadline: nearDeadlineOnly || undefined,
-      blocked: blockedOnly || undefined,
       limit: 75,
     };
     if (kind === "opportunity") {
@@ -327,17 +350,18 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
       setLoading(false);
     }
   }, [
-    blockedOnly,
     collectionStatusFilter,
     decisionFilter,
     dueOnly,
-    eligibleOnly,
+    fallbackEligibleOnly,
+    hardBlockedOnly,
     kind,
     missingCaptionOnly,
     missingImageOnly,
     nearDeadlineOnly,
     query,
     statusFilter,
+    strictBestOnly,
   ]);
 
   useEffect(() => {
@@ -462,11 +486,29 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
             <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
               <input
                 type="checkbox"
-                checked={eligibleOnly}
-                onChange={(event) => setEligibleOnly(event.target.checked)}
+                checked={strictBestOnly}
+                onChange={(event) => setStrictBestOnly(event.target.checked)}
                 className="h-4 w-4 accent-pine"
               />
-              Auto-post eligible only
+              Strict best
+            </label>
+            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
+              <input
+                type="checkbox"
+                checked={fallbackEligibleOnly}
+                onChange={(event) => setFallbackEligibleOnly(event.target.checked)}
+                className="h-4 w-4 accent-pine"
+              />
+              Fallback eligible
+            </label>
+            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
+              <input
+                type="checkbox"
+                checked={hardBlockedOnly}
+                onChange={(event) => setHardBlockedOnly(event.target.checked)}
+                className="h-4 w-4 accent-pine"
+              />
+              Hard blocked
             </label>
             <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
               <input
@@ -494,15 +536,6 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
                 className="h-4 w-4 accent-pine"
               />
               Near deadline
-            </label>
-            <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">
-              <input
-                type="checkbox"
-                checked={blockedOnly}
-                onChange={(event) => setBlockedOnly(event.target.checked)}
-                className="h-4 w-4 accent-pine"
-              />
-              Blocked/manual review
             </label>
           </div>
           <p className="mt-2 text-xs font-semibold text-ink/45 dark:text-white/45">

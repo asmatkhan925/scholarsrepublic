@@ -2251,7 +2251,7 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(item["has_image"])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
-    def test_due_posts_block_missing_plan_image_instead_of_og_fallback(self):
+    def test_due_posts_select_missing_plan_image_as_fallback(self):
         opportunity = self.opportunity(
             slug="og-fallback-social-image-due",
             status=Opportunity.Status.PUBLISHED,
@@ -2273,8 +2273,9 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["items"], [])
-        self.assertEqual(response.data["blocked_reason_counts"]["missing_image"], 1)
+        self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
+        self.assertEqual(response.data["items"][0]["auto_post_tier"], "near_deadline_no_image")
+        self.assertTrue(response.data["fallback_used"])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_due_posts_block_empty_post_text_instead_of_auto_generating(self):
@@ -2307,14 +2308,14 @@ class OpportunityAPITests(APITestCase):
     def test_facebook_daily_post_cap_default_is_15(self):
         self.assertEqual(settings.SCHOLARS_FACEBOOK_DAILY_POST_CAP, 15)
 
-    def test_due_queue_blocks_missing_image(self):
+    def test_due_queue_selects_missing_image_as_fallback(self):
         opportunity = self.opportunity(slug="missing-image-policy")
         plan = self.ready_social_plan(opportunity, image_url="")
 
         response = get_due_facebook_post_plans(limit=5)
 
-        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
-        self.assertEqual(response["blocked_reason_counts"]["missing_image"], 1)
+        self.assertIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["items"][0]["auto_post_tier"], "near_deadline_no_image")
 
     def test_due_queue_blocks_missing_caption(self):
         opportunity = self.opportunity(slug="missing-caption-policy")
@@ -2325,7 +2326,7 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
         self.assertEqual(response["blocked_reason_counts"]["missing_caption"], 1)
 
-    def test_due_queue_blocks_far_deadline(self):
+    def test_due_queue_selects_far_deadline_with_image_as_fallback(self):
         opportunity = self.opportunity(
             slug="far-deadline-policy",
             deadline=timezone.localdate() + timedelta(days=45),
@@ -2334,8 +2335,8 @@ class OpportunityAPITests(APITestCase):
 
         response = get_due_facebook_post_plans(limit=5)
 
-        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
-        self.assertEqual(response["blocked_reason_counts"]["deadline_not_near"], 1)
+        self.assertIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["items"][0]["auto_post_tier"], "has_image_caption_far_deadline")
 
     def test_due_queue_returns_near_deadline_with_image_and_caption(self):
         opportunity = self.opportunity(
@@ -2347,6 +2348,41 @@ class OpportunityAPITests(APITestCase):
         response = get_due_facebook_post_plans(limit=5)
 
         self.assertIn(plan.pk, [item["plan_id"] for item in response["items"]])
+
+    def test_due_queue_selects_strict_candidates_before_fallback(self):
+        fallback = self.ready_social_plan(
+            self.opportunity(slug="rank-fallback-no-image"),
+            image_url="",
+            priority_score=999,
+        )
+        strict = self.ready_social_plan(
+            self.opportunity(slug="rank-strict-with-image"),
+            priority_score=1,
+        )
+
+        response = get_due_facebook_post_plans(limit=2)
+
+        self.assertEqual([item["plan_id"] for item in response["items"]], [strict.pk, fallback.pk])
+        self.assertEqual(response["selected_counts_by_tier"]["strict_best"], 1)
+        self.assertEqual(response["selected_counts_by_tier"]["near_deadline_no_image"], 1)
+
+    def test_due_queue_fallback_fills_remaining_per_run_slots(self):
+        strict = self.ready_social_plan(self.opportunity(slug="fill-strict"))
+        fallback_plans = [
+            self.ready_social_plan(
+                self.opportunity(slug=f"fill-fallback-{index}"),
+                image_url="",
+            )
+            for index in range(4)
+        ]
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertEqual(response["returned_count"], 5)
+        self.assertEqual(
+            [item["plan_id"] for item in response["items"]],
+            [strict.pk] + [plan.pk for plan in fallback_plans],
+        )
 
     def test_due_queue_blocks_expired_opportunity(self):
         opportunity = self.opportunity(
@@ -2360,7 +2396,7 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
         self.assertEqual(response["blocked_reason_counts"]["expired"], 1)
 
-    def test_due_queue_blocks_non_individual_decision(self):
+    def test_due_queue_allows_non_individual_decision_as_fallback(self):
         opportunity = self.opportunity(slug="non-individual-policy")
         plan = self.ready_social_plan(
             opportunity,
@@ -2369,10 +2405,10 @@ class OpportunityAPITests(APITestCase):
 
         response = get_due_facebook_post_plans(limit=5)
 
-        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
-        self.assertEqual(response["blocked_reason_counts"]["not_individual_decision"], 1)
+        self.assertIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertIn("not_individual_decision", response["items"][0]["quality_warnings"])
 
-    def test_due_queue_blocks_collection_without_image(self):
+    def test_due_queue_selects_collection_without_image_as_fallback(self):
         opportunity = self.opportunity(slug="collection-missing-image-item")
         collection = self.collection_with_items("collection-missing-image", [opportunity])
         plan = OpportunityCollectionSocialPostPlan.objects.create(
@@ -2384,8 +2420,8 @@ class OpportunityAPITests(APITestCase):
 
         response = get_due_facebook_post_plans(limit=5)
 
-        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
-        self.assertEqual(response["blocked_reason_counts"]["collection_missing_image"], 1)
+        self.assertIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["items"][0]["auto_post_tier"], "collection_no_image_fallback")
 
     def test_due_queue_blocks_collection_with_expired_item(self):
         expired = self.opportunity(
@@ -2406,7 +2442,7 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
         self.assertEqual(response["blocked_reason_counts"]["collection_has_expired_item"], 1)
 
-    def test_due_queue_blocks_collection_without_near_deadline_item(self):
+    def test_due_queue_selects_collection_without_near_deadline_item_as_general_fallback(self):
         far = self.opportunity(
             slug="collection-far-item",
             deadline=timezone.localdate() + timedelta(days=60),
@@ -2422,11 +2458,8 @@ class OpportunityAPITests(APITestCase):
 
         response = get_due_facebook_post_plans(limit=5)
 
-        self.assertNotIn(plan.pk, [item["plan_id"] for item in response["items"]])
-        self.assertEqual(
-            response["blocked_reason_counts"]["collection_no_near_deadline_item"],
-            1,
-        )
+        self.assertIn(plan.pk, [item["plan_id"] for item in response["items"]])
+        self.assertEqual(response["items"][0]["auto_post_tier"], "collection_general_fallback")
 
     def test_scheduler_status_includes_blocked_reason_counts(self):
         self.client.force_authenticate(user=self.admin)
@@ -2436,8 +2469,8 @@ class OpportunityAPITests(APITestCase):
         response = self.client.get("/api/admin/social/scheduler-status/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("blocked_reason_counts", response.data)
-        self.assertGreaterEqual(response.data["blocked_reason_counts"].get("missing_image", 0), 1)
+        self.assertIn("candidate_counts_by_tier", response.data)
+        self.assertIn("selected_counts_by_tier", response.data)
 
     def test_review_plan_api_exposes_eligibility_fields(self):
         self.client.force_authenticate(user=self.admin)
@@ -2452,7 +2485,9 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(item["has_caption"])
         self.assertTrue(item["is_near_deadline"])
         self.assertTrue(item["auto_post_eligible"])
-        self.assertEqual(item["blocking_reasons"], [])
+        self.assertEqual(item["auto_post_tier"], "strict_best")
+        self.assertFalse(item["fallback_eligible"])
+        self.assertEqual(item["hard_blocking_reasons"], [])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_due_posts_daily_within_7_days(self):

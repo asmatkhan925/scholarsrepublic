@@ -162,6 +162,14 @@ export type SocialSchedulerStatusResponse = {
   returned_count: number;
   reason: string;
   blocked_reason_counts: Record<string, number>;
+  candidate_counts_by_tier: Record<string, number>;
+  selected_counts_by_tier: Record<string, number>;
+  fallback_used: boolean;
+  selection_policy: string;
+  daily_target: number;
+  per_run_target: number;
+  strict_candidate_count: number;
+  fallback_candidate_count: number;
   health_alerts: Array<{
     level: "info" | "warning" | "critical";
     code: string;
@@ -184,6 +192,12 @@ export type SocialSchedulerStatusResponse = {
     auto_social_decision?: string;
     priority_score: number;
     priority_reason?: Record<string, unknown>;
+    auto_post_tier?: string;
+    auto_post_tier_label?: string;
+    auto_post_rank_score?: number;
+    fallback_eligible?: boolean;
+    hard_blocking_reasons?: string[];
+    quality_warnings?: string[];
     next_post_at?: string | null;
   }>;
   individual_plans: {
@@ -256,6 +270,13 @@ export type AdminOpportunitySocialPlan = {
   has_caption: boolean;
   is_near_deadline: boolean;
   auto_post_eligible: boolean;
+  fallback_eligible: boolean;
+  auto_post_tier: string;
+  auto_post_tier_label: string;
+  auto_post_rank_score: number;
+  ranking_explanation: string;
+  hard_blocking_reasons: string[];
+  quality_warnings: string[];
   blocking_reasons: string[];
   next_post_at: string | null;
   last_posted_at: string | null;
@@ -286,6 +307,13 @@ export type AdminCollectionSocialPlan = {
   has_near_deadline_item: boolean;
   has_expired_item: boolean;
   auto_post_eligible: boolean;
+  fallback_eligible: boolean;
+  auto_post_tier: string;
+  auto_post_tier_label: string;
+  auto_post_rank_score: number;
+  ranking_explanation: string;
+  hard_blocking_reasons: string[];
+  quality_warnings: string[];
   blocking_reasons: string[];
   next_post_at: string | null;
   posted_at: string | null;
@@ -307,6 +335,9 @@ export type AdminSocialPlanQuery = {
   collection_status?: string;
   due?: boolean;
   auto_post_eligible?: boolean;
+  strict_best?: boolean;
+  fallback_eligible?: boolean;
+  hard_blocked?: boolean;
   missing_image?: boolean;
   missing_caption?: boolean;
   near_deadline?: boolean;
