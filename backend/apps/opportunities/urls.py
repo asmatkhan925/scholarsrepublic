@@ -23,6 +23,10 @@ from apps.opportunities.views import (
     AdminScholarshipFacebookScheduleView,
     AdminScholarshipResearchLeadActionView,
     AdminScholarshipResearchLeadListView,
+    AdminSocialCollectionPlanCaptionView,
+    AdminSocialCollectionPlanListView,
+    AdminSocialOpportunityPlanCaptionView,
+    AdminSocialOpportunityPlanListView,
     AdminSocialSchedulerStatusView,
     AdminScholarshipDeadlineApplyView,
     AdminScholarshipDeadlineVerificationActionView,
@@ -165,6 +169,26 @@ urlpatterns = [
         "admin/social/scheduler-status/",
         AdminSocialSchedulerStatusView.as_view(),
         name="admin-social-scheduler-status",
+    ),
+    path(
+        "admin/social/opportunity-plans/",
+        AdminSocialOpportunityPlanListView.as_view(),
+        name="admin-social-opportunity-plan-list",
+    ),
+    path(
+        "admin/social/opportunity-plans/<int:plan_id>/caption/",
+        AdminSocialOpportunityPlanCaptionView.as_view(),
+        name="admin-social-opportunity-plan-caption",
+    ),
+    path(
+        "admin/social/collection-plans/",
+        AdminSocialCollectionPlanListView.as_view(),
+        name="admin-social-collection-plan-list",
+    ),
+    path(
+        "admin/social/collection-plans/<int:plan_id>/caption/",
+        AdminSocialCollectionPlanCaptionView.as_view(),
+        name="admin-social-collection-plan-caption",
     ),
     path(
         "admin/agent/debug-auth/",

@@ -55,13 +55,13 @@ const socialTools: SocialTool[] = [
   {
     title: "Opportunity Social Plans",
     description: "Inspect individual scholarship Facebook plans, priority scores, captions, and images.",
-    href: "/admin/opportunities/opportunitysocialpostplan/",
+    href: "/dashboard/admin/social/opportunity-plans",
     icon: ClipboardList,
   },
   {
     title: "Collection Social Plans",
     description: "Review collection post plans, scheduled times, priorities, and posted state.",
-    href: "/admin/opportunities/opportunitycollectionsocialpostplan/",
+    href: "/dashboard/admin/social/collection-plans",
     icon: Layers,
   },
   {
@@ -124,8 +124,8 @@ const customGPTWorkflows: CustomGPTWorkflow[] = [
     purpose: "Prepare reviewable social copy variants from existing scholarship/social plan data.",
     whenToUse: "Use before saving captions into opportunity or collection social post plans.",
     links: [
-      { label: "Opportunity social plans", href: "/admin/opportunities/opportunitysocialpostplan/" },
-      { label: "Collection social plans", href: "/admin/opportunities/opportunitycollectionsocialpostplan/" },
+      { label: "Opportunity social plans", href: "/dashboard/admin/social/opportunity-plans" },
+      { label: "Collection social plans", href: "/dashboard/admin/social/collection-plans" },
       { label: "Scheduler monitor", href: "/dashboard/admin/social/scheduler" },
     ],
     prompt:

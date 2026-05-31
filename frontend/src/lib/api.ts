@@ -225,6 +225,69 @@ export type SocialSchedulerStatusResponse = {
   };
 };
 
+export type AdminOpportunitySocialPlan = {
+  id: number;
+  type: "opportunity";
+  platform: string;
+  status: string;
+  enabled: boolean;
+  opportunity_id: number;
+  opportunity_title: string;
+  opportunity_slug: string;
+  opportunity_status: string;
+  provider_name: string;
+  country: string;
+  deadline: string | null;
+  post_text: string;
+  link_url: string;
+  image_url: string;
+  image_source: string;
+  next_post_at: string | null;
+  last_posted_at: string | null;
+  priority_score: number;
+  priority_reason: Record<string, unknown>;
+  auto_social_decision: string;
+  last_error: string;
+  updated_at: string | null;
+  admin_url: string;
+};
+
+export type AdminCollectionSocialPlan = {
+  id: number;
+  type: "collection";
+  platform: string;
+  status: string;
+  collection_id: number;
+  collection_title: string;
+  collection_slug: string;
+  collection_status: string;
+  collection_type: string;
+  post_text: string;
+  link_url: string;
+  image_url: string;
+  image_source: string;
+  next_post_at: string | null;
+  posted_at: string | null;
+  priority_score: number;
+  facebook_post_id: string;
+  updated_at: string | null;
+  admin_url: string;
+};
+
+export type AdminSocialPlanListResponse<T> = {
+  count: number;
+  items: T[];
+};
+
+export type AdminSocialPlanQuery = {
+  q?: string;
+  status?: string;
+  auto_social_decision?: string;
+  collection_status?: string;
+  due?: boolean;
+  limit?: number;
+};
+
 export type HealthResponse = {
   status: "ok";
   message: string;
@@ -441,6 +504,38 @@ export async function getAdminOverview() {
 export async function getSocialSchedulerStatus() {
   const response = await api.get<SocialSchedulerStatusResponse>(
     "/admin/social/scheduler-status/",
+  );
+  return response.data;
+}
+
+export async function getAdminOpportunitySocialPlans(params?: AdminSocialPlanQuery) {
+  const response = await api.get<AdminSocialPlanListResponse<AdminOpportunitySocialPlan>>(
+    "/admin/social/opportunity-plans/",
+    { params },
+  );
+  return response.data;
+}
+
+export async function saveAdminOpportunitySocialPlanCaption(planId: number, postText: string) {
+  const response = await api.post<AdminOpportunitySocialPlan>(
+    `/admin/social/opportunity-plans/${planId}/caption/`,
+    { post_text: postText },
+  );
+  return response.data;
+}
+
+export async function getAdminCollectionSocialPlans(params?: AdminSocialPlanQuery) {
+  const response = await api.get<AdminSocialPlanListResponse<AdminCollectionSocialPlan>>(
+    "/admin/social/collection-plans/",
+    { params },
+  );
+  return response.data;
+}
+
+export async function saveAdminCollectionSocialPlanCaption(planId: number, postText: string) {
+  const response = await api.post<AdminCollectionSocialPlan>(
+    `/admin/social/collection-plans/${planId}/caption/`,
+    { post_text: postText },
   );
   return response.data;
 }

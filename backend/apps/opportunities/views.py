@@ -2527,6 +2527,180 @@ def _serialize_due_preview_item(item):
     return data
 
 
+def _serialize_social_datetime(value):
+    return _serialize_scheduler_datetime(value)
+
+
+def _admin_social_plan_limit(request):
+    return min(parse_positive_int(request.query_params.get("limit")) or 50, 100)
+
+
+def _filter_text_search(queryset, query, fields):
+    query = str(query or "").strip()
+    if not query:
+        return queryset
+    condition = Q()
+    for field in fields:
+        condition |= Q(**{f"{field}__icontains": query})
+    if query.isdigit():
+        condition |= Q(pk=int(query))
+    return queryset.filter(condition)
+
+
+def _serialize_admin_opportunity_social_plan(plan):
+    opportunity = plan.opportunity
+    return {
+        "id": plan.pk,
+        "type": "opportunity",
+        "platform": plan.platform,
+        "status": plan.status,
+        "enabled": plan.enabled,
+        "opportunity_id": plan.opportunity_id,
+        "opportunity_title": opportunity.title,
+        "opportunity_slug": opportunity.slug,
+        "opportunity_status": opportunity.status,
+        "provider_name": opportunity.provider_name,
+        "country": opportunity.country,
+        "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
+        "post_text": plan.post_text,
+        "link_url": plan.link_url,
+        "image_url": get_preferred_social_image_url(plan),
+        "image_source": get_preferred_social_image_source(plan),
+        "next_post_at": _serialize_social_datetime(plan.next_post_at),
+        "last_posted_at": _serialize_social_datetime(plan.last_posted_at),
+        "priority_score": plan.priority_score,
+        "priority_reason": plan.priority_reason,
+        "auto_social_decision": plan.auto_social_decision,
+        "last_error": plan.last_error,
+        "updated_at": _serialize_social_datetime(plan.updated_at),
+        "admin_url": f"/admin/opportunities/opportunitysocialpostplan/{plan.pk}/change/",
+    }
+
+
+def _serialize_admin_collection_social_plan(plan):
+    collection = plan.collection
+    return {
+        "id": plan.pk,
+        "type": "collection",
+        "platform": plan.platform,
+        "status": plan.status,
+        "collection_id": plan.collection_id,
+        "collection_title": collection.title,
+        "collection_slug": collection.slug,
+        "collection_status": collection.status,
+        "collection_type": collection.collection_type,
+        "post_text": plan.post_text,
+        "link_url": plan.link_url,
+        "image_url": plan.image_url,
+        "image_source": plan.image_source,
+        "next_post_at": _serialize_social_datetime(plan.next_post_at),
+        "posted_at": _serialize_social_datetime(plan.posted_at),
+        "priority_score": plan.priority_score,
+        "facebook_post_id": plan.facebook_post_id,
+        "updated_at": _serialize_social_datetime(plan.updated_at),
+        "admin_url": f"/admin/opportunities/opportunitycollectionsocialpostplan/{plan.pk}/change/",
+    }
+
+
+class AdminSocialOpportunityPlanListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = OpportunitySocialPostPlan.objects.select_related(
+            "opportunity",
+            "opportunity__country_ref",
+        ).filter(platform=DEFAULT_PLATFORM)
+        status_filter = str(request.query_params.get("status") or "").strip()
+        if status_filter and status_filter != "all":
+            queryset = queryset.filter(status=status_filter)
+        decision = str(request.query_params.get("auto_social_decision") or "").strip()
+        if decision and decision != "all":
+            queryset = queryset.filter(auto_social_decision=decision)
+        due = parse_bool(request.query_params.get("due"))
+        if due is True:
+            queryset = queryset.filter(Q(next_post_at__isnull=True) | Q(next_post_at__lte=timezone.now()))
+        queryset = _filter_text_search(
+            queryset,
+            request.query_params.get("q"),
+            ["opportunity__title", "opportunity__provider_name", "link_url", "post_text"],
+        )
+        count = queryset.count()
+        items = [
+            _serialize_admin_opportunity_social_plan(plan)
+            for plan in queryset.order_by("next_post_at", "-priority_score", "-updated_at")[
+                : _admin_social_plan_limit(request)
+            ]
+        ]
+        return Response({"count": count, "items": items})
+
+
+class AdminSocialOpportunityPlanCaptionView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request, plan_id):
+        plan = OpportunitySocialPostPlan.objects.select_related("opportunity").filter(pk=plan_id).first()
+        if not plan:
+            return Response(
+                {"detail": "Opportunity social post plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        post_text = str(request.data.get("post_text") if isinstance(request.data, dict) else "").strip()
+        plan.post_text = post_text
+        plan.save(update_fields=["post_text", "updated_at"])
+        return Response(_serialize_admin_opportunity_social_plan(plan))
+
+
+class AdminSocialCollectionPlanListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = OpportunityCollectionSocialPostPlan.objects.select_related("collection").filter(
+            platform=DEFAULT_PLATFORM,
+        )
+        status_filter = str(request.query_params.get("status") or "").strip()
+        if status_filter and status_filter != "all":
+            queryset = queryset.filter(status=status_filter)
+        collection_status = str(request.query_params.get("collection_status") or "").strip()
+        if collection_status and collection_status != "all":
+            queryset = queryset.filter(collection__status=collection_status)
+        due = parse_bool(request.query_params.get("due"))
+        if due is True:
+            queryset = queryset.filter(next_post_at__isnull=False, next_post_at__lte=timezone.now())
+        queryset = _filter_text_search(
+            queryset,
+            request.query_params.get("q"),
+            ["collection__title", "link_url", "post_text"],
+        )
+        count = queryset.count()
+        items = [
+            _serialize_admin_collection_social_plan(plan)
+            for plan in queryset.order_by("next_post_at", "-priority_score", "-updated_at")[
+                : _admin_social_plan_limit(request)
+            ]
+        ]
+        return Response({"count": count, "items": items})
+
+
+class AdminSocialCollectionPlanCaptionView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request, plan_id):
+        plan = (
+            OpportunityCollectionSocialPostPlan.objects.select_related("collection")
+            .filter(pk=plan_id)
+            .first()
+        )
+        if not plan:
+            return Response(
+                {"detail": "Collection social post plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        post_text = str(request.data.get("post_text") if isinstance(request.data, dict) else "").strip()
+        plan.post_text = post_text
+        plan.save(update_fields=["post_text", "updated_at"])
+        return Response(_serialize_admin_collection_social_plan(plan))
+
+
 class AdminSocialSchedulerStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
