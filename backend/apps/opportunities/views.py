@@ -22,11 +22,14 @@ from apps.opportunities.matching import calculate_opportunity_match
 from apps.opportunities.models import (
     Opportunity,
     OpportunityCollection,
+    OpportunityCollectionSocialPostLog,
+    OpportunityCollectionSocialPostPlan,
     OpportunityComment,
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
     OpportunitySocialDraft,
+    OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
     OpportunitySourceLinkCorrectionLog,
     ScholarshipResearchLead,
@@ -2478,6 +2481,209 @@ class AdminOpportunityDuplicateCheckView(APIView):
     def post(self, request):
         matches = find_duplicate_opportunities(request.data if isinstance(request.data, dict) else {})
         return Response({"matches": matches})
+
+
+def _serialize_scheduler_datetime(value):
+    if not value:
+        return None
+    return timezone.localtime(value).isoformat()
+
+
+def _count_by_status(model, statuses, **filters):
+    counts = dict(
+        model.objects.filter(**filters).values_list("status").annotate(total=Count("id"))
+    )
+    return {status_value: counts.get(status_value, 0) for status_value in statuses}
+
+
+def _serialize_due_preview_item(item):
+    item_type = item.get("type") or "opportunity"
+    data = {
+        "type": item_type,
+        "plan_id": item.get("plan_id"),
+        "message": item.get("message"),
+        "image_url": item.get("image_url"),
+        "image_source": item.get("image_source"),
+        "link_url": item.get("link_url"),
+        "priority_score": item.get("priority_score"),
+    }
+    if item_type == "collection":
+        data.update(
+            {
+                "collection_id": item.get("collection_id"),
+                "collection_title": item.get("collection_title"),
+                "next_post_at": item.get("next_post_at"),
+            }
+        )
+    else:
+        data.update(
+            {
+                "opportunity_id": item.get("opportunity_id"),
+                "title": item.get("title"),
+                "auto_social_decision": item.get("auto_social_decision"),
+                "priority_reason": item.get("priority_reason"),
+            }
+        )
+    return data
+
+
+class AdminSocialSchedulerStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        now = timezone.now()
+        local_now = timezone.localtime(now)
+        today_start = timezone.make_aware(
+            datetime.combine(local_now.date(), datetime.min.time()),
+            timezone.get_current_timezone(),
+        )
+        tomorrow_start = today_start + timedelta(days=1)
+        due_response = get_due_facebook_post_plan_response(limit=10, now=now)
+
+        opportunity_today = OpportunitySocialPostLog.objects.filter(
+            created_at__gte=today_start,
+            created_at__lt=tomorrow_start,
+        )
+        collection_today = OpportunityCollectionSocialPostLog.objects.filter(
+            created_at__gte=today_start,
+            created_at__lt=tomorrow_start,
+        )
+
+        individual_counts = _count_by_status(
+            OpportunitySocialPostPlan,
+            OpportunitySocialPostPlan.Status.values,
+            platform=DEFAULT_PLATFORM,
+        )
+        decision_counts = dict(
+            OpportunitySocialPostPlan.objects.filter(platform=DEFAULT_PLATFORM)
+            .values_list("auto_social_decision")
+            .annotate(total=Count("id"))
+        )
+        collection_counts = _count_by_status(
+            OpportunityCollection,
+            OpportunityCollection.Status.values,
+        )
+        collection_plan_counts = _count_by_status(
+            OpportunityCollectionSocialPostPlan,
+            OpportunityCollectionSocialPostPlan.Status.values,
+            platform=DEFAULT_PLATFORM,
+        )
+
+        return Response(
+            {
+                "server_time": _serialize_scheduler_datetime(now),
+                "posted_today": due_response["posted_today"],
+                "skipped_today": opportunity_today.filter(
+                    status=OpportunitySocialPostLog.Status.SKIPPED
+                ).count()
+                + collection_today.filter(
+                    status=OpportunityCollectionSocialPostLog.Status.SKIPPED
+                ).count(),
+                "failed_today": opportunity_today.filter(
+                    status=OpportunitySocialPostLog.Status.FAILED
+                ).count()
+                + collection_today.filter(
+                    status=OpportunityCollectionSocialPostLog.Status.FAILED
+                ).count(),
+                "daily_cap": due_response["daily_cap"],
+                "daily_remaining": due_response["daily_remaining"],
+                "per_run_cap": due_response["per_run_cap"],
+                "min_spacing_minutes": due_response["min_spacing_minutes"],
+                "latest_posted_at": due_response["latest_posted_at"],
+                "next_allowed_post_at": due_response["next_allowed_post_at"],
+                "due_count": due_response["due_count"],
+                "returned_count": due_response["returned_count"],
+                "reason": due_response["reason"],
+                "due_items": [_serialize_due_preview_item(item) for item in due_response["items"]],
+                "individual_plans": {
+                    "ready": individual_counts.get(OpportunitySocialPostPlan.Status.READY, 0),
+                    "due_ready": self._due_individual_ready_count(now),
+                    "posted": OpportunitySocialPostLog.objects.filter(
+                        platform=DEFAULT_PLATFORM,
+                        status=OpportunitySocialPostLog.Status.POSTED,
+                    ).count(),
+                    "failed": OpportunitySocialPostLog.objects.filter(
+                        platform=DEFAULT_PLATFORM,
+                        status=OpportunitySocialPostLog.Status.FAILED,
+                    ).count(),
+                    "paused": individual_counts.get(OpportunitySocialPostPlan.Status.PAUSED, 0),
+                    "draft": individual_counts.get(OpportunitySocialPostPlan.Status.DRAFT, 0),
+                    "by_auto_social_decision": {
+                        decision: decision_counts.get(decision, 0)
+                        for decision in OpportunitySocialPostPlan.AutoSocialDecision.values
+                    },
+                },
+                "collections": {
+                    "by_status": collection_counts,
+                    "social_post_plans_by_status": collection_plan_counts,
+                    "next_plans": [
+                        self._serialize_collection_plan(plan)
+                        for plan in OpportunityCollectionSocialPostPlan.objects.select_related(
+                            "collection"
+                        )
+                        .filter(platform=DEFAULT_PLATFORM)
+                        .order_by("next_post_at", "-priority_score", "id")[:10]
+                    ],
+                },
+                "recent_logs": {
+                    "opportunities": [
+                        self._serialize_opportunity_log(log)
+                        for log in OpportunitySocialPostLog.objects.select_related(
+                            "opportunity",
+                            "plan",
+                        ).order_by("-created_at")[:10]
+                    ],
+                    "collections": [
+                        self._serialize_collection_log(log)
+                        for log in OpportunityCollectionSocialPostLog.objects.select_related(
+                            "collection",
+                            "plan",
+                        ).order_by("-created_at")[:10]
+                    ],
+                },
+            }
+        )
+
+    def _due_individual_ready_count(self, now):
+        return OpportunitySocialPostPlan.objects.filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunitySocialPostPlan.Status.READY,
+            enabled=True,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+            opportunity__status=Opportunity.Status.PUBLISHED,
+        ).filter(Q(next_post_at__isnull=True) | Q(next_post_at__lte=now)).count()
+
+    def _serialize_collection_plan(self, plan):
+        return {
+            "id": plan.pk,
+            "collection_id": plan.collection_id,
+            "collection_title": plan.collection.title,
+            "status": plan.status,
+            "platform": plan.platform,
+            "priority_score": plan.priority_score,
+            "next_post_at": _serialize_scheduler_datetime(plan.next_post_at),
+            "posted_at": _serialize_scheduler_datetime(plan.posted_at),
+            "link_url": plan.link_url,
+            "facebook_post_id": plan.facebook_post_id,
+        }
+
+    def _serialize_opportunity_log(self, log):
+        return {
+            "created_at": _serialize_scheduler_datetime(log.created_at),
+            "status": log.status,
+            "title": log.opportunity.title,
+            "plan_id": log.plan_id,
+            "error_message": log.error_message,
+        }
+
+    def _serialize_collection_log(self, log):
+        return {
+            "created_at": _serialize_scheduler_datetime(log.created_at),
+            "status": log.status,
+            "title": log.collection.title,
+            "plan_id": log.plan_id,
+            "error_message": log.error_message,
+        }
 
 
 class OpportunityFilterMixin:

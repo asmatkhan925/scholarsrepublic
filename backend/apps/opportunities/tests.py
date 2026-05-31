@@ -3677,6 +3677,121 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["items"][0]["type"], "collection")
         self.assertEqual(response.data["items"][0]["plan_id"], collection_plan.pk)
 
+    def test_admin_social_scheduler_status_requires_admin_access(self):
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_admin_social_scheduler_status_returns_metadata_and_summaries(self):
+        opportunity = self.opportunity(slug="scheduler-monitor-opportunity")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+            priority_score=80,
+            next_post_at=timezone.now() - timedelta(minutes=5),
+            post_text="Opportunity post text.",
+            link_url="https://scholarsrepublic.org/scholarships/scheduler-monitor-opportunity",
+        )
+        plans = [
+            self.collection_candidate_plan(
+                f"scheduler-monitor-summary-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 Scheduler Monitor Scholarships",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection post text.",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            next_post_at=timezone.now() - timedelta(minutes=1),
+            priority_score=250,
+        )
+        OpportunityCollectionSocialPostLog.objects.create(
+            collection=collection,
+            plan=collection_plan,
+            status=OpportunityCollectionSocialPostLog.Status.FAILED,
+            error_message="Example failure.",
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("server_time", response.data)
+        self.assertEqual(response.data["daily_cap"], 20)
+        self.assertEqual(response.data["per_run_cap"], 5)
+        self.assertEqual(response.data["min_spacing_minutes"], 0)
+        self.assertIn("latest_posted_at", response.data)
+        self.assertIn("next_allowed_post_at", response.data)
+        self.assertGreaterEqual(response.data["due_count"], 1)
+        self.assertGreaterEqual(response.data["returned_count"], 1)
+        self.assertIn("individual_plans", response.data)
+        self.assertIn("by_auto_social_decision", response.data["individual_plans"])
+        self.assertIn("collections", response.data)
+        self.assertIn("by_status", response.data["collections"])
+        self.assertIn("social_post_plans_by_status", response.data["collections"])
+        self.assertTrue(response.data["collections"]["next_plans"])
+        self.assertTrue(response.data["recent_logs"]["collections"])
+
+    @override_settings(
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_admin_social_scheduler_status_includes_due_queue_preview(self):
+        plans = [
+            self.collection_candidate_plan(
+                f"scheduler-monitor-preview-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 Scheduler Preview Scholarships",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+            priority_score=250,
+        )
+        collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection preview post.",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            next_post_at=timezone.now() - timedelta(minutes=1),
+            priority_score=250,
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["due_items"][0]["type"], "collection")
+        self.assertEqual(response.data["due_items"][0]["plan_id"], collection_plan.pk)
+        self.assertEqual(response.data["due_items"][0]["collection_id"], collection.pk)
+        self.assertEqual(
+            response.data["due_items"][0]["link_url"],
+            collection_plan.link_url,
+        )
+
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_post_result_updates_successful_collection_plan(self):
         plans = [

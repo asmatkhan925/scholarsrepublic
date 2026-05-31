@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import {
   ArrowRight,
+  Activity,
   BookOpenCheck,
   CheckCircle2,
   Database,
@@ -115,6 +116,12 @@ const supportActions: AdminAction[] = [
     description: "Use only when a field or model is not available in the custom workbench yet.",
     href: "/admin",
     icon: Database,
+  },
+  {
+    title: "Social scheduler monitor",
+    description: "Check Facebook scheduler caps, due queue, collection plans, and recent logs.",
+    href: "/dashboard/admin/social-scheduler",
+    icon: Activity,
   },
   {
     title: "Manage pathways",

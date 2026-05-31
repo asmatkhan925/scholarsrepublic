@@ -147,6 +147,84 @@ export type AdminOverviewResponse = {
   };
 };
 
+export type SocialSchedulerStatusResponse = {
+  server_time: string;
+  posted_today: number;
+  skipped_today: number;
+  failed_today: number;
+  daily_cap: number;
+  daily_remaining: number;
+  per_run_cap: number;
+  min_spacing_minutes: number;
+  latest_posted_at: string | null;
+  next_allowed_post_at: string | null;
+  due_count: number;
+  returned_count: number;
+  reason: string;
+  due_items: Array<{
+    type: "opportunity" | "collection";
+    plan_id: number;
+    opportunity_id?: number;
+    collection_id?: number;
+    title?: string;
+    collection_title?: string;
+    message: string;
+    image_url: string;
+    image_source: string;
+    link_url: string;
+    auto_social_decision?: string;
+    priority_score: number;
+    priority_reason?: Record<string, unknown>;
+    next_post_at?: string | null;
+  }>;
+  individual_plans: {
+    ready: number;
+    due_ready: number;
+    posted: number;
+    failed: number;
+    paused: number;
+    draft: number;
+    by_auto_social_decision: {
+      individual: number;
+      collection_candidate: number;
+      website_only: number;
+      manual_review: number;
+    };
+  };
+  collections: {
+    by_status: Record<string, number>;
+    social_post_plans_by_status: Record<string, number>;
+    next_plans: Array<{
+      id: number;
+      collection_id: number;
+      collection_title: string;
+      status: string;
+      platform: string;
+      priority_score: number;
+      next_post_at: string | null;
+      posted_at: string | null;
+      link_url: string;
+      facebook_post_id: string;
+    }>;
+  };
+  recent_logs: {
+    opportunities: Array<{
+      created_at: string | null;
+      status: string;
+      title: string;
+      plan_id: number | null;
+      error_message: string;
+    }>;
+    collections: Array<{
+      created_at: string | null;
+      status: string;
+      title: string;
+      plan_id: number | null;
+      error_message: string;
+    }>;
+  };
+};
+
 export type HealthResponse = {
   status: "ok";
   message: string;
@@ -357,6 +435,13 @@ export async function getScholarship(slug: string) {
 
 export async function getAdminOverview() {
   const response = await api.get<AdminOverviewResponse>("/admin/overview/");
+  return response.data;
+}
+
+export async function getSocialSchedulerStatus() {
+  const response = await api.get<SocialSchedulerStatusResponse>(
+    "/admin/social/scheduler-status/",
+  );
   return response.data;
 }
 

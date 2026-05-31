@@ -23,6 +23,7 @@ from apps.opportunities.views import (
     AdminScholarshipFacebookScheduleView,
     AdminScholarshipResearchLeadActionView,
     AdminScholarshipResearchLeadListView,
+    AdminSocialSchedulerStatusView,
     AdminScholarshipDeadlineApplyView,
     AdminScholarshipDeadlineVerificationActionView,
     AdminScholarshipDeadlineVerificationPackageView,
@@ -159,6 +160,11 @@ urlpatterns = [
         "admin/overview/",
         AdminOverviewView.as_view(),
         name="admin-overview",
+    ),
+    path(
+        "admin/social/scheduler-status/",
+        AdminSocialSchedulerStatusView.as_view(),
+        name="admin-social-scheduler-status",
     ),
     path(
         "admin/agent/debug-auth/",
