@@ -2602,6 +2602,264 @@ def _serialize_admin_collection_social_plan(plan):
     }
 
 
+def _social_health_alert(level, code, title, message, suggested_action, related_url=""):
+    return {
+        "level": level,
+        "code": code,
+        "title": title,
+        "message": message,
+        "suggested_action": suggested_action,
+        "related_url": related_url,
+    }
+
+
+def _latest_social_posted_at():
+    latest_opportunity = (
+        OpportunitySocialPostLog.objects.filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at__isnull=False,
+        )
+        .order_by("-posted_at", "-created_at")
+        .first()
+    )
+    latest_collection = (
+        OpportunityCollectionSocialPostLog.objects.filter(
+            platform=DEFAULT_PLATFORM,
+            status=OpportunityCollectionSocialPostLog.Status.POSTED,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    latest_posted_at = latest_opportunity.posted_at if latest_opportunity else None
+    if latest_collection and (
+        latest_posted_at is None or latest_collection.created_at > latest_posted_at
+    ):
+        latest_posted_at = latest_collection.created_at
+    return latest_posted_at
+
+
+def _build_social_health_alerts(
+    *,
+    now,
+    due_response,
+    opportunity_failed_today,
+    collection_failed_today,
+):
+    alerts = []
+    overdue_cutoff = now - timedelta(hours=2)
+    next_day = now + timedelta(hours=24)
+
+    empty_opportunity_count = OpportunitySocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunitySocialPostPlan.Status.READY,
+        enabled=True,
+    ).filter(Q(post_text__isnull=True) | Q(post_text__exact="")).count()
+    empty_collection_count = OpportunityCollectionSocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunityCollectionSocialPostPlan.Status.READY,
+    ).filter(Q(post_text__isnull=True) | Q(post_text__exact="")).count()
+    overdue_opportunity_count = OpportunitySocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunitySocialPostPlan.Status.READY,
+        enabled=True,
+        next_post_at__isnull=False,
+        next_post_at__lt=overdue_cutoff,
+    ).count()
+    overdue_collection_count = OpportunityCollectionSocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunityCollectionSocialPostPlan.Status.READY,
+        next_post_at__isnull=False,
+        next_post_at__lt=overdue_cutoff,
+    ).count()
+    manual_review_count = OpportunitySocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.MANUAL_REVIEW,
+    ).count()
+    unapproved_collection_plan_count = OpportunityCollectionSocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+    ).exclude(collection__status=OpportunityCollection.Status.APPROVED).count()
+    upcoming_opportunity_count = OpportunitySocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunitySocialPostPlan.Status.READY,
+        enabled=True,
+        auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+        opportunity__status=Opportunity.Status.PUBLISHED,
+    ).filter(Q(next_post_at__isnull=True) | Q(next_post_at__lte=next_day)).count()
+    upcoming_collection_count = OpportunityCollectionSocialPostPlan.objects.filter(
+        platform=DEFAULT_PLATFORM,
+        status=OpportunityCollectionSocialPostPlan.Status.READY,
+        collection__status=OpportunityCollection.Status.APPROVED,
+        next_post_at__isnull=False,
+        next_post_at__lte=next_day,
+    ).count()
+
+    if opportunity_failed_today + collection_failed_today > 0:
+        alerts.append(
+            _social_health_alert(
+                "critical",
+                "failed_posts_today",
+                "Social posts failed today",
+                f"{opportunity_failed_today + collection_failed_today} social post result(s) failed today.",
+                "Open the social logs, inspect the error messages, and confirm the Worker/backend credentials are healthy.",
+                "/dashboard/admin/social/scheduler",
+            )
+        )
+    if collection_failed_today > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "collection_failed_posts_today",
+                "Collection posts failed today",
+                f"{collection_failed_today} collection social post result(s) failed today.",
+                "Review collection social logs and collection post plans before the next Worker run.",
+                "/dashboard/admin/social/collection-plans",
+            )
+        )
+    if empty_opportunity_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "empty_opportunity_post_text",
+                "Ready opportunity plans need captions",
+                f"{empty_opportunity_count} ready opportunity social plan(s) have empty post text.",
+                "Open Opportunity Social Plans and add or review captions before posting.",
+                "/dashboard/admin/social/opportunity-plans",
+            )
+        )
+    if empty_collection_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "empty_collection_post_text",
+                "Ready collection plans need captions",
+                f"{empty_collection_count} ready collection social plan(s) have empty post text.",
+                "Open Collection Social Plans and add or review captions before posting.",
+                "/dashboard/admin/social/collection-plans",
+            )
+        )
+    if overdue_opportunity_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "overdue_opportunity_plans",
+                "Opportunity plans are overdue",
+                f"{overdue_opportunity_count} ready opportunity plan(s) are more than 2 hours past next_post_at.",
+                "Check spacing/cap status and review the due opportunity plans.",
+                "/dashboard/admin/social/opportunity-plans",
+            )
+        )
+    if overdue_collection_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "overdue_collection_plans",
+                "Collection plans are overdue",
+                f"{overdue_collection_count} ready collection plan(s) are more than 2 hours past next_post_at.",
+                "Check Worker runs and review the due collection plans.",
+                "/dashboard/admin/social/collection-plans",
+            )
+        )
+    if due_response["daily_remaining"] <= 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "daily_cap_reached",
+                "Daily social cap reached",
+                "The configured daily Facebook post cap has been reached.",
+                "No action is needed unless the cap is too low for today; otherwise wait for the next UTC day.",
+                "/dashboard/admin/social/scheduler",
+            )
+        )
+    elif due_response["daily_remaining"] <= 2:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "daily_remaining_low",
+                "Daily social capacity is low",
+                f"Only {due_response['daily_remaining']} Facebook post slot(s) remain today.",
+                "Prioritize high-value plans and let lower-priority posts wait.",
+                "/dashboard/admin/social/scheduler",
+            )
+        )
+    if upcoming_opportunity_count + upcoming_collection_count == 0:
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "no_ready_plans_next_24h",
+                "No ready plans for the next 24 hours",
+                "There are no ready opportunity or approved collection plans scheduled for the next 24 hours.",
+                "Run the daily social scheduler or review draft/paused plans if social posting should continue.",
+                "/dashboard/admin/social",
+            )
+        )
+    latest_scheduled_hour = None
+    utc_now = now.astimezone(dt_timezone.utc)
+    for scheduled_hour in (9, 12, 15):
+        if utc_now.hour > scheduled_hour or (utc_now.hour == scheduled_hour and utc_now.minute >= 30):
+            latest_scheduled_hour = scheduled_hour
+    if latest_scheduled_hour is not None:
+        scheduled_time = utc_now.replace(
+            hour=latest_scheduled_hour,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        latest_posted_at = _latest_social_posted_at()
+        if (
+            due_response["due_count"] > 0
+            and (latest_posted_at is None or latest_posted_at.astimezone(dt_timezone.utc) < scheduled_time)
+        ):
+            alerts.append(
+                _social_health_alert(
+                    "warning",
+                    "worker_may_not_have_posted",
+                    "Worker may not have posted after a scheduled run",
+                    f"The {latest_scheduled_hour:02d}:00 UTC run window has passed and due posts still exist.",
+                    "Check Cloudflare Worker logs and confirm the due-post endpoint is reachable.",
+                    "/dashboard/admin/social/scheduler",
+                )
+            )
+    if manual_review_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "manual_review_opportunity_plans",
+                "Opportunity plans need manual review",
+                f"{manual_review_count} opportunity social plan(s) are marked manual_review.",
+                "Review these plans before turning them into ready posts.",
+                "/dashboard/admin/social/opportunity-plans",
+            )
+        )
+    if unapproved_collection_plan_count > 0:
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "collection_plan_parent_not_approved",
+                "Collection plans are attached to unapproved collections",
+                f"{unapproved_collection_plan_count} collection social plan(s) have a parent collection that is not approved.",
+                "Approve the collection or pause/archive its social plan.",
+                "/dashboard/admin/social/collection-plans",
+            )
+        )
+    if (
+        due_response["due_count"] > 0
+        and due_response["returned_count"] == 0
+        and due_response["reason"] in {"daily_cap_reached", "minimum_interval_not_reached"}
+    ):
+        alerts.append(
+            _social_health_alert(
+                "warning",
+                "due_queue_blocked_by_cap_or_spacing",
+                "Due queue is blocked by cap or spacing",
+                f"{due_response['due_count']} post(s) are due, but none are returned because {due_response['reason']}.",
+                "Wait for spacing to clear or the next daily cap reset.",
+                "/dashboard/admin/social/scheduler",
+            )
+        )
+    return alerts
+
+
 class AdminSocialOpportunityPlanListView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
@@ -2742,6 +3000,12 @@ class AdminSocialSchedulerStatusView(APIView):
             OpportunityCollectionSocialPostPlan.Status.values,
             platform=DEFAULT_PLATFORM,
         )
+        opportunity_failed_today = opportunity_today.filter(
+            status=OpportunitySocialPostLog.Status.FAILED
+        ).count()
+        collection_failed_today = collection_today.filter(
+            status=OpportunityCollectionSocialPostLog.Status.FAILED
+        ).count()
 
         return Response(
             {
@@ -2753,12 +3017,7 @@ class AdminSocialSchedulerStatusView(APIView):
                 + collection_today.filter(
                     status=OpportunityCollectionSocialPostLog.Status.SKIPPED
                 ).count(),
-                "failed_today": opportunity_today.filter(
-                    status=OpportunitySocialPostLog.Status.FAILED
-                ).count()
-                + collection_today.filter(
-                    status=OpportunityCollectionSocialPostLog.Status.FAILED
-                ).count(),
+                "failed_today": opportunity_failed_today + collection_failed_today,
                 "daily_cap": due_response["daily_cap"],
                 "daily_remaining": due_response["daily_remaining"],
                 "per_run_cap": due_response["per_run_cap"],
@@ -2769,6 +3028,12 @@ class AdminSocialSchedulerStatusView(APIView):
                 "returned_count": due_response["returned_count"],
                 "reason": due_response["reason"],
                 "due_items": [_serialize_due_preview_item(item) for item in due_response["items"]],
+                "health_alerts": _build_social_health_alerts(
+                    now=now,
+                    due_response=due_response,
+                    opportunity_failed_today=opportunity_failed_today,
+                    collection_failed_today=collection_failed_today,
+                ),
                 "individual_plans": {
                     "ready": individual_counts.get(OpportunitySocialPostPlan.Status.READY, 0),
                     "due_ready": self._due_individual_ready_count(now),

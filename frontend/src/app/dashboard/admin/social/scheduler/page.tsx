@@ -6,6 +6,7 @@ import { Activity, Clock, RefreshCw, Send, ShieldAlert } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminNotice } from "@/components/admin/AdminUI";
+import { SocialHealthAlerts } from "@/components/admin/SocialHealthAlerts";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
@@ -107,6 +108,8 @@ function SocialSchedulerContent() {
         </div>
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
+
+        {status ? <SocialHealthAlerts alerts={status.health_alerts} /> : null}
 
         <section className="grid gap-3 md:grid-cols-4">
           <MetricCard label="Posted today" value={status?.posted_today ?? "..."} icon={Send} />

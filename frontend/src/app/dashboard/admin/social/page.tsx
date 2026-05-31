@@ -23,6 +23,7 @@ import {
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminHero, AdminMetric, AdminNotice } from "@/components/admin/AdminUI";
+import { SocialHealthAlerts } from "@/components/admin/SocialHealthAlerts";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button } from "@/components/ui";
 import { getSocialSchedulerStatus, type SocialSchedulerStatusResponse } from "@/lib/api";
@@ -422,6 +423,8 @@ function SocialCenterContent() {
         />
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
+
+        {status ? <SocialHealthAlerts alerts={status.health_alerts} /> : null}
 
         <section className="grid gap-3 md:grid-cols-5">
           <SummaryTile label="Posted today" value={status?.posted_today ?? "..."} icon={Send} />

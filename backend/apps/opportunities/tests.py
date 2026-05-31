@@ -3751,6 +3751,8 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("social_post_plans_by_status", response.data["collections"])
         self.assertTrue(response.data["collections"]["next_plans"])
         self.assertTrue(response.data["recent_logs"]["collections"])
+        self.assertIn("health_alerts", response.data)
+        self.assertIsInstance(response.data["health_alerts"], list)
 
     @override_settings(
         SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
@@ -3791,6 +3793,172 @@ class OpportunityAPITests(APITestCase):
             response.data["due_items"][0]["link_url"],
             collection_plan.link_url,
         )
+
+    def test_admin_social_scheduler_status_failed_logs_create_health_alerts(self):
+        opportunity = self.opportunity(slug="scheduler-alert-failed-opportunity")
+        opportunity_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+            post_text="Ready caption.",
+            link_url="https://scholarsrepublic.org/scholarships/scheduler-alert-failed-opportunity",
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            plan=opportunity_plan,
+            platform="facebook",
+            status=OpportunitySocialPostLog.Status.FAILED,
+            error_message="Worker failure.",
+        )
+        plans = [
+            self.collection_candidate_plan(
+                f"scheduler-alert-collection-failed-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 Scheduler Failed Collection Scholarships",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+        )
+        collection_plan = OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection caption.",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+        )
+        OpportunityCollectionSocialPostLog.objects.create(
+            collection=collection,
+            plan=collection_plan,
+            platform="facebook",
+            status=OpportunityCollectionSocialPostLog.Status.FAILED,
+            error_message="Collection failure.",
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
+        self.assertIn("failed_posts_today", alert_codes)
+        self.assertIn("collection_failed_posts_today", alert_codes)
+
+    def test_admin_social_scheduler_status_overdue_plans_create_health_alerts(self):
+        opportunity = self.opportunity(slug="scheduler-alert-overdue-opportunity")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+            post_text="Ready caption.",
+            next_post_at=timezone.now() - timedelta(hours=3),
+            link_url="https://scholarsrepublic.org/scholarships/scheduler-alert-overdue-opportunity",
+        )
+        plans = [
+            self.collection_candidate_plan(
+                f"scheduler-alert-overdue-collection-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 Scheduler Overdue Collection Scholarships",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+        )
+        OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="Collection caption.",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+            next_post_at=timezone.now() - timedelta(hours=3),
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
+        self.assertIn("overdue_opportunity_plans", alert_codes)
+        self.assertIn("overdue_collection_plans", alert_codes)
+
+    @override_settings(
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=1,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
+    def test_admin_social_scheduler_status_daily_cap_reached_creates_health_alert(self):
+        opportunity = self.opportunity(slug="scheduler-alert-cap-opportunity")
+        OpportunitySocialPostLog.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
+        self.assertIn("daily_cap_reached", alert_codes)
+
+    def test_admin_social_scheduler_status_empty_captions_create_health_alerts(self):
+        opportunity = self.opportunity(slug="scheduler-alert-empty-caption-opportunity")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+            post_text="",
+            link_url="https://scholarsrepublic.org/scholarships/scheduler-alert-empty-caption-opportunity",
+        )
+        plans = [
+            self.collection_candidate_plan(
+                f"scheduler-alert-empty-caption-collection-{index}",
+                priority_score=50,
+            )
+            for index in range(5)
+        ]
+        collection = self.collection_from_plans(
+            "5 Scheduler Empty Caption Collection Scholarships",
+            plans,
+            status=OpportunityCollection.Status.APPROVED,
+        )
+        OpportunityCollectionSocialPostPlan.objects.create(
+            collection=collection,
+            status=OpportunityCollectionSocialPostPlan.Status.READY,
+            post_text="",
+            link_url=f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
+        self.assertIn("empty_opportunity_post_text", alert_codes)
+        self.assertIn("empty_collection_post_text", alert_codes)
+
+    def test_admin_social_scheduler_status_manual_review_plans_create_health_alert(self):
+        opportunity = self.opportunity(slug="scheduler-alert-manual-review")
+        OpportunitySocialPostPlan.objects.create(
+            opportunity=opportunity,
+            platform="facebook",
+            status=OpportunitySocialPostPlan.Status.READY,
+            auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.MANUAL_REVIEW,
+            post_text="Manual review caption.",
+            link_url="https://scholarsrepublic.org/scholarships/scheduler-alert-manual-review",
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/admin/social/scheduler-status/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
+        self.assertIn("manual_review_opportunity_plans", alert_codes)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_post_result_updates_successful_collection_plan(self):

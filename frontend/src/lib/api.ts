@@ -161,6 +161,14 @@ export type SocialSchedulerStatusResponse = {
   due_count: number;
   returned_count: number;
   reason: string;
+  health_alerts: Array<{
+    level: "info" | "warning" | "critical";
+    code: string;
+    title: string;
+    message: string;
+    suggested_action: string;
+    related_url: string;
+  }>;
   due_items: Array<{
     type: "opportunity" | "collection";
     plan_id: number;
