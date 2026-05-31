@@ -23,8 +23,6 @@ from apps.opportunities.views import (
     AdminScholarshipFacebookScheduleView,
     AdminScholarshipResearchLeadActionView,
     AdminScholarshipResearchLeadListView,
-    AdminSocialGPTCollectionCaptionView,
-    AdminSocialGPTOpportunityCaptionView,
     AdminSocialSchedulerStatusView,
     AdminScholarshipDeadlineApplyView,
     AdminScholarshipDeadlineVerificationActionView,
@@ -167,16 +165,6 @@ urlpatterns = [
         "admin/social/scheduler-status/",
         AdminSocialSchedulerStatusView.as_view(),
         name="admin-social-scheduler-status",
-    ),
-    path(
-        "admin/social/opportunity-plans/<int:plan_id>/generate-gpt-caption/",
-        AdminSocialGPTOpportunityCaptionView.as_view(),
-        name="admin-social-opportunity-gpt-caption",
-    ),
-    path(
-        "admin/social/collection-plans/<int:plan_id>/generate-gpt-caption/",
-        AdminSocialGPTCollectionCaptionView.as_view(),
-        name="admin-social-collection-gpt-caption",
     ),
     path(
         "admin/agent/debug-auth/",

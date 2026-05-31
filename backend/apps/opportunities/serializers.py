@@ -313,7 +313,6 @@ class OpportunityDetailSerializer(serializers.ModelSerializer):
             return None
 
         return {
-            "plan_id": plan.pk,
             "image_url": get_preferred_social_image_url(plan, request=self.context.get("request")),
             "image_source": get_preferred_social_image_source(plan),
             "image_status": plan.social_image_status,

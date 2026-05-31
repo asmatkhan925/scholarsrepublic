@@ -265,11 +265,6 @@ FACEBOOK_POSTER_WORKER_URL = os.getenv(
     "FACEBOOK_POSTER_WORKER_URL",
     "https://facebook-poster.scholarsrepublic.org",
 )
-SOCIAL_GPT_ENABLED = env_bool("SOCIAL_GPT_ENABLED", False)
-SOCIAL_GPT_PROVIDER = os.getenv("SOCIAL_GPT_PROVIDER", "openai")
-SOCIAL_GPT_MODEL = os.getenv("SOCIAL_GPT_MODEL", "gpt-4o-mini")
-SOCIAL_GPT_API_KEY = os.getenv("SOCIAL_GPT_API_KEY", "")
-SOCIAL_GPT_MAX_CHARS = env_int("SOCIAL_GPT_MAX_CHARS", 900)
 
 
 # Authentication and email verification

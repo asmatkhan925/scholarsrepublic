@@ -475,7 +475,6 @@ export type OpportunityAdminPayload = Partial<OpportunityDetail> & {
 };
 
 export type SocialImageState = {
-  plan_id?: number;
   image_url: string;
   image_source: string;
   image_status: string;

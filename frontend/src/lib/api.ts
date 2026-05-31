@@ -225,19 +225,6 @@ export type SocialSchedulerStatusResponse = {
   };
 };
 
-export type SocialGPTCaptionResponse = {
-  ok: boolean;
-  type: "opportunity" | "collection";
-  plan_id: number;
-  opportunity_id?: number;
-  collection_id?: number;
-  title: string;
-  generated_text: string;
-  saved: boolean;
-  post_text: string;
-  max_chars: number;
-};
-
 export type HealthResponse = {
   status: "ok";
   message: string;
@@ -455,19 +442,6 @@ export async function getSocialSchedulerStatus() {
   const response = await api.get<SocialSchedulerStatusResponse>(
     "/admin/social/scheduler-status/",
   );
-  return response.data;
-}
-
-export async function generateSocialGPTCaption(
-  targetType: "opportunity" | "collection",
-  planId: number,
-  payload?: { save?: boolean },
-) {
-  const path =
-    targetType === "collection"
-      ? `/admin/social/collection-plans/${planId}/generate-gpt-caption/`
-      : `/admin/social/opportunity-plans/${planId}/generate-gpt-caption/`;
-  const response = await api.post<SocialGPTCaptionResponse>(path, payload ?? {});
   return response.data;
 }
 

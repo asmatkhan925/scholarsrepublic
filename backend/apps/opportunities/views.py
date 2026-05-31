@@ -52,12 +52,6 @@ from apps.opportunities.services.duplicate_detector import (
     normalize_url,
     title_similarity,
 )
-from apps.opportunities.services.gpt_social_writer import (
-    GPTSocialWriterConfigurationError,
-    GPTSocialWriterValidationError,
-    generate_collection_plan_caption,
-    generate_opportunity_plan_caption,
-)
 from apps.opportunities.services.opportunity_draft_importer import (
     import_opportunity_draft,
     validate_opportunity_draft_payload,
@@ -2690,98 +2684,6 @@ class AdminSocialSchedulerStatusView(APIView):
             "plan_id": log.plan_id,
             "error_message": log.error_message,
         }
-
-
-class AdminSocialGPTOpportunityCaptionView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
-
-    def post(self, request, plan_id):
-        plan = (
-            OpportunitySocialPostPlan.objects.select_related(
-                "opportunity",
-                "opportunity__country_ref",
-            )
-            .filter(pk=plan_id)
-            .first()
-        )
-        if not plan:
-            return Response(
-                {"detail": "Opportunity social post plan not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        save = bool(parse_bool(request.data.get("save"))) if isinstance(request.data, dict) else False
-        try:
-            result = generate_opportunity_plan_caption(plan, save=save)
-        except GPTSocialWriterConfigurationError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except GPTSocialWriterValidationError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            logger.exception("GPT social opportunity caption generation failed: plan_id=%s", plan_id)
-            return Response(
-                {"detail": "GPT social writer request failed."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        return Response(
-            {
-                "ok": True,
-                "type": result.target_type,
-                "plan_id": result.plan_id,
-                "opportunity_id": plan.opportunity_id,
-                "title": plan.opportunity.title,
-                "generated_text": result.text,
-                "saved": result.saved,
-                "post_text": plan.post_text if result.saved else "",
-                "max_chars": getattr(settings, "SOCIAL_GPT_MAX_CHARS", 900),
-            }
-        )
-
-
-class AdminSocialGPTCollectionCaptionView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
-
-    def post(self, request, plan_id):
-        plan = (
-            OpportunityCollectionSocialPostPlan.objects.select_related("collection")
-            .prefetch_related("collection__items__opportunity")
-            .filter(pk=plan_id)
-            .first()
-        )
-        if not plan:
-            return Response(
-                {"detail": "Collection social post plan not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        save = bool(parse_bool(request.data.get("save"))) if isinstance(request.data, dict) else False
-        try:
-            result = generate_collection_plan_caption(plan, save=save)
-        except GPTSocialWriterConfigurationError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except GPTSocialWriterValidationError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            logger.exception("GPT social collection caption generation failed: plan_id=%s", plan_id)
-            return Response(
-                {"detail": "GPT social writer request failed."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        return Response(
-            {
-                "ok": True,
-                "type": result.target_type,
-                "plan_id": result.plan_id,
-                "collection_id": plan.collection_id,
-                "title": plan.collection.title,
-                "generated_text": result.text,
-                "saved": result.saved,
-                "post_text": plan.post_text if result.saved else "",
-                "max_chars": getattr(settings, "SOCIAL_GPT_MAX_CHARS", 900),
-            }
-        )
 
 
 class OpportunityFilterMixin:

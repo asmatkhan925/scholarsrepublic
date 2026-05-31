@@ -3,19 +3,13 @@
 import { useEffect, useState } from "react";
 
 import {
-  ArrowRight,
   Activity,
-  BookOpenCheck,
-  CheckCircle2,
+  ArrowRight,
   Database,
-  ExternalLink,
   FileSearch,
   GraduationCap,
-  MessageSquare,
-  Search,
+  Settings,
   ShieldCheck,
-  Sparkles,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,184 +21,76 @@ import { Badge } from "@/components/ui";
 import { getAdminOverview, type AdminOverviewResponse } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 
-type AdminAction = {
+type AdminHub = {
   title: string;
   description: string;
   href: string;
   icon: LucideIcon;
   badge?: string;
-  tone?: "primary" | "normal" | "warning";
 };
 
-type WorkflowStep = {
-  label: string;
-  title: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-};
-
-const workflowSteps: WorkflowStep[] = [
+const adminHubs: AdminHub[] = [
   {
-    label: "Step 1",
-    title: "Import with GPT",
-    description: "Paste the official source, copy the prompt, paste GPT JSON, and create a draft.",
-    href: "/dashboard/admin/scholarships/import",
-    icon: Sparkles,
-  },
-  {
-    label: "Step 2",
-    title: "Review queue",
-    description: "Fix warnings, errors, missing fields, source link, funding, deadline, and eligibility.",
-    href: "/dashboard/admin/scholarships/drafts",
-    icon: FileSearch,
-  },
-  {
-    label: "Step 3",
-    title: "Edit scholarship",
-    description: "Open the imported scholarship, fix fields, improve wording, and prepare it for students.",
+    title: "Scholarship Management",
+    description: "Import, review, edit, publish, verify, and maintain scholarship listings.",
     href: "/dashboard/admin/scholarships",
     icon: GraduationCap,
+    badge: "Core",
   },
   {
-    label: "Step 4",
-    title: "Publish and verify",
-    description: "Publish only after checking the official source. Mark verified only after final review.",
-    href: "/dashboard/admin/scholarships",
-    icon: ShieldCheck,
-  },
-];
-
-const mainActions: AdminAction[] = [
-  {
-    title: "Import scholarship with GPT",
-    description: "Best starting point. Use an official source URL/text and create a structured OpportunityDraft.",
-    href: "/dashboard/admin/scholarships/import",
-    icon: Sparkles,
-    badge: "Start here",
-    tone: "primary",
-  },
-  {
-    title: "Review queue",
-    description: "Fix imported items that need action. Clean items become scholarship drafts automatically.",
-    href: "/dashboard/admin/scholarships/drafts",
+    title: "Research Leads",
+    description: "Review scholarship links and GPT-assisted lead research before draft creation.",
+    href: "/dashboard/admin/scholarships/research-leads",
     icon: FileSearch,
-    badge: "Review",
-    tone: "primary",
-  },
-  {
-    title: "Scholarship manager",
-    description: "Search, publish, archive, feature, verify, preview, and edit scholarships.",
-    href: "/dashboard/admin/scholarships",
-    icon: GraduationCap,
-    badge: "Main",
-    tone: "primary",
-  },
-  {
-    title: "Comment moderation",
-    description: "Approve pending comments, hide active comments, and review deleted comments.",
-    href: "/dashboard/admin/comments",
-    icon: MessageSquare,
-    badge: "Moderation",
-    tone: "warning",
-  },
-];
-
-const supportActions: AdminAction[] = [
-  {
-    title: "Django Admin fallback",
-    description: "Use only when a field or model is not available in the custom workbench yet.",
-    href: "/admin",
-    icon: Database,
   },
   {
     title: "Social / Marketing Center",
-    description: "Monitor social automation, Facebook plans, drafts, logs, and marketing workflows.",
+    description: "Monitor social automation, Facebook plans, drafts, logs, and Custom GPT workflows.",
     href: "/dashboard/admin/social",
     icon: Activity,
+    badge: "Social",
   },
   {
-    title: "Manage pathways",
-    description: "Organize country hubs, scholarship programs, application tracks, and pathway grouping.",
-    href: "/admin/opportunities/opportunitypathway/",
-    icon: BookOpenCheck,
-  },
-  {
-    title: "Student users",
-    description: "Review accounts, roles, staff status, and access issues.",
-    href: "/admin/users/user/",
-    icon: Users,
-  },
-  {
-    title: "Student profiles",
-    description: "Inspect profile data used for recommendations and match scoring.",
-    href: "/admin/profiles/studentprofile/",
+    title: "System / Monitoring",
+    description: "Moderation, deadline queues, scheduler health, and operational monitoring.",
+    href: "/dashboard/admin/comments",
     icon: ShieldCheck,
+  },
+  {
+    title: "Settings / Tools",
+    description: "Django admin fallback, pathways, users, profiles, and lower-level tools.",
+    href: "/admin",
+    icon: Settings,
   },
 ];
 
-function ActionCard({ item }: { item: AdminAction }) {
+function HubCard({ item }: { item: AdminHub }) {
   const Icon = item.icon;
-  const primary = item.tone === "primary";
-  const warning = item.tone === "warning";
 
   return (
     <a
       href={item.href}
-      className={`group rounded-2xl border p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#181b1d] dark:hover:bg-white/5 ${
-        primary
-          ? "border-pine/15 bg-mint/30 hover:border-pine/30 hover:bg-mint/45"
-          : warning
-            ? "border-saffron/30 bg-saffron/10 hover:border-saffron/50"
-            : "border-pine/10 bg-white hover:border-pine/25 hover:bg-mint/20"
-      }`}
+      className="group rounded-2xl border border-pine/10 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-mint/20 hover:shadow-md dark:border-white/10 dark:bg-[#181b1d] dark:hover:bg-white/5"
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pine text-white">
-          <Icon size={17} aria-hidden="true" />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pine text-white">
+          <Icon size={18} aria-hidden="true" />
         </span>
-        {item.badge ? <Badge tone={warning ? "saffron" : "mint"}>{item.badge}</Badge> : null}
+        {item.badge ? <Badge tone="mint">{item.badge}</Badge> : null}
       </div>
 
-      <h2 className="mt-3 text-base font-bold leading-snug text-ink group-hover:text-pine dark:text-white">
+      <h2 className="mt-4 text-lg font-bold leading-snug text-ink group-hover:text-pine dark:text-white">
         {item.title}
       </h2>
 
-      <p className="mt-1 line-clamp-3 text-sm leading-5 text-ink/60 dark:text-white/58">
+      <p className="mt-2 text-sm leading-6 text-ink/60 dark:text-white/58">
         {item.description}
       </p>
 
-      <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-pine">
-        Open
+      <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-pine">
+        Open hub
         <ArrowRight size={13} aria-hidden="true" />
       </span>
-    </a>
-  );
-}
-
-function WorkflowCard({ step }: { step: WorkflowStep }) {
-  const Icon = step.icon;
-
-  return (
-    <a
-      href={step.href}
-      className="rounded-2xl border border-pine/10 bg-white p-3 transition hover:-translate-y-0.5 hover:border-pine/25 hover:bg-mint/25 hover:shadow-sm dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-    >
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
-          <Icon size={17} aria-hidden="true" />
-        </span>
-
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
-            {step.label}
-          </p>
-          <h3 className="mt-0.5 text-sm font-bold text-ink dark:text-white">{step.title}</h3>
-          <p className="mt-1 text-xs leading-5 text-ink/60 dark:text-white/55">
-            {step.description}
-          </p>
-        </div>
-      </div>
     </a>
   );
 }
@@ -243,15 +129,15 @@ function AdminDashboardContent() {
     <DashboardShell
       mode="admin"
       title="Admin Dashboard"
-      description="Scholarship research, GPT import, draft review, publishing, verification, and moderation."
+      description="Structured hub for scholarship operations, social workflows, monitoring, and tools."
       hideHeader
     >
       <div className="space-y-4">
         <AdminHero
-          eyebrow="Scholarship Admin Workbench"
+          eyebrow="Admin Hub"
           title={`Welcome, ${user?.full_name ?? "Admin"}.`}
-          description="Import scholarships, review drafts, publish verified listings, and moderate comments."
-          icon={ShieldCheck}
+          description="Choose a work area, then drill into the specific review queue or tool you need."
+          icon={Database}
           actions={
             <>
               <a
@@ -261,23 +147,16 @@ function AdminDashboardContent() {
                 Import scholarship
                 <ArrowRight size={15} aria-hidden="true" />
               </a>
-
               <a
                 href="/dashboard/admin/scholarships/drafts"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-pine/15 bg-white px-4 py-2 text-sm font-semibold text-pine transition hover:bg-mint dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
               >
-                Review queue
-                <ExternalLink size={15} aria-hidden="true" />
+                Review drafts
               </a>
             </>
           }
           metrics={
             <>
-              <AdminMetric
-                label="Pending comments"
-                value={overview?.comments.pending ?? "..."}
-                tone={(overview?.comments.pending ?? 0) > 0 ? "warning" : "normal"}
-              />
               <AdminMetric
                 label="Needs review"
                 value={overview?.drafts.needs_review ?? "..."}
@@ -287,6 +166,11 @@ function AdminDashboardContent() {
                 label="Published"
                 value={overview?.scholarships.published ?? "..."}
                 tone="success"
+              />
+              <AdminMetric
+                label="Pending comments"
+                value={overview?.comments.pending ?? "..."}
+                tone={(overview?.comments.pending ?? 0) > 0 ? "warning" : "normal"}
               />
               <AdminMetric
                 label="Unverified"
@@ -299,130 +183,35 @@ function AdminDashboardContent() {
 
         {overviewError ? <AdminNotice tone="danger">{overviewError}</AdminNotice> : null}
 
-        {overview ? (
-          <section className="grid gap-2 rounded-[1.25rem] border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d] md:grid-cols-4">
-            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
-                Draft queue
-              </p>
-              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
-                {overview.drafts.needs_review} need review, {overview.drafts.error} have errors.
-              </p>
-            </div>
-            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
-                Publishing
-              </p>
-              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
-                {overview.scholarships.draft} drafts, {overview.scholarships.expiring_soon} expiring soon.
-              </p>
-            </div>
-            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
-                Students
-              </p>
-              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
-                {overview.students.total} students, {overview.applications.saved} saved opportunities.
-              </p>
-            </div>
-            <div className="rounded-xl bg-[#f7faf8] px-3 py-2 dark:bg-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
-                Comments
-              </p>
-              <p className="mt-1 text-sm font-semibold text-ink/70 dark:text-white/65">
-                {overview.comments.pending} pending, {overview.comments.active} approved.
-              </p>
-            </div>
-          </section>
-        ) : null}
-
         <section>
-          <div className="mb-3 flex flex-col gap-1">
+          <div className="mb-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-              Main admin actions
+              Work areas
             </p>
-            <h2 className="text-xl font-bold text-ink dark:text-white">
-              Daily scholarship workflow
-            </h2>
+            <h1 className="mt-1 text-xl font-bold text-ink dark:text-white">
+              Admin centers
+            </h1>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {mainActions.map((item) => (
-              <ActionCard key={item.href} item={item} />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {adminHubs.map((item) => (
+              <HubCard key={item.title} item={item} />
             ))}
           </div>
         </section>
 
-        <section className="rounded-[1.35rem] border border-pine/10 bg-white p-3 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d] md:p-4">
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-              Recommended process
-            </p>
+        <section className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={17} className="text-pine" aria-hidden="true" />
             <h2 className="text-lg font-bold text-ink dark:text-white">
-              From official source to published scholarship
+              Publishing rule
             </h2>
-            <p className="max-w-3xl text-sm leading-6 text-ink/60 dark:text-white/58">
-              Follow this order to avoid publishing weak, incomplete, or unverified scholarship content.
-            </p>
           </div>
-
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-            {workflowSteps.map((step) => (
-              <WorkflowCard key={step.title} step={step} />
-            ))}
-          </div>
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <div>
-            <div className="mb-3">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-pine">
-                Support tools
-              </p>
-              <h2 className="mt-1 text-xl font-bold text-ink dark:text-white">
-                Admin backup and management
-              </h2>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {supportActions.map((item) => (
-                <ActionCard key={item.href} item={item} />
-              ))}
-            </div>
-          </div>
-
-          <aside className="grid content-start gap-3">
-            <div className="rounded-[1.35rem] border border-saffron/30 bg-saffron/10 p-4 dark:border-saffron/25 dark:bg-saffron/10">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={17} className="text-pine" aria-hidden="true" />
-                <h2 className="text-lg font-bold text-ink dark:text-white">
-                  Before publishing
-                </h2>
-              </div>
-
-              <ul className="mt-3 grid gap-2 text-sm leading-6 text-ink/65 dark:text-white/58">
-                <li>Official source URL is working.</li>
-                <li>Deadline is correct or marked rolling.</li>
-                <li>Funding claim is supported by source.</li>
-                <li>IELTS/no IELTS claim is verified.</li>
-                <li>Eligibility and documents are clear.</li>
-                <li>Scholarship is marked verified only after final review.</li>
-              </ul>
-            </div>
-
-            <div className="rounded-[1.35rem] border border-pine/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
-              <div className="flex items-center gap-2">
-                <Search size={17} className="text-pine" aria-hidden="true" />
-                <h2 className="text-lg font-bold text-ink dark:text-white">
-                  Research rule
-                </h2>
-              </div>
-
-              <p className="mt-2 text-sm leading-6 text-ink/60 dark:text-white/58">
-                Use official university, government, foundation, or scholarship provider pages. Avoid publishing from blogs, copied lists, or social posts unless verified against the official source.
-              </p>
-            </div>
-          </aside>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/60 dark:text-white/58">
+            Keep source verification, deadline checks, social copy, and final publishing as separate
+            review steps. Custom GPTs can help draft and review text, but the admin panel and Worker
+            control what is saved, scheduled, and posted.
+          </p>
         </section>
       </div>
     </DashboardShell>
