@@ -9,6 +9,8 @@
 5. If validation has no errors, show a concise summary and ask the admin to confirm draft creation.
 6. Call `createScholarshipDraft` with `{ "payload": { ...validated draft fields... } }` only after admin confirmation.
 7. Optionally call `saveScholarshipSocialDraft` for caption/image prompt storage. This does not post to Facebook.
+8. After generating one social image for a draft, immediately call `saveScholarshipSocialImage` for that same `draft_id`.
+9. For batch drafts, save images one by one. Never send one image for multiple drafts, and never send multiple images unless there is a clear one-to-one action call per draft.
 
 Draft validation request body:
 
@@ -43,6 +45,24 @@ Draft creation request body:
   "payload": {
     "...": "validated draft fields"
   }
+}
+```
+
+Social image save request body:
+
+```json
+{
+  "image_filename": "scholars_republic_provider_short_title_country_2026.png",
+  "image_prompt": "Exact prompt used to generate this one scholarship social image.",
+  "notes": "Optional admin note.",
+  "openaiFileIdRefs": [
+    {
+      "name": "generated_image.png",
+      "id": "file-...",
+      "mime_type": "image/png",
+      "download_link": "temporary OpenAI file URL"
+    }
+  ]
 }
 ```
 

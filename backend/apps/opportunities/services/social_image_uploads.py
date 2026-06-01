@@ -1,6 +1,7 @@
 import base64
 import binascii
 import os
+import re
 import uuid
 from io import BytesIO
 from urllib.error import URLError
@@ -14,9 +15,14 @@ from PIL import Image, UnidentifiedImageError
 from apps.opportunities.models import OpportunitySocialDraft, OpportunitySocialPostPlan
 
 
-MAX_SOCIAL_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_SOCIAL_IMAGE_BYTES = 10 * 1024 * 1024
 ALLOWED_FORMATS = {"PNG": "png", "JPEG": "jpg", "WEBP": "webp"}
-DOWNLOAD_TIMEOUT_SECONDS = 20
+ALLOWED_MIME_TYPES = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+}
+DOWNLOAD_TIMEOUT_SECONDS = 10
 
 
 class SocialImageError(ValueError):
@@ -88,7 +94,9 @@ def _clean_filename(filename, extension):
     if not cleaned:
         return f"{uuid.uuid4().hex}.{extension}"
 
-    base = os.path.splitext(cleaned)[0][:90] or uuid.uuid4().hex
+    base = os.path.splitext(cleaned)[0].lower()
+    base = re.sub(r"[^a-z0-9]+", "_", base).strip("_")
+    base = re.sub(r"_+", "_", base)[:90] or uuid.uuid4().hex
     return f"{base}.{extension}"
 
 
@@ -132,7 +140,7 @@ def _download_image(image_url):
 
 def _validate_and_normalize_image(image_bytes):
     if len(image_bytes) > MAX_SOCIAL_IMAGE_BYTES:
-        raise SocialImageError("Image exceeds the 8 MB limit.")
+        raise SocialImageError("Image exceeds the 10 MB limit.")
 
     try:
         image = Image.open(BytesIO(image_bytes))
@@ -156,7 +164,7 @@ def _validate_and_normalize_image(image_bytes):
     normalized = output.getvalue()
 
     if len(normalized) > MAX_SOCIAL_IMAGE_BYTES:
-        raise SocialImageError("Image exceeds the 8 MB limit after validation.")
+        raise SocialImageError("Image exceeds the 10 MB limit after validation.")
 
     return normalized, extension
 
@@ -220,6 +228,26 @@ def save_social_image_from_url(obj, image_url, source="gpt_image_url"):
         _download_image(image_url),
         filename=filename or None,
         source=source,
+    )
+
+
+def save_social_image_from_openai_file_ref(obj, file_ref, filename=None):
+    if not isinstance(file_ref, dict):
+        raise SocialImageError("openaiFileIdRefs must contain a file object.")
+
+    mime_type = str(file_ref.get("mime_type") or "").strip().lower()
+    if mime_type not in ALLOWED_MIME_TYPES:
+        raise SocialImageError("openaiFileIdRefs must contain a PNG, JPG, JPEG, or WebP image.")
+
+    download_link = str(file_ref.get("download_link") or "").strip()
+    if not download_link:
+        raise SocialImageError("openaiFileIdRefs[0].download_link is required.")
+
+    return _save_image_bytes(
+        obj,
+        _download_image(download_link),
+        filename=filename or file_ref.get("name") or file_ref.get("id") or None,
+        source=_source_choices(obj).GPT_UPLOADED,
     )
 
 

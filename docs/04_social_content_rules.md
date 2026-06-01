@@ -13,7 +13,8 @@ Use social draft actions only after a private scholarship draft exists.
 ## Image rules
 
 - Prompt-only image content is not a saved image.
-- If an exact GPT-generated image is available, upload/save the actual file through the backend image workflow.
+- If an exact GPT-generated image is available for a private draft, call `saveScholarshipSocialImage` immediately with exactly one `openaiFileIdRefs` image for the matching draft.
+- For batch drafts, save generated images one by one. Never reuse one image across multiple drafts.
 - If no saved image exists, the system can use the fallback Open Graph image.
 - Do not use fake university logos, fake seals, or fake official marks.
 

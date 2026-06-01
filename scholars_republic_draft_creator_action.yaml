@@ -150,6 +150,85 @@ paths:
                 properties: {}
                 additionalProperties: true
 
+  /admin/agent/scholarships/drafts/{draft_id}/social-image/:
+    post:
+      operationId: saveScholarshipSocialImage
+      summary: Save one GPT-generated scholarship social image
+      description: Save exactly one GPT-generated scholarship social image to the matching private scholarship draft/social draft. This does not publish, post to Facebook, or call any image generation backend.
+      x-openai-isConsequential: true
+      parameters:
+        - name: draft_id
+          in: path
+          required: true
+          description: Opportunity draft ID that this single generated image belongs to.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - openaiFileIdRefs
+              properties:
+                image_filename:
+                  type: string
+                  description: Safe descriptive filename for this one image, such as scholars_republic_provider_short_title_country_2026.png.
+                image_prompt:
+                  type: string
+                  description: The exact prompt used to generate this scholarship social image.
+                notes:
+                  type: string
+                  description: Optional internal notes about the image. Notes may be returned as a warning if the backend has no notes field for social drafts.
+                openaiFileIdRefs:
+                  type: array
+                  description: Exactly one GPT-generated scholarship image file from the conversation. Send one image for one matching draft only; never send multiple images or reuse one image for multiple drafts.
+                  minItems: 1
+                  maxItems: 1
+                  items:
+                    $ref: "#/components/schemas/OpenAIFileIdRef"
+              additionalProperties: true
+      responses:
+        "200":
+          description: Social image saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  draft_id:
+                    type: integer
+                  social_draft_id:
+                    type: integer
+                  image_url:
+                    type: string
+                  image_filename:
+                    type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                additionalProperties: true
+        "400":
+          description: Invalid image request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+        "404":
+          description: Draft not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
   /admin/agent/scholarship-research/check-duplicate/:
     post:
       operationId: checkScholarshipResearchDuplicate
@@ -367,3 +446,24 @@ components:
       properties:
         ok:
           type: boolean
+
+    OpenAIFileIdRef:
+      type: object
+      required:
+        - id
+        - mime_type
+        - download_link
+      properties:
+        name:
+          type: string
+        id:
+          type: string
+        mime_type:
+          type: string
+          enum:
+            - image/png
+            - image/jpeg
+            - image/webp
+        download_link:
+          type: string
+          description: Temporary OpenAI file URL for immediate backend download.

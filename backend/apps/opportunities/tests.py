@@ -1186,7 +1186,7 @@ class OpportunityAPITests(APITestCase):
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_social_draft_rejects_oversized_image(self):
         draft = self.create_agent_draft()
-        oversized = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * (8 * 1024 * 1024 + 1)).decode()
+        oversized = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * (10 * 1024 * 1024 + 1)).decode()
 
         response = self.client.post(
             f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-draft/",
@@ -1196,7 +1196,7 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["detail"], "Image exceeds the 8 MB limit.")
+        self.assertEqual(response.data["detail"], "Image exceeds the 10 MB limit.")
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_draft_social_image_endpoint_requires_agent_token(self):
@@ -1204,7 +1204,16 @@ class OpportunityAPITests(APITestCase):
 
         response = self.client.post(
             f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
-            {"image_base64": base64.b64encode(VALID_PNG_BYTES).decode()},
+            {
+                "openaiFileIdRefs": [
+                    {
+                        "id": "file-test",
+                        "name": "social.png",
+                        "mime_type": "image/png",
+                        "download_link": "https://files.example/social.png",
+                    }
+                ],
+            },
             format="json",
         )
 
@@ -1212,20 +1221,126 @@ class OpportunityAPITests(APITestCase):
         self.assert_json_response(response)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
-    def test_draft_social_image_endpoint_saves_base64_file(self):
+    def test_draft_social_image_endpoint_not_found_returns_404(self):
+        response = self.client.post(
+            "/api/admin/agent/scholarships/drafts/999999/social-image/",
+            {
+                "openaiFileIdRefs": [
+                    {
+                        "id": "file-test",
+                        "name": "social.png",
+                        "mime_type": "image/png",
+                        "download_link": "https://files.example/social.png",
+                    }
+                ],
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Scholarship draft not found."})
+        self.assert_json_response(response)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_rejects_missing_openai_file_refs(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+            {"image_prompt": "Professional scholarship announcement."},
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "openaiFileIdRefs must contain exactly one image file.",
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_rejects_multiple_openai_file_refs(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+            {
+                "openaiFileIdRefs": [
+                    {
+                        "id": "file-one",
+                        "name": "one.png",
+                        "mime_type": "image/png",
+                        "download_link": "https://files.example/one.png",
+                    },
+                    {
+                        "id": "file-two",
+                        "name": "two.png",
+                        "mime_type": "image/png",
+                        "download_link": "https://files.example/two.png",
+                    },
+                ]
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "openaiFileIdRefs must contain exactly one image file.",
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_rejects_non_image_mime(self):
+        draft = self.create_agent_draft()
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+            {
+                "openaiFileIdRefs": [
+                    {
+                        "id": "file-text",
+                        "name": "notes.txt",
+                        "mime_type": "text/plain",
+                        "download_link": "https://files.example/notes.txt",
+                    }
+                ]
+            },
+            format="json",
+            **self.agent_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("PNG, JPG, JPEG, or WebP", response.data["detail"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_downloads_openai_file_and_saves(self):
         draft = self.create_agent_draft()
 
         with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
-            response = self.client.post(
-                f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
-                {
-                    "image_base64": base64.b64encode(VALID_PNG_BYTES).decode(),
-                    "filename": "gpt-scholarship.png",
-                    "image_prompt": "Professional scholarship announcement.",
-                },
-                format="json",
-                **self.agent_headers(),
-            )
+            with patch(
+                "apps.opportunities.services.social_image_uploads.urlopen",
+                return_value=FakeImageResponse(),
+            ):
+                response = self.client.post(
+                    f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+                    {
+                        "image_filename": "../Scholars Republic Provider Title 2026.PNG",
+                        "image_prompt": "Professional scholarship announcement.",
+                        "notes": "Generated by Draft Creator GPT.",
+                        "openaiFileIdRefs": [
+                            {
+                                "id": "file-image",
+                                "name": "generated image.png",
+                                "mime_type": "image/png",
+                                "download_link": "https://files.example/generated.png",
+                            }
+                        ],
+                    },
+                    format="json",
+                    **self.agent_headers(),
+                )
 
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             social_draft = OpportunitySocialDraft.objects.get(opportunity_draft=draft)
@@ -1239,10 +1354,18 @@ class OpportunityAPITests(APITestCase):
                 OpportunitySocialDraft.SocialImageStatus.SAVED,
             )
             self.assertIn("/media/", response.data["image_url"])
+            self.assertEqual(
+                response.data["image_filename"],
+                "scholars_republic_provider_title_2026.png",
+            )
+            self.assertEqual(social_draft.facebook_image_prompt, "Professional scholarship announcement.")
+            self.assertIn("notes_not_stored", response.data["warnings"])
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
-    def test_draft_social_image_endpoint_downloads_and_saves_url(self):
+    def test_draft_social_image_endpoint_does_not_publish_or_post(self):
         draft = self.create_agent_draft()
+        opportunity_count = Opportunity.objects.count()
+        post_log_count = OpportunitySocialPostLog.objects.count()
 
         with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
             with patch(
@@ -1252,32 +1375,53 @@ class OpportunityAPITests(APITestCase):
                 response = self.client.post(
                     f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
                     {
-                        "image_url": "https://cdn.example/generated.png",
                         "image_prompt": "Professional scholarship announcement.",
+                        "openaiFileIdRefs": [
+                            {
+                                "id": "file-image",
+                                "name": "social.png",
+                                "mime_type": "image/png",
+                                "download_link": "https://files.example/generated.png",
+                            }
+                        ],
                     },
                     format="json",
                     **self.agent_headers(),
                 )
 
             self.assertEqual(response.status_code, status.HTTP_200_OK)
-            social_draft = OpportunitySocialDraft.objects.get(opportunity_draft=draft)
-            self.assertTrue(social_draft.facebook_image)
-            self.assertEqual(
-                social_draft.social_image_source,
-                OpportunitySocialDraft.SocialImageSource.GPT_IMAGE_URL,
-            )
-            self.assertIn("/media/", response.data["image_url"])
+            self.assertEqual(Opportunity.objects.count(), opportunity_count)
+            self.assertEqual(OpportunitySocialPostLog.objects.count(), post_log_count)
+            draft.refresh_from_db()
+            self.assertIsNone(draft.created_opportunity)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_draft_social_image_endpoint_rejects_invalid_image(self):
         draft = self.create_agent_draft()
 
-        response = self.client.post(
-            f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
-            {"image_base64": base64.b64encode(b"not an image").decode()},
-            format="json",
-            **self.agent_headers(),
-        )
+        class InvalidImageResponse(FakeImageResponse):
+            def read(self, _size=-1):
+                return b"not an image"
+
+        with patch(
+            "apps.opportunities.services.social_image_uploads.urlopen",
+            return_value=InvalidImageResponse(),
+        ):
+            response = self.client.post(
+                f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+                {
+                    "openaiFileIdRefs": [
+                        {
+                            "id": "file-invalid",
+                            "name": "invalid.png",
+                            "mime_type": "image/png",
+                            "download_link": "https://files.example/invalid.png",
+                        }
+                    ],
+                },
+                format="json",
+                **self.agent_headers(),
+            )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("valid PNG, JPG, or WebP", response.data["detail"])

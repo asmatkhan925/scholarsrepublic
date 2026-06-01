@@ -80,6 +80,7 @@ from apps.opportunities.services.social_image_uploads import (
     get_preferred_social_image_url,
     save_social_image_from_base64,
     save_social_image_from_file,
+    save_social_image_from_openai_file_ref,
     save_social_image_from_url,
 )
 from apps.users.models import User
@@ -335,10 +336,15 @@ def _social_image_response(obj, draft_id=None):
         post_text = getattr(obj, "post_text", "")
 
     link_url = getattr(obj, "link_url", "")
+    image_field = getattr(obj, "facebook_image", None) or getattr(obj, "image", None)
+    image_filename = ""
+    if image_field and getattr(image_field, "name", ""):
+        image_filename = str(image_field.name).replace("\\", "/").split("/")[-1]
     return {
         "ok": obj.social_image_status == obj.SocialImageStatus.SAVED,
         "draft_id": draft_id,
         "image_url": get_preferred_social_image_url(obj),
+        "image_filename": image_filename,
         "image_source": get_preferred_social_image_source(obj),
         "image_status": obj.social_image_status,
         "image_error": obj.social_image_error,
@@ -977,34 +983,38 @@ class AgentScholarshipDraftSocialImageView(AgentScholarshipBaseView):
             opportunity_draft=draft
         )
         image_prompt = str(request.data.get("image_prompt") or "").strip()
+        notes = str(request.data.get("notes") or "").strip()
+        warnings = []
         if image_prompt:
             social_draft.facebook_image_prompt = image_prompt
             social_draft.save(update_fields=["facebook_image_prompt", "updated_at"])
+        if notes:
+            warnings.append("notes_not_stored")
+
+        file_refs = request.data.get("openaiFileIdRefs")
+        if not isinstance(file_refs, list):
+            return Response(
+                {"detail": "openaiFileIdRefs must contain exactly one image file."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(file_refs) != 1:
+            return Response(
+                {"detail": "openaiFileIdRefs must contain exactly one image file."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
-            if request.data.get("image_base64"):
-                save_social_image_from_base64(
-                    social_draft,
-                    request.data.get("image_base64"),
-                    filename=request.data.get("filename"),
-                    source=social_draft.SocialImageSource.GPT_UPLOADED,
-                )
-            elif request.data.get("image_url"):
-                save_social_image_from_url(
-                    social_draft,
-                    request.data.get("image_url"),
-                    source=social_draft.SocialImageSource.GPT_IMAGE_URL,
-                )
-            else:
-                return Response(
-                    {"detail": "image_base64 or image_url is required."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            save_social_image_from_openai_file_ref(
+                social_draft,
+                file_refs[0],
+                filename=request.data.get("image_filename"),
+            )
         except SocialImageError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         response_data = _social_image_response(social_draft, draft_id=draft.pk)
         response_data["social_draft_id"] = social_draft.pk
+        response_data["warnings"] = warnings
         return Response(response_data)
 
 

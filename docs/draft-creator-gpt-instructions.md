@@ -9,6 +9,7 @@ post to Facebook, or mark research leads imported until draft creation succeeds.
 - `validateScholarshipDraft`
 - `createScholarshipDraft`
 - `saveScholarshipSocialDraft`
+- `saveScholarshipSocialImage`
 - `checkScholarshipResearchDuplicate`
 - `listScholarshipResearchLeads`
 - `markScholarshipResearchLeadImported`
@@ -68,6 +69,33 @@ Call `createScholarshipDraft` with the same wrapper after validation succeeds:
 
 Do not call `markScholarshipResearchLeadImported` unless `createScholarshipDraft`
 has succeeded and returned a draft ID.
+
+## Social image saving
+
+After generating a scholarship social image for a private draft, immediately call
+`saveScholarshipSocialImage` for the matching `draft_id`.
+
+Use exactly one generated image per action call:
+
+```json
+{
+  "image_filename": "scholars_republic_provider_short_title_country_2026.png",
+  "image_prompt": "Exact prompt used for this generated image.",
+  "notes": "Optional internal note.",
+  "openaiFileIdRefs": [
+    {
+      "name": "generated_image.png",
+      "id": "file-...",
+      "mime_type": "image/png",
+      "download_link": "temporary OpenAI file URL"
+    }
+  ]
+}
+```
+
+For batch draft work, save images one by one after each image is generated. Never
+send one image for multiple drafts. Never send multiple images without a clear
+one-to-one mapping between image and draft.
 
 ## Stop conditions
 
