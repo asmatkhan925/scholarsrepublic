@@ -17,6 +17,7 @@ from apps.opportunities.models import (
     OpportunitySocialPostPlan,
 )
 from apps.opportunities.services.social_collection_posting import (
+    build_deadline_window_caption_intro,
     build_collection_social_post_text,
     collection_public_url,
 )
@@ -246,11 +247,18 @@ def generate_facebook_post_text(opportunity, link_url=None, include_reminder=Fal
     degree = degree_label(opportunity)
     funding = funding_label(opportunity)
     deadline = deadline_label(opportunity)
+    deadline_window = "missing"
+    if opportunity.deadline and not opportunity.is_rolling_deadline:
+        deadline_window = get_deadline_window(opportunity.deadline, timezone.localdate())
 
-    lines = [opportunity.title.strip(), ""]
+    lines = [
+        f"Scholars Republic opportunity: {opportunity.title.strip()}",
+        "",
+        build_deadline_window_caption_intro(deadline_window, "opportunity"),
+    ]
     reminder = deadline_reminder_line(opportunity) if include_reminder else ""
     if reminder:
-        lines.extend([reminder, ""])
+        lines.extend(["", reminder])
     sentence_parts = []
     if provider:
         sentence_parts.append(f"{provider} is offering this opportunity")
@@ -269,7 +277,7 @@ def generate_facebook_post_text(opportunity, link_url=None, include_reminder=Fal
     if context_bits:
         paragraph += " " + ", ".join(context_bits)
     paragraph += ". Review the full details before applying."
-    lines.extend([paragraph, "", "Key Details:"])
+    lines.extend(["", paragraph, "", "Key Details:"])
 
     detail_lines = []
     if opportunity.country:
@@ -310,9 +318,14 @@ def ensure_plan_post_text(plan):
     return message
 
 
-def regenerate_facebook_caption_for_opportunity(opportunity):
+def regenerate_facebook_caption_for_opportunity(opportunity, *, force=False):
     plan = get_or_create_facebook_plan(opportunity)
     plan.link_url = plan.link_url or scholarship_detail_url(opportunity)
+    if plan.post_text.strip() and not force:
+        plan.last_error = ""
+        plan.save(update_fields=["link_url", "last_error", "updated_at"])
+        return plan
+
     plan.post_text = generate_facebook_post_text(opportunity, plan.link_url)
     plan.last_error = "" if plan.post_text else "Facebook caption could not be generated from scholarship fields."
     plan.save(update_fields=["post_text", "link_url", "last_error", "updated_at"])

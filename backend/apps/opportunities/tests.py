@@ -1455,7 +1455,9 @@ class OpportunityAPITests(APITestCase):
             "https://scholarsrepublic.org/scholarships/turin-phd-scholarships/",
         )
 
-        self.assertTrue(caption.startswith("Turin PhD Scholarships"))
+        self.assertTrue(
+            caption.startswith("Scholars Republic opportunity: Turin PhD Scholarships")
+        )
         self.assertIn("University of Turin", caption)
         self.assertIn("• Country: Italy", caption)
         self.assertIn("• Provider: University of Turin", caption)
@@ -1483,7 +1485,9 @@ class OpportunityAPITests(APITestCase):
 
         caption = generate_facebook_post_text(opportunity)
 
-        self.assertTrue(caption.startswith("Minimal Scholarship"))
+        self.assertTrue(
+            caption.startswith("Scholars Republic opportunity: Minimal Scholarship")
+        )
         self.assertNotIn("• Country:", caption)
         self.assertNotIn("• Provider:", caption)
         self.assertNotIn("• Degree Level:", caption)
@@ -1495,6 +1499,55 @@ class OpportunityAPITests(APITestCase):
         caption = generate_facebook_post_text(self.opportunity())
 
         self.assertTrue(caption[0].isalnum())
+
+    def test_urgent_facebook_caption_includes_deadline_reminder_language(self):
+        opportunity = self.opportunity(
+            slug="urgent-caption-window",
+            deadline=timezone.localdate() + timedelta(days=2),
+        )
+
+        caption = generate_facebook_post_text(opportunity)
+
+        self.assertIn("Deadline approaching", caption)
+        self.assertIn("Apply before the deadline", caption)
+        self.assertIn("Deadline:", caption)
+
+    def test_advance_notice_caption_encourages_preparation(self):
+        opportunity = self.opportunity(
+            slug="advance-caption-window",
+            deadline=timezone.localdate() + timedelta(days=14),
+        )
+
+        caption = generate_facebook_post_text(opportunity)
+
+        self.assertIn("Start preparing documents early", caption)
+        self.assertIn("review the requirements", caption)
+
+    def test_missing_deadline_caption_does_not_create_fake_urgency(self):
+        opportunity = self.opportunity(
+            slug="missing-deadline-caption",
+            deadline=None,
+            is_rolling_deadline=False,
+        )
+
+        caption = generate_facebook_post_text(opportunity)
+
+        self.assertNotIn("Deadline approaching", caption)
+        self.assertNotIn("Apply before the deadline", caption)
+        self.assertNotIn("Deadline:", caption)
+
+    def test_fully_funded_phrase_only_appears_for_fully_funded_opportunities(self):
+        fully_funded = self.opportunity(
+            slug="fully-funded-caption",
+            funding_type=Opportunity.FundingType.FULLY_FUNDED,
+        )
+        partially_funded = self.opportunity(
+            slug="partially-funded-caption",
+            funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
+        )
+
+        self.assertIn("Fully Funded", generate_facebook_post_text(fully_funded))
+        self.assertNotIn("Fully Funded", generate_facebook_post_text(partially_funded))
 
     def test_regenerate_social_post_text_only_empty(self):
         empty_plan = OpportunitySocialPostPlan.objects.create(
@@ -1514,6 +1567,18 @@ class OpportunityAPITests(APITestCase):
         existing_plan.refresh_from_db()
         self.assertIn("Published Scholarship", empty_plan.post_text)
         self.assertEqual(existing_plan.post_text, "Keep this text.")
+
+    def test_regenerate_social_post_text_preserves_existing_by_default(self):
+        existing_plan = OpportunitySocialPostPlan.objects.create(
+            opportunity=self.opportunity(slug="regenerate-default-existing-caption"),
+            status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Keep this reviewed text.",
+        )
+
+        call_command("regenerate_social_post_text", stdout=StringIO())
+
+        existing_plan.refresh_from_db()
+        self.assertEqual(existing_plan.post_text, "Keep this reviewed text.")
 
     def test_social_draft_promotes_to_ready_plan_when_imported_opportunity_is_published(self):
         with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
@@ -3581,6 +3646,8 @@ class OpportunityAPITests(APITestCase):
             f"https://scholarsrepublic.org/scholarships/collections/{collection.slug}",
             post_text,
         )
+        self.assertIn("collection", post_text.lower())
+        self.assertIn("list", post_text.lower())
         self.assertIn("verify eligibility, deadlines, and application details", post_text)
 
     def test_create_collection_social_post_plans_command_supports_collection_id(self):

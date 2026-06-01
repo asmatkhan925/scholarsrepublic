@@ -18,6 +18,11 @@ class Command(BaseCommand):
             help="Only regenerate plans where post_text is empty.",
         )
         parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Overwrite existing non-empty captions. Without this, saved captions are preserved.",
+        )
+        parser.add_argument(
             "--limit",
             type=int,
             default=None,
@@ -46,6 +51,10 @@ class Command(BaseCommand):
         skipped = 0
         failed = 0
         for plan in queryset:
+            if plan.post_text.strip() and not options["force"]:
+                skipped += 1
+                continue
+
             if plan.opportunity.is_expired and not options["include_expired"]:
                 skipped += 1
                 continue

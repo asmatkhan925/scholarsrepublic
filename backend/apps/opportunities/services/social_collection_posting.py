@@ -22,6 +22,63 @@ DEFAULT_PER_DAY = 3
 DEFAULT_POST_TIME = time(hour=9)
 
 
+def build_deadline_window_caption_intro(deadline_window, post_type):
+    deadline_window = str(deadline_window or "missing").strip()
+    post_type = str(post_type or "opportunity").strip()
+    is_collection = post_type == "collection"
+
+    if is_collection:
+        if deadline_window == "urgent":
+            return (
+                "Scholarships closing soon: review this Scholars Republic "
+                "collection before the listed deadlines."
+            )
+        if deadline_window == "soon":
+            return (
+                "Timely scholarship collection: students still have time to "
+                "review eligibility and apply early."
+            )
+        if deadline_window == "advance_notice":
+            return (
+                "Scholarships to prepare for early: use this Scholars Republic "
+                "collection to review requirements and plan documents."
+            )
+        if deadline_window == "early_awareness":
+            return (
+                "Scholarship collection for planning ahead: save this list "
+                "and start checking requirements early."
+            )
+        return (
+            "New scholarship collection on Scholars Republic: review the list "
+            "and official application details."
+        )
+
+    if deadline_window == "urgent":
+        return (
+            "Deadline approaching. Apply before the deadline after reviewing "
+            "the eligibility and official application details."
+        )
+    if deadline_window == "soon":
+        return (
+            "This is a timely scholarship opportunity. Students still have "
+            "time to prepare, review eligibility, and apply early."
+        )
+    if deadline_window == "advance_notice":
+        return (
+            "Plan ahead for this scholarship. Start preparing documents early "
+            "and review the requirements before applying."
+        )
+    if deadline_window == "early_awareness":
+        return (
+            "Scholarship planning opportunity. Save this on Scholars Republic "
+            "and begin preparing before the deadline gets close."
+        )
+    return (
+        "Scholarship opportunity on Scholars Republic. Review the details, "
+        "eligibility, and official application instructions."
+    )
+
+
 def collection_public_url(collection):
     base_url = getattr(settings, "FRONTEND_URL", "https://scholarsrepublic.org").rstrip("/")
     if base_url.startswith(("http://localhost", "http://127.0.0.1")):
@@ -46,18 +103,49 @@ def _deadline_text(opportunity):
     return "deadline not listed"
 
 
+def _deadline_window(deadline):
+    if not deadline:
+        return "missing"
+    days_left = (deadline - timezone.localdate()).days
+    if days_left < 0:
+        return "expired"
+    if days_left <= 3:
+        return "urgent"
+    if days_left <= 10:
+        return "soon"
+    if days_left <= 21:
+        return "advance_notice"
+    if days_left <= 45:
+        return "early_awareness"
+    return "far"
+
+
+def _collection_deadline_window(items):
+    nearest_deadline = None
+    for item in items:
+        opportunity = item.opportunity
+        if not opportunity.deadline or opportunity.is_rolling_deadline:
+            continue
+        if nearest_deadline is None or opportunity.deadline < nearest_deadline:
+            nearest_deadline = opportunity.deadline
+    return _deadline_window(nearest_deadline)
+
+
 def build_collection_social_post_text(collection):
     url = collection_public_url(collection)
     items = list(
         collection.items.select_related("opportunity").order_by("position", "id")[:5]
     )
+    deadline_window = _collection_deadline_window(items)
 
     lines = [
-        f"New scholarship collection: {collection.title}",
+        f"Scholars Republic collection: {collection.title}",
+        "",
+        build_deadline_window_caption_intro(deadline_window, "collection"),
         "",
         (
-            "Explore selected opportunities with deadlines, providers, and application links "
-            "on Scholars Republic."
+            "Explore this scholarship list with deadlines, providers, and application "
+            "links on Scholars Republic."
         ),
     ]
 
