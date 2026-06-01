@@ -2511,6 +2511,9 @@ def _serialize_due_preview_item(item):
         "image_source": item.get("image_source"),
         "link_url": item.get("link_url"),
         "priority_score": item.get("priority_score"),
+        "deadline_window": item.get("deadline_window"),
+        "deadline_window_label": item.get("deadline_window_label"),
+        "days_until_deadline": item.get("days_until_deadline"),
         "auto_post_tier": item.get("auto_post_tier"),
         "auto_post_tier_label": item.get("auto_post_tier_label"),
         "auto_post_rank_score": item.get("auto_post_rank_score"),
@@ -2600,6 +2603,8 @@ def _serialize_admin_opportunity_social_plan(plan):
         "country": opportunity.country,
         "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
         "days_until_deadline": eligibility["days_until_deadline"],
+        "deadline_window": eligibility["deadline_window"],
+        "deadline_window_label": eligibility["deadline_window_label"],
         "post_text": plan.post_text,
         "link_url": plan.link_url,
         "image_url": get_preferred_social_image_url(plan),
@@ -2640,6 +2645,10 @@ def _serialize_admin_collection_social_plan(plan):
         "collection_slug": collection.slug,
         "collection_status": collection.status,
         "collection_type": collection.collection_type,
+        "deadline": eligibility["deadline"].isoformat() if eligibility["deadline"] else None,
+        "days_until_deadline": eligibility["days_until_deadline"],
+        "deadline_window": eligibility["deadline_window"],
+        "deadline_window_label": eligibility["deadline_window_label"],
         "post_text": plan.post_text,
         "link_url": plan.link_url,
         "image_url": plan.image_url,
@@ -2691,6 +2700,9 @@ def _matches_social_plan_quality_filters(item, request):
                 return False
         elif not item.get("is_near_deadline"):
             return False
+    deadline_window = str(request.query_params.get("deadline_window") or "").strip()
+    if deadline_window and deadline_window != "all" and item.get("deadline_window") != deadline_window:
+        return False
     if parse_bool(request.query_params.get("blocked")) is True and not item.get(
         "hard_blocking_reasons"
     ):
@@ -2910,6 +2922,31 @@ def _build_social_health_alerts(
                 "No ready due opportunity or collection plans currently pass the hard safety checks.",
                 "Add reviewed captions and links, publish active opportunities, or approve safe collections.",
                 "/dashboard/admin/social",
+            )
+        )
+    if (
+        due_response.get("returned_count", 0) > 1
+        and due_response.get("urgent_selected_count", 0) == due_response.get("returned_count", 0)
+    ):
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "urgent_only_selection",
+                "Only urgent social candidates selected",
+                "The current due queue selection is all urgent reminders because no broader deadline mix was selected.",
+                "Add or review soon and advance-notice candidates so students get more preparation time.",
+                "/dashboard/admin/social/scheduler",
+            )
+        )
+    if due_response.get("candidate_counts_by_deadline_window", {}).get("advance_notice", 0) == 0:
+        alerts.append(
+            _social_health_alert(
+                "info",
+                "no_advance_notice_candidates",
+                "No advance-notice social candidates",
+                "There are no safe due candidates with deadlines 11 to 21 days away.",
+                "Review upcoming plans so the queue can notify students earlier.",
+                "/dashboard/admin/social/opportunity-plans?deadline_window=advance_notice",
             )
         )
     if collection_failed_today > 0:
@@ -3437,6 +3474,19 @@ class AdminSocialSchedulerStatusView(APIView):
                 "blocked_reason_counts": due_response.get("blocked_reason_counts", {}),
                 "candidate_counts_by_tier": due_response.get("candidate_counts_by_tier", {}),
                 "selected_counts_by_tier": due_response.get("selected_counts_by_tier", {}),
+                "candidate_counts_by_deadline_window": due_response.get(
+                    "candidate_counts_by_deadline_window", {}
+                ),
+                "selected_counts_by_deadline_window": due_response.get(
+                    "selected_counts_by_deadline_window", {}
+                ),
+                "deadline_balance_policy": due_response.get(
+                    "deadline_balance_policy", "balanced_deadline_windows"
+                ),
+                "urgent_selected_count": due_response.get("urgent_selected_count", 0),
+                "advance_notice_selected_count": due_response.get(
+                    "advance_notice_selected_count", 0
+                ),
                 "fallback_used": due_response.get("fallback_used", False),
                 "selection_policy": due_response.get("selection_policy", "ranked_fallback"),
                 "daily_target": due_response.get("daily_target", due_response["daily_cap"]),

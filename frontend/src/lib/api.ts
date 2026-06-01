@@ -164,6 +164,11 @@ export type SocialSchedulerStatusResponse = {
   blocked_reason_counts: Record<string, number>;
   candidate_counts_by_tier: Record<string, number>;
   selected_counts_by_tier: Record<string, number>;
+  candidate_counts_by_deadline_window: Record<string, number>;
+  selected_counts_by_deadline_window: Record<string, number>;
+  deadline_balance_policy: string;
+  urgent_selected_count: number;
+  advance_notice_selected_count: number;
   fallback_used: boolean;
   selection_policy: string;
   daily_target: number;
@@ -192,6 +197,9 @@ export type SocialSchedulerStatusResponse = {
     auto_social_decision?: string;
     priority_score: number;
     priority_reason?: Record<string, unknown>;
+    deadline_window?: string;
+    deadline_window_label?: string;
+    days_until_deadline?: number | null;
     auto_post_tier?: string;
     auto_post_tier_label?: string;
     auto_post_rank_score?: number;
@@ -262,6 +270,8 @@ export type AdminOpportunitySocialPlan = {
   country: string;
   deadline: string | null;
   days_until_deadline: number | null;
+  deadline_window: string;
+  deadline_window_label: string;
   post_text: string;
   link_url: string;
   image_url: string;
@@ -298,6 +308,10 @@ export type AdminCollectionSocialPlan = {
   collection_slug: string;
   collection_status: string;
   collection_type: string;
+  deadline: string | null;
+  days_until_deadline: number | null;
+  deadline_window: string;
+  deadline_window_label: string;
   post_text: string;
   link_url: string;
   image_url: string;
@@ -341,6 +355,7 @@ export type AdminSocialPlanQuery = {
   missing_image?: boolean;
   missing_caption?: boolean;
   near_deadline?: boolean;
+  deadline_window?: string;
   blocked?: boolean;
   limit?: number;
 };

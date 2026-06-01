@@ -2384,6 +2384,58 @@ class OpportunityAPITests(APITestCase):
             [strict.pk] + [plan.pk for plan in fallback_plans],
         )
 
+    def test_due_queue_balances_urgent_with_advance_notice_candidates(self):
+        urgent_plans = [
+            self.ready_social_plan(
+                self.opportunity(
+                    slug=f"balanced-urgent-{index}",
+                    deadline=timezone.localdate() + timedelta(days=1),
+                    deadline_last_checked_at=timezone.now(),
+                ),
+                priority_score=100 - index,
+            )
+            for index in range(5)
+        ]
+        advance_plan = self.ready_social_plan(
+            self.opportunity(
+                slug="balanced-advance",
+                deadline=timezone.localdate() + timedelta(days=14),
+            ),
+            priority_score=1,
+        )
+
+        response = get_due_facebook_post_plans(limit=5)
+        selected_ids = [item["plan_id"] for item in response["items"]]
+
+        self.assertLessEqual(response["selected_counts_by_deadline_window"]["urgent"], 2)
+        self.assertIn(advance_plan.pk, selected_ids)
+        self.assertTrue(any(plan.pk in selected_ids for plan in urgent_plans))
+        self.assertIn("candidate_counts_by_deadline_window", response)
+
+    def test_due_queue_selects_advance_notice_when_available(self):
+        self.ready_social_plan(
+            self.opportunity(
+                slug="advance-window-opportunity",
+                deadline=timezone.localdate() + timedelta(days=15),
+            )
+        )
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertEqual(response["items"][0]["deadline_window"], "advance_notice")
+        self.assertEqual(response["selected_counts_by_deadline_window"]["advance_notice"], 1)
+
+    def test_due_queue_missing_deadline_is_fallback_only(self):
+        plan = self.ready_social_plan(
+            self.opportunity(slug="missing-deadline-fallback", deadline=None)
+        )
+
+        response = get_due_facebook_post_plans(limit=5)
+
+        self.assertEqual(response["items"][0]["plan_id"], plan.pk)
+        self.assertEqual(response["items"][0]["deadline_window"], "missing")
+        self.assertTrue(response["items"][0]["fallback_eligible"])
+
     def test_due_queue_blocks_expired_opportunity(self):
         opportunity = self.opportunity(
             slug="expired-policy",
@@ -2486,6 +2538,9 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(item["is_near_deadline"])
         self.assertTrue(item["auto_post_eligible"])
         self.assertEqual(item["auto_post_tier"], "strict_best")
+        self.assertEqual(item["deadline_window"], "soon")
+        self.assertEqual(item["deadline_window_label"], "Soon")
+        self.assertEqual(item["days_until_deadline"], 10)
         self.assertFalse(item["fallback_eligible"])
         self.assertEqual(item["hard_blocking_reasons"], [])
 

@@ -143,7 +143,8 @@ function SocialSchedulerContent() {
                 Due count {status.due_count}, returned {status.returned_count}, cap{" "}
                 {status.daily_cap}, per run {status.per_run_cap}, spacing{" "}
                 {status.min_spacing_minutes} minutes. Policy {status.selection_policy}; strict{" "}
-                {status.strict_candidate_count}; fallback {status.fallback_candidate_count}.
+                {status.strict_candidate_count}; fallback {status.fallback_candidate_count};
+                balance {status.deadline_balance_policy}.
               </p>
               <div className="mt-3 grid gap-2">
                 {status.due_items.length ? (
@@ -160,6 +161,9 @@ function SocialSchedulerContent() {
                           <Badge tone={item.fallback_eligible ? "saffron" : "mint"}>
                             {item.auto_post_tier_label}
                           </Badge>
+                        ) : null}
+                        {item.deadline_window_label ? (
+                          <Badge tone="sky">{item.deadline_window_label}</Badge>
                         ) : null}
                         <p className="font-bold text-ink dark:text-white">
                           {item.collection_title || item.title || `Plan ${item.plan_id}`}
@@ -201,6 +205,24 @@ function SocialSchedulerContent() {
                   </h3>
                   <div className="mt-2">
                     <StatusRows values={status.selected_counts_by_tier} />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                <div>
+                  <h3 className="text-sm font-bold text-ink dark:text-white">
+                    Candidate counts by deadline window
+                  </h3>
+                  <div className="mt-2">
+                    <StatusRows values={status.candidate_counts_by_deadline_window} />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-ink dark:text-white">
+                    Selected counts by deadline window
+                  </h3>
+                  <div className="mt-2">
+                    <StatusRows values={status.selected_counts_by_deadline_window} />
                   </div>
                 </div>
               </div>

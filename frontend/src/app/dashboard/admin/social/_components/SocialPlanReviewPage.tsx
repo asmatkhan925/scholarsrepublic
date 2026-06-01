@@ -41,6 +41,15 @@ const opportunityStatuses = ["all", "draft", "ready", "paused", "archived"];
 const collectionStatuses = ["all", "draft", "ready", "posted", "failed", "paused", "archived"];
 const collectionRecordStatuses = ["all", "draft", "ready", "approved", "posted", "paused", "archived"];
 const decisions = ["all", "individual", "collection_candidate", "website_only", "manual_review"];
+const deadlineWindows = [
+  "all",
+  "urgent",
+  "soon",
+  "advance_notice",
+  "early_awareness",
+  "far",
+  "missing",
+];
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
@@ -101,6 +110,8 @@ function planJson(plan: SocialPlan) {
       link_url: plan.link_url,
       next_post_at: plan.next_post_at,
       priority_score: plan.priority_score,
+      deadline_window: plan.deadline_window,
+      deadline_window_label: plan.deadline_window_label,
       has_image: plan.has_image,
       has_caption: plan.has_caption,
       auto_post_tier: plan.auto_post_tier,
@@ -122,6 +133,8 @@ function planJson(plan: SocialPlan) {
         : {
             collection_id: plan.collection_id,
             collection_type: plan.collection_type,
+            deadline: plan.deadline,
+            days_until_deadline: plan.days_until_deadline,
             has_near_deadline_item: plan.has_near_deadline_item,
             has_expired_item: plan.has_expired_item,
             posted_at: plan.posted_at,
@@ -212,6 +225,7 @@ function PlanCard({
             <Badge tone={planNearDeadline(plan) ? "mint" : "saffron"}>
               {planNearDeadline(plan) ? "Near deadline" : "Not near deadline"}
             </Badge>
+            <Badge tone="sky">{plan.deadline_window_label}</Badge>
             <Badge tone={statusBadge.tone}>{statusBadge.label}</Badge>
             <Badge tone="neutral">{plan.auto_post_tier_label}</Badge>
           </div>
@@ -312,6 +326,7 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
   const [missingImageOnly, setMissingImageOnly] = useState(false);
   const [missingCaptionOnly, setMissingCaptionOnly] = useState(false);
   const [nearDeadlineOnly, setNearDeadlineOnly] = useState(false);
+  const [deadlineWindowFilter, setDeadlineWindowFilter] = useState("all");
   const [plans, setPlans] = useState<SocialPlan[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -330,6 +345,7 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
       missing_image: missingImageOnly || undefined,
       missing_caption: missingCaptionOnly || undefined,
       near_deadline: nearDeadlineOnly || undefined,
+      deadline_window: deadlineWindowFilter === "all" ? undefined : deadlineWindowFilter,
       limit: 75,
     };
     if (kind === "opportunity") {
@@ -351,6 +367,7 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
     }
   }, [
     collectionStatusFilter,
+    deadlineWindowFilter,
     decisionFilter,
     dueOnly,
     fallbackEligibleOnly,
@@ -481,6 +498,22 @@ function SocialPlanReviewContent({ kind, title, description, icon: Icon }: Socia
             <Button type="button" onClick={() => void loadPlans()} disabled={loading}>
               Apply
             </Button>
+          </div>
+          <div className="mt-3 grid gap-3 sm:max-w-xs">
+            <label className="grid gap-1.5 text-sm font-semibold text-ink dark:text-white">
+              Deadline window
+              <select
+                value={deadlineWindowFilter}
+                onChange={(event) => setDeadlineWindowFilter(event.target.value)}
+                className="h-10 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink outline-none transition focus:border-pine dark:border-white/10 dark:bg-white/5 dark:text-white"
+              >
+                {deadlineWindows.map((item) => (
+                  <option key={item} value={item}>
+                    {formatLabel(item)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <label className="flex h-9 items-center gap-2 rounded-xl border border-pine/10 px-3 text-sm font-semibold text-ink dark:border-white/10 dark:text-white">

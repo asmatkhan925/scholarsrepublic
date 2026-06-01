@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Scholars Republic social scheduler preparation daily at 07:30 UTC
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 UTC
+Persistent=true
+Unit=scholars-social-scheduler.service
+
+[Install]
+WantedBy=timers.target
+

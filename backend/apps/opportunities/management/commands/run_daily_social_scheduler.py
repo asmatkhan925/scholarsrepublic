@@ -20,6 +20,7 @@ from apps.opportunities.services.social_posting import (
     build_ranked_facebook_post_candidates,
     evaluate_collection_auto_post_eligibility,
     evaluate_opportunity_auto_post_eligibility,
+    select_balanced_deadline_candidates,
 )
 
 
@@ -115,7 +116,9 @@ class Command(BaseCommand):
             f"fallback_candidate_count={eligibility_counts['fallback_candidate_count']}; "
             f"hard_blocked_count={eligibility_counts['hard_blocked_count']}; "
             f"selected_next_run_estimate={eligibility_counts['selected_next_run_estimate']}; "
-            f"candidate_counts_by_tier={self.format_counts(eligibility_counts['candidate_counts_by_tier'])}"
+            f"candidate_counts_by_tier={self.format_counts(eligibility_counts['candidate_counts_by_tier'])}; "
+            f"candidate_counts_by_deadline_window={self.format_counts(eligibility_counts['candidate_counts_by_deadline_window'])}; "
+            f"selected_estimate_by_deadline_window={self.format_counts(eligibility_counts['selected_estimate_by_deadline_window'])}"
         )
 
     def recalculate_scores(self, *, dry_run=False, limit=None):
@@ -171,10 +174,15 @@ class Command(BaseCommand):
             "hard_blocked_count": 0,
             "selected_next_run_estimate": 0,
             "candidate_counts_by_tier": {},
+            "candidate_counts_by_deadline_window": {},
+            "selected_estimate_by_deadline_window": {},
         }
         candidate_data = build_ranked_facebook_post_candidates()
         candidate_counts_by_tier = candidate_data["candidate_counts_by_tier"]
         counts["candidate_counts_by_tier"] = candidate_counts_by_tier
+        counts["candidate_counts_by_deadline_window"] = candidate_data[
+            "candidate_counts_by_deadline_window"
+        ]
         counts["strict_best_count"] = (
             candidate_counts_by_tier.get("strict_best", 0)
             + candidate_counts_by_tier.get("collection_strict_best", 0)
@@ -183,7 +191,13 @@ class Command(BaseCommand):
             0,
             len(candidate_data["candidates"]) - counts["strict_best_count"],
         )
-        counts["selected_next_run_estimate"] = min(5, len(candidate_data["candidates"]))
+        selected_candidates = select_balanced_deadline_candidates(candidate_data["candidates"], 5)
+        counts["selected_next_run_estimate"] = len(selected_candidates)
+        selected_estimate = {}
+        for candidate in selected_candidates:
+            window = candidate["eligibility"]["deadline_window"]
+            selected_estimate[window] = selected_estimate.get(window, 0) + 1
+        counts["selected_estimate_by_deadline_window"] = selected_estimate
         opportunity_plans = OpportunitySocialPostPlan.objects.select_related("opportunity").filter(
             platform=DEFAULT_PLATFORM,
             status=OpportunitySocialPostPlan.Status.READY,

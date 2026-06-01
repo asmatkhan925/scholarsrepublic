@@ -1,0 +1,12 @@
+[Unit]
+Description=Scholars Republic daily social scheduler preparation
+After=network.target postgresql.service scholars-backend.service
+
+[Service]
+Type=oneshot
+User=scholarsrepublic
+Group=www-data
+WorkingDirectory=/home/scholarsrepublic/scholarsrepublic/backend
+Environment="PATH=/home/scholarsrepublic/scholarsrepublic/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/bin/bash -lc 'source /home/scholarsrepublic/scholarsrepublic/backend/venv/bin/activate && exec python manage.py run_daily_social_scheduler'
+

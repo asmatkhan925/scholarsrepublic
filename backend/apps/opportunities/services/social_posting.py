@@ -72,6 +72,33 @@ AUTO_POST_TIER_RANKS = {
     "manual_review_last_resort": 5,
     "hard_blocked": 99,
 }
+DEADLINE_WINDOW_LABELS = {
+    "urgent": "Urgent",
+    "soon": "Soon",
+    "advance_notice": "Advance notice",
+    "early_awareness": "Early awareness",
+    "far": "Far",
+    "missing": "Missing deadline",
+    "expired": "Expired",
+}
+DEADLINE_WINDOW_RANKS = {
+    "soon": 1,
+    "advance_notice": 2,
+    "urgent": 3,
+    "early_awareness": 4,
+    "far": 5,
+    "missing": 6,
+    "expired": 99,
+}
+DEADLINE_WINDOWS = [
+    "urgent",
+    "soon",
+    "advance_notice",
+    "early_awareness",
+    "far",
+    "missing",
+    "expired",
+]
 EXPIRED_AUTOMATIC_SKIP_MESSAGE = (
     "Skipped automatic Facebook post because opportunity is expired."
 )
@@ -141,6 +168,28 @@ def deadline_days_left(opportunity, today=None):
 
     today = today or timezone.localdate()
     return (opportunity.deadline - today).days
+
+
+def get_deadline_window(deadline_date, now_date=None):
+    now_date = now_date or timezone.localdate()
+    if not deadline_date:
+        return "missing"
+    days_left = (deadline_date - now_date).days
+    if days_left < 0:
+        return "expired"
+    if days_left <= 3:
+        return "urgent"
+    if days_left <= 10:
+        return "soon"
+    if days_left <= 21:
+        return "advance_notice"
+    if days_left <= 45:
+        return "early_awareness"
+    return "far"
+
+
+def deadline_window_label(window):
+    return DEADLINE_WINDOW_LABELS.get(window, str(window or "").replace("_", " ").title())
 
 
 def is_near_deadline(opportunity, today=None):
@@ -456,6 +505,8 @@ def collection_item_deadline_summary(collection, today=None):
     today = today or timezone.localdate()
     has_near_deadline_item = False
     has_expired_item = False
+    nearest_days_until_deadline = None
+    nearest_deadline = None
     for item in collection.items.select_related("opportunity").all():
         opportunity = item.opportunity
         if is_opportunity_expired_for_social(opportunity, today=today):
@@ -464,9 +515,21 @@ def collection_item_deadline_summary(collection, today=None):
         days_left = deadline_days_left(opportunity, today=today)
         if days_left is not None and 0 <= days_left <= AUTO_POST_DEADLINE_WINDOW_DAYS:
             has_near_deadline_item = True
+        if days_left is not None and days_left >= 0 and (
+            nearest_days_until_deadline is None or days_left < nearest_days_until_deadline
+        ):
+            nearest_days_until_deadline = days_left
+            nearest_deadline = opportunity.deadline
+    deadline_window = get_deadline_window(nearest_deadline, today)
+    if has_expired_item and nearest_deadline is None:
+        deadline_window = "expired"
     return {
         "has_near_deadline_item": has_near_deadline_item,
         "has_expired_item": has_expired_item,
+        "days_until_deadline": nearest_days_until_deadline,
+        "deadline": nearest_deadline,
+        "deadline_window": deadline_window,
+        "deadline_window_label": deadline_window_label(deadline_window),
     }
 
 
@@ -475,6 +538,9 @@ def evaluate_opportunity_auto_post_eligibility(plan, now=None):
     today = timezone.localtime(now).date()
     opportunity = plan.opportunity
     days_until_deadline = deadline_days_left(opportunity, today=today)
+    deadline_window = get_deadline_window(opportunity.deadline, today)
+    if opportunity.is_rolling_deadline:
+        deadline_window = "missing"
     has_image = plan_has_social_image(plan)
     has_caption = plan_has_caption(plan)
     has_link = bool(plan_link_url(plan))
@@ -545,6 +611,8 @@ def evaluate_opportunity_auto_post_eligibility(plan, now=None):
         "blocking_reasons": blocking_reasons,
         "days_until_deadline": days_until_deadline,
         "deadline": opportunity.deadline,
+        "deadline_window": deadline_window,
+        "deadline_window_label": deadline_window_label(deadline_window),
     }
 
 
@@ -595,6 +663,10 @@ def evaluate_collection_auto_post_eligibility(plan, now=None):
         "has_link": has_link,
         "has_near_deadline_item": item_summary["has_near_deadline_item"],
         "has_expired_item": item_summary["has_expired_item"],
+        "days_until_deadline": item_summary["days_until_deadline"],
+        "deadline": item_summary["deadline"],
+        "deadline_window": item_summary["deadline_window"],
+        "deadline_window_label": item_summary["deadline_window_label"],
         "auto_post_eligible": auto_post_eligible,
         "fallback_eligible": auto_post_eligible and tier != "collection_strict_best",
         "auto_post_tier": tier,
@@ -642,6 +714,7 @@ def serialize_due_plan(plan):
         "link_url": link_url,
         "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
         "days_left": days_left,
+        "days_until_deadline": days_left,
         "auto_social_decision": plan.auto_social_decision,
         "priority_score": plan.priority_score,
         "priority_reason": plan.priority_reason,
@@ -672,6 +745,7 @@ def serialize_due_collection_plan(plan):
         "link_url": link_url,
         "priority_score": plan.priority_score,
         "next_post_at": serialize_cap_datetime(plan.next_post_at),
+        "days_until_deadline": None,
     }
 
 
@@ -1229,29 +1303,98 @@ def empty_tier_counts():
     return {tier: 0 for tier in AUTO_POST_TIER_RANKS if tier != "hard_blocked"}
 
 
+def empty_deadline_window_counts():
+    return {window: 0 for window in DEADLINE_WINDOWS}
+
+
 def count_candidate_tier(tier, counts):
     if tier != "hard_blocked":
         counts[tier] = counts.get(tier, 0) + 1
 
 
+def count_deadline_window(window, counts):
+    counts[window] = counts.get(window, 0) + 1
+
+
 def ranked_candidate_sort_key(candidate):
     plan = candidate["plan"]
     eligibility = candidate["eligibility"]
-    days_until_deadline = eligibility.get("days_until_deadline")
-    if days_until_deadline is None and candidate["type"] == "collection":
-        days_until_deadline = 9999
-    elif days_until_deadline is None:
-        days_until_deadline = 9999
     next_post_at = getattr(plan, "next_post_at", None) or timezone.now()
     created_at = getattr(plan, "created_at", None) or timezone.now()
     return (
         eligibility["auto_post_rank_score"],
-        days_until_deadline,
+        DEADLINE_WINDOW_RANKS.get(eligibility.get("deadline_window"), 99),
         -int(getattr(plan, "priority_score", 0) or 0),
+        0 if eligibility.get("has_image") else 1,
+        0 if eligibility.get("has_caption") else 1,
         next_post_at,
         created_at,
         plan.pk,
     )
+
+
+def take_candidates_for_window(candidates, selected_ids, window, limit, selected):
+    if limit <= 0:
+        return
+    added = 0
+    for candidate in candidates:
+        if added >= limit:
+            break
+        plan_key = (candidate["type"], candidate["plan"].pk)
+        if plan_key in selected_ids:
+            continue
+        if candidate["eligibility"].get("deadline_window") != window:
+            continue
+        selected.append(candidate)
+        selected_ids.add(plan_key)
+        added += 1
+
+
+def select_balanced_deadline_candidates(candidates, available_slots):
+    selected = []
+    selected_ids = set()
+    if available_slots <= 0:
+        return selected
+
+    take_candidates_for_window(candidates, selected_ids, "urgent", min(2, available_slots), selected)
+    take_candidates_for_window(
+        candidates,
+        selected_ids,
+        "soon",
+        min(2, available_slots - len(selected)),
+        selected,
+    )
+    take_candidates_for_window(
+        candidates,
+        selected_ids,
+        "advance_notice",
+        min(2, available_slots - len(selected)),
+        selected,
+    )
+
+    for preferred_window in ("early_awareness", "far", "missing"):
+        if len(selected) >= available_slots:
+            break
+        take_candidates_for_window(
+            candidates,
+            selected_ids,
+            preferred_window,
+            available_slots - len(selected),
+            selected,
+        )
+
+    if len(selected) < available_slots:
+        for candidate in candidates:
+            if len(selected) >= available_slots:
+                break
+            plan_key = (candidate["type"], candidate["plan"].pk)
+            if plan_key in selected_ids:
+                continue
+            if candidate["eligibility"].get("deadline_window") == "urgent":
+                continue
+            selected.append(candidate)
+            selected_ids.add(plan_key)
+    return selected
 
 
 def build_ranked_facebook_post_candidates(now=None):
@@ -1260,6 +1403,7 @@ def build_ranked_facebook_post_candidates(now=None):
     candidates = []
     blocked_reason_counts = {}
     candidate_counts_by_tier = empty_tier_counts()
+    candidate_counts_by_deadline_window = empty_deadline_window_counts()
 
     plans = (
         OpportunitySocialPostPlan.objects.select_related("opportunity", "opportunity__country_ref")
@@ -1283,6 +1427,7 @@ def build_ranked_facebook_post_candidates(now=None):
             count_blocked_reasons(["already_posted"], blocked_reason_counts)
             continue
         count_candidate_tier(eligibility["auto_post_tier"], candidate_counts_by_tier)
+        count_deadline_window(eligibility["deadline_window"], candidate_counts_by_deadline_window)
         candidates.append({"type": "opportunity", "plan": plan, "eligibility": eligibility})
 
     collection_plans = (
@@ -1302,12 +1447,14 @@ def build_ranked_facebook_post_candidates(now=None):
             count_blocked_reasons(eligibility["hard_blocking_reasons"], blocked_reason_counts)
             continue
         count_candidate_tier(eligibility["auto_post_tier"], candidate_counts_by_tier)
+        count_deadline_window(eligibility["deadline_window"], candidate_counts_by_deadline_window)
         candidates.append({"type": "collection", "plan": plan, "eligibility": eligibility})
 
     candidates.sort(key=ranked_candidate_sort_key)
     return {
         "candidates": candidates,
         "candidate_counts_by_tier": candidate_counts_by_tier,
+        "candidate_counts_by_deadline_window": candidate_counts_by_deadline_window,
         "blocked_reason_counts": blocked_reason_counts,
     }
 
@@ -1320,6 +1467,8 @@ def build_due_posts_response(
     blocked_reason_counts=None,
     candidate_counts_by_tier=None,
     selected_counts_by_tier=None,
+    candidate_counts_by_deadline_window=None,
+    selected_counts_by_deadline_window=None,
     fallback_used=False,
 ):
     latest_posted_at = cap_status["latest_posted_at"]
@@ -1346,6 +1495,19 @@ def build_due_posts_response(
         "blocked_reason_counts": blocked_reason_counts or {},
         "candidate_counts_by_tier": candidate_counts_by_tier or empty_tier_counts(),
         "selected_counts_by_tier": selected_counts_by_tier or empty_tier_counts(),
+        "candidate_counts_by_deadline_window": (
+            candidate_counts_by_deadline_window or empty_deadline_window_counts()
+        ),
+        "selected_counts_by_deadline_window": (
+            selected_counts_by_deadline_window or empty_deadline_window_counts()
+        ),
+        "deadline_balance_policy": "balanced_deadline_windows",
+        "urgent_selected_count": (
+            selected_counts_by_deadline_window or {}
+        ).get("urgent", 0),
+        "advance_notice_selected_count": (
+            selected_counts_by_deadline_window or {}
+        ).get("advance_notice", 0),
         "fallback_used": fallback_used,
         "selection_policy": "ranked_fallback",
         "daily_target": cap_status["daily_cap"],
@@ -1367,7 +1529,9 @@ def get_due_facebook_post_plans(limit=10, now=None):
     candidates = candidate_data["candidates"]
     blocked_reason_counts = candidate_data["blocked_reason_counts"]
     candidate_counts_by_tier = candidate_data["candidate_counts_by_tier"]
+    candidate_counts_by_deadline_window = candidate_data["candidate_counts_by_deadline_window"]
     selected_counts_by_tier = empty_tier_counts()
+    selected_counts_by_deadline_window = empty_deadline_window_counts()
 
     if (
         cap_status["daily_remaining"] <= 0
@@ -1380,6 +1544,8 @@ def get_due_facebook_post_plans(limit=10, now=None):
             blocked_reason_counts=blocked_reason_counts,
             candidate_counts_by_tier=candidate_counts_by_tier,
             selected_counts_by_tier=selected_counts_by_tier,
+            candidate_counts_by_deadline_window=candidate_counts_by_deadline_window,
+            selected_counts_by_deadline_window=selected_counts_by_deadline_window,
         )
 
     if effective_limit <= 0:
@@ -1391,13 +1557,16 @@ def get_due_facebook_post_plans(limit=10, now=None):
             blocked_reason_counts=blocked_reason_counts,
             candidate_counts_by_tier=candidate_counts_by_tier,
             selected_counts_by_tier=selected_counts_by_tier,
+            candidate_counts_by_deadline_window=candidate_counts_by_deadline_window,
+            selected_counts_by_deadline_window=selected_counts_by_deadline_window,
         )
 
-    selected_candidates = candidates[:effective_limit]
+    selected_candidates = select_balanced_deadline_candidates(candidates, effective_limit)
     items = []
     for candidate in selected_candidates:
         eligibility = candidate["eligibility"]
         count_candidate_tier(eligibility["auto_post_tier"], selected_counts_by_tier)
+        count_deadline_window(eligibility["deadline_window"], selected_counts_by_deadline_window)
         if candidate["type"] == "opportunity":
             plan = candidate["plan"]
             today = timezone.localtime(now).date()
@@ -1437,6 +1606,9 @@ def get_due_facebook_post_plans(limit=10, now=None):
                 "fallback_eligible": eligibility["fallback_eligible"],
                 "hard_blocking_reasons": eligibility["hard_blocking_reasons"],
                 "quality_warnings": eligibility["quality_warnings"],
+                "deadline_window": eligibility["deadline_window"],
+                "deadline_window_label": eligibility["deadline_window_label"],
+                "days_until_deadline": eligibility.get("days_until_deadline"),
             }
         )
         items.append(item)
@@ -1447,6 +1619,8 @@ def get_due_facebook_post_plans(limit=10, now=None):
         blocked_reason_counts=blocked_reason_counts,
         candidate_counts_by_tier=candidate_counts_by_tier,
         selected_counts_by_tier=selected_counts_by_tier,
+        candidate_counts_by_deadline_window=candidate_counts_by_deadline_window,
+        selected_counts_by_deadline_window=selected_counts_by_deadline_window,
         fallback_used=any(
             item["auto_post_tier"] not in {"strict_best", "collection_strict_best"}
             for item in items
