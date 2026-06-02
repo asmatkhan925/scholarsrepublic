@@ -49,6 +49,14 @@ const scholarshipListItem = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 
+const secondScholarshipListItem = {
+  ...scholarshipListItem,
+  id: 2,
+  title: "Second Page Scholarship",
+  slug: "second-page-scholarship",
+  university_name: "Second Test University",
+};
+
 const scholarshipDetail = {
   ...scholarshipListItem,
   verification_note: "Verified from official source.",
@@ -139,7 +147,11 @@ async function mockStudentAuth(page: Page) {
 
 async function mockScholarshipApi(
   page: Page,
-  options: { delayScholarshipsMs?: number; recommendedMatch?: typeof scholarshipMatch } = {},
+  options: {
+    delayScholarshipsMs?: number;
+    recommendedMatch?: typeof scholarshipMatch;
+    paginatedScholarships?: boolean;
+  } = {},
 ) {
   await page.route("**/api/reference/countries/**", async (route) => {
     await route.fulfill({
@@ -182,6 +194,21 @@ async function mockScholarshipApi(
 
     if (options.delayScholarshipsMs) {
       await new Promise((resolve) => setTimeout(resolve, options.delayScholarshipsMs));
+    }
+
+    if (options.paginatedScholarships) {
+      const requestUrl = new URL(url);
+      const pageNumber = requestUrl.searchParams.get("page") ?? "1";
+
+      await route.fulfill({
+        json: {
+          count: 2,
+          next: pageNumber === "1" ? "http://localhost:8000/api/scholarships/?page=2" : null,
+          previous: pageNumber === "2" ? "http://localhost:8000/api/scholarships/" : null,
+          results: pageNumber === "1" ? [scholarshipListItem] : [secondScholarshipListItem],
+        },
+      });
+      return;
     }
 
     await route.fulfill({
@@ -264,6 +291,22 @@ test("scholarships page renders heading without placeholder zero stats", async (
 
   await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
   await expect(page.getByText("1 opportunity found")).toBeVisible();
+});
+
+test("scholarships page loads additional API pages", async ({ page }) => {
+  await mockScholarshipApi(page, { paginatedScholarships: true });
+
+  await page.goto("/scholarships");
+
+  await expect(page.getByText("2 opportunities found")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Second Page Scholarship" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Load more" }).click();
+
+  await expect(page.getByRole("heading", { name: "Verified Test Scholarship" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Second Page Scholarship" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(0);
 });
 
 test("scholarship match badge opens profile match modal", async ({ page }) => {

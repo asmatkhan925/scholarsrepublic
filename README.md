@@ -225,6 +225,13 @@ cd backend
 python manage.py seed_opportunities
 ```
 
+Quick scholarship inventory check:
+
+```bash
+cd backend
+python manage.py shell -c "from django.test import Client; from apps.opportunities.models import Opportunity; qs=Opportunity.objects.filter(opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP); print('total opportunities', Opportunity.objects.count()); print('published scholarships', qs.filter(status=Opportunity.Status.PUBLISHED).count()); print('draft scholarships', qs.filter(status=Opportunity.Status.DRAFT).count()); print('archived scholarships', qs.filter(status=Opportunity.Status.ARCHIVED).count()); print('public API count', Client().get('/api/scholarships/?ordering=deadline').json().get('count'))"
+```
+
 ## Rule-Based Match Score
 
 Phase 5 connects `StudentProfile` and `Opportunity` with a deterministic,

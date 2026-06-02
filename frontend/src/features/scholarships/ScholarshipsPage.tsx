@@ -370,6 +370,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     null,
   );
   const [loading, setLoading] = useState(!initialData);
+  const [loadingMore, setLoadingMore] = useState(false);
   const hasResultsRef = useRef(Boolean(initialData));
   const [error, setError] = useState<string | null>(null);
   const [matchNotice, setMatchNotice] = useState<string | null>(null);
@@ -601,7 +602,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
           }
         }
 
-        const response = await getScholarships(filters);
+        const response = await getScholarships({ ...filters, page: 1 });
 
         if (mounted) {
           setRecommendedData(null);
@@ -627,6 +628,44 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     };
   }, [authLoading, filters, user?.role]);
 
+  async function loadMoreScholarships() {
+    if (loadingMore || !data?.next || recommendedData) {
+      return;
+    }
+
+    const nextPage = new URL(data.next).searchParams.get("page");
+    const page = nextPage ? Number(nextPage) : null;
+
+    if (!page || Number.isNaN(page)) {
+      return;
+    }
+
+    setLoadingMore(true);
+    setError(null);
+
+    try {
+      const response = await getScholarships({ ...filters, page });
+
+      setData((current) => {
+        if (!current) {
+          return response;
+        }
+
+        const seenIds = new Set(current.results.map((item) => item.id));
+        const newResults = response.results.filter((item) => !seenIds.has(item.id));
+
+        return {
+          ...response,
+          results: [...current.results, ...newResults],
+        };
+      });
+    } catch {
+      setError("We could not load more scholarships right now. Please try again.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const recommendations = useMemo(() => recommendedData?.results ?? [], [recommendedData]);
 
   const scholarships = useMemo(
@@ -645,9 +684,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     return new Map(recommendations.map((item) => [item.opportunity.id, item.match]));
   }, [recommendations]);
 
-  const resultCount = shouldShowExpired
-    ? (recommendedData?.count ?? data?.count ?? 0)
-    : visibleScholarships.length;
+  const resultCount = recommendedData?.count ?? data?.count ?? visibleScholarships.length;
+  const hasMoreScholarships = Boolean(data?.next && !recommendedData);
   const hasActiveFilters = Boolean(
     filters.search ||
     filters.country ||
@@ -1064,6 +1102,18 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   />
                 ))}
               </section>
+              {hasMoreScholarships ? (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    type="button"
+                    onClick={() => void loadMoreScholarships()}
+                    disabled={loadingMore}
+                    variant="outline"
+                  >
+                    {loadingMore ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              ) : null}
             </>
           ) : null}
         </section>
