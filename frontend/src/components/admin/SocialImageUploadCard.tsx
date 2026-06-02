@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { ExternalLink, ImageUp, Loader2, Send } from "lucide-react";
+import Image from "next/image";
 
 import { Button, Card, CardContent } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
@@ -125,9 +126,12 @@ export function SocialImageUploadCard({
 
         {socialImage?.image_url ? (
           <div className="grid gap-2">
-            <img
+            <Image
               src={socialImage.image_url}
               alt="Saved Facebook social preview"
+              width={640}
+              height={800}
+              unoptimized
               className="aspect-[4/5] w-full rounded-xl border border-pine/10 object-cover dark:border-white/10"
             />
             <a
@@ -196,9 +200,12 @@ export function SocialImageUploadCard({
         <div className="rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
           <h3 className="text-sm font-bold text-ink dark:text-white">Facebook Post Preview</h3>
           {socialImage?.image_url ? (
-            <img
+            <Image
               src={socialImage.image_url}
               alt="Facebook post image preview"
+              width={640}
+              height={800}
+              unoptimized
               className="mt-2 aspect-[4/5] w-full rounded-xl border border-pine/10 object-cover dark:border-white/10"
             />
           ) : null}
