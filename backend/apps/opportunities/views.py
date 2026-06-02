@@ -28,6 +28,8 @@ from apps.opportunities.models import (
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
+    OpportunityReelLog,
+    OpportunityReelPlan,
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
@@ -83,6 +85,7 @@ from apps.opportunities.services.social_image_uploads import (
     save_social_image_from_openai_file_ref,
     save_social_image_from_url,
 )
+from apps.opportunities.services.social_reel_rendering import render_reel_plan
 from apps.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -3262,6 +3265,224 @@ class AdminSocialOpportunityPlanCaptionView(APIView):
         plan.post_text = post_text
         plan.save(update_fields=["post_text", "updated_at"])
         return Response(_serialize_admin_opportunity_social_plan(plan))
+
+
+def _clean_reel_source_ids(value):
+    if value in (None, ""):
+        return []
+    if not isinstance(value, list):
+        return []
+
+    cleaned = []
+    seen = set()
+    for item in value:
+        try:
+            item_id = int(item)
+        except (TypeError, ValueError):
+            continue
+        if item_id > 0 and item_id not in seen:
+            cleaned.append(item_id)
+            seen.add(item_id)
+    return cleaned
+
+
+def _serialize_reel_file(request, file_field, fallback_url=""):
+    if file_field:
+        url = file_field.url
+        return request.build_absolute_uri(url) if request else url
+    return fallback_url or ""
+
+
+def _serialize_admin_reel_plan(plan, request=None):
+    source_ids = _clean_reel_source_ids(plan.source_opportunity_ids)
+    opportunities = Opportunity.objects.filter(id__in=source_ids).select_related("country_ref")
+    opportunities_by_id = {opportunity.id: opportunity for opportunity in opportunities}
+    source_opportunities = []
+    for opportunity_id in source_ids:
+        opportunity = opportunities_by_id.get(opportunity_id)
+        if not opportunity:
+            continue
+        source_opportunities.append(
+            {
+                "id": opportunity.pk,
+                "title": opportunity.title,
+                "slug": opportunity.slug,
+                "provider_name": opportunity.provider_name,
+                "country": opportunity.country,
+                "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
+            }
+        )
+
+    return {
+        "id": plan.pk,
+        "title": plan.title,
+        "reel_type": plan.reel_type,
+        "status": plan.status,
+        "scenes_json": plan.scenes_json if isinstance(plan.scenes_json, list) else [],
+        "script_text": plan.script_text,
+        "voiceover_text": plan.voiceover_text,
+        "caption_text": plan.caption_text,
+        "hashtags": plan.hashtags,
+        "source_opportunity_ids": source_ids,
+        "source_opportunities": source_opportunities,
+        "source_collection_id": plan.source_collection_id,
+        "source_collection_title": plan.source_collection.title if plan.source_collection else "",
+        "video_url": _serialize_reel_file(request, plan.video_file, plan.video_url),
+        "thumbnail_url": _serialize_reel_file(request, plan.thumbnail_file),
+        "render_error": plan.render_error,
+        "next_post_at": _serialize_social_datetime(plan.next_post_at),
+        "priority_score": plan.priority_score,
+        "deadline_window": plan.deadline_window,
+        "created_at": _serialize_social_datetime(plan.created_at),
+        "updated_at": _serialize_social_datetime(plan.updated_at),
+        "admin_url": f"/admin/opportunities/opportunityreelplan/{plan.pk}/change/",
+    }
+
+
+def _parse_reel_datetime(value):
+    if value in (None, ""):
+        return None, ""
+    parsed = parse_datetime(str(value))
+    if not parsed:
+        return None, "Invalid datetime format. Use ISO 8601."
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    return parsed, ""
+
+
+def _reel_plan_payload(data):
+    if not isinstance(data, dict):
+        return None, {"detail": "Request body must be a JSON object."}
+
+    title = str(data.get("title") or "").strip()
+    if not title:
+        return None, {"title": "This field is required."}
+
+    reel_type = str(data.get("reel_type") or OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP).strip()
+    valid_reel_types = {choice[0] for choice in OpportunityReelPlan.ReelType.choices}
+    if reel_type not in valid_reel_types:
+        return None, {"reel_type": "Invalid reel type."}
+
+    status_value = str(data.get("status") or OpportunityReelPlan.Status.READY_FOR_RENDER).strip()
+    valid_statuses = {choice[0] for choice in OpportunityReelPlan.Status.choices}
+    if status_value not in valid_statuses:
+        return None, {"status": "Invalid status."}
+
+    scenes_json = data.get("scenes_json", [])
+    if scenes_json in ("", None):
+        scenes_json = []
+    if not isinstance(scenes_json, list):
+        return None, {"scenes_json": "Must be a list."}
+    if len(scenes_json) > 5:
+        scenes_json = scenes_json[:5]
+
+    source_collection_id = data.get("source_collection_id")
+    if source_collection_id in ("", None):
+        source_collection_id = None
+    elif not OpportunityCollection.objects.filter(pk=source_collection_id).exists():
+        return None, {"source_collection_id": "Collection not found."}
+
+    next_post_at, datetime_error = _parse_reel_datetime(data.get("next_post_at"))
+    if datetime_error:
+        return None, {"next_post_at": datetime_error}
+
+    try:
+        priority_score = int(data.get("priority_score") or 0)
+    except (TypeError, ValueError):
+        return None, {"priority_score": "Must be an integer."}
+
+    return {
+        "title": title[:255],
+        "reel_type": reel_type,
+        "status": status_value,
+        "scenes_json": scenes_json,
+        "script_text": str(data.get("script_text") or "").strip(),
+        "voiceover_text": str(data.get("voiceover_text") or "").strip(),
+        "caption_text": str(data.get("caption_text") or "").strip(),
+        "hashtags": str(data.get("hashtags") or "").strip(),
+        "source_opportunity_ids": _clean_reel_source_ids(data.get("source_opportunity_ids")),
+        "source_collection_id": source_collection_id,
+        "next_post_at": next_post_at,
+        "priority_score": priority_score,
+        "deadline_window": str(data.get("deadline_window") or "").strip()[:60],
+    }, None
+
+
+class AdminSocialReelPlanListCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        queryset = OpportunityReelPlan.objects.select_related("source_collection").all()
+        status_filter = str(request.query_params.get("status") or "").strip()
+        if status_filter and status_filter != "all":
+            queryset = queryset.filter(status=status_filter)
+        reel_type = str(request.query_params.get("reel_type") or "").strip()
+        if reel_type and reel_type != "all":
+            queryset = queryset.filter(reel_type=reel_type)
+        queryset = _filter_text_search(
+            queryset,
+            request.query_params.get("q"),
+            ["title", "script_text", "caption_text", "hashtags", "render_error"],
+        )
+        count = queryset.count()
+        items = [
+            _serialize_admin_reel_plan(plan, request)
+            for plan in queryset.order_by("-priority_score", "-created_at")[
+                : _admin_social_plan_limit(request)
+            ]
+        ]
+        return Response({"count": count, "items": items})
+
+    def post(self, request):
+        payload, errors = _reel_plan_payload(request.data)
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        plan = OpportunityReelPlan.objects.create(**payload)
+        OpportunityReelLog.objects.create(
+            reel_plan=plan,
+            status=OpportunityReelLog.Status.CREATED,
+            response_payload={"source": "admin_api"},
+        )
+        return Response(
+            _serialize_admin_reel_plan(plan, request),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminSocialReelPlanDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request, pk):
+        plan = OpportunityReelPlan.objects.select_related("source_collection").filter(pk=pk).first()
+        if not plan:
+            return Response({"detail": "Reel plan not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(_serialize_admin_reel_plan(plan, request))
+
+
+class AdminSocialReelPlanRenderView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request, pk):
+        plan = OpportunityReelPlan.objects.select_related("source_collection").filter(pk=pk).first()
+        if not plan:
+            return Response({"detail": "Reel plan not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        force = parse_bool(request.data.get("force") if isinstance(request.data, dict) else None) is True
+        try:
+            result = render_reel_plan(plan, force=force)
+        except Exception as exc:
+            plan.refresh_from_db()
+            return Response(
+                {
+                    "detail": "Reel render failed.",
+                    "error": str(exc),
+                    "plan": _serialize_admin_reel_plan(plan, request),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        plan.refresh_from_db()
+        return Response({"result": result, "plan": _serialize_admin_reel_plan(plan, request)})
 
 
 class AdminSocialCollectionPlanListView(APIView):

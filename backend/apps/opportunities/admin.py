@@ -13,6 +13,8 @@ from apps.opportunities.models import (
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
+    OpportunityReelLog,
+    OpportunityReelPlan,
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
@@ -623,6 +625,75 @@ class OpportunitySocialPostLogAdmin(admin.ModelAdmin):
         "error_message",
     )
     raw_id_fields = ("opportunity", "plan")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(OpportunityReelPlan)
+class OpportunityReelPlanAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "reel_type",
+        "status",
+        "deadline_window",
+        "priority_score",
+        "next_post_at",
+        "has_video",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("reel_type", "status", "deadline_window", "next_post_at", "created_at")
+    search_fields = (
+        "title",
+        "script_text",
+        "voiceover_text",
+        "caption_text",
+        "hashtags",
+        "render_error",
+    )
+    raw_id_fields = ("source_collection",)
+    readonly_fields = (
+        "video_preview",
+        "thumbnail_preview",
+        "render_error",
+        "created_at",
+        "updated_at",
+    )
+
+    @admin.display(description="Video")
+    def has_video(self, obj):
+        return bool(obj.video_file or obj.video_url)
+
+    @admin.display(description="Video preview")
+    def video_preview(self, obj):
+        if obj.video_file:
+            return format_html(
+                '<video src="{}" controls style="max-width: 260px; height: auto;"></video>',
+                obj.video_file.url,
+            )
+        if obj.video_url:
+            return format_html(
+                '<a href="{}" target="_blank" rel="noreferrer">{}</a>',
+                obj.video_url,
+                obj.video_url,
+            )
+        return "-"
+
+    @admin.display(description="Thumbnail")
+    def thumbnail_preview(self, obj):
+        if obj.thumbnail_file:
+            return format_html(
+                '<img src="{}" style="max-width: 180px; height: auto;" />',
+                obj.thumbnail_file.url,
+            )
+        return "-"
+
+
+@admin.register(OpportunityReelLog)
+class OpportunityReelLogAdmin(admin.ModelAdmin):
+    list_display = ("reel_plan", "status", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("reel_plan__title", "error_message", "response_payload")
+    raw_id_fields = ("reel_plan",)
     readonly_fields = ("created_at",)
 
 

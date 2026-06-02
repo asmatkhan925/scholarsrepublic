@@ -395,6 +395,77 @@ export type AdminSocialLogListResponse = {
   };
 };
 
+export type AdminSocialReelSourceOpportunity = {
+  id: number;
+  title: string;
+  slug: string;
+  provider_name: string;
+  country: string;
+  deadline: string | null;
+};
+
+export type AdminSocialReelPlan = {
+  id: number;
+  title: string;
+  reel_type: "closing_soon" | "prepare_early" | "single_scholarship" | "collection";
+  status:
+    | "draft"
+    | "ready_for_render"
+    | "rendering"
+    | "rendered"
+    | "ready"
+    | "posted"
+    | "failed"
+    | "paused"
+    | "archived";
+  scenes_json: Array<Record<string, unknown> | string>;
+  script_text: string;
+  voiceover_text: string;
+  caption_text: string;
+  hashtags: string;
+  source_opportunity_ids: number[];
+  source_opportunities: AdminSocialReelSourceOpportunity[];
+  source_collection_id: number | null;
+  source_collection_title: string;
+  video_url: string;
+  thumbnail_url: string;
+  render_error: string;
+  next_post_at: string | null;
+  priority_score: number;
+  deadline_window: string;
+  created_at: string | null;
+  updated_at: string | null;
+  admin_url: string;
+};
+
+export type AdminSocialReelPlanPayload = {
+  title: string;
+  reel_type: AdminSocialReelPlan["reel_type"];
+  status?: AdminSocialReelPlan["status"];
+  scenes_json?: Array<Record<string, unknown> | string>;
+  script_text?: string;
+  voiceover_text?: string;
+  caption_text?: string;
+  hashtags?: string;
+  source_opportunity_ids?: number[];
+  source_collection_id?: number | null;
+  next_post_at?: string | null;
+  priority_score?: number;
+  deadline_window?: string;
+};
+
+export type AdminSocialReelPlanListResponse = {
+  count: number;
+  items: AdminSocialReelPlan[];
+};
+
+export type AdminSocialReelPlanQuery = {
+  q?: string;
+  status?: string;
+  reel_type?: string;
+  limit?: number;
+};
+
 export type HealthResponse = {
   status: "ok";
   message: string;
@@ -650,6 +721,31 @@ export async function saveAdminCollectionSocialPlanCaption(planId: number, postT
   const response = await api.post<AdminCollectionSocialPlan>(
     `/admin/social/collection-plans/${planId}/caption/`,
     { post_text: postText },
+  );
+  return response.data;
+}
+
+export async function getAdminSocialReelPlans(params?: AdminSocialReelPlanQuery) {
+  const response = await api.get<AdminSocialReelPlanListResponse>("/admin/social/reels/", {
+    params,
+  });
+  return response.data;
+}
+
+export async function createAdminSocialReelPlan(payload: AdminSocialReelPlanPayload) {
+  const response = await api.post<AdminSocialReelPlan>("/admin/social/reels/", payload);
+  return response.data;
+}
+
+export async function getAdminSocialReelPlan(id: number) {
+  const response = await api.get<AdminSocialReelPlan>(`/admin/social/reels/${id}/`);
+  return response.data;
+}
+
+export async function renderAdminSocialReelPlan(id: number, payload?: { force?: boolean }) {
+  const response = await api.post<{ result: Record<string, unknown>; plan: AdminSocialReelPlan }>(
+    `/admin/social/reels/${id}/render/`,
+    payload ?? {},
   );
   return response.data;
 }

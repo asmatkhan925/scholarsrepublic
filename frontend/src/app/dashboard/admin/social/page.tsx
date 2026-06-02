@@ -12,6 +12,7 @@ import {
   Clipboard,
   ClipboardList,
   Clock,
+  Film,
   FileText,
   Layers,
   MessageSquareText,
@@ -64,6 +65,13 @@ const socialTools: SocialTool[] = [
     description: "Review collection post plans, scheduled times, priorities, and posted state.",
     href: "/dashboard/admin/social/collection-plans",
     icon: Layers,
+  },
+  {
+    title: "Social Reels",
+    description: "Create local 1080x1920 MP4 reel plans, render previews, and copy GPT script prompts.",
+    href: "/dashboard/admin/social/reels",
+    icon: Film,
+    badge: "Local MP4",
   },
   {
     title: "Social Drafts",

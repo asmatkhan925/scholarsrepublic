@@ -28,6 +28,9 @@ from apps.opportunities.views import (
     AdminSocialLogListView,
     AdminSocialOpportunityPlanCaptionView,
     AdminSocialOpportunityPlanListView,
+    AdminSocialReelPlanDetailView,
+    AdminSocialReelPlanListCreateView,
+    AdminSocialReelPlanRenderView,
     AdminSocialSchedulerStatusView,
     AdminScholarshipDeadlineApplyView,
     AdminScholarshipDeadlineVerificationActionView,
@@ -175,6 +178,21 @@ urlpatterns = [
         "admin/social/logs/",
         AdminSocialLogListView.as_view(),
         name="admin-social-log-list",
+    ),
+    path(
+        "admin/social/reels/",
+        AdminSocialReelPlanListCreateView.as_view(),
+        name="admin-social-reel-plan-list",
+    ),
+    path(
+        "admin/social/reels/<int:pk>/",
+        AdminSocialReelPlanDetailView.as_view(),
+        name="admin-social-reel-plan-detail",
+    ),
+    path(
+        "admin/social/reels/<int:pk>/render/",
+        AdminSocialReelPlanRenderView.as_view(),
+        name="admin-social-reel-plan-render",
     ),
     path(
         "admin/social/opportunity-plans/",

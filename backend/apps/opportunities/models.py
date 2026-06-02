@@ -1021,6 +1021,116 @@ class OpportunityCollectionSocialPostLog(models.Model):
         return f"{self.platform} collection {self.status} log for {self.collection}"
 
 
+class OpportunityReelPlan(models.Model):
+    class ReelType(models.TextChoices):
+        CLOSING_SOON = "closing_soon", "Closing soon"
+        PREPARE_EARLY = "prepare_early", "Prepare early"
+        SINGLE_SCHOLARSHIP = "single_scholarship", "Single scholarship"
+        COLLECTION = "collection", "Collection"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        READY_FOR_RENDER = "ready_for_render", "Ready for render"
+        RENDERING = "rendering", "Rendering"
+        RENDERED = "rendered", "Rendered"
+        READY = "ready", "Ready"
+        POSTED = "posted", "Posted"
+        FAILED = "failed", "Failed"
+        PAUSED = "paused", "Paused"
+        ARCHIVED = "archived", "Archived"
+
+    title = models.CharField(max_length=255)
+    reel_type = models.CharField(
+        max_length=40,
+        choices=ReelType.choices,
+        default=ReelType.SINGLE_SCHOLARSHIP,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=40,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    scenes_json = models.JSONField(default=list, blank=True)
+    script_text = models.TextField(blank=True)
+    voiceover_text = models.TextField(blank=True)
+    caption_text = models.TextField(blank=True)
+    hashtags = models.TextField(blank=True)
+    source_opportunity_ids = models.JSONField(default=list, blank=True)
+    source_collection = models.ForeignKey(
+        "opportunities.OpportunityCollection",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reel_plans",
+    )
+    video_file = models.FileField(
+        upload_to="opportunity_reels/videos/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    video_url = models.TextField(blank=True)
+    thumbnail_file = models.ImageField(
+        upload_to="opportunity_reels/thumbnails/%Y/%m/",
+        null=True,
+        blank=True,
+    )
+    render_error = models.TextField(blank=True)
+    next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    priority_score = models.IntegerField(default=0, db_index=True)
+    deadline_window = models.CharField(max_length=60, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-priority_score", "-created_at")
+        indexes = [
+            models.Index(fields=["reel_type", "status"]),
+            models.Index(fields=["status", "next_post_at"]),
+            models.Index(fields=["deadline_window"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    @property
+    def resolved_video_url(self):
+        if self.video_file:
+            return self.video_file.url
+
+        return self.video_url or ""
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class OpportunityReelLog(models.Model):
+    class Status(models.TextChoices):
+        CREATED = "created", "Created"
+        RENDERED = "rendered", "Rendered"
+        FAILED = "failed", "Failed"
+        SKIPPED = "skipped", "Skipped"
+
+    reel_plan = models.ForeignKey(
+        "opportunities.OpportunityReelPlan",
+        on_delete=models.CASCADE,
+        related_name="logs",
+    )
+    status = models.CharField(max_length=30, choices=Status.choices, db_index=True)
+    response_payload = models.JSONField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.status} reel log for {self.reel_plan}"
+
+
 class OpportunitySocialPostLog(models.Model):
     class Status(models.TextChoices):
         POSTED = "posted", "Posted"

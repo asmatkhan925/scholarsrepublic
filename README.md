@@ -20,6 +20,7 @@ future opportunity types in mind.
 - `backend/` - Django API, admin, media storage, and backend apps
 - `frontend/` - Next.js App Router application
 - `docs/` - product brief, API notes, schema notes, and roadmap
+- `docs/social-reels-runbook.md` - local MP4 reel plan and render workflow
 
 ## Backend Setup
 
