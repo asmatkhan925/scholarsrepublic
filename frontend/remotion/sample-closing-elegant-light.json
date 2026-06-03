@@ -7,15 +7,15 @@
     {
       "scene_type": "hook",
       "label": "Scholars Republic",
-      "title": "Deadlines are close",
-      "subheadline": "3 scholarships to check today",
+      "title": "Scholarships Closing Soon",
+      "subheadline": "Check these before the deadline",
       "duration": 1.1
     },
     {
       "scene_type": "scholarship",
       "rank": "01",
       "label": "Urgent",
-      "title": "Global Graduate Award",
+      "title": "Queen Elizabeth Commonwealth Scholarships",
       "blocks": ["China · Master", "Deadline: Jun 15, 2026"],
       "action_line": "Check eligibility today",
       "duration": 1.93

@@ -362,6 +362,9 @@ function CardScene({
   const enter = spring({ frame, fps, config: { damping: 20, stiffness: 95 } });
   const blocks = scene.blocks || [];
   if (type === "hook") {
+    if (variant.family === "closing_light") {
+      return <ElegantLightHook scene={scene} variant={variant} enter={enter} frame={frame} />;
+    }
     return (
       <AbsoluteFill>
         <Badge top={452} variant={variant}>{scene.label || "Scholarship update"}</Badge>
@@ -413,12 +416,53 @@ function CardScene({
       </div>
       <Badge top={408} left={328} width={490} variant={variant}>{scene.label || "Scholarship"}</Badge>
       <div style={{ transform: `translateY(${(1 - enter) * 84}px)`, opacity: enter }}>
-        <Title y={800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
+        {variant.family === "closing_light" ? (
+          <ScholarshipTitle top={668} variant={variant}>{scene.title}</ScholarshipTitle>
+        ) : (
+          <Title y={800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
+        )}
         {blocks[0] ? <Subtitle y={1116} variant={variant}>{blocks[0]}</Subtitle> : null}
         {blocks[1] ? <Pill top={1236} scale={deadlinePulse} variant={variant}>{blocks[1]}</Pill> : null}
         {scene.action_line ? <ActionLine top={1386} variant={variant}>{scene.action_line}</ActionLine> : null}
       </div>
       <Footer variant={variant} />
+    </AbsoluteFill>
+  );
+}
+
+function ElegantLightHook({
+  scene,
+  variant,
+  enter,
+  frame,
+}: {
+  scene: ReelScene;
+  variant: Variant;
+  enter: number;
+  frame: number;
+}) {
+  const lineWidth = interpolate(frame, [8, 24], [0, 560], { extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill>
+      <Badge top={438} variant={variant}>Closing soon</Badge>
+      <div style={{ transform: `translateY(${(1 - enter) * 58}px)`, opacity: enter }}>
+        <Title y={748} size={106} variant={variant}>{scene.title}</Title>
+        <div
+          style={{
+            position: "absolute",
+            left: 220,
+            top: 948,
+            width: lineWidth,
+            height: 16,
+            borderRadius: 8,
+            background: colors.gold,
+          }}
+        />
+        <Subtitle y={1066} opacity={fade(frame, 8, 22)} variant={variant}>
+          {scene.subheadline || "Check these before the deadline"}
+        </Subtitle>
+        <Pill top={1256} opacity={fade(frame, 12, 26)} variant={variant}>ScholarsRepublic.org</Pill>
+      </div>
     </AbsoluteFill>
   );
 }
@@ -668,6 +712,40 @@ function Title({
         alignItems: "center",
         justifyContent: "center",
         textWrap: "balance",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ScholarshipTitle({
+  children,
+  top,
+  variant,
+}: {
+  children: React.ReactNode;
+  top: number;
+  variant: Variant;
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 142,
+        right: 142,
+        top,
+        minHeight: 186,
+        color: variant.ink,
+        fontWeight: 950,
+        fontSize: 64,
+        lineHeight: 1.1,
+        textAlign: "center",
+        display: "-webkit-box",
+        WebkitBoxOrient: "vertical",
+        WebkitLineClamp: 2,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
       }}
     >
       {children}

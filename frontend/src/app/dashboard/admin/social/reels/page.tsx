@@ -569,7 +569,7 @@ function ReelsContent() {
               }
               disabled={generating}
             >
-              Generate Elegant Light
+              Elegant Light — recommended
             </Button>
             <Button
               type="button"

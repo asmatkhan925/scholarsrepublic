@@ -139,6 +139,7 @@ from apps.opportunities.services.social_reel_planning import (
     choose_reel_template_key,
     generate_social_reel_plans,
     select_reel_candidates,
+    short_title,
 )
 from apps.opportunities.services.social_reel_rendering import calculate_scene_durations
 from apps.opportunities.services.social_reel_rendering import (
@@ -306,8 +307,6 @@ class SocialReelPlanningTests(APITestCase):
             selection["template_key"],
             {
                 "closing_soon_elegant_light_v1",
-                "closing_soon_dark_premium_v1",
-                "closing_soon_minimal_kinetic_v1",
             },
         )
         self.assertLessEqual(selection["expected_duration_seconds"], 9)
@@ -319,16 +318,9 @@ class SocialReelPlanningTests(APITestCase):
             date=date(2026, 6, 3),
         )
 
-        self.assertIn(
-            template_key,
-            {
-                "closing_soon_elegant_light_v1",
-                "closing_soon_dark_premium_v1",
-                "closing_soon_minimal_kinetic_v1",
-            },
-        )
+        self.assertEqual(template_key, "closing_soon_elegant_light_v1")
 
-    def test_template_rotation_varies_by_source_set(self):
+    def test_closing_soon_default_template_is_stable_elegant_light(self):
         first = choose_reel_template_key(
             OpportunityReelPlan.ReelType.CLOSING_SOON,
             [1, 2, 3],
@@ -340,7 +332,8 @@ class SocialReelPlanningTests(APITestCase):
             date=date(2026, 6, 3),
         )
 
-        self.assertNotEqual(first, second)
+        self.assertEqual(first, "closing_soon_elegant_light_v1")
+        self.assertEqual(second, "closing_soon_elegant_light_v1")
 
     def test_final_closing_soon_scenes_use_premium_hook_and_action_line(self):
         self.opportunity("v3-one", deadline_days=2)
@@ -352,11 +345,22 @@ class SocialReelPlanningTests(APITestCase):
             run_date=timezone.localdate(),
         )
 
-        self.assertEqual(selection["scenes_json"][0]["title"], "Deadlines are close")
-        self.assertEqual(selection["scenes_json"][0]["subheadline"], "3 scholarships to check today")
+        self.assertEqual(selection["scenes_json"][0]["title"], "Scholarships Closing Soon")
+        self.assertIn("Scholarships", selection["scenes_json"][0]["title"])
+        self.assertEqual(selection["scenes_json"][0]["subheadline"], "Check these before the deadline")
         self.assertEqual(selection["scenes_json"][1]["rank"], "01")
         self.assertEqual(selection["scenes_json"][1]["action_line"], "Check eligibility today")
         self.assertIn("#InternationalStudents", selection["hashtags"])
+
+    def test_elegant_light_title_shortening_allows_longer_titles(self):
+        title = "Queen Elizabeth Commonwealth Scholarships for International Students"
+
+        elegant = short_title(title, template_key="closing_soon_elegant_light_v1")
+        dark = short_title(title, template_key="closing_soon_dark_premium_v1")
+
+        self.assertGreater(len(elegant), len(dark))
+        self.assertLessEqual(len(elegant), 56)
+        self.assertIn("Queen Elizabeth Commonwealth", elegant)
 
     def test_final_prepare_early_scenes_use_action_line(self):
         self.opportunity("prepare-one", deadline_days=18)

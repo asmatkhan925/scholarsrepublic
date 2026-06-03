@@ -188,11 +188,7 @@ def reel_type_for_template_key(template_key):
 
 def choose_reel_template_key(reel_type, source_opportunity_ids, date=None):
     if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
-        options = [
-            "closing_soon_elegant_light_v1",
-            "closing_soon_dark_premium_v1",
-            "closing_soon_minimal_kinetic_v1",
-        ]
+        return "closing_soon_elegant_light_v1"
     elif reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
         options = ["prepare_early_elegant_v1"]
     elif reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
@@ -389,11 +385,6 @@ def select_single_candidate(candidates, *, run_date, template_key=""):
 
 
 def build_selection(*, reel_type, title, candidates, run_date=None, template_key=""):
-    scenes = build_auto_scenes(reel_type, candidates)
-    durations = calculate_scene_durations(reel_type, len(scenes))
-    expected_duration = round(sum(durations), 2)
-    for scene, duration in zip(scenes, durations):
-        scene["duration"] = duration
     source_ids = [item["id"] for item in candidates]
     priority_score = sum(item["priority_score"] for item in candidates)
     deadline_window = candidates[0]["deadline_window"] if candidates else ""
@@ -402,6 +393,11 @@ def build_selection(*, reel_type, title, candidates, run_date=None, template_key
         source_ids,
         date=run_date,
     )
+    scenes = build_auto_scenes(reel_type, candidates, template_key=chosen_template_key)
+    durations = calculate_scene_durations(reel_type, len(scenes))
+    expected_duration = round(sum(durations), 2)
+    for scene, duration in zip(scenes, durations):
+        scene["duration"] = duration
     return {
         "ok": True,
         "title": title,
@@ -419,7 +415,7 @@ def build_selection(*, reel_type, title, candidates, run_date=None, template_key
     }
 
 
-def build_auto_scenes(reel_type, candidates):
+def build_auto_scenes(reel_type, candidates, template_key=""):
     if reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
         candidate = candidates[0]
         opportunity = candidate["opportunity"]
@@ -436,7 +432,7 @@ def build_auto_scenes(reel_type, candidates):
                 "scene_type": "scholarship",
                 "rank": "01",
                 "label": "Deadline",
-                "title": short_title(opportunity.title),
+                "title": short_title(opportunity.title, template_key=template_key),
                 "blocks": [info_line, f"Deadline: {readable_deadline(opportunity.deadline)}"],
                 "action_line": "Check eligibility",
             },
@@ -456,8 +452,8 @@ def build_auto_scenes(reel_type, candidates):
         cta = "Plan your application"
         cta_subheadline = "Requirements + official links"
     else:
-        hook = "Deadlines are close"
-        subheadline = "3 scholarships to check today"
+        hook = "Scholarships Closing Soon"
+        subheadline = "Check these before the deadline"
         action_line = "Check eligibility today"
         cta = "Apply before deadlines"
         cta_subheadline = "Official links on Scholars Republic"
@@ -472,7 +468,12 @@ def build_auto_scenes(reel_type, candidates):
         }
     ]
     scenes.extend(
-        scholarship_scene(candidate, rank=f"{index:02d}", action_line=action_line)
+        scholarship_scene(
+            candidate,
+            rank=f"{index:02d}",
+            action_line=action_line,
+            template_key=template_key,
+        )
         for index, candidate in enumerate(candidates[:3], start=1)
     )
     scenes.append(
@@ -487,21 +488,22 @@ def build_auto_scenes(reel_type, candidates):
     return scenes
 
 
-def scholarship_scene(candidate, rank, action_line="Check eligibility today"):
+def scholarship_scene(candidate, rank, action_line="Check eligibility today", template_key=""):
     opportunity = candidate["opportunity"]
     deadline = readable_deadline(opportunity.deadline)
     return {
         "scene_type": "scholarship",
         "rank": rank,
         "label": candidate["deadline_window_label"],
-        "title": short_title(opportunity.title),
+        "title": short_title(opportunity.title, template_key=template_key),
         "blocks": [opportunity_info_line(opportunity), f"Deadline: {deadline}"],
         "action_line": action_line,
     }
 
 
-def short_title(value):
-    return shorten_reel_title(value, 42)
+def short_title(value, template_key=""):
+    width = 56 if template_key == "closing_soon_elegant_light_v1" else 42
+    return shorten_reel_title(value, width)
 
 
 def opportunity_info_line(opportunity):
