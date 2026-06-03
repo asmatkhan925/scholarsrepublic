@@ -141,6 +141,7 @@ from apps.opportunities.services.social_reel_planning import (
     select_reel_candidates,
     short_title,
 )
+from apps.opportunities.services.social_reel_posting import build_reel_facebook_caption
 from apps.opportunities.services.social_reel_rendering import calculate_scene_durations
 from apps.opportunities.services.social_reel_rendering import (
     add_optional_background_music,
@@ -797,6 +798,68 @@ class SocialReelPlanningTests(APITestCase):
 
         mocked.assert_not_called()
 
+    @override_settings(FRONTEND_URL="https://scholarsrepublic.org")
+    def test_closing_soon_reel_facebook_caption_includes_titles_and_public_urls(self):
+        first = self.opportunity("queen-elizabeth-commonwealth-scholarships", deadline_days=1)
+        second = self.opportunity("hzdr-phd-position", deadline_days=5)
+        third = self.opportunity("ulm-university-medical-ai-phd", deadline_days=12)
+        plan = OpportunityReelPlan.objects.create(
+            title="Closing Soon",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            caption_text="Scholarships closing soon for international students.",
+            source_opportunity_ids=[first.pk, second.pk, third.pk],
+        )
+
+        caption = build_reel_facebook_caption(plan)
+
+        self.assertIn("Scholarships Closing Soon", caption)
+        self.assertIn(first.title, caption)
+        self.assertIn("Deadline:", caption)
+        self.assertIn(
+            "https://scholarsrepublic.org/scholarships/queen-elizabeth-commonwealth-scholarships",
+            caption,
+        )
+        self.assertNotIn("/admin/", caption)
+        self.assertNotIn("<a href=", caption)
+        self.assertLessEqual(len(caption), 1200)
+
+    @override_settings(FRONTEND_URL="https://scholarsrepublic.org")
+    def test_reel_caption_missing_deadline_fallback(self):
+        opportunity = self.opportunity("missing-deadline-reel-caption", deadline=None)
+        plan = OpportunityReelPlan.objects.create(
+            title="Missing Deadline Reel",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            source_opportunity_ids=[opportunity.pk],
+        )
+
+        caption = build_reel_facebook_caption(plan)
+
+        self.assertIn("Deadline: Check official page", caption)
+
+    @override_settings(FRONTEND_URL="https://scholarsrepublic.org")
+    def test_single_scholarship_reel_caption_format(self):
+        opportunity = self.opportunity(
+            "single-caption-scholarship",
+            deadline_days=7,
+            country="Germany",
+            degree_levels=["PhD"],
+        )
+        plan = OpportunityReelPlan.objects.create(
+            title="Single Reel",
+            reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
+            source_opportunity_ids=[opportunity.pk],
+        )
+
+        caption = build_reel_facebook_caption(plan)
+
+        self.assertIn("Scholarship Alert", caption)
+        self.assertIn(opportunity.title, caption)
+        self.assertIn("Country: Germany", caption)
+        self.assertIn("Degree: PhD", caption)
+        self.assertIn("Details:", caption)
+        self.assertIn("https://scholarsrepublic.org/scholarships/single-caption-scholarship", caption)
+        self.assertNotIn("<a href=", caption)
+
     @override_settings(SCHOLARS_AGENT_TOKEN="agent-token", SOCIAL_REELS_FACEBOOK_DAILY_CAP=1)
     def test_agent_due_reels_returns_only_ready_unposted_existing_video_plans(self):
         safe = self.opportunity("due-reel-safe", deadline_days=5)
@@ -853,6 +916,9 @@ class SocialReelPlanningTests(APITestCase):
         self.assertEqual(response.data["daily_cap"], 1)
         self.assertEqual(response.data["returned_count"], 1)
         self.assertTrue(response.data["items"][0]["video_url"].startswith("http://testserver/"))
+        self.assertIn(safe.title, response.data["items"][0]["caption"])
+        self.assertIn("source_opportunities", response.data["items"][0])
+        self.assertEqual(response.data["items"][0]["source_opportunities"][0]["id"], safe.pk)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="agent-token")
     def test_agent_reel_posted_callback_marks_and_logs_plan(self):

@@ -1,11 +1,17 @@
 from datetime import datetime, time, timedelta
+import textwrap
 
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 
 from apps.opportunities.models import Opportunity, OpportunityReelLog, OpportunityReelPlan
-from apps.opportunities.services.social_posting import is_opportunity_expired_for_social, site_url
+from apps.opportunities.services.social_posting import (
+    degree_label,
+    is_opportunity_expired_for_social,
+    scholarship_detail_url,
+    site_url,
+)
 
 
 SOCIAL_REELS_FACEBOOK_DAILY_CAP = 1
@@ -75,15 +81,114 @@ def source_opportunities_are_safe(plan, today=None):
     return True
 
 
-def due_reel_caption(plan):
-    text = str(plan.caption_text or "").strip()
-    if text:
-        return text
+def get_source_opportunities_for_reel(plan):
+    source_ids = clean_source_ids(plan.source_opportunity_ids)
+    if not source_ids:
+        return []
+    opportunities = {
+        opportunity.pk: opportunity
+        for opportunity in Opportunity.objects.filter(pk__in=source_ids)
+    }
+    return [opportunities[source_id] for source_id in source_ids if source_id in opportunities]
+
+
+def short_caption_title(value, width=74):
+    return textwrap.shorten(" ".join(str(value or "").split()), width=width, placeholder="...")
+
+
+def reel_deadline_label(opportunity):
+    if not opportunity.deadline:
+        return "Check official page"
+    return opportunity.deadline.strftime("%b ") + str(opportunity.deadline.day)
+
+
+def reel_public_url(opportunity):
+    if not opportunity or not opportunity.slug:
+        return ""
+    return scholarship_detail_url(opportunity)
+
+
+def source_opportunity_summary(opportunity):
+    return {
+        "id": opportunity.pk,
+        "title": opportunity.title,
+        "public_url": reel_public_url(opportunity),
+        "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
+    }
+
+
+def build_reel_facebook_caption(plan):
+    opportunities = get_source_opportunities_for_reel(plan)
+    if not opportunities:
+        text = str(plan.caption_text or "").strip()
+        if text:
+            return text
+        return generic_reel_caption(plan)
+
+    if plan.reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
+        lines = ["\U0001F393 Scholarships to Prepare Early", ""]
+        action = (
+            "Prepare your documents early and always confirm requirements from the official source."
+        )
+        link_label = "Details"
+        max_items = 3
+    elif plan.reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
+        opportunity = opportunities[0]
+        lines = ["\U0001F393 Scholarship Alert", "", short_caption_title(opportunity.title), ""]
+        lines.append(f"Deadline: {reel_deadline_label(opportunity)}")
+        if opportunity.country:
+            lines.append(f"Country: {opportunity.country}")
+        degree = degree_label(opportunity)
+        if degree:
+            lines.append(f"Degree: {degree}")
+        public_url = reel_public_url(opportunity)
+        if public_url:
+            lines.extend(["", "Details:", public_url])
+        lines.extend(
+            [
+                "",
+                "Check eligibility and official application instructions before applying.",
+                "",
+                "Scholars Republic",
+                site_url(),
+            ]
+        )
+        return trim_caption("\n".join(lines))
+    else:
+        lines = ["\U0001F393 Scholarships Closing Soon", ""]
+        action = "Check eligibility, required documents, and official links before applying."
+        link_label = "Apply/Details"
+        max_items = 3
+
+    for index, opportunity in enumerate(opportunities[:max_items], start=1):
+        lines.append(f"{index}. {short_caption_title(opportunity.title)}")
+        lines.append(f"Deadline: {reel_deadline_label(opportunity)}")
+        public_url = reel_public_url(opportunity)
+        if public_url:
+            lines.append(f"{link_label}: {public_url}")
+        lines.append("")
+
+    lines.extend([action, "", "Scholars Republic", site_url()])
+    return trim_caption("\n".join(lines))
+
+
+def trim_caption(value, limit=1200):
+    value = str(value or "").strip()
+    if len(value) <= limit:
+        return value
+    return textwrap.shorten(value, width=limit, placeholder="...")
+
+
+def generic_reel_caption(plan):
     if plan.reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
         return "Scholarships closing soon. Check eligibility and official deadlines on Scholars Republic."
     if plan.reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
         return "Start preparing early for these scholarship opportunities on Scholars Republic."
     return "Scholarship opportunity for international students. Review details on Scholars Republic."
+
+
+def due_reel_caption(plan):
+    return build_reel_facebook_caption(plan)
 
 
 def reel_video_url(plan, request=None):
@@ -110,6 +215,10 @@ def due_facebook_reel_payload(plan, request=None):
         "caption": due_reel_caption(plan),
         "video_url": reel_video_url(plan, request=request),
         "source_opportunity_ids": clean_source_ids(plan.source_opportunity_ids),
+        "source_opportunities": [
+            source_opportunity_summary(opportunity)
+            for opportunity in get_source_opportunities_for_reel(plan)
+        ],
         "next_post_at": plan.next_post_at.isoformat() if plan.next_post_at else None,
     }
 

@@ -285,6 +285,18 @@ In local development, this usually means:
 backend/media/opportunity_reels/videos/YYYY/MM/
 ```
 
+## Facebook Reel Captions
+
+Due reel payloads generate Facebook captions from the reel's source scholarships, not from a generic saved sentence when source opportunities are available. Captions use plain public URLs because Facebook automatically makes them clickable and does not support HTML links.
+
+Closing-soon and prepare-early captions include up to three source scholarships:
+
+- Short scholarship title
+- Deadline, or `Deadline: Check official page` when missing
+- Public Scholars Republic scholarship URL when the slug is available
+
+Single-scholarship captions include the title, deadline, country and degree when available, plus the public details URL. The Worker posts the backend `caption` field directly as the Facebook video description.
+
 ## Not Automated Yet
 
 This reel system does not:
