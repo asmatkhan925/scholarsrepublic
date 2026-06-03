@@ -443,6 +443,11 @@ export type AdminSocialReelPlan = {
   priority_score: number;
   deadline_window: string;
   expected_duration_seconds: number | null;
+  audio_added: boolean;
+  audio_path: string;
+  audio_error: string;
+  music_configured: boolean;
+  music_volume: number;
   created_at: string | null;
   updated_at: string | null;
   admin_url: string;

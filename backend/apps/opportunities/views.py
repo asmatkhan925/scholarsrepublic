@@ -87,6 +87,7 @@ from apps.opportunities.services.social_image_uploads import (
 )
 from apps.opportunities.services.social_reel_planning import generate_social_reel_plans
 from apps.opportunities.services.social_reel_rendering import (
+    background_music_summary,
     expected_reel_duration,
     render_reel_plan,
     resolved_template_key,
@@ -3324,6 +3325,11 @@ def _serialize_admin_reel_plan(plan, request=None):
         expected_duration = expected_reel_duration(plan)
     except Exception:
         expected_duration = None
+    music = background_music_summary()
+    latest_render_log = plan.logs.filter(status=OpportunityReelLog.Status.RENDERED).first()
+    latest_render_payload = latest_render_log.response_payload if latest_render_log else {}
+    if not isinstance(latest_render_payload, dict):
+        latest_render_payload = {}
 
     return {
         "id": plan.pk,
@@ -3347,6 +3353,11 @@ def _serialize_admin_reel_plan(plan, request=None):
         "priority_score": plan.priority_score,
         "deadline_window": plan.deadline_window,
         "expected_duration_seconds": expected_duration,
+        "audio_added": bool(latest_render_payload.get("audio_added")),
+        "audio_path": latest_render_payload.get("audio_path") or music["music_path"],
+        "audio_error": latest_render_payload.get("audio_error") or "",
+        "music_configured": music["music_configured"],
+        "music_volume": music["music_volume"],
         "created_at": _serialize_social_datetime(plan.created_at),
         "updated_at": _serialize_social_datetime(plan.updated_at),
         "admin_url": f"/admin/opportunities/opportunityreelplan/{plan.pk}/change/",

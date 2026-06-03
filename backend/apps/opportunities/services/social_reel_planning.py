@@ -338,12 +338,12 @@ def build_selection(*, reel_type, title, candidates):
         "ok": True,
         "title": title,
         "reel_type": reel_type,
-        "template_key": TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_text_v1"),
+        "template_key": TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_text_v2"),
         "source_opportunity_ids": source_ids,
         "source_opportunities": [serialize_candidate(item) for item in candidates],
         "scenes_json": scenes,
-        "caption_text": build_caption_text(title, candidates),
-        "hashtags": "#Scholarships #ScholarsRepublic",
+        "caption_text": build_caption_text(reel_type),
+        "hashtags": "#ScholarsRepublic #Scholarships #StudyAbroad #InternationalStudents #ScholarshipAlert",
         "priority_score": priority_score,
         "deadline_window": deadline_window,
         "expected_duration_seconds": expected_duration,
@@ -354,18 +354,28 @@ def build_selection(*, reel_type, title, candidates):
 def build_auto_scenes(reel_type, candidates):
     if reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
         candidate = candidates[0]
+        opportunity = candidate["opportunity"]
+        info_line = opportunity_info_line(opportunity)
         return [
             {
                 "scene_type": "hook",
                 "label": "Alert",
                 "title": "Scholarship Alert",
+                "subheadline": info_line,
                 "blocks": [],
             },
-            scholarship_scene(candidate, rank=1),
+            {
+                "scene_type": "scholarship",
+                "rank": 1,
+                "label": "Deadline",
+                "title": short_title(opportunity.title),
+                "blocks": [info_line, f"Deadline: {readable_deadline(opportunity.deadline)}"],
+            },
             {
                 "scene_type": "cta",
                 "label": "Next step",
                 "title": "Check eligibility",
+                "subheadline": "Official links on Scholars Republic",
                 "blocks": ["ScholarsRepublic.org"],
             },
         ]
@@ -373,11 +383,15 @@ def build_auto_scenes(reel_type, candidates):
     if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
         hook = "Prepare Early"
         subheadline = "Scholarships to plan for"
-        cta = "Start documents now"
+        action_line = "Start documents now"
+        cta = "Plan your application"
+        cta_subheadline = "Check requirements early"
     else:
-        hook = "3 Scholarships Closing Soon"
-        subheadline = "For International Students"
-        cta = "Check official links"
+        hook = "Don't miss these deadlines"
+        subheadline = "3 scholarships closing soon"
+        action_line = "Check eligibility today"
+        cta = "Apply before deadlines"
+        cta_subheadline = "Official links on Scholars Republic"
 
     scenes = [
         {
@@ -389,7 +403,7 @@ def build_auto_scenes(reel_type, candidates):
         }
     ]
     scenes.extend(
-        scholarship_scene(candidate, rank=index)
+        scholarship_scene(candidate, rank=index, action_line=action_line)
         for index, candidate in enumerate(candidates[:3], start=1)
     )
     scenes.append(
@@ -397,35 +411,45 @@ def build_auto_scenes(reel_type, candidates):
             "scene_type": "cta",
             "label": "Next step",
             "title": cta,
+            "subheadline": cta_subheadline,
             "blocks": ["ScholarsRepublic.org"],
         }
     )
     return scenes
 
 
-def scholarship_scene(candidate, rank):
+def scholarship_scene(candidate, rank, action_line="Check eligibility today"):
     opportunity = candidate["opportunity"]
-    country = opportunity.country or opportunity.provider_name or "Scholarship"
-    degree = degree_label(opportunity)
     deadline = readable_deadline(opportunity.deadline)
     return {
         "scene_type": "scholarship",
         "rank": rank,
         "label": candidate["deadline_window_label"],
         "title": short_title(opportunity.title),
-        "blocks": [f"{country} | {degree}", f"Deadline: {deadline}"],
+        "blocks": [opportunity_info_line(opportunity), f"Deadline: {deadline}"],
+        "action_line": action_line,
     }
 
 
 def short_title(value):
-    return shorten_reel_title(value, 46)
+    return shorten_reel_title(value, 42)
+
+
+def opportunity_info_line(opportunity):
+    parts = []
+    if opportunity.country:
+        parts.append(opportunity.country)
+    degree = degree_label(opportunity)
+    if degree:
+        parts.append(degree)
+    return " / ".join(parts)
 
 
 def degree_label(opportunity):
     levels = opportunity.degree_levels if isinstance(opportunity.degree_levels, list) else []
     levels = [str(item).strip() for item in levels if str(item).strip()]
     if not levels:
-        return "Degree"
+        return ""
     return text_shorten(", ".join(levels[:2]), 24)
 
 
@@ -440,14 +464,21 @@ def text_shorten(value, width):
     return value if len(value) <= width else f"{value[: max(0, width - 3)].rstrip()}..."
 
 
-def build_caption_text(title, candidates):
-    lines = [title, ""]
-    for item in candidates:
-        opportunity = item["opportunity"]
-        lines.append(f"- {opportunity.title} ({readable_deadline(opportunity.deadline)})")
-    lines.append("")
-    lines.append("Verify details from official links before applying.")
-    return "\n".join(lines)
+def build_caption_text(reel_type):
+    if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
+        return (
+            "Scholarships closing soon for international students. Check eligibility, "
+            "deadlines, and official links before applying."
+        )
+    if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
+        return (
+            "Start preparing early for these scholarship opportunities. Review requirements "
+            "and official links on Scholars Republic."
+        )
+    return (
+        "Scholarship opportunity for international students. Check eligibility, deadline, "
+        "and official application details on Scholars Republic."
+    )
 
 
 def duplicate_skip_reason(source_ids, run_date):

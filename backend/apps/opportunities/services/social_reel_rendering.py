@@ -26,24 +26,31 @@ SINGLE_REEL_MAX_SECONDS = 6.0
 MULTI_REEL_TARGET_SECONDS = 8.0
 MULTI_REEL_MAX_SECONDS = 9.0
 MAX_SCENES = 5
-MAX_AUTO_TITLE_CHARS = 46
+MAX_AUTO_TITLE_CHARS = 42
 MAX_AUTO_BLOCK_CHARS = 48
 MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
 TEXT_TEMPLATE_BY_REEL_TYPE = {
-    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_text_v1",
-    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_text_v1",
-    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_text_v1",
+    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_text_v2",
+    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_text_v2",
+    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_text_v2",
 }
-TEXT_TEMPLATE_KEYS = set(TEXT_TEMPLATE_BY_REEL_TYPE.values())
+LEGACY_TEXT_TEMPLATE_KEYS = {
+    "closing_soon_text_v1",
+    "prepare_early_text_v1",
+    "single_scholarship_text_v1",
+}
+TEXT_TEMPLATE_KEYS = set(TEXT_TEMPLATE_BY_REEL_TYPE.values()) | LEGACY_TEXT_TEMPLATE_KEYS
 BG = "#fbf7ee"
 PINE = "#0f4f3a"
+DEEP_PINE = "#0a3b2b"
 GOLD = "#d7a642"
 INK = "#17342a"
 MUTED = "#5f746b"
 WHITE = "#ffffff"
 SOFT_GREEN = "#e8f2ec"
 SOFT_GOLD = "#f5ead0"
+PATTERN = "#eef4ef"
 
 
 class ReelRenderError(Exception):
@@ -51,11 +58,24 @@ class ReelRenderError(Exception):
 
 
 def render_reel_plan(plan, force=False):
-    if plan.status == OpportunityReelPlan.Status.RENDERED and plan.video_file and not force:
+    if plan.status in {OpportunityReelPlan.Status.PAUSED, OpportunityReelPlan.Status.ARCHIVED}:
         OpportunityReelLog.objects.create(
             reel_plan=plan,
             status=OpportunityReelLog.Status.SKIPPED,
-            response_payload={"reason": "already_rendered"},
+            response_payload={"reason": f"{plan.status}_plan_not_rendered"},
+        )
+        return {
+            "ok": True,
+            "skipped": True,
+            "status": plan.status,
+            "reason": f"{plan.status}_plan_not_rendered",
+        }
+
+    if plan.status in {OpportunityReelPlan.Status.RENDERED, OpportunityReelPlan.Status.READY} and plan.video_file and not force:
+        OpportunityReelLog.objects.create(
+            reel_plan=plan,
+            status=OpportunityReelLog.Status.SKIPPED,
+            response_payload={"reason": "already_rendered_or_ready"},
         )
         return {
             "ok": True,
@@ -92,11 +112,21 @@ def render_reel_plan(plan, force=False):
                 )
 
             concat_file = write_concat_file(tmp_path, frame_paths, scenes)
+            silent_output_path = tmp_path / f"scholars-republic-reel-{plan.pk}-silent.mp4"
             output_path = tmp_path / f"scholars-republic-reel-{plan.pk}.mp4"
-            encode_video(ffmpeg_path, concat_file, output_path)
+            encode_video(ffmpeg_path, concat_file, silent_output_path)
+            audio_payload = add_optional_background_music(
+                ffmpeg_path,
+                silent_output_path,
+                output_path,
+                expected_duration,
+            )
 
             thumbnail_path = tmp_path / f"scholars-republic-reel-{plan.pk}.jpg"
             Image.open(frame_paths[0]).convert("RGB").save(thumbnail_path, quality=92)
+
+            if not (plan.caption_text or "").strip():
+                plan.caption_text = generated_caption_text(plan)
 
             with output_path.open("rb") as video_handle:
                 plan.video_file.save(output_path.name, File(video_handle), save=False)
@@ -104,8 +134,8 @@ def render_reel_plan(plan, force=False):
                 plan.thumbnail_file.save(thumbnail_path.name, File(thumbnail_handle), save=False)
 
         plan.video_url = ""
-        plan.status = OpportunityReelPlan.Status.RENDERED
         plan.render_error = ""
+        plan.status = OpportunityReelPlan.Status.READY if render_ready_checks_pass(plan, scenes, expected_duration) else OpportunityReelPlan.Status.RENDERED
         plan.save(
             update_fields=[
                 "video_file",
@@ -113,6 +143,7 @@ def render_reel_plan(plan, force=False):
                 "thumbnail_file",
                 "status",
                 "render_error",
+                "caption_text",
                 "updated_at",
             ]
         )
@@ -125,6 +156,10 @@ def render_reel_plan(plan, force=False):
             "scene_count": len(scenes),
             "template_key": resolved_template_key(plan),
             "source_images_used": bool(image_path),
+            "audio_added": audio_payload["audio_added"],
+            "audio_path": audio_payload["audio_path"],
+            "audio_error": audio_payload["audio_error"],
+            "status": plan.status,
         }
         OpportunityReelLog.objects.create(
             reel_plan=plan,
@@ -161,6 +196,7 @@ def build_scenes(plan):
             blocks = []
             scene_type = ""
             subheadline = ""
+            action_line = ""
             rank = None
             funding_badge = ""
         elif isinstance(item, dict):
@@ -169,6 +205,7 @@ def build_scenes(plan):
             label = str(item.get("label") or item.get("kicker") or "").strip()
             scene_type = str(item.get("scene_type") or item.get("type") or "").strip()
             subheadline = str(item.get("subheadline") or "").strip()
+            action_line = str(item.get("action_line") or item.get("action") or "").strip()
             rank = item.get("rank")
             funding_badge = str(item.get("funding_badge") or "").strip()
             raw_blocks = item.get("blocks")
@@ -189,6 +226,7 @@ def build_scenes(plan):
                 blocks=blocks,
                 scene_type=scene_type,
                 subheadline=subheadline,
+                action_line=action_line,
                 rank=rank,
                 funding_badge=funding_badge,
             )
@@ -225,6 +263,7 @@ def fallback_scenes(plan):
                 "scene_type": "scholarship",
                 "title": opportunity.title,
                 "blocks": [opportunity.country or opportunity.provider_name, f"Deadline: {deadline}"],
+                "action_line": "Check eligibility today",
             }
         )
 
@@ -243,6 +282,7 @@ def fallback_scenes(plan):
             "label": "Scholars Republic",
             "scene_type": "cta",
             "title": "Check official links",
+            "subheadline": "Official links on Scholars Republic",
             "blocks": ["ScholarsRepublic.org"],
         }
     )
@@ -257,6 +297,7 @@ def normalize_scene(
     blocks=None,
     scene_type="",
     subheadline="",
+    action_line="",
     rank=None,
     funding_badge="",
 ):
@@ -280,6 +321,11 @@ def normalize_scene(
         "title": shorten_reel_title(str(title).strip(), width=MAX_AUTO_TITLE_CHARS),
         "subheadline": textwrap.shorten(
             str(subheadline or "").strip(),
+            width=MAX_AUTO_BLOCK_CHARS,
+            placeholder="...",
+        ),
+        "action_line": textwrap.shorten(
+            str(action_line or "").strip(),
             width=MAX_AUTO_BLOCK_CHARS,
             placeholder="...",
         ),
@@ -308,7 +354,7 @@ def resolved_template_key(plan):
     template_key = str(getattr(plan, "template_key", "") or "").strip()
     if template_key in TEXT_TEMPLATE_KEYS:
         return template_key
-    return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_scholarship_text_v1")
+    return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_scholarship_text_v2")
 
 
 def shorten_reel_title(value, width=MAX_AUTO_TITLE_CHARS):
@@ -468,21 +514,25 @@ def render_scene_frame(scene, index, total, output_path, image_path=None, progre
 
 
 def render_background(draw, *, index, progress):
-    draw.rectangle((0, 0, WIDTH, 24), fill=PINE)
-    draw.rectangle((0, HEIGHT - 28, WIDTH, HEIGHT), fill=GOLD)
-    offset = int(progress * 36)
-    draw.ellipse((WIDTH - 330 + offset, 190, WIDTH + 210 + offset, 730), fill=SOFT_GREEN)
-    draw.ellipse((-180 - offset, 1180, 300 - offset, 1660), fill=SOFT_GOLD)
-    if index % 2 == 0:
-        draw.rounded_rectangle((84, 288, 996, 1510), radius=54, fill=WHITE, outline="#eadfc9", width=3)
-    else:
-        draw.rounded_rectangle((84, 312, 996, 1534), radius=54, fill=WHITE, outline="#eadfc9", width=3)
+    draw.rectangle((0, 0, WIDTH, 30), fill=PINE)
+    draw.rectangle((0, HEIGHT - 34, WIDTH, HEIGHT), fill=GOLD)
+    offset = int(progress * 54)
+    draw.ellipse((WIDTH - 380 + offset, 148, WIDTH + 180 + offset, 708), fill=SOFT_GREEN)
+    draw.ellipse((-210 - offset, 1160, 320 - offset, 1690), fill=SOFT_GOLD)
+    draw.ellipse((780 - offset // 2, 1240, 1160 - offset // 2, 1620), fill="#edf7f2")
+    for row in range(320, 1460, 170):
+        for column in range(126, 960, 170):
+            radius = 4 if (row + column + index * 17) % 3 else 6
+            draw.ellipse((column, row, column + radius, row + radius), fill=PATTERN)
+    card_y = 286 + (index % 2) * 20
+    draw.rounded_rectangle((80, card_y, 1000, 1532 + (index % 2) * 20), radius=56, fill="#fffdf8")
+    draw.rounded_rectangle((80, card_y, 1000, 1532 + (index % 2) * 20), radius=56, outline="#eadfc9", width=3)
 
 
 def render_brand(draw, fonts):
-    draw.text((72, 86), "Scholars Republic", fill=PINE, font=fonts["brand"])
-    draw.rounded_rectangle((72, 144, 284, 158), radius=7, fill=GOLD)
-    draw.text((72, 166), "Scholarship reels", fill=MUTED, font=fonts["small"])
+    draw.rounded_rectangle((72, 80, 448, 150), radius=35, fill=WHITE, outline="#eadfc9", width=2)
+    draw.text((104, 96), "Scholars Republic", fill=PINE, font=fonts["brand"])
+    draw.rounded_rectangle((104, 160, 316, 174), radius=7, fill=GOLD)
 
 
 def centered_text(draw, text, y, font, fill, max_width, line_gap=12):
@@ -497,16 +547,23 @@ def centered_text(draw, text, y, font, fill, max_width, line_gap=12):
 
 
 def render_hook_scene(draw, scene, fonts, *, slide):
+    draw.rounded_rectangle((218, 454 + slide, 862, 540 + slide), radius=43, fill=SOFT_GOLD)
+    centered_text(draw, scene.get("label") or "Scholarship update", 497 + slide, fonts["label"], PINE, 580)
     centered_text(draw, scene["title"], 820 + slide, fonts["hook"], INK, 820, line_gap=18)
     subheadline = scene.get("subheadline") or first_block(scene) or "For International Students"
     centered_text(draw, subheadline, 1045 + slide, fonts["body"], MUTED, 780, line_gap=8)
-    draw.rounded_rectangle((318, 1248 + slide, 762, 1328 + slide), radius=40, fill=PINE)
-    centered_text(draw, "ScholarsRepublic.org", 1288 + slide, fonts["badge"], WHITE, 420)
+    draw.rounded_rectangle((282, 1248 + slide, 798, 1338 + slide), radius=45, fill=PINE)
+    centered_text(draw, "ScholarsRepublic.org", 1293 + slide, fonts["badge"], WHITE, 470)
 
 
 def render_scholarship_scene(draw, scene, index, fonts, *, slide):
     rank = scene.get("rank") or index
-    draw.rounded_rectangle((128, 370 + slide, 282, 524 + slide), radius=42, fill=PINE)
+    rank_pop = max(0, 22 - slide // 3)
+    draw.rounded_rectangle(
+        (128 - rank_pop, 374 + slide - rank_pop, 282 + rank_pop, 528 + slide + rank_pop),
+        radius=46,
+        fill=PINE,
+    )
     centered_text(draw, str(rank), 447 + slide, fonts["rank"], WHITE, 140)
     label = scene.get("label") or "Scholarship"
     draw.rounded_rectangle((314, 400 + slide, 806, 476 + slide), radius=38, fill=SOFT_GOLD)
@@ -519,24 +576,25 @@ def render_scholarship_scene(draw, scene, index, fonts, *, slide):
     if country_degree:
         centered_text(draw, country_degree, 1116 + slide, fonts["body"], MUTED, 760)
     if deadline:
-        draw.rounded_rectangle((190, 1236 + slide, 890, 1336 + slide), radius=48, fill=PINE)
+        draw.rounded_rectangle((190, 1236 + slide, 890, 1336 + slide), radius=48, fill=DEEP_PINE)
         centered_text(draw, deadline, 1286 + slide, fonts["badge"], WHITE, 640)
 
-    funding = scene.get("funding_badge", "")
-    if funding:
-        draw.rounded_rectangle((302, 1372 + slide, 778, 1444 + slide), radius=36, fill=SOFT_GREEN)
-        centered_text(draw, funding, 1408 + slide, fonts["label"], PINE, 420)
+    action = scene.get("action_line") or scene.get("funding_badge", "")
+    if action:
+        draw.rounded_rectangle((238, 1380 + slide, 842, 1460 + slide), radius=40, fill=SOFT_GREEN)
+        centered_text(draw, action, 1420 + slide, fonts["label"], PINE, 560)
 
-    draw.text((332, 1642), "ScholarsRepublic.org", fill=MUTED, font=fonts["small"])
+    draw.text((348, 1642), "ScholarsRepublic.org", fill=MUTED, font=fonts["small"])
 
 
 def render_cta_scene(draw, scene, fonts, *, slide):
     centered_text(draw, scene["title"], 820 + slide, fonts["cta_large"], INK, 820, line_gap=18)
     blocks = scene.get("blocks") or []
-    second = blocks[0] if blocks else "ScholarsRepublic.org"
+    second = scene.get("subheadline") or (blocks[0] if blocks else "ScholarsRepublic.org")
     draw.rounded_rectangle((210, 1054 + slide, 870, 1162 + slide), radius=54, fill=PINE)
     centered_text(draw, second, 1108 + slide, fonts["badge"], WHITE, 600)
-    centered_text(draw, "Verify details from official sources", 1348 + slide, fonts["body"], MUTED, 760)
+    footer = blocks[-1] if blocks else "ScholarsRepublic.org"
+    centered_text(draw, footer, 1348 + slide, fonts["body"], MUTED, 760)
 
 
 def first_block(scene):
@@ -546,9 +604,9 @@ def first_block(scene):
 
 def render_progress(draw, fonts, index, total):
     progress_width = int((WIDTH - 144) * ((index + 1) / total))
-    draw.rounded_rectangle((72, 1796, WIDTH - 72, 1810), radius=7, fill="#e7ded1")
-    draw.rounded_rectangle((72, 1796, 72 + progress_width, 1810), radius=7, fill=GOLD)
-    draw.text((72, 1832), f"{index + 1}/{total}", fill=MUTED, font=fonts["small"])
+    draw.rounded_rectangle((72, 1788, WIDTH - 72, 1806), radius=9, fill="#e7ded1")
+    draw.rounded_rectangle((72, 1788, 72 + progress_width, 1806), radius=9, fill=GOLD)
+    draw.text((72, 1830), f"{index + 1}/{total}", fill=MUTED, font=fonts["small"])
 
 
 def paste_optional_background_accent(canvas, image_path):
@@ -637,6 +695,36 @@ def write_concat_file(tmp_path, frame_paths, scenes):
     return concat_file
 
 
+def configured_background_music_path():
+    value = str(getattr(settings, "SOCIAL_REELS_BACKGROUND_MUSIC_PATH", "") or "").strip()
+    if not value:
+        return None
+    return Path(value)
+
+
+def configured_background_music_volume():
+    try:
+        volume = float(getattr(settings, "SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME", 0.12))
+    except (TypeError, ValueError):
+        volume = 0.12
+    return min(max(volume, 0.0), 1.0)
+
+
+def background_music_summary():
+    music_path = configured_background_music_path()
+    if not music_path:
+        return {
+            "music_configured": False,
+            "music_path": "",
+            "music_volume": configured_background_music_volume(),
+        }
+    return {
+        "music_configured": music_path.exists(),
+        "music_path": str(music_path),
+        "music_volume": configured_background_music_volume(),
+    }
+
+
 def encode_video(ffmpeg_path, concat_file, output_path):
     command = [
         ffmpeg_path,
@@ -658,6 +746,89 @@ def encode_video(ffmpeg_path, concat_file, output_path):
     completed = subprocess.run(command, capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         raise ReelRenderError(completed.stderr.strip() or "ffmpeg failed to render the reel.")
+
+
+def add_optional_background_music(ffmpeg_path, silent_video_path, output_path, duration_seconds):
+    music_path = configured_background_music_path()
+    payload = {
+        "audio_added": False,
+        "audio_path": str(music_path) if music_path else "",
+        "audio_error": "",
+    }
+    if not music_path or not music_path.exists():
+        shutil.copyfile(silent_video_path, output_path)
+        return payload
+
+    command = [
+        ffmpeg_path,
+        "-y",
+        "-stream_loop",
+        "-1",
+        "-i",
+        str(music_path),
+        "-i",
+        str(silent_video_path),
+        "-t",
+        f"{float(duration_seconds):.2f}",
+        "-filter:a",
+        f"volume={configured_background_music_volume():.2f}",
+        "-map",
+        "1:v:0",
+        "-map",
+        "0:a:0",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-shortest",
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    if completed.returncode == 0 and output_path.exists():
+        payload["audio_added"] = True
+        return payload
+
+    payload["audio_error"] = completed.stderr.strip() or "ffmpeg audio mux failed; silent video used."
+    shutil.copyfile(silent_video_path, output_path)
+    return payload
+
+
+def generated_caption_text(plan):
+    if plan.reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
+        return (
+            "Scholarships closing soon for international students. Check eligibility, "
+            "deadlines, and official links before applying."
+        )
+    if plan.reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
+        return (
+            "Start preparing early for these scholarship opportunities. Review requirements "
+            "and official links on Scholars Republic."
+        )
+    return (
+        "Scholarship opportunity for international students. Check eligibility, deadline, "
+        "and official application details on Scholars Republic."
+    )
+
+
+def render_ready_checks_pass(plan, scenes, duration_seconds):
+    if not plan.video_file:
+        return False
+    try:
+        if hasattr(plan.video_file, "path") and not Path(plan.video_file.path).exists():
+            return False
+    except (NotImplementedError, ValueError):
+        return False
+    if duration_seconds > max_reel_duration(plan.reel_type):
+        return False
+    if not scenes or len(scenes) > MAX_SCENES:
+        return False
+    if not (plan.caption_text or "").strip():
+        return False
+    if (plan.render_error or "").strip():
+        return False
+    return True
 
 
 def create_default_reel_plan_from_payload(payload):

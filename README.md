@@ -28,8 +28,15 @@ Admins can create manual or automatic short scholarship reel plans at
 `/dashboard/admin/social/reels`. Automatic reel planning selects safe published,
 non-expired scholarship records, applies seven-day deduplication, and renders
 local MP4 files only. Default reel templates are text-first for mobile
-readability and do not embed scholarship posters or social images. This system
-does not post to Facebook or change Worker behavior.
+readability, use `*_text_v2` layouts, and do not embed scholarship posters or
+social images. Successful local renders become `ready` automatically after
+basic file, duration, scene, and caption checks. This system does not post to
+Facebook or change Worker behavior.
+
+Optional background music can be configured with
+`SOCIAL_REELS_BACKGROUND_MUSIC_PATH` and `SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME`.
+If no licensed or royalty-free audio file is configured, reels render silently.
+Do not use copyrighted music.
 
 Useful commands:
 

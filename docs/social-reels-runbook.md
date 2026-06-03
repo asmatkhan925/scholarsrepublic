@@ -30,11 +30,17 @@ Scene timing is calculated by the renderer at render time. The renderer rejects 
 
 Automatic reels use text-first templates by default:
 
-- `closing_soon_text_v1`
-- `prepare_early_text_v1`
-- `single_scholarship_text_v1`
+- `closing_soon_text_v2`
+- `prepare_early_text_v2`
+- `single_scholarship_text_v2`
 
-The renderer uses large mobile-readable text cards, rank badges, deadline badges, Scholars Republic branding, cream/white backgrounds, deep green accents, and gold accents.
+The renderer uses large mobile-readable text cards, stronger hook copy, rank badges, deadline badges, action lines, Scholars Republic branding, cream/white backgrounds, deep green gradient accents, gold badges, subtle animated background shapes, and a progress bar.
+
+Template examples:
+
+- `closing_soon_text_v2`: "Don't miss these deadlines" / "3 scholarships closing soon"
+- `prepare_early_text_v2`: "Prepare Early" / "Scholarships to plan for"
+- `single_scholarship_text_v2`: "Scholarship Alert" / country and degree when available
 
 Source scholarship/social images are disabled by default:
 
@@ -43,6 +49,23 @@ SOCIAL_REELS_USE_SOURCE_IMAGES = False
 ```
 
 If source images are enabled later, they should only be used as dimmed/blurred background accents. They should not be embedded as tiny poster images, screenshots, official seals, or logos.
+
+## Background Music
+
+Rendered reels can optionally include low-volume background music:
+
+```bash
+SOCIAL_REELS_BACKGROUND_MUSIC_PATH=/absolute/path/to/royalty-free-track.mp3
+SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME=0.12
+```
+
+If `SOCIAL_REELS_BACKGROUND_MUSIC_PATH` is empty or the file is missing, the renderer keeps the MP4 silent and does not fail. The default lookup path is:
+
+```text
+backend/media/social_reels/audio/default_background.mp3
+```
+
+Do not commit copyrighted music. Use only royalty-free, CC0, or properly licensed audio. The renderer loops or trims the track to the exact video duration and muxes it with ffmpeg when available.
 
 ## Automatic Selection
 
@@ -63,19 +86,19 @@ It does not mark normal Facebook social plans as posted, skipped, consumed, or d
 - Picks three scholarships from `urgent`, `soon`, and `advance_notice`
 - Prefers max one urgent and max one soon, then fills with advance notice when available
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
-- Uses `closing_soon_text_v1`
+- Uses `closing_soon_text_v2`
 
 `prepare_early`
 
 - Picks three scholarships from `advance_notice` and `early_awareness`
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
-- Uses `prepare_early_text_v1`
+- Uses `prepare_early_text_v2`
 
 `single_scholarship`
 
 - Picks one strong safe scholarship
 - Used when there are not enough safe candidates for a three-scholarship reel
-- Uses `single_scholarship_text_v1`
+- Uses `single_scholarship_text_v2`
 
 ## Deduplication
 
@@ -121,6 +144,8 @@ Render a specific existing reel plan:
 cd backend
 python manage.py render_social_reels --plan-id <PLAN_ID> --force
 ```
+
+After a successful render, the plan status becomes `ready` automatically when the video exists, duration is within the hard maximum, scenes are valid, a caption exists or is generated, and no render error is present. No separate admin approval step is required for the rendered file.
 
 Run the normal daily social scheduler and also prepare one reel plan:
 

@@ -152,6 +152,13 @@ MEDIA_ROOT = Path(
         "/var/www/scholarsrepublic/media" if not DEBUG else str(BASE_DIR / "media"),
     )
 )
+SOCIAL_REELS_BACKGROUND_MUSIC_PATH = os.getenv(
+    "SOCIAL_REELS_BACKGROUND_MUSIC_PATH",
+    str(MEDIA_ROOT / "social_reels" / "audio" / "default_background.mp3"),
+)
+SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME = float(
+    os.getenv("SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME", "0.12")
+)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"

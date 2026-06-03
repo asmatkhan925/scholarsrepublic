@@ -67,7 +67,9 @@ class Command(BaseCommand):
                     rendered += 1
                     self.stdout.write(
                         f"Rendered #{plan.pk}: {result.get('video_file')} "
-                        f"({result.get('duration_seconds')}s)"
+                        f"({result.get('duration_seconds')}s) "
+                        f"status={result.get('status')} "
+                        f"audio={'yes' if result.get('audio_added') else 'silent'}"
                     )
             except Exception as exc:
                 failed += 1

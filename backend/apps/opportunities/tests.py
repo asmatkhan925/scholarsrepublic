@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from io import BytesIO, StringIO
+from pathlib import Path
 import base64
 import json
 import tempfile
@@ -15,6 +16,7 @@ from django.core.management.base import CommandError
 from django.db.utils import DataError
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -139,8 +141,11 @@ from apps.opportunities.services.social_reel_planning import (
 )
 from apps.opportunities.services.social_reel_rendering import calculate_scene_durations
 from apps.opportunities.services.social_reel_rendering import (
+    add_optional_background_music,
     build_scenes,
     expected_reel_duration,
+    render_ready_checks_pass,
+    render_reel_plan,
     resolved_template_key,
     shorten_reel_title,
 )
@@ -236,14 +241,14 @@ class SocialReelPlanningTests(APITestCase):
             scenes_json=[{"scene_type": "hook", "title": "3 Scholarships Closing Soon"}],
         )
 
-        self.assertEqual(resolved_template_key(plan), "closing_soon_text_v1")
+        self.assertEqual(resolved_template_key(plan), "closing_soon_text_v2")
 
     def test_title_shortening_keeps_text_under_target_length(self):
         title = "Fully Funded International Research Scholarship 2026 at Example University"
 
         shortened = shorten_reel_title(title)
 
-        self.assertLessEqual(len(shortened), 46)
+        self.assertLessEqual(len(shortened), 42)
         self.assertNotIn("2026", shortened)
 
     def test_renderer_scene_build_does_not_require_source_image(self):
@@ -285,8 +290,136 @@ class SocialReelPlanningTests(APITestCase):
             set(selection["source_opportunity_ids"]),
             {urgent.id, soon.id, advance.id},
         )
-        self.assertEqual(selection["template_key"], "closing_soon_text_v1")
+        self.assertEqual(selection["template_key"], "closing_soon_text_v2")
         self.assertLessEqual(selection["expected_duration_seconds"], 9)
+
+    def test_v2_closing_soon_scenes_use_stronger_hook_and_action_line(self):
+        self.opportunity("v2-one", deadline_days=2)
+        self.opportunity("v2-two", deadline_days=8)
+        self.opportunity("v2-three", deadline_days=18)
+
+        selection = select_reel_candidates(
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            run_date=timezone.localdate(),
+        )
+
+        self.assertEqual(selection["scenes_json"][0]["title"], "Don't miss these deadlines")
+        self.assertEqual(selection["scenes_json"][1]["action_line"], "Check eligibility today")
+        self.assertIn("#InternationalStudents", selection["hashtags"])
+
+    def test_v2_prepare_early_scenes_use_action_line(self):
+        self.opportunity("prepare-one", deadline_days=18)
+        self.opportunity("prepare-two", deadline_days=28)
+        self.opportunity("prepare-three", deadline_days=35)
+
+        selection = select_reel_candidates(
+            reel_type=OpportunityReelPlan.ReelType.PREPARE_EARLY,
+            run_date=timezone.localdate(),
+        )
+
+        self.assertEqual(selection["template_key"], "prepare_early_text_v2")
+        self.assertEqual(selection["scenes_json"][0]["title"], "Prepare Early")
+        self.assertEqual(selection["scenes_json"][1]["action_line"], "Start documents now")
+        self.assertLessEqual(selection["expected_duration_seconds"], 9)
+
+    def test_single_scholarship_selection_uses_v2_duration_and_caption(self):
+        self.opportunity("single-v2", deadline_days=12)
+
+        selection = select_reel_candidates(
+            reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
+            run_date=timezone.localdate(),
+        )
+
+        self.assertEqual(selection["template_key"], "single_scholarship_text_v2")
+        self.assertLessEqual(selection["expected_duration_seconds"], 6)
+        self.assertIn("Scholarship opportunity for international students", selection["caption_text"])
+
+    @override_settings(SOCIAL_REELS_BACKGROUND_MUSIC_PATH="")
+    def test_renderer_audio_fallback_with_empty_music_setting(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            silent = Path(tmp_dir) / "silent.mp4"
+            output = Path(tmp_dir) / "output.mp4"
+            silent.write_bytes(b"silent-video")
+
+            result = add_optional_background_music("ffmpeg", silent, output, 4.0)
+
+            self.assertFalse(result["audio_added"])
+            self.assertTrue(output.exists())
+            self.assertEqual(output.read_bytes(), b"silent-video")
+
+    @override_settings(SOCIAL_REELS_BACKGROUND_MUSIC_PATH="C:/missing/sr-background.mp3")
+    def test_renderer_audio_fallback_with_missing_music_file(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            silent = Path(tmp_dir) / "silent.mp4"
+            output = Path(tmp_dir) / "output.mp4"
+            silent.write_bytes(b"silent-video")
+
+            result = add_optional_background_music("ffmpeg", silent, output, 4.0)
+
+            self.assertFalse(result["audio_added"])
+            self.assertTrue(output.exists())
+
+    def test_render_ready_checks_require_video_caption_and_valid_duration(self):
+        plan = OpportunityReelPlan(
+            title="Ready Check",
+            reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
+            caption_text="Check eligibility.",
+        )
+
+        self.assertFalse(render_ready_checks_pass(plan, [{"title": "Scene"}], 5.0))
+
+    def test_successful_render_sets_plan_ready_without_approval(self):
+        plan = OpportunityReelPlan.objects.create(
+            title="Render Ready",
+            reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
+            status=OpportunityReelPlan.Status.READY_FOR_RENDER,
+            caption_text="Check eligibility.",
+            scenes_json=[{"scene_type": "hook", "title": "Scholarship Alert"}],
+        )
+
+        def fake_frames(scene, index, total, tmp_path, image_path=None):
+            frame = Path(tmp_path) / f"frame-{index}.png"
+            Image.new("RGB", (1080, 1920), "#fbf7ee").save(frame)
+            return [frame]
+
+        def fake_audio(ffmpeg_path, silent_output_path, output_path, duration_seconds):
+            output_path.write_bytes(b"fake-video")
+            return {"audio_added": False, "audio_path": "", "audio_error": ""}
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            with patch("apps.opportunities.services.social_reel_rendering.shutil.which", return_value="ffmpeg"):
+                with patch(
+                    "apps.opportunities.services.social_reel_rendering.render_scene_motion_frames",
+                    side_effect=fake_frames,
+                ):
+                    with patch("apps.opportunities.services.social_reel_rendering.encode_video"):
+                        with patch(
+                            "apps.opportunities.services.social_reel_rendering.add_optional_background_music",
+                            side_effect=fake_audio,
+                        ):
+                            result = render_reel_plan(plan)
+
+            plan.refresh_from_db()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(plan.status, OpportunityReelPlan.Status.READY)
+        self.assertTrue(plan.video_file)
+
+    def test_failed_render_sets_plan_failed(self):
+        plan = OpportunityReelPlan.objects.create(
+            title="Render Failed",
+            reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
+            status=OpportunityReelPlan.Status.READY_FOR_RENDER,
+            scenes_json=[{"title": f"Scene {index}"} for index in range(6)],
+            caption_text="Check eligibility.",
+        )
+
+        with patch("apps.opportunities.services.social_reel_rendering.shutil.which", return_value="ffmpeg"):
+            with self.assertRaises(Exception):
+                render_reel_plan(plan)
+
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, OpportunityReelPlan.Status.FAILED)
 
     @override_settings(SOCIAL_REELS_DAILY_PLAN_LIMIT=5)
     def test_duplicate_prevention_avoids_same_source_set_within_recent_window(self):

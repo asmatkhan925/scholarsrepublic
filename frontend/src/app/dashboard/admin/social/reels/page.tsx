@@ -90,7 +90,7 @@ function reelJson(plan: AdminSocialReelPlan) {
 }
 
 function gptPrompt(plan: AdminSocialReelPlan) {
-  return `Create a 5-9 second Facebook Reel script for Scholars Republic using only this JSON.
+  return `Create a short Facebook Reel script for Scholars Republic using only this JSON.
 
 Rules:
 - Use only the supplied JSON.
@@ -99,6 +99,7 @@ Rules:
 - Keep scenes readable on mobile.
 - Return up to 5 very short scenes, plus caption text, hashtags, and optional voiceover text.
 - Do not write paragraph text for reel scenes.
+- Keep the local render duration within the expected_duration_seconds value.
 
 JSON:
 ${reelJson(plan)}`;
@@ -160,12 +161,17 @@ function ReelPlanCard({
             <Badge tone="neutral">{formatLabel(plan.status)}</Badge>
             <Badge tone="sky">{formatLabel(plan.reel_type)}</Badge>
             <Badge tone="pine">{plan.template_key}</Badge>
+            <Badge tone="mint">Expected {plan.expected_duration_seconds ?? "-"}s</Badge>
+            <Badge tone={plan.audio_added ? "saffron" : "neutral"}>
+              Audio {plan.audio_added ? "yes" : "silent"}
+            </Badge>
             {plan.deadline_window ? <Badge tone="saffron">{plan.deadline_window}</Badge> : null}
           </div>
           <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{plan.title}</h2>
           <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
-            Scenes {plan.scenes_json.length} | Expected {plan.expected_duration_seconds ?? "-"}s |
-            Priority {plan.priority_score} | Next post {formatDateTime(plan.next_post_at)}
+            Scenes {plan.scenes_json.length} | Priority {plan.priority_score} | Music{" "}
+            {plan.music_configured ? plan.audio_path : "silent"} | Next post{" "}
+            {formatDateTime(plan.next_post_at)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -227,6 +233,8 @@ function ReelPlanCard({
             <AdminNotice tone="danger">{plan.render_error}</AdminNotice>
           ) : error ? (
             <AdminNotice tone="danger">{error}</AdminNotice>
+          ) : plan.audio_error ? (
+            <AdminNotice tone="warning">{plan.audio_error}</AdminNotice>
           ) : null}
         </div>
 
@@ -479,8 +487,9 @@ function ReelsContent() {
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
         <AdminNotice>
-          Default automatic reels use text-first templates for mobile readability. Source images
-          are not embedded as poster previews.
+          Default automatic reels use v2 text-first templates for mobile readability. Successful
+          local renders become ready automatically. Source images are not embedded as poster
+          previews.
         </AdminNotice>
 
         <section className="rounded-xl border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
