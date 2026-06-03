@@ -1,0 +1,50 @@
+{
+  "title": "3 Scholarships Closing Soon",
+  "reel_type": "closing_soon",
+  "template_key": "closing_soon_premium_v3",
+  "duration_seconds": 7.99,
+  "scenes": [
+    {
+      "scene_type": "hook",
+      "label": "Scholars Republic",
+      "title": "Deadlines are close",
+      "subheadline": "3 scholarships to check today",
+      "duration": 1.1
+    },
+    {
+      "scene_type": "scholarship",
+      "rank": "01",
+      "label": "Urgent",
+      "title": "Example Global Scholarship",
+      "blocks": ["China / Master", "Deadline: Jan 31, 2027"],
+      "action_line": "Check eligibility today",
+      "duration": 1.93
+    },
+    {
+      "scene_type": "scholarship",
+      "rank": "02",
+      "label": "Soon",
+      "title": "Graduate Research Award",
+      "blocks": ["Germany / PhD", "Deadline: Feb 10, 2027"],
+      "action_line": "Check eligibility today",
+      "duration": 1.93
+    },
+    {
+      "scene_type": "scholarship",
+      "rank": "03",
+      "label": "Advance notice",
+      "title": "International Study Grant",
+      "blocks": ["Malaysia / Bachelor", "Deadline: Mar 01, 2027"],
+      "action_line": "Check eligibility today",
+      "duration": 1.93
+    },
+    {
+      "scene_type": "cta",
+      "label": "Next step",
+      "title": "Apply before deadlines",
+      "subheadline": "Official links on Scholars Republic",
+      "blocks": ["ScholarsRepublic.org"],
+      "duration": 1.1
+    }
+  ]
+}

@@ -3362,6 +3362,8 @@ def _serialize_admin_reel_plan(plan, request=None):
         "audio_path": latest_render_payload.get("audio_path") or music["music_path"],
         "audio_error": latest_render_payload.get("audio_error") or "",
         "audio_status": audio_status,
+        "renderer_used": latest_render_payload.get("renderer_used") or "",
+        "renderer_error": latest_render_payload.get("renderer_error") or "",
         "music_configured": music["music_configured"],
         "music_volume": music["music_volume"],
         "music_license_metadata": music["license_metadata"],

@@ -1,0 +1,15 @@
+{
+  "title": "Scholarship alert",
+  "reel_type": "single_scholarship",
+  "template_key": "single_scholarship_premium_v3",
+  "duration_seconds": 1,
+  "scenes": [
+    {
+      "scene_type": "hook",
+      "label": "Scholars Republic",
+      "title": "Scholarship alert",
+      "subheadline": "Scholars Republic",
+      "duration": 1
+    }
+  ]
+}

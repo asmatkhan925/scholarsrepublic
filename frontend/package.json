@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "render:reel": "node remotion/render-reel.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed"
@@ -28,12 +29,15 @@
     "next": "15.5.16",
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "remotion": "^4.0.388",
     "react-hook-form": "7.54.2",
     "zod": "3.24.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.2.0",
     "@playwright/test": "^1.59.1",
+    "@remotion/bundler": "^4.0.388",
+    "@remotion/renderer": "^4.0.388",
     "@types/node": "22.10.5",
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",

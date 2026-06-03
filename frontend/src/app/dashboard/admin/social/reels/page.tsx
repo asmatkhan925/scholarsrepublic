@@ -177,6 +177,11 @@ function ReelPlanCard({
             {plan.template_key.includes("premium_v3") ? (
               <Badge tone="saffron">premium v3 text-first</Badge>
             ) : null}
+            {plan.renderer_used ? (
+              <Badge tone={plan.renderer_used === "remotion" ? "mint" : "neutral"}>
+                renderer {plan.renderer_used}
+              </Badge>
+            ) : null}
             <Badge tone="mint">Expected {plan.expected_duration_seconds ?? "-"}s</Badge>
             <Badge tone={plan.audio_status === "enabled" ? "saffron" : "neutral"}>
               {audioLabel(plan)}
@@ -255,6 +260,8 @@ function ReelPlanCard({
             <AdminNotice tone="danger">{plan.render_error}</AdminNotice>
           ) : error ? (
             <AdminNotice tone="danger">{error}</AdminNotice>
+          ) : plan.renderer_error ? (
+            <AdminNotice tone="warning">Remotion fallback used: {plan.renderer_error}</AdminNotice>
           ) : plan.audio_error ? (
             <AdminNotice tone="warning">{plan.audio_error}</AdminNotice>
           ) : null}

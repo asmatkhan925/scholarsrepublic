@@ -30,6 +30,7 @@ MAX_AUTO_TITLE_CHARS = 42
 MAX_AUTO_BLOCK_CHARS = 48
 MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
+REMOTION_RENDERER_RELATIVE_DIR = Path("frontend")
 TEXT_TEMPLATE_BY_REEL_TYPE = {
     OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_premium_v3",
     OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_premium_v3",
@@ -101,24 +102,18 @@ def render_reel_plan(plan, force=False):
         expected_duration = expected_reel_duration(plan)
         with tempfile.TemporaryDirectory(prefix=f"sr-reel-{plan.pk}-") as tmp_dir:
             tmp_path = Path(tmp_dir)
-            frame_paths = []
             image_path = find_optional_social_image(plan) if source_images_enabled() else None
-
-            for index, scene in enumerate(scenes):
-                frame_paths.extend(
-                    render_scene_motion_frames(
-                        scene,
-                        index,
-                        len(scenes),
-                        tmp_path,
-                        image_path=image_path,
-                    )
-                )
-
-            concat_file = write_concat_file(tmp_path, frame_paths, scenes)
             silent_output_path = tmp_path / f"scholars-republic-reel-{plan.pk}-silent.mp4"
             output_path = tmp_path / f"scholars-republic-reel-{plan.pk}.mp4"
-            encode_video(ffmpeg_path, concat_file, silent_output_path)
+            renderer_payload = render_silent_reel_video(
+                plan,
+                scenes,
+                expected_duration,
+                tmp_path,
+                silent_output_path,
+                ffmpeg_path,
+                image_path=image_path,
+            )
             audio_payload = add_optional_background_music(
                 ffmpeg_path,
                 silent_output_path,
@@ -127,7 +122,16 @@ def render_reel_plan(plan, force=False):
             )
 
             thumbnail_path = tmp_path / f"scholars-republic-reel-{plan.pk}.jpg"
-            Image.open(frame_paths[0]).convert("RGB").save(thumbnail_path, quality=92)
+            thumbnail_frame_path = tmp_path / f"scholars-republic-reel-{plan.pk}-thumbnail.png"
+            render_scene_frame(
+                scenes[0],
+                0,
+                len(scenes),
+                thumbnail_frame_path,
+                image_path=image_path,
+                progress=1.0,
+            )
+            Image.open(thumbnail_frame_path).convert("RGB").save(thumbnail_path, quality=92)
 
             if not (plan.caption_text or "").strip():
                 plan.caption_text = generated_caption_text(plan)
@@ -163,6 +167,8 @@ def render_reel_plan(plan, force=False):
             "audio_added": audio_payload["audio_added"],
             "audio_path": audio_payload["audio_path"],
             "audio_error": audio_payload["audio_error"],
+            "renderer_used": renderer_payload["renderer_used"],
+            "renderer_error": renderer_payload["renderer_error"],
             "status": plan.status,
         }
         OpportunityReelLog.objects.create(
@@ -469,6 +475,88 @@ def find_optional_social_image(plan):
         return Path(social_plan.image.path)
     except ValueError:
         return None
+
+
+def render_silent_reel_video(
+    plan,
+    scenes,
+    expected_duration,
+    tmp_path,
+    silent_output_path,
+    ffmpeg_path,
+    *,
+    image_path=None,
+):
+    try:
+        render_remotion_reel(plan, scenes, expected_duration, tmp_path, silent_output_path)
+        return {"renderer_used": "remotion", "renderer_error": ""}
+    except Exception as exc:
+        render_python_reel_frames(scenes, tmp_path, silent_output_path, ffmpeg_path, image_path=image_path)
+        return {"renderer_used": "fallback", "renderer_error": str(exc)}
+
+
+def render_remotion_reel(plan, scenes, expected_duration, tmp_path, silent_output_path):
+    frontend_dir = remotion_frontend_dir()
+    if not frontend_dir.exists():
+        raise ReelRenderError(f"Remotion frontend directory was not found: {frontend_dir}")
+
+    input_path = tmp_path / f"scholars-republic-reel-{plan.pk}-input.json"
+    input_payload = {
+        "title": plan.title,
+        "reel_type": plan.reel_type,
+        "template_key": resolved_template_key(plan),
+        "duration_seconds": expected_duration,
+        "scenes": scenes,
+    }
+    input_path.write_text(json.dumps(input_payload), encoding="utf-8")
+
+    npm_command = "npm.cmd" if shutil.which("npm.cmd") else "npm"
+    command = [
+        npm_command,
+        "run",
+        "render:reel",
+        "--",
+        "--input",
+        str(input_path),
+        "--output",
+        str(silent_output_path),
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=frontend_dir,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=int(getattr(settings, "SOCIAL_REELS_REMOTION_TIMEOUT_SECONDS", 600)),
+    )
+    if completed.returncode != 0:
+        message = completed.stderr.strip() or completed.stdout.strip() or "Remotion render failed."
+        raise ReelRenderError(message)
+    if not silent_output_path.exists():
+        raise ReelRenderError("Remotion render completed without creating an MP4.")
+
+
+def remotion_frontend_dir():
+    configured = str(getattr(settings, "SOCIAL_REELS_REMOTION_FRONTEND_DIR", "") or "").strip()
+    if configured:
+        return Path(configured)
+    return Path(settings.BASE_DIR).parent / REMOTION_RENDERER_RELATIVE_DIR
+
+
+def render_python_reel_frames(scenes, tmp_path, silent_output_path, ffmpeg_path, *, image_path=None):
+    frame_paths = []
+    for index, scene in enumerate(scenes):
+        frame_paths.extend(
+            render_scene_motion_frames(
+                scene,
+                index,
+                len(scenes),
+                tmp_path,
+                image_path=image_path,
+            )
+        )
+    concat_file = write_concat_file(tmp_path, frame_paths, scenes)
+    encode_video(ffmpeg_path, concat_file, silent_output_path)
 
 
 def render_scene_motion_frames(scene, index, total, tmp_path, image_path=None):

@@ -447,6 +447,8 @@ export type AdminSocialReelPlan = {
   audio_path: string;
   audio_error: string;
   audio_status: "enabled" | "silent" | "missing_file" | "mix_failed_fallback" | string;
+  renderer_used: "remotion" | "fallback" | "";
+  renderer_error: string;
   music_configured: boolean;
   music_volume: number;
   music_license_metadata: {
