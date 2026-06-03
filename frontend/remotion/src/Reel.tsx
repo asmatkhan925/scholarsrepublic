@@ -32,10 +32,33 @@ const colors = {
   paper: "#fffdf8",
   pine: "#0f4f3a",
   deepPine: "#083729",
+  blackGreen: "#041f18",
   gold: "#d7a642",
+  softGold: "#f5ead0",
+  softGreen: "#e8f2ec",
   muted: "#60766d",
   ink: "#17342a",
-  shadow: "rgba(23, 52, 42, 0.18)",
+};
+
+type Family =
+  | "closing_light"
+  | "closing_dark"
+  | "closing_kinetic"
+  | "prepare"
+  | "spotlight"
+  | "legacy";
+
+type Variant = {
+  key: string;
+  family: Family;
+  base: string;
+  ink: string;
+  muted: string;
+  accent: string;
+  pill: string;
+  pillText: string;
+  card: string;
+  brandText: string;
 };
 
 export function SocialReel(props: ReelProps) {
@@ -46,13 +69,13 @@ export function SocialReel(props: ReelProps) {
 
   return (
     <AbsoluteFill style={{ backgroundColor: variant.base, fontFamily: "Arial, Helvetica, sans-serif" }}>
-      <AnimatedBackground variant={variant} />
-      <Brand variant={variant} />
+      <TemplateBackground variant={variant} />
+      {variant.family !== "closing_dark" ? <Brand variant={variant} /> : null}
       {scenes.map((scene, index) => {
         const duration = Math.max(1, Math.round((scene.duration || 1.5) * fps));
         const sequence = (
           <Sequence key={`${scene.title}-${index}`} from={frameStart} durationInFrames={duration}>
-            <SceneCard scene={scene} index={index} total={scenes.length} variant={variant} />
+            <Scene scene={scene} index={index} total={scenes.length} variant={variant} />
           </Sequence>
         );
         frameStart += duration;
@@ -81,36 +104,33 @@ export function SingleScholarshipPremium(props: ReelProps) {
   );
 }
 
-type Variant = {
-  key: string;
-  family: "elegant" | "dark" | "prepare" | "spotlight" | "legacy";
-  base: string;
-  card: string;
-  ink: string;
-  muted: string;
-  pill: string;
-  pillText: string;
-  accent: string;
-  brandBg: string;
-  brandText: string;
-  shadow: string;
-};
-
 function getVariant(templateKey: string, reelType: ReelProps["reelType"]): Variant {
-  if (templateKey === "closing_soon_dark_v1" || templateKey === "closing_soon_dark_accent_v1") {
+  if (templateKey === "closing_soon_dark_premium_v1" || templateKey === "closing_soon_dark_accent_v1") {
     return {
       key: templateKey,
-      family: "dark",
+      family: "closing_dark",
       base: colors.deepPine,
-      card: colors.paper,
-      ink: colors.ink,
-      muted: colors.muted,
+      ink: "#fffdf8",
+      muted: "rgba(255,253,248,0.72)",
+      accent: colors.gold,
       pill: colors.gold,
       pillText: colors.deepPine,
+      card: colors.paper,
+      brandText: "#fffdf8",
+    };
+  }
+  if (templateKey === "closing_soon_minimal_kinetic_v1") {
+    return {
+      key: templateKey,
+      family: "closing_kinetic",
+      base: "#fffdf8",
+      ink: colors.deepPine,
+      muted: colors.muted,
       accent: colors.gold,
-      brandBg: "rgba(255,253,248,0.96)",
+      pill: colors.pine,
+      pillText: "#ffffff",
+      card: "transparent",
       brandText: colors.deepPine,
-      shadow: "rgba(0,0,0,0.28)",
     };
   }
   if (
@@ -122,15 +142,13 @@ function getVariant(templateKey: string, reelType: ReelProps["reelType"]): Varia
       key: templateKey,
       family: "prepare",
       base: "#fbf8f0",
-      card: "#fffef9",
       ink: colors.ink,
       muted: colors.muted,
+      accent: "#cfa44c",
       pill: colors.pine,
       pillText: "#ffffff",
-      accent: "#cfa44c",
-      brandBg: "#ffffff",
+      card: "#fffef9",
       brandText: colors.pine,
-      shadow: "rgba(23,52,42,0.14)",
     };
   }
   if (
@@ -142,82 +160,107 @@ function getVariant(templateKey: string, reelType: ReelProps["reelType"]): Varia
       key: templateKey,
       family: "spotlight",
       base: colors.cream,
-      card: "#fffefb",
       ink: colors.ink,
       muted: colors.muted,
+      accent: colors.gold,
       pill: colors.deepPine,
       pillText: "#ffffff",
-      accent: colors.gold,
-      brandBg: "#ffffff",
+      card: "#fffefb",
       brandText: colors.pine,
-      shadow: "rgba(23,52,42,0.18)",
     };
   }
   return {
     key: templateKey,
-    family: templateKey === "closing_soon_elegant_v1" ? "elegant" : "legacy",
+    family: templateKey === "closing_soon_elegant_light_v1" ? "closing_light" : "legacy",
     base: colors.cream,
-    card: colors.paper,
     ink: colors.ink,
     muted: colors.muted,
+    accent: colors.gold,
     pill: colors.gold,
     pillText: colors.deepPine,
-    accent: colors.gold,
-    brandBg: "#ffffff",
+    card: colors.paper,
     brandText: colors.pine,
-    shadow: colors.shadow,
   };
 }
 
-function AnimatedBackground({ variant }: { variant: Variant }) {
+function TemplateBackground({ variant }: { variant: Variant }) {
   const frame = useCurrentFrame();
-  const drift = Math.sin(frame / 48) * 24;
-  const dark = variant.family === "dark";
-  const prepare = variant.family === "prepare";
+  const drift = Math.sin(frame / 42) * 28;
+  if (variant.family === "closing_dark") {
+    return (
+      <AbsoluteFill>
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, #031a14 0%, #083729 54%, #0f4f3a 100%)" }} />
+        <Shape left={760 + drift} top={150} width={440} height={150} color="rgba(215,166,66,0.16)" rotate={-15} />
+        <Shape left={-180 - drift} top={1250} width={620} height={210} color="rgba(255,253,248,0.07)" rotate={18} />
+        <div style={{ position: "absolute", left: 72, top: 84, color: colors.paper, fontSize: 38, fontWeight: 900 }}>
+          Scholars Republic
+        </div>
+      </AbsoluteFill>
+    );
+  }
+  if (variant.family === "closing_kinetic") {
+    return (
+      <AbsoluteFill>
+        <div style={{ position: "absolute", inset: 0, background: "#fffdf8" }} />
+        <div style={{ position: "absolute", left: 0, top: 0, width: 34, height: "100%", background: colors.pine }} />
+        <Shape left={706 + drift} top={244} width={430} height={74} color="rgba(15,79,58,0.12)" rotate={-8} />
+        <Shape left={-96 - drift} top={1350} width={390} height={66} color="rgba(215,166,66,0.24)" rotate={12} />
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill>
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: dark
-            ? "linear-gradient(165deg, #05291f 0%, #0b3c2d 48%, #0f4f3a 100%)"
-            : prepare
-              ? "linear-gradient(180deg, #0d4936 0%, #0f4f3a 14%, #fbf8f0 14%, #fbf8f0 86%, #0f4f3a 86%, #083729 100%)"
-              : "linear-gradient(180deg, #083729 0%, #0f4f3a 15%, #fbf7ee 15%, #fbf7ee 84%, #0f4f3a 84%, #083729 100%)",
+          background:
+            variant.family === "prepare"
+              ? "linear-gradient(180deg, #0f4f3a 0%, #0f4f3a 12%, #fbf8f0 12%, #fbf8f0 88%, #083729 88%, #083729 100%)"
+              : "linear-gradient(180deg, #083729 0%, #0f4f3a 15%, #fbf7ee 15%, #fbf7ee 84%, #083729 84%, #083729 100%)",
         }}
       />
-      <FloatingShape left={714 + drift} top={224} width={420} height={156} color={dark ? "rgba(215,166,66,0.16)" : "rgba(245,234,208,0.82)"} rotate={-12} />
-      <FloatingShape left={-190 - drift} top={1170} width={520} height={190} color={dark ? "rgba(255,253,248,0.08)" : "rgba(232,242,236,0.92)"} rotate={14} />
-      <FloatingShape left={760 - drift / 2} top={1394} width={360} height={128} color={dark ? "rgba(255,255,255,0.06)" : "rgba(245,234,208,0.72)"} rotate={-8} />
-      {variant.family === "legacy" ? <StackBackplates /> : null}
+      <Shape left={710 + drift} top={230} width={420} height={150} color="rgba(245,234,208,0.86)" rotate={-12} />
+      <Shape left={-190 - drift} top={1190} width={520} height={190} color="rgba(232,242,236,0.92)" rotate={14} />
       <div
         style={{
           position: "absolute",
-          left: dark ? 94 : 82,
-          right: dark ? 94 : 82,
-          top: dark ? 302 : 282,
-          bottom: dark ? 332 : 334,
-          borderRadius: 44,
+          left: 82,
+          right: 82,
+          top: 282,
+          bottom: 334,
+          borderRadius: variant.family === "prepare" ? 30 : 44,
           background: variant.card,
-          boxShadow: `0 32px 80px ${variant.shadow}`,
-          border: `3px solid ${dark ? "rgba(245,234,208,0.9)" : "#eadfc9"}`,
+          boxShadow: "0 32px 80px rgba(23,52,42,0.18)",
+          border: "3px solid #eadfc9",
         }}
       />
+      {variant.family === "prepare" ? <ChecklistRail /> : null}
     </AbsoluteFill>
   );
 }
 
-function StackBackplates() {
+function ChecklistRail() {
   return (
-    <>
-      <div style={{ position: "absolute", left: 78, top: 370, width: 850, height: 1160, borderRadius: 60, background: "rgba(15,79,58,0.12)" }} />
-      <div style={{ position: "absolute", left: 100, top: 344, width: 850, height: 1160, borderRadius: 60, background: "rgba(215,166,66,0.18)" }} />
-    </>
+    <div style={{ position: "absolute", left: 130, top: 380, width: 70, height: 1040 }}>
+      {[0, 1, 2, 3].map((item) => (
+        <div
+          key={item}
+          style={{
+            position: "absolute",
+            top: item * 246,
+            width: 46,
+            height: 46,
+            borderRadius: 10,
+            border: `5px solid ${colors.gold}`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
-function FloatingShape({
+function Shape({
   left,
   top,
   width,
@@ -240,7 +283,7 @@ function FloatingShape({
         top,
         width,
         height,
-        borderRadius: 42,
+        borderRadius: 40,
         background: color,
         transform: `rotate(${rotate}deg)`,
       }}
@@ -257,13 +300,13 @@ function Brand({ variant }: { variant: Variant }) {
           left: 72,
           top: 78,
           padding: "18px 34px",
-          borderRadius: 8,
-          background: variant.brandBg,
+          borderRadius: variant.family === "closing_kinetic" ? 0 : 8,
+          background: variant.family === "closing_kinetic" ? "transparent" : "#ffffff",
           color: variant.brandText,
-          fontWeight: 800,
-          fontSize: 39,
+          fontWeight: 900,
+          fontSize: 38,
           letterSpacing: 0,
-          border: "2px solid #eadfc9",
+          border: variant.family === "closing_kinetic" ? "0" : "2px solid #eadfc9",
         }}
       >
         Scholars Republic
@@ -273,7 +316,7 @@ function Brand({ variant }: { variant: Variant }) {
           position: "absolute",
           left: 106,
           top: 168,
-          width: 240,
+          width: variant.family === "closing_kinetic" ? 310 : 240,
           height: 16,
           borderRadius: 8,
           background: variant.accent,
@@ -283,7 +326,7 @@ function Brand({ variant }: { variant: Variant }) {
   );
 }
 
-function SceneCard({
+function Scene({
   scene,
   index,
   total,
@@ -294,35 +337,18 @@ function SceneCard({
   total: number;
   variant: Variant;
 }) {
-  const type = scene.scene_type || "scholarship";
-  if (type === "hook") {
-    return <HookScene scene={scene} variant={variant} />;
+  if (variant.family === "closing_dark") {
+    return <DarkScene scene={scene} />;
   }
-  if (type === "cta") {
-    return <CtaScene scene={scene} variant={variant} />;
+  if (variant.family === "closing_kinetic") {
+    return <KineticScene scene={scene} variant={variant} />;
   }
-  return <ScholarshipScene scene={scene} index={index} total={total} variant={variant} />;
+  return <CardScene scene={scene} index={index} total={total} variant={variant} />;
 }
 
-function HookScene({ scene, variant }: { scene: ReelScene; variant: Variant }) {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const headline = spring({ frame, fps, config: { damping: 18, stiffness: 90 } });
-  const subOpacity = interpolate(frame, [8, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  return (
-    <AbsoluteFill>
-      <Badge top={452} variant={variant}>{scene.label || "Scholarship update"}</Badge>
-      <Title y={760 - (1 - headline) * 66} size={variant.family === "spotlight" ? 96 : 98} variant={variant}>{scene.title}</Title>
-      <Subtitle y={1048} opacity={subOpacity} variant={variant}>
-        {scene.subheadline || scene.blocks?.[0] || "Scholarships to review"}
-      </Subtitle>
-      <Pill top={1248} opacity={subOpacity} variant={variant}>ScholarsRepublic.org</Pill>
-    </AbsoluteFill>
-  );
-}
-
-function ScholarshipScene({
+function CardScene({
   scene,
+  index,
   variant,
 }: {
   scene: ReelScene;
@@ -330,16 +356,39 @@ function ScholarshipScene({
   total: number;
   variant: Variant;
 }) {
+  const type = scene.scene_type || "scholarship";
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const card = spring({ frame, fps, config: { damping: 20, stiffness: 95 } });
+  const enter = spring({ frame, fps, config: { damping: 20, stiffness: 95 } });
+  const blocks = scene.blocks || [];
+  if (type === "hook") {
+    return (
+      <AbsoluteFill>
+        <Badge top={452} variant={variant}>{scene.label || "Scholarship update"}</Badge>
+        <Title y={760 - (1 - enter) * 66} size={98} variant={variant}>{scene.title}</Title>
+        <Subtitle y={1048} opacity={fade(frame, 8, 22)} variant={variant}>
+          {scene.subheadline || scene.blocks?.[0] || "Scholarships to review"}
+        </Subtitle>
+        <Pill top={1248} opacity={fade(frame, 10, 24)} variant={variant}>ScholarsRepublic.org</Pill>
+      </AbsoluteFill>
+    );
+  }
+  if (type === "cta") {
+    return (
+      <AbsoluteFill>
+        <div style={{ transform: `scale(${0.94 + enter * 0.06})`, opacity: enter }}>
+          <Title y={790} size={84} variant={variant}>{scene.title}</Title>
+          <Pill top={1054} variant={variant}>{scene.subheadline || "Official links on Scholars Republic"}</Pill>
+          <Subtitle y={1348} variant={variant}>{blocks[blocks.length - 1] || "ScholarsRepublic.org"}</Subtitle>
+        </div>
+      </AbsoluteFill>
+    );
+  }
   const badge = spring({ frame: Math.max(0, frame - 4), fps, config: { damping: 10, stiffness: 160 } });
-  const deadlinePulse = interpolate(frame, [18, 27, 36], [1, 1.04, 1], {
+  const deadlinePulse = interpolate(frame, [18, 27, 36], [1, 1.05, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const blocks = scene.blocks || [];
-  const rank = scene.rank || "01";
   return (
     <AbsoluteFill>
       <div
@@ -349,10 +398,10 @@ function ScholarshipScene({
           top: 382,
           width: 156,
           height: 156,
-          borderRadius: 48,
-          background: variant.family === "dark" || variant.family === "legacy" ? colors.gold : colors.pine,
+          borderRadius: 40,
+          background: colors.pine,
           transform: `scale(${badge})`,
-          color: variant.family === "dark" || variant.family === "legacy" ? colors.deepPine : "#fff",
+          color: "#fff",
           fontSize: 68,
           fontWeight: 900,
           display: "flex",
@@ -360,15 +409,13 @@ function ScholarshipScene({
           justifyContent: "center",
         }}
       >
-        {rank}
+        {scene.rank || index}
       </div>
       <Badge top={408} left={328} width={490} variant={variant}>{scene.label || "Scholarship"}</Badge>
-      <div style={{ transform: `translateY(${(1 - card) * 84}px)`, opacity: card }}>
-        <Title y={variant.family === "legacy" ? 790 : 800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
+      <div style={{ transform: `translateY(${(1 - enter) * 84}px)`, opacity: enter }}>
+        <Title y={800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
         {blocks[0] ? <Subtitle y={1116} variant={variant}>{blocks[0]}</Subtitle> : null}
-        {blocks[1] ? (
-          <Pill top={1236} scale={deadlinePulse} variant={variant}>{blocks[1]}</Pill>
-        ) : null}
+        {blocks[1] ? <Pill top={1236} scale={deadlinePulse} variant={variant}>{blocks[1]}</Pill> : null}
         {scene.action_line ? <ActionLine top={1386} variant={variant}>{scene.action_line}</ActionLine> : null}
       </div>
       <Footer variant={variant} />
@@ -376,19 +423,182 @@ function ScholarshipScene({
   );
 }
 
-function CtaScene({ scene, variant }: { scene: ReelScene; variant: Variant }) {
+function DarkScene({ scene }: { scene: ReelScene }) {
+  const type = scene.scene_type || "scholarship";
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const zoom = spring({ frame, fps, config: { damping: 18, stiffness: 80 } });
+  const enter = spring({ frame, fps, config: { damping: 18, stiffness: 92 } });
   const blocks = scene.blocks || [];
+  if (type === "hook") {
+    const lineWidth = interpolate(frame, [4, 26], [0, 690], { extrapolateRight: "clamp" });
+    return (
+      <AbsoluteFill>
+        <div style={{ position: "absolute", left: 112, top: 530, width: lineWidth, height: 14, background: colors.gold }} />
+        <div style={{ transform: `translateX(${(1 - enter) * -90}px)`, opacity: enter }}>
+          <DarkTitle top={690} size={112}>{scene.title}</DarkTitle>
+          <DarkSub top={1034}>{scene.subheadline || "3 scholarships to check today"}</DarkSub>
+        </div>
+        <DarkWebsite />
+      </AbsoluteFill>
+    );
+  }
+  if (type === "cta") {
+    return (
+      <AbsoluteFill>
+        <DarkTitle top={690} size={98}>{scene.title}</DarkTitle>
+        <div style={{ position: "absolute", left: 120, right: 120, top: 1056, color: colors.gold, fontSize: 46, fontWeight: 900, textAlign: "center" }}>
+          {scene.subheadline || "Official links on Scholars Republic"}
+        </div>
+        <DarkWebsite large />
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill>
-      <div style={{ transform: `scale(${0.94 + zoom * 0.06})`, opacity: zoom }}>
-        <Title y={790} size={84} variant={variant}>{scene.title}</Title>
-        <Pill top={1054} variant={variant}>{scene.subheadline || "Official links on Scholars Republic"}</Pill>
-        <Subtitle y={1348} variant={variant}>{blocks[blocks.length - 1] || "ScholarsRepublic.org"}</Subtitle>
+      <div
+        style={{
+          position: "absolute",
+          left: 104,
+          right: 104,
+          top: 382 + (1 - enter) * 80,
+          minHeight: 970,
+          borderRadius: 34,
+          background: colors.paper,
+          boxShadow: "0 44px 110px rgba(0,0,0,0.38)",
+          opacity: enter,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 146,
+          top: 438,
+          width: 132,
+          height: 132,
+          borderRadius: 26,
+          background: colors.gold,
+          color: colors.deepPine,
+          fontSize: 58,
+          fontWeight: 950,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transform: `scale(${enter})`,
+        }}
+      >
+        {scene.rank || "01"}
+      </div>
+      <div style={{ position: "absolute", left: 318, right: 150, top: 462, color: colors.pine, fontSize: 28, fontWeight: 950, textTransform: "uppercase" }}>
+        {scene.label || "Deadline"}
+      </div>
+      <div style={{ position: "absolute", left: 148, right: 148, top: 690, color: colors.ink, fontSize: 74, lineHeight: 1.06, fontWeight: 950, textAlign: "left" }}>
+        {scene.title}
+      </div>
+      {blocks[0] ? (
+        <div style={{ position: "absolute", left: 150, right: 150, top: 1008, color: colors.muted, fontSize: 42, fontWeight: 800 }}>
+          {blocks[0]}
+        </div>
+      ) : null}
+      {blocks[1] ? (
+        <div style={{ position: "absolute", left: 150, right: 150, top: 1162, minHeight: 118, borderRadius: 18, background: colors.gold, color: colors.deepPine, fontSize: 40, fontWeight: 950, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {blocks[1]}
+        </div>
+      ) : null}
+      {scene.action_line ? (
+        <div style={{ position: "absolute", left: 150, right: 150, top: 1338, color: colors.pine, fontSize: 30, fontWeight: 950, textAlign: "center" }}>
+          {scene.action_line}
+        </div>
+      ) : null}
+    </AbsoluteFill>
+  );
+}
+
+function KineticScene({ scene, variant }: { scene: ReelScene; variant: Variant }) {
+  const type = scene.scene_type || "scholarship";
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const enter = spring({ frame, fps, config: { damping: 17, stiffness: 88 } });
+  const underline = interpolate(frame, [8, 28], [0, 760], { extrapolateRight: "clamp" });
+  const blocks = scene.blocks || [];
+  if (type === "hook") {
+    return (
+      <AbsoluteFill>
+        <div style={{ transform: `translateY(${(1 - enter) * 96}px)`, opacity: enter }}>
+          <KineticTitle top={610} size={122}>{scene.title}</KineticTitle>
+          <div style={{ position: "absolute", left: 130, top: 1038, width: underline, height: 18, background: colors.gold }} />
+          <div style={{ position: "absolute", left: 130, right: 130, top: 1108, color: colors.muted, fontSize: 44, fontWeight: 800 }}>
+            {scene.subheadline || "3 scholarships to check today"}
+          </div>
+        </div>
+      </AbsoluteFill>
+    );
+  }
+  if (type === "cta") {
+    return (
+      <AbsoluteFill>
+        <KineticTitle top={700} size={96}>{scene.title}</KineticTitle>
+        <div style={{ position: "absolute", left: 130, top: 1038, width: underline, height: 18, background: colors.gold }} />
+        <div style={{ position: "absolute", left: 130, right: 130, top: 1194, color: colors.pine, fontSize: 52, fontWeight: 950 }}>
+          ScholarsRepublic.org
+        </div>
+      </AbsoluteFill>
+    );
+  }
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", left: 78, top: 330, color: "rgba(15,79,58,0.08)", fontSize: 320, fontWeight: 950, lineHeight: 1 }}>
+        {scene.rank || "01"}
+      </div>
+      <div style={{ position: "absolute", left: 132, top: 418, color: colors.gold, fontSize: 42, fontWeight: 950 }}>
+        {scene.rank || "01"} / {scene.label || "Scholarship"}
+      </div>
+      <div style={{ transform: `translateX(${(1 - enter) * 90}px)`, opacity: enter }}>
+        <KineticTitle top={652} size={78}>{scene.title}</KineticTitle>
+        {blocks[0] ? (
+          <div style={{ position: "absolute", left: 132, right: 132, top: 1028, color: colors.muted, fontSize: 44, fontWeight: 850 }}>
+            {blocks[0]}
+          </div>
+        ) : null}
+        {blocks[1] ? <Pill top={1164} variant={variant}>{blocks[1]}</Pill> : null}
+        {scene.action_line ? (
+          <div style={{ position: "absolute", left: 132, right: 132, top: 1356, color: colors.pine, fontSize: 32, fontWeight: 950 }}>
+            {scene.action_line}
+          </div>
+        ) : null}
       </div>
     </AbsoluteFill>
+  );
+}
+
+function DarkTitle({ children, top, size }: { children: React.ReactNode; top: number; size: number }) {
+  return (
+    <div style={{ position: "absolute", left: 112, right: 112, top, color: colors.paper, fontSize: size, lineHeight: 1.02, fontWeight: 950, textAlign: "left" }}>
+      {children}
+    </div>
+  );
+}
+
+function DarkSub({ children, top }: { children: React.ReactNode; top: number }) {
+  return (
+    <div style={{ position: "absolute", left: 112, right: 112, top, color: "rgba(255,253,248,0.72)", fontSize: 48, lineHeight: 1.16, fontWeight: 800 }}>
+      {children}
+    </div>
+  );
+}
+
+function DarkWebsite({ large = false }: { large?: boolean }) {
+  return (
+    <div style={{ position: "absolute", left: 112, right: 112, bottom: large ? 438 : 318, color: colors.gold, fontSize: large ? 62 : 38, fontWeight: 950, textAlign: large ? "center" : "left" }}>
+      ScholarsRepublic.org
+    </div>
+  );
+}
+
+function KineticTitle({ children, top, size }: { children: React.ReactNode; top: number; size: number }) {
+  return (
+    <div style={{ position: "absolute", left: 132, right: 118, top, color: colors.deepPine, fontSize: size, lineHeight: 1.02, fontWeight: 950, textAlign: "left", textWrap: "balance" }}>
+      {children}
+    </div>
   );
 }
 
@@ -414,8 +624,8 @@ function Badge({
         width,
         height: 86,
         borderRadius: 44,
-        background: variant.family === "dark" ? "rgba(255,253,248,0.94)" : "#f5ead0",
-        color: variant.family === "dark" ? colors.deepPine : colors.pine,
+        background: variant.family === "prepare" ? colors.softGreen : "#f5ead0",
+        color: colors.pine,
         fontWeight: 900,
         fontSize: 26,
         textTransform: "uppercase",
@@ -517,7 +727,7 @@ function Pill({
         right: 190,
         top,
         minHeight: 100,
-        borderRadius: 54,
+        borderRadius: variant.family === "closing_kinetic" ? 16 : 54,
         background: variant.pill,
         color: variant.pillText,
         fontSize: 38,
@@ -546,7 +756,7 @@ function ActionLine({ children, top, variant }: { children: React.ReactNode; top
         top,
         minHeight: 80,
         borderRadius: 42,
-        background: variant.family === "dark" ? "rgba(255,253,248,0.92)" : "#e8f2ec",
+        background: variant.family === "spotlight" ? colors.softGold : colors.softGreen,
         color: colors.pine,
         fontSize: 28,
         fontWeight: 900,
@@ -594,9 +804,9 @@ function Progress({ totalFrames, variant }: { totalFrames: number; variant: Vari
           left: 72,
           bottom: 114,
           width: 936,
-          height: 18,
+          height: variant.family === "closing_kinetic" ? 10 : 18,
           borderRadius: 12,
-          background: variant.family === "dark" ? "rgba(255,253,248,0.20)" : "#e7ded1",
+          background: variant.family === "closing_dark" ? "rgba(255,253,248,0.20)" : "#e7ded1",
         }}
       />
       <div
@@ -605,13 +815,20 @@ function Progress({ totalFrames, variant }: { totalFrames: number; variant: Vari
           left: 72,
           bottom: 114,
           width,
-          height: 18,
+          height: variant.family === "closing_kinetic" ? 10 : 18,
           borderRadius: 12,
           background: variant.accent,
         }}
       />
     </>
   );
+}
+
+function fade(frame: number, start: number, end: number) {
+  return interpolate(frame, [start, end], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 }
 
 function fallbackScenes(props: ReelProps): ReelScene[] {

@@ -189,8 +189,9 @@ def reel_type_for_template_key(template_key):
 def choose_reel_template_key(reel_type, source_opportunity_ids, date=None):
     if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
         options = [
-            "closing_soon_elegant_v1",
-            "closing_soon_dark_v1",
+            "closing_soon_elegant_light_v1",
+            "closing_soon_dark_premium_v1",
+            "closing_soon_minimal_kinetic_v1",
         ]
     elif reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
         options = ["prepare_early_elegant_v1"]

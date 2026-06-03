@@ -30,8 +30,9 @@ Scene timing is calculated by the renderer at render time. The renderer rejects 
 
 Automatic reels use these final text-first templates by default:
 
-- `closing_soon_elegant_v1`: cream/white base, deep green header/footer, gold deadline pill
-- `closing_soon_dark_v1`: deep green background, cream card, gold urgent accents
+- `closing_soon_elegant_light_v1`: cream/white base, deep green top ribbon, gold deadline pill
+- `closing_soon_dark_premium_v1`: full deep green background, floating cream cards, gold highlights
+- `closing_soon_minimal_kinetic_v1`: typography-first cream layout, huge rank numbers, kinetic accent line
 - `prepare_early_elegant_v1`: calm academic planning layout with checklist/document styling
 - `single_spotlight_elegant_v1`: one-scholarship spotlight with large title and deadline pill
 
@@ -39,8 +40,9 @@ The renderer uses large mobile-readable text cards, stronger hook copy, rank bad
 
 Template examples:
 
-- `closing_soon_elegant_v1`: "Deadlines are close" / "3 scholarships to check today"
-- `closing_soon_dark_v1`: same concise closing-soon scenes with a dark deadline treatment
+- `closing_soon_elegant_light_v1`: "Deadlines are close" / "3 scholarships to check today"
+- `closing_soon_dark_premium_v1`: same concise scenes with dark background and floating cream card
+- `closing_soon_minimal_kinetic_v1`: same concise scenes with large kinetic typography
 - `prepare_early_elegant_v1`: "Start before the rush" / "Scholarships to prepare early"
 - `single_spotlight_elegant_v1`: "Scholarship alert" / country and degree when available
 
@@ -58,6 +60,8 @@ Older keys still render for existing plans:
 - `closing_soon_premium_v31`
 - `closing_soon_dark_accent_v1`
 - `closing_soon_card_stack_v1`
+- `closing_soon_elegant_v1`
+- `closing_soon_dark_v1`
 - `prepare_early_premium_v31`
 - `single_scholarship_spotlight_v1`
 
@@ -124,7 +128,7 @@ It does not mark normal Facebook social plans as posted, skipped, consumed, or d
 - Picks three scholarships from `urgent`, `soon`, and `advance_notice`
 - Prefers max one urgent and max one soon, then fills with advance notice when available
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
-- Rotates between `closing_soon_elegant_v1` and `closing_soon_dark_v1`
+- Rotates among `closing_soon_elegant_light_v1`, `closing_soon_dark_premium_v1`, and `closing_soon_minimal_kinetic_v1`
 
 `prepare_early`
 
@@ -184,7 +188,9 @@ Force a specific final template key from the CLI:
 
 ```bash
 cd backend
-python manage.py generate_social_reel_plans --reel-type closing_soon --template-key closing_soon_dark_v1 --limit 1 --render --force
+python manage.py generate_social_reel_plans --reel-type closing_soon --template-key closing_soon_elegant_light_v1 --limit 1 --render --force
+python manage.py generate_social_reel_plans --reel-type closing_soon --template-key closing_soon_dark_premium_v1 --limit 1 --render --force
+python manage.py generate_social_reel_plans --reel-type closing_soon --template-key closing_soon_minimal_kinetic_v1 --limit 1 --render --force
 python manage.py generate_social_reel_plans --reel-type prepare_early --template-key prepare_early_elegant_v1 --limit 1 --render --force
 python manage.py generate_social_reel_plans --reel-type single_scholarship --template-key single_spotlight_elegant_v1 --limit 1 --render --force
 ```
@@ -198,7 +204,7 @@ POST /api/admin/social/reels/generate/
 ```json
 {
   "reel_type": "closing_soon",
-  "template_key": "closing_soon_dark_v1",
+  "template_key": "closing_soon_dark_premium_v1",
   "limit": 1,
   "render": true
 }
@@ -245,17 +251,18 @@ Render final samples from the frontend directory:
 
 ```bash
 cd frontend
-npm run render:reel -- --input remotion/sample-closing-elegant.json --output /tmp/sample-closing-elegant.mp4
-npm run render:reel -- --input remotion/sample-closing-dark-final.json --output /tmp/sample-closing-dark-final.mp4
+npm run render:reel -- --input remotion/sample-closing-elegant-light.json --output /tmp/sample-closing-elegant-light.mp4
+npm run render:reel -- --input remotion/sample-closing-dark-premium.json --output /tmp/sample-closing-dark-premium.mp4
+npm run render:reel -- --input remotion/sample-closing-minimal-kinetic.json --output /tmp/sample-closing-minimal-kinetic.mp4
 npm run render:reel -- --input remotion/sample-prepare-elegant.json --output /tmp/sample-prepare-elegant.mp4
-npm run render:reel -- --input remotion/sample-single-spotlight-final.json --output /tmp/sample-single-spotlight-final.mp4
+npm run render:reel -- --input remotion/sample-single-spotlight.json --output /tmp/sample-single-spotlight.mp4
 ```
 
 If Remotion cannot download its browser binary in the current environment, point
 the renderer at an existing Chrome/Chromium executable:
 
 ```bash
-REMOTION_BROWSER_EXECUTABLE=/path/to/chrome npm run render:reel -- --input remotion/sample-closing-elegant.json --output /tmp/sample-closing-elegant.mp4
+REMOTION_BROWSER_EXECUTABLE=/path/to/chrome npm run render:reel -- --input remotion/sample-closing-elegant-light.json --output /tmp/sample-closing-elegant-light.mp4
 ```
 
 ## MP4 Storage

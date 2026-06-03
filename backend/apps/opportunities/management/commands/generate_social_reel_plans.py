@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.opportunities.models import OpportunityReelPlan
+from apps.opportunities.models import OpportunityReelLog, OpportunityReelPlan
 from apps.opportunities.services.social_reel_planning import generate_social_reel_plans
 
 
@@ -52,10 +52,13 @@ class Command(BaseCommand):
 
         for plan in result["plans"]:
             prefix = "Preview" if options["dry_run"] or not plan.get("id") else f"Plan #{plan['id']}"
+            render_payload = latest_render_payload(plan.get("id"))
+            renderer_used = render_payload.get("renderer_used") or "-"
+            video_path = render_payload.get("video_file") or plan.get("video_url") or "-"
             self.stdout.write(
-                f"{prefix}: {plan['reel_type']} | expected_duration={plan.get('expected_duration_seconds')}s | "
-                f"template={plan.get('template_key') or '-'} | status={plan.get('status')} | "
-                f"source_ids={plan.get('source_opportunity_ids')}"
+                f"{prefix}: {plan['reel_type']} | template={plan.get('template_key') or '-'} | "
+                f"expected_duration={plan.get('expected_duration_seconds')}s | status={plan.get('status')} | "
+                f"renderer={renderer_used} | video={video_path} | source_ids={plan.get('source_opportunity_ids')}"
             )
             if plan.get("skip_reason"):
                 self.stdout.write(f"  skip_reason={plan['skip_reason']}")
@@ -67,3 +70,16 @@ class Command(BaseCommand):
                     f"days={opportunity['days_until_deadline']} | "
                     f"score={opportunity['priority_score']}"
                 )
+
+
+def latest_render_payload(plan_id):
+    if not plan_id:
+        return {}
+    log = (
+        OpportunityReelLog.objects.filter(reel_plan_id=plan_id, status=OpportunityReelLog.Status.RENDERED)
+        .order_by("-created_at")
+        .first()
+    )
+    if not log or not isinstance(log.response_payload, dict):
+        return {}
+    return log.response_payload

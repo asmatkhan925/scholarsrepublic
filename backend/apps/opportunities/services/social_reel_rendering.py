@@ -33,7 +33,7 @@ MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
 REMOTION_RENDERER_RELATIVE_DIR = Path("frontend")
 TEXT_TEMPLATE_BY_REEL_TYPE = {
-    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_elegant_v1",
+    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_elegant_light_v1",
     OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_elegant_v1",
     OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_spotlight_elegant_v1",
 }
@@ -50,6 +50,9 @@ LEGACY_TEXT_TEMPLATE_KEYS = {
 }
 TEMPLATE_KEYS_BY_REEL_TYPE = {
     OpportunityReelPlan.ReelType.CLOSING_SOON: {
+        "closing_soon_elegant_light_v1",
+        "closing_soon_dark_premium_v1",
+        "closing_soon_minimal_kinetic_v1",
         "closing_soon_elegant_v1",
         "closing_soon_dark_v1",
         "closing_soon_premium_v31",

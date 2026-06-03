@@ -1,14 +1,14 @@
 {
   "title": "Scholarship Alert",
   "reel_type": "single_scholarship",
-  "template_key": "single_scholarship_spotlight_v1",
+  "template_key": "single_spotlight_elegant_v1",
   "duration_seconds": 4.4,
   "scenes": [
     {
       "scene_type": "hook",
       "label": "Alert",
       "title": "Scholarship alert",
-      "subheadline": "China / Master",
+      "subheadline": "China · Master",
       "duration": 1.2
     },
     {
@@ -16,7 +16,7 @@
       "rank": "01",
       "label": "Deadline",
       "title": "Global Graduate Award",
-      "blocks": ["China / Master", "Deadline: Jun 15"],
+      "blocks": ["China · Master", "Deadline: Jun 15, 2026"],
       "action_line": "Check eligibility",
       "duration": 2
     },

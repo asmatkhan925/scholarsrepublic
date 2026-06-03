@@ -76,14 +76,22 @@ function audioLabel(plan: AdminSocialReelPlan) {
 
 function templateFamilyLabel(templateKey: string) {
   if (
+    templateKey === "closing_soon_elegant_light_v1" ||
     templateKey === "closing_soon_elegant_v1" ||
     templateKey === "closing_soon_premium_v31" ||
     templateKey === "closing_soon_premium_v3"
   ) {
-    return "Elegant Closing Soon";
+    return "Elegant Light";
   }
-  if (templateKey === "closing_soon_dark_v1" || templateKey === "closing_soon_dark_accent_v1") {
-    return "Dark Deadline";
+  if (
+    templateKey === "closing_soon_dark_premium_v1" ||
+    templateKey === "closing_soon_dark_v1" ||
+    templateKey === "closing_soon_dark_accent_v1"
+  ) {
+    return "Dark Premium";
+  }
+  if (templateKey === "closing_soon_minimal_kinetic_v1") {
+    return "Minimal Kinetic";
   }
   if (templateKey === "closing_soon_card_stack_v1") {
     return "Card Stack";
@@ -215,7 +223,8 @@ function ReelPlanCard({
           </div>
           <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{plan.title}</h2>
           <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
-            Scenes {plan.scenes_json.length} | Priority {plan.priority_score} | Music{" "}
+            Created {formatDateTime(plan.created_at)} | Scenes {plan.scenes_json.length} | Priority{" "}
+            {plan.priority_score} | Music{" "}
             {plan.music_configured ? plan.audio_path : "silent"} | Next post{" "}
             {formatDateTime(plan.next_post_at)}
           </p>
@@ -542,8 +551,8 @@ function ReelsContent() {
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
         <AdminNotice>
-          Default automatic reels use the final Elegant Closing Soon, Dark Deadline, Prepare
-          Early, and Single Spotlight templates. Successful local renders become ready
+          Default automatic reels use distinct Elegant Light, Dark Premium, Minimal Kinetic,
+          Prepare Early, and Single Spotlight templates. Successful local renders become ready
           automatically. Source images are not embedded as poster previews.
         </AdminNotice>
 
@@ -554,23 +563,39 @@ function ReelsContent() {
               variant="outline"
               onClick={() =>
                 void generatePlans("closing_soon", {
-                  templateKey: "closing_soon_elegant_v1",
+                  templateKey: "closing_soon_elegant_light_v1",
                   render: true,
                 })
               }
               disabled={generating}
             >
-              Generate Closing Soon Elegant
+              Generate Elegant Light
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() =>
-                void generatePlans("closing_soon", { templateKey: "closing_soon_dark_v1", render: true })
+                void generatePlans("closing_soon", {
+                  templateKey: "closing_soon_dark_premium_v1",
+                  render: true,
+                })
               }
               disabled={generating}
             >
-              Generate Closing Soon Dark
+              Generate Dark Premium
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void generatePlans("closing_soon", {
+                  templateKey: "closing_soon_minimal_kinetic_v1",
+                  render: true,
+                })
+              }
+              disabled={generating}
+            >
+              Generate Minimal Kinetic
             </Button>
             <Button
               type="button"
