@@ -633,6 +633,7 @@ class OpportunityReelPlanAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "reel_type",
+        "template_key",
         "status",
         "deadline_window",
         "priority_score",
@@ -641,7 +642,14 @@ class OpportunityReelPlanAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
-    list_filter = ("reel_type", "status", "deadline_window", "next_post_at", "created_at")
+    list_filter = (
+        "reel_type",
+        "template_key",
+        "status",
+        "deadline_window",
+        "next_post_at",
+        "created_at",
+    )
     search_fields = (
         "title",
         "script_text",

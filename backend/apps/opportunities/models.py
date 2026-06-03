@@ -1053,6 +1053,7 @@ class OpportunityReelPlan(models.Model):
         db_index=True,
     )
     scenes_json = models.JSONField(default=list, blank=True)
+    template_key = models.CharField(max_length=80, blank=True, db_index=True)
     script_text = models.TextField(blank=True)
     voiceover_text = models.TextField(blank=True)
     caption_text = models.TextField(blank=True)

@@ -1,13 +1,15 @@
 import json
+import math
 import shutil
 import subprocess
 import tempfile
 import textwrap
 from pathlib import Path
 
+from django.conf import settings
 from django.core.files import File
 from django.utils import timezone
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from apps.opportunities.models import (
     Opportunity,
@@ -24,14 +26,24 @@ SINGLE_REEL_MAX_SECONDS = 6.0
 MULTI_REEL_TARGET_SECONDS = 8.0
 MULTI_REEL_MAX_SECONDS = 9.0
 MAX_SCENES = 5
-MAX_AUTO_TITLE_CHARS = 45
+MAX_AUTO_TITLE_CHARS = 46
 MAX_AUTO_BLOCK_CHARS = 48
+MOTION_FPS = 8
+SOCIAL_REELS_USE_SOURCE_IMAGES = False
+TEXT_TEMPLATE_BY_REEL_TYPE = {
+    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_text_v1",
+    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_text_v1",
+    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_text_v1",
+}
+TEXT_TEMPLATE_KEYS = set(TEXT_TEMPLATE_BY_REEL_TYPE.values())
 BG = "#fbf7ee"
 PINE = "#0f4f3a"
 GOLD = "#d7a642"
 INK = "#17342a"
 MUTED = "#5f746b"
 WHITE = "#ffffff"
+SOFT_GREEN = "#e8f2ec"
+SOFT_GOLD = "#f5ead0"
 
 
 class ReelRenderError(Exception):
@@ -66,12 +78,18 @@ def render_reel_plan(plan, force=False):
         with tempfile.TemporaryDirectory(prefix=f"sr-reel-{plan.pk}-") as tmp_dir:
             tmp_path = Path(tmp_dir)
             frame_paths = []
-            image_path = find_optional_social_image(plan)
+            image_path = find_optional_social_image(plan) if source_images_enabled() else None
 
             for index, scene in enumerate(scenes):
-                frame_path = tmp_path / f"scene_{index:02d}.png"
-                render_scene_frame(scene, index, len(scenes), frame_path, image_path=image_path)
-                frame_paths.append(frame_path)
+                frame_paths.extend(
+                    render_scene_motion_frames(
+                        scene,
+                        index,
+                        len(scenes),
+                        tmp_path,
+                        image_path=image_path,
+                    )
+                )
 
             concat_file = write_concat_file(tmp_path, frame_paths, scenes)
             output_path = tmp_path / f"scholars-republic-reel-{plan.pk}.mp4"
@@ -105,6 +123,8 @@ def render_reel_plan(plan, force=False):
             "thumbnail_file": plan.thumbnail_file.name if plan.thumbnail_file else "",
             "duration_seconds": expected_duration,
             "scene_count": len(scenes),
+            "template_key": resolved_template_key(plan),
+            "source_images_used": bool(image_path),
         }
         OpportunityReelLog.objects.create(
             reel_plan=plan,
@@ -139,10 +159,18 @@ def build_scenes(plan):
             body = ""
             label = ""
             blocks = []
+            scene_type = ""
+            subheadline = ""
+            rank = None
+            funding_badge = ""
         elif isinstance(item, dict):
             title = str(item.get("title") or item.get("headline") or "").strip()
             body = str(item.get("body") or item.get("text") or item.get("description") or "").strip()
             label = str(item.get("label") or item.get("kicker") or "").strip()
+            scene_type = str(item.get("scene_type") or item.get("type") or "").strip()
+            subheadline = str(item.get("subheadline") or "").strip()
+            rank = item.get("rank")
+            funding_badge = str(item.get("funding_badge") or "").strip()
             raw_blocks = item.get("blocks")
             blocks = raw_blocks if isinstance(raw_blocks, list) else []
         else:
@@ -153,7 +181,18 @@ def build_scenes(plan):
         if not title:
             continue
 
-        scenes.append(normalize_scene(title=title, body=body, label=label, blocks=blocks))
+        scenes.append(
+            normalize_scene(
+                title=title,
+                body=body,
+                label=label,
+                blocks=blocks,
+                scene_type=scene_type,
+                subheadline=subheadline,
+                rank=rank,
+                funding_badge=funding_badge,
+            )
+        )
 
     if not scenes:
         scenes = fallback_scenes(plan)
@@ -170,7 +209,12 @@ def fallback_scenes(plan):
     title = plan.title or "Scholarship update"
     caption = plan.caption_text or plan.script_text or plan.voiceover_text
     scenes = [
-        {"label": "Scholars Republic", "title": title, "body": ""},
+        {
+            "scene_type": "hook",
+            "label": "Scholars Republic",
+            "title": title,
+            "subheadline": "Scholarships to review",
+        },
     ]
 
     for opportunity in opportunities:
@@ -178,6 +222,7 @@ def fallback_scenes(plan):
         scenes.append(
             {
                 "label": "Scholarship",
+                "scene_type": "scholarship",
                 "title": opportunity.title,
                 "blocks": [opportunity.country or opportunity.provider_name, f"Deadline: {deadline}"],
             }
@@ -187,6 +232,7 @@ def fallback_scenes(plan):
         scenes.append(
             {
                 "label": "Next step",
+                "scene_type": "cta",
                 "title": "Review details before applying",
                 "body": caption[:80],
             }
@@ -195,6 +241,7 @@ def fallback_scenes(plan):
     scenes.append(
         {
             "label": "Scholars Republic",
+            "scene_type": "cta",
             "title": "Check official links",
             "blocks": ["ScholarsRepublic.org"],
         }
@@ -202,7 +249,17 @@ def fallback_scenes(plan):
     return [normalize_scene(**scene) for scene in scenes[:MAX_SCENES]]
 
 
-def normalize_scene(*, title, body="", label="", blocks=None):
+def normalize_scene(
+    *,
+    title,
+    body="",
+    label="",
+    blocks=None,
+    scene_type="",
+    subheadline="",
+    rank=None,
+    funding_badge="",
+):
     blocks = blocks or []
     normalized_blocks = []
     for item in blocks:
@@ -219,11 +276,69 @@ def normalize_scene(*, title, body="", label="", blocks=None):
                 )
 
     return {
-        "title": textwrap.shorten(str(title).strip(), width=MAX_AUTO_TITLE_CHARS, placeholder="..."),
+        "scene_type": normalize_scene_type(scene_type),
+        "title": shorten_reel_title(str(title).strip(), width=MAX_AUTO_TITLE_CHARS),
+        "subheadline": textwrap.shorten(
+            str(subheadline or "").strip(),
+            width=MAX_AUTO_BLOCK_CHARS,
+            placeholder="...",
+        ),
         "body": "\n".join(normalized_blocks[:2]),
         "blocks": normalized_blocks[:2],
         "label": textwrap.shorten(str(label or "").strip(), width=28, placeholder="..."),
+        "rank": rank,
+        "funding_badge": textwrap.shorten(
+            str(funding_badge or "").strip(),
+            width=24,
+            placeholder="...",
+        ),
     }
+
+
+def normalize_scene_type(value):
+    value = str(value or "").strip()
+    return value if value in {"hook", "scholarship", "cta"} else "scholarship"
+
+
+def source_images_enabled():
+    return bool(getattr(settings, "SOCIAL_REELS_USE_SOURCE_IMAGES", SOCIAL_REELS_USE_SOURCE_IMAGES))
+
+
+def resolved_template_key(plan):
+    template_key = str(getattr(plan, "template_key", "") or "").strip()
+    if template_key in TEXT_TEMPLATE_KEYS:
+        return template_key
+    return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_scholarship_text_v1")
+
+
+def shorten_reel_title(value, width=MAX_AUTO_TITLE_CHARS):
+    text = " ".join(str(value or "").split())
+    if len(text) <= width:
+        return text
+
+    removable = ["Scholarships", "Scholarship", "2026", "2027", "Fully Funded", "Fully-funded"]
+    cleaned = text
+    for word in removable:
+        candidate = cleaned.replace(word, "")
+        for separator in [" - ", ": ", " | "]:
+            candidate = candidate.replace(separator, " ")
+        candidate = " ".join(candidate.split())
+        if candidate and len(candidate) <= width:
+            return candidate
+        if candidate:
+            cleaned = candidate
+
+    separators = [" at ", " for ", " in ", " - ", ": "]
+    for separator in separators:
+        if separator in cleaned:
+            left, right = cleaned.split(separator, 1)
+            if len(left) >= 14 and len(left) <= width:
+                return left
+            candidate = f"{left}{separator}{right}".strip()
+            if len(candidate) <= width:
+                return candidate
+
+    return textwrap.shorten(cleaned, width=width, placeholder="...")
 
 
 def calculate_scene_durations(reel_type, scene_count):
@@ -306,62 +421,145 @@ def find_optional_social_image(plan):
         return None
 
 
-def render_scene_frame(scene, index, total, output_path, image_path=None):
+def render_scene_motion_frames(scene, index, total, tmp_path, image_path=None):
+    scene_duration = float(scene["duration"])
+    frame_count = max(2, int(math.ceil(scene_duration * MOTION_FPS)))
+    frame_paths = []
+    for frame_index in range(frame_count):
+        progress = frame_index / max(1, frame_count - 1)
+        frame_path = tmp_path / f"scene_{index:02d}_{frame_index:02d}.png"
+        frame_duration = scene_duration / frame_count
+        render_scene_frame(
+            scene,
+            index,
+            total,
+            frame_path,
+            image_path=image_path,
+            progress=progress,
+            frame_duration=frame_duration,
+        )
+        frame_paths.append(frame_path)
+    return frame_paths
+
+
+def render_scene_frame(scene, index, total, output_path, image_path=None, progress=1.0, frame_duration=None):
     image = Image.new("RGB", (WIDTH, HEIGHT), BG)
     draw = ImageDraw.Draw(image)
     fonts = load_fonts()
-
-    draw.rectangle((0, 0, WIDTH, 22), fill=PINE)
-    draw.rectangle((0, HEIGHT - 28, WIDTH, HEIGHT), fill=GOLD)
-    draw.rounded_rectangle((72, 72, 268, 88), radius=8, fill=GOLD)
-    draw.text((72, 112), "Scholars Republic", fill=PINE, font=fonts["brand"])
-    draw.text((72, 154), "Scholarship reels", fill=MUTED, font=fonts["small"])
+    scene_type = scene.get("scene_type") or "scholarship"
+    ease = 1 - pow(1 - progress, 3)
+    slide = int((1 - ease) * 70)
 
     if image_path:
-        paste_optional_image(image, image_path)
+        paste_optional_background_accent(image, image_path)
 
-    label = scene.get("label") or f"Scene {index + 1}"
-    draw.rounded_rectangle((72, 314, 420, 376), radius=31, fill=WHITE, outline=GOLD, width=3)
-    draw.text((100, 331), label[:28].upper(), fill=PINE, font=fonts["label"])
+    render_background(draw, index=index, progress=progress)
+    render_brand(draw, fonts)
 
-    title_y = 470
-    title_lines = wrap_text(scene["title"], fonts["title"], 880, max_lines=5)
-    for line in title_lines:
-        draw.text((72, title_y), line, fill=INK, font=fonts["title"])
-        title_y += 100
+    if scene_type == "hook":
+        render_hook_scene(draw, scene, fonts, slide=slide)
+    elif scene_type == "cta":
+        render_cta_scene(draw, scene, fonts, slide=slide)
+    else:
+        render_scholarship_scene(draw, scene, index, fonts, slide=slide)
 
-    blocks = scene.get("blocks") or []
-    if not blocks and scene.get("body"):
-        blocks = str(scene.get("body", "")).splitlines()
-    if blocks:
-        body_y = title_y + 40
-        for line in blocks[:2]:
-            draw.text((78, body_y), line, fill=MUTED, font=fonts["body"])
-            body_y += 64
-
-    draw.rounded_rectangle((72, 1646, 1008, 1774), radius=24, fill=PINE)
-    draw.text((112, 1682), "Verify details on Scholars Republic before applying", fill=WHITE, font=fonts["cta"])
-
-    progress_width = int((WIDTH - 144) * ((index + 1) / total))
-    draw.rounded_rectangle((72, 1818, WIDTH - 72, 1832), radius=7, fill="#e7ded1")
-    draw.rounded_rectangle((72, 1818, 72 + progress_width, 1832), radius=7, fill=GOLD)
-    draw.text((72, 1852), f"{index + 1}/{total}", fill=MUTED, font=fonts["small"])
-
+    render_progress(draw, fonts, index, total)
     image.save(output_path)
 
 
-def paste_optional_image(canvas, image_path):
+def render_background(draw, *, index, progress):
+    draw.rectangle((0, 0, WIDTH, 24), fill=PINE)
+    draw.rectangle((0, HEIGHT - 28, WIDTH, HEIGHT), fill=GOLD)
+    offset = int(progress * 36)
+    draw.ellipse((WIDTH - 330 + offset, 190, WIDTH + 210 + offset, 730), fill=SOFT_GREEN)
+    draw.ellipse((-180 - offset, 1180, 300 - offset, 1660), fill=SOFT_GOLD)
+    if index % 2 == 0:
+        draw.rounded_rectangle((84, 288, 996, 1510), radius=54, fill=WHITE, outline="#eadfc9", width=3)
+    else:
+        draw.rounded_rectangle((84, 312, 996, 1534), radius=54, fill=WHITE, outline="#eadfc9", width=3)
+
+
+def render_brand(draw, fonts):
+    draw.text((72, 86), "Scholars Republic", fill=PINE, font=fonts["brand"])
+    draw.rounded_rectangle((72, 144, 284, 158), radius=7, fill=GOLD)
+    draw.text((72, 166), "Scholarship reels", fill=MUTED, font=fonts["small"])
+
+
+def centered_text(draw, text, y, font, fill, max_width, line_gap=12):
+    lines = wrap_text(text, font, max_width, max_lines=4)
+    total_height = len(lines) * font.size + max(0, len(lines) - 1) * line_gap
+    current_y = y - total_height // 2
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        x = (WIDTH - (bbox[2] - bbox[0])) // 2
+        draw.text((x, current_y), line, fill=fill, font=font)
+        current_y += font.size + line_gap
+
+
+def render_hook_scene(draw, scene, fonts, *, slide):
+    centered_text(draw, scene["title"], 820 + slide, fonts["hook"], INK, 820, line_gap=18)
+    subheadline = scene.get("subheadline") or first_block(scene) or "For International Students"
+    centered_text(draw, subheadline, 1045 + slide, fonts["body"], MUTED, 780, line_gap=8)
+    draw.rounded_rectangle((318, 1248 + slide, 762, 1328 + slide), radius=40, fill=PINE)
+    centered_text(draw, "ScholarsRepublic.org", 1288 + slide, fonts["badge"], WHITE, 420)
+
+
+def render_scholarship_scene(draw, scene, index, fonts, *, slide):
+    rank = scene.get("rank") or index
+    draw.rounded_rectangle((128, 370 + slide, 282, 524 + slide), radius=42, fill=PINE)
+    centered_text(draw, str(rank), 447 + slide, fonts["rank"], WHITE, 140)
+    label = scene.get("label") or "Scholarship"
+    draw.rounded_rectangle((314, 400 + slide, 806, 476 + slide), radius=38, fill=SOFT_GOLD)
+    centered_text(draw, label.upper(), 438 + slide, fonts["label"], PINE, 460)
+
+    centered_text(draw, scene["title"], 820 + slide, fonts["title"], INK, 760, line_gap=16)
+    blocks = scene.get("blocks") or []
+    country_degree = blocks[0] if blocks else ""
+    deadline = blocks[1] if len(blocks) > 1 else ""
+    if country_degree:
+        centered_text(draw, country_degree, 1116 + slide, fonts["body"], MUTED, 760)
+    if deadline:
+        draw.rounded_rectangle((190, 1236 + slide, 890, 1336 + slide), radius=48, fill=PINE)
+        centered_text(draw, deadline, 1286 + slide, fonts["badge"], WHITE, 640)
+
+    funding = scene.get("funding_badge", "")
+    if funding:
+        draw.rounded_rectangle((302, 1372 + slide, 778, 1444 + slide), radius=36, fill=SOFT_GREEN)
+        centered_text(draw, funding, 1408 + slide, fonts["label"], PINE, 420)
+
+    draw.text((332, 1642), "ScholarsRepublic.org", fill=MUTED, font=fonts["small"])
+
+
+def render_cta_scene(draw, scene, fonts, *, slide):
+    centered_text(draw, scene["title"], 820 + slide, fonts["cta_large"], INK, 820, line_gap=18)
+    blocks = scene.get("blocks") or []
+    second = blocks[0] if blocks else "ScholarsRepublic.org"
+    draw.rounded_rectangle((210, 1054 + slide, 870, 1162 + slide), radius=54, fill=PINE)
+    centered_text(draw, second, 1108 + slide, fonts["badge"], WHITE, 600)
+    centered_text(draw, "Verify details from official sources", 1348 + slide, fonts["body"], MUTED, 760)
+
+
+def first_block(scene):
+    blocks = scene.get("blocks") or []
+    return blocks[0] if blocks else ""
+
+
+def render_progress(draw, fonts, index, total):
+    progress_width = int((WIDTH - 144) * ((index + 1) / total))
+    draw.rounded_rectangle((72, 1796, WIDTH - 72, 1810), radius=7, fill="#e7ded1")
+    draw.rounded_rectangle((72, 1796, 72 + progress_width, 1810), radius=7, fill=GOLD)
+    draw.text((72, 1832), f"{index + 1}/{total}", fill=MUTED, font=fonts["small"])
+
+
+def paste_optional_background_accent(canvas, image_path):
     try:
-        source = Image.open(image_path).convert("RGB")
+        source = Image.open(image_path).convert("RGB").resize((WIDTH, HEIGHT))
     except Exception:
         return
-
-    source.thumbnail((780, 420))
-    x = WIDTH - source.width - 72
-    y = 190
-    backing = Image.new("RGB", (source.width + 20, source.height + 20), WHITE)
-    backing.paste(source, (10, 10))
-    canvas.paste(backing, (x - 10, y - 10))
+    source = source.filter(ImageFilter.GaussianBlur(radius=28))
+    overlay = Image.new("RGB", (WIDTH, HEIGHT), BG)
+    blended = Image.blend(source, overlay, 0.88)
+    canvas.paste(blended, (0, 0))
 
 
 def wrap_text(text, font, max_width, max_lines):
@@ -414,18 +612,26 @@ def load_fonts():
         "brand": font(42, bold=True),
         "small": font(30),
         "label": font(26, bold=True),
-        "title": font(78, bold=True),
-        "body": font(42),
+        "hook": font(92, bold=True),
+        "title": font(74, bold=True),
+        "body": font(44),
+        "rank": font(74, bold=True),
+        "badge": font(38, bold=True),
         "cta": font(34, bold=True),
+        "cta_large": font(84, bold=True),
     }
 
 
 def write_concat_file(tmp_path, frame_paths, scenes):
     concat_file = tmp_path / "frames.txt"
     lines = []
-    for frame_path, scene in zip(frame_paths, scenes):
+    durations = []
+    for scene in scenes:
+        frame_count = max(2, int(math.ceil(float(scene["duration"]) * MOTION_FPS)))
+        durations.extend([float(scene["duration"]) / frame_count] * frame_count)
+    for frame_path, duration in zip(frame_paths, durations):
         lines.append(f"file '{frame_path.as_posix()}'")
-        lines.append(f"duration {scene['duration']}")
+        lines.append(f"duration {duration:.4f}")
     lines.append(f"file '{frame_paths[-1].as_posix()}'")
     concat_file.write_text("\n".join(lines), encoding="utf-8")
     return concat_file

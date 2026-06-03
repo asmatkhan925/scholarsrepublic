@@ -86,7 +86,12 @@ from apps.opportunities.services.social_image_uploads import (
     save_social_image_from_url,
 )
 from apps.opportunities.services.social_reel_planning import generate_social_reel_plans
-from apps.opportunities.services.social_reel_rendering import expected_reel_duration, render_reel_plan
+from apps.opportunities.services.social_reel_rendering import (
+    expected_reel_duration,
+    render_reel_plan,
+    resolved_template_key,
+    shorten_reel_title,
+)
 from apps.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -3307,6 +3312,7 @@ def _serialize_admin_reel_plan(plan, request=None):
             {
                 "id": opportunity.pk,
                 "title": opportunity.title,
+                "short_title": shorten_reel_title(opportunity.title),
                 "slug": opportunity.slug,
                 "provider_name": opportunity.provider_name,
                 "country": opportunity.country,
@@ -3323,6 +3329,7 @@ def _serialize_admin_reel_plan(plan, request=None):
         "id": plan.pk,
         "title": plan.title,
         "reel_type": plan.reel_type,
+        "template_key": resolved_template_key(plan),
         "status": plan.status,
         "scenes_json": plan.scenes_json if isinstance(plan.scenes_json, list) else [],
         "script_text": plan.script_text,
@@ -3401,6 +3408,7 @@ def _reel_plan_payload(data):
     return {
         "title": title[:255],
         "reel_type": reel_type,
+        "template_key": str(data.get("template_key") or "").strip()[:80],
         "status": status_value,
         "scenes_json": scenes_json,
         "script_text": str(data.get("script_text") or "").strip(),

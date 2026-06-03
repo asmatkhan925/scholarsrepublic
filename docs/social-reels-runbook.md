@@ -26,6 +26,24 @@ Reels are intentionally short:
 
 Scene timing is calculated by the renderer at render time. The renderer rejects plans with more than five scenes and writes a clear render error instead of creating a long video.
 
+## Text-First Templates
+
+Automatic reels use text-first templates by default:
+
+- `closing_soon_text_v1`
+- `prepare_early_text_v1`
+- `single_scholarship_text_v1`
+
+The renderer uses large mobile-readable text cards, rank badges, deadline badges, Scholars Republic branding, cream/white backgrounds, deep green accents, and gold accents.
+
+Source scholarship/social images are disabled by default:
+
+```python
+SOCIAL_REELS_USE_SOURCE_IMAGES = False
+```
+
+If source images are enabled later, they should only be used as dimmed/blurred background accents. They should not be embedded as tiny poster images, screenshots, official seals, or logos.
+
 ## Automatic Selection
 
 Automatic reel planning selects published, non-expired scholarship opportunities only. It requires a title and public slug, avoids expired records, and avoids missing or unclear deadlines for urgent-style reels.
@@ -45,16 +63,19 @@ It does not mark normal Facebook social plans as posted, skipped, consumed, or d
 - Picks three scholarships from `urgent`, `soon`, and `advance_notice`
 - Prefers max one urgent and max one soon, then fills with advance notice when available
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
+- Uses `closing_soon_text_v1`
 
 `prepare_early`
 
 - Picks three scholarships from `advance_notice` and `early_awareness`
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
+- Uses `prepare_early_text_v1`
 
 `single_scholarship`
 
 - Picks one strong safe scholarship
 - Used when there are not enough safe candidates for a three-scholarship reel
+- Uses `single_scholarship_text_v1`
 
 ## Deduplication
 

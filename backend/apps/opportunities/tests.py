@@ -138,6 +138,12 @@ from apps.opportunities.services.social_reel_planning import (
     select_reel_candidates,
 )
 from apps.opportunities.services.social_reel_rendering import calculate_scene_durations
+from apps.opportunities.services.social_reel_rendering import (
+    build_scenes,
+    expected_reel_duration,
+    resolved_template_key,
+    shorten_reel_title,
+)
 from apps.opportunities.services.deadline_checker import classify_deadline_candidates
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
@@ -211,8 +217,10 @@ class SocialReelPlanningTests(APITestCase):
 
     def test_duration_calculation_max_nine_seconds_for_three_scholarship_reel(self):
         durations = calculate_scene_durations(OpportunityReelPlan.ReelType.CLOSING_SOON, 5)
+        prepare_durations = calculate_scene_durations(OpportunityReelPlan.ReelType.PREPARE_EARLY, 5)
 
         self.assertLessEqual(sum(durations), 9)
+        self.assertLessEqual(sum(prepare_durations), 9)
         self.assertEqual(len(durations), 5)
 
     def test_duration_calculation_max_six_seconds_for_single_scholarship_reel(self):
@@ -220,6 +228,44 @@ class SocialReelPlanningTests(APITestCase):
 
         self.assertLessEqual(sum(durations), 6)
         self.assertEqual(len(durations), 3)
+
+    def test_default_template_key_is_text_first(self):
+        plan = OpportunityReelPlan(
+            title="Template Test",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            scenes_json=[{"scene_type": "hook", "title": "3 Scholarships Closing Soon"}],
+        )
+
+        self.assertEqual(resolved_template_key(plan), "closing_soon_text_v1")
+
+    def test_title_shortening_keeps_text_under_target_length(self):
+        title = "Fully Funded International Research Scholarship 2026 at Example University"
+
+        shortened = shorten_reel_title(title)
+
+        self.assertLessEqual(len(shortened), 46)
+        self.assertNotIn("2026", shortened)
+
+    def test_renderer_scene_build_does_not_require_source_image(self):
+        plan = OpportunityReelPlan(
+            title="No Image Reel",
+            reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
+            scenes_json=[
+                {"scene_type": "hook", "title": "Scholarship Alert"},
+                {
+                    "scene_type": "scholarship",
+                    "rank": 1,
+                    "title": "Example Scholarship",
+                    "blocks": ["China | Master", "Deadline: Jan 31, 2027"],
+                },
+                {"scene_type": "cta", "title": "Check eligibility", "blocks": ["ScholarsRepublic.org"]},
+            ],
+        )
+
+        scenes = build_scenes(plan)
+
+        self.assertEqual(len(scenes), 3)
+        self.assertLessEqual(expected_reel_duration(plan), 6)
 
     def test_closing_soon_selection_uses_safe_published_non_expired_scholarships(self):
         urgent = self.opportunity("urgent-safe", deadline_days=2)
@@ -239,6 +285,8 @@ class SocialReelPlanningTests(APITestCase):
             set(selection["source_opportunity_ids"]),
             {urgent.id, soon.id, advance.id},
         )
+        self.assertEqual(selection["template_key"], "closing_soon_text_v1")
+        self.assertLessEqual(selection["expected_duration_seconds"], 9)
 
     @override_settings(SOCIAL_REELS_DAILY_PLAN_LIMIT=5)
     def test_duplicate_prevention_avoids_same_source_set_within_recent_window(self):

@@ -75,6 +75,7 @@ function reelJson(plan: AdminSocialReelPlan) {
     {
       title: plan.title,
       reel_type: plan.reel_type,
+      template_key: plan.template_key,
       scenes_json: plan.scenes_json,
       caption_text: plan.caption_text,
       hashtags: plan.hashtags,
@@ -158,6 +159,7 @@ function ReelPlanCard({
             <Badge tone="mint">#{plan.id}</Badge>
             <Badge tone="neutral">{formatLabel(plan.status)}</Badge>
             <Badge tone="sky">{formatLabel(plan.reel_type)}</Badge>
+            <Badge tone="pine">{plan.template_key}</Badge>
             {plan.deadline_window ? <Badge tone="saffron">{plan.deadline_window}</Badge> : null}
           </div>
           <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{plan.title}</h2>
@@ -476,6 +478,10 @@ function ReelsContent() {
         />
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
+        <AdminNotice>
+          Default automatic reels use text-first templates for mobile readability. Source images
+          are not embedded as poster previews.
+        </AdminNotice>
 
         <section className="rounded-xl border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
           <div className="flex flex-wrap gap-2">
@@ -520,6 +526,7 @@ function ReelsContent() {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone="sky">{result.reel_type ? formatLabel(result.reel_type) : "preview"}</Badge>
+                    {result.template_key ? <Badge tone="pine">{result.template_key}</Badge> : null}
                     <Badge tone="neutral">{result.status}</Badge>
                     <Badge tone="mint">Expected {result.expected_duration_seconds ?? "-"}s</Badge>
                     {result.skip_reason ? <Badge tone="danger">{formatLabel(result.skip_reason)}</Badge> : null}

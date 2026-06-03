@@ -416,6 +416,7 @@ export type AdminSocialReelPlan = {
   id: number;
   title: string;
   reel_type: "closing_soon" | "prepare_early" | "single_scholarship" | "collection";
+  template_key: string;
   status:
     | "draft"
     | "ready_for_render"
@@ -450,6 +451,7 @@ export type AdminSocialReelPlan = {
 export type AdminSocialReelPlanPayload = {
   title: string;
   reel_type: AdminSocialReelPlan["reel_type"];
+  template_key?: string;
   status?: AdminSocialReelPlan["status"];
   scenes_json?: Array<Record<string, unknown> | string>;
   script_text?: string;
@@ -480,6 +482,7 @@ export type AdminSocialReelGeneratePreview = {
   id: number | null;
   title: string;
   reel_type: AdminSocialReelPlan["reel_type"] | "";
+  template_key: string;
   status: string;
   source_opportunity_ids: number[];
   source_opportunities: AdminSocialReelSourceOpportunity[];

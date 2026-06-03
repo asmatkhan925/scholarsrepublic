@@ -11,9 +11,11 @@ from apps.opportunities.services.social_posting import (
     is_opportunity_expired_for_social,
 )
 from apps.opportunities.services.social_reel_rendering import (
+    TEXT_TEMPLATE_BY_REEL_TYPE,
     calculate_scene_durations,
     expected_reel_duration,
     render_reel_plan,
+    shorten_reel_title,
 )
 from apps.opportunities.services.social_scheduler import score_opportunity_for_social
 
@@ -336,6 +338,7 @@ def build_selection(*, reel_type, title, candidates):
         "ok": True,
         "title": title,
         "reel_type": reel_type,
+        "template_key": TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_text_v1"),
         "source_opportunity_ids": source_ids,
         "source_opportunities": [serialize_candidate(item) for item in candidates],
         "scenes_json": scenes,
@@ -352,30 +355,62 @@ def build_auto_scenes(reel_type, candidates):
     if reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
         candidate = candidates[0]
         return [
-            {"label": "Alert", "title": "Scholarship Alert", "blocks": []},
-            scholarship_scene(candidate),
-            {"label": "Next step", "title": "Check eligibility", "blocks": ["ScholarsRepublic.org"]},
+            {
+                "scene_type": "hook",
+                "label": "Alert",
+                "title": "Scholarship Alert",
+                "blocks": [],
+            },
+            scholarship_scene(candidate, rank=1),
+            {
+                "scene_type": "cta",
+                "label": "Next step",
+                "title": "Check eligibility",
+                "blocks": ["ScholarsRepublic.org"],
+            },
         ]
 
     if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
         hook = "Prepare Early"
+        subheadline = "Scholarships to plan for"
         cta = "Start documents now"
     else:
         hook = "3 Scholarships Closing Soon"
+        subheadline = "For International Students"
         cta = "Check official links"
 
-    scenes = [{"label": "Scholars Republic", "title": hook, "blocks": []}]
-    scenes.extend(scholarship_scene(candidate) for candidate in candidates[:3])
-    scenes.append({"label": "Next step", "title": cta, "blocks": ["ScholarsRepublic.org"]})
+    scenes = [
+        {
+            "scene_type": "hook",
+            "label": "Scholars Republic",
+            "title": hook,
+            "subheadline": subheadline,
+            "blocks": [],
+        }
+    ]
+    scenes.extend(
+        scholarship_scene(candidate, rank=index)
+        for index, candidate in enumerate(candidates[:3], start=1)
+    )
+    scenes.append(
+        {
+            "scene_type": "cta",
+            "label": "Next step",
+            "title": cta,
+            "blocks": ["ScholarsRepublic.org"],
+        }
+    )
     return scenes
 
 
-def scholarship_scene(candidate):
+def scholarship_scene(candidate, rank):
     opportunity = candidate["opportunity"]
     country = opportunity.country or opportunity.provider_name or "Scholarship"
     degree = degree_label(opportunity)
     deadline = readable_deadline(opportunity.deadline)
     return {
+        "scene_type": "scholarship",
+        "rank": rank,
         "label": candidate["deadline_window_label"],
         "title": short_title(opportunity.title),
         "blocks": [f"{country} | {degree}", f"Deadline: {deadline}"],
@@ -383,7 +418,7 @@ def scholarship_scene(candidate):
 
 
 def short_title(value):
-    return text_shorten(value, 45)
+    return shorten_reel_title(value, 46)
 
 
 def degree_label(opportunity):
@@ -443,6 +478,7 @@ def create_reel_plan_from_selection(selection):
         title=selection["title"],
         reel_type=selection["reel_type"],
         status=OpportunityReelPlan.Status.READY_FOR_RENDER,
+        template_key=selection.get("template_key", ""),
         scenes_json=selection["scenes_json"],
         caption_text=selection["caption_text"],
         hashtags=selection["hashtags"],
@@ -487,6 +523,7 @@ def serialize_selection(selection):
         "id": selection.get("id"),
         "title": selection.get("title", ""),
         "reel_type": selection.get("reel_type", ""),
+        "template_key": selection.get("template_key", ""),
         "status": selection.get("status", "preview"),
         "source_opportunity_ids": selection.get("source_opportunity_ids", []),
         "source_opportunities": selection.get("source_opportunities", []),

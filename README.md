@@ -27,7 +27,9 @@ future opportunity types in mind.
 Admins can create manual or automatic short scholarship reel plans at
 `/dashboard/admin/social/reels`. Automatic reel planning selects safe published,
 non-expired scholarship records, applies seven-day deduplication, and renders
-local MP4 files only. It does not post to Facebook or change Worker behavior.
+local MP4 files only. Default reel templates are text-first for mobile
+readability and do not embed scholarship posters or social images. This system
+does not post to Facebook or change Worker behavior.
 
 Useful commands:
 

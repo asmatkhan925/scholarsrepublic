@@ -430,6 +430,7 @@ test("admin reels page can dry run automatic reel selection", async ({ page }) =
             id: null,
             title: "3 Scholarships Closing Soon",
             reel_type: "closing_soon",
+            template_key: "closing_soon_text_v1",
             status: "preview",
             source_opportunity_ids: [1, 2, 3],
             source_opportunities: [
