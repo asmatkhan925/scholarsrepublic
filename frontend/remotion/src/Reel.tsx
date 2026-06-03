@@ -417,7 +417,7 @@ function CardScene({
       <Badge top={408} left={328} width={490} variant={variant}>{scene.label || "Scholarship"}</Badge>
       <div style={{ transform: `translateY(${(1 - enter) * 84}px)`, opacity: enter }}>
         {variant.family === "closing_light" ? (
-          <ScholarshipTitle top={668} variant={variant}>{scene.title}</ScholarshipTitle>
+          <ScholarshipTitle top={650} variant={variant}>{scene.title}</ScholarshipTitle>
         ) : (
           <Title y={800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
         )}
@@ -735,15 +735,15 @@ function ScholarshipTitle({
         left: 142,
         right: 142,
         top,
-        minHeight: 186,
+        minHeight: 196,
         color: variant.ink,
         fontWeight: 950,
-        fontSize: 64,
+        fontSize: 56,
         lineHeight: 1.1,
         textAlign: "center",
         display: "-webkit-box",
         WebkitBoxOrient: "vertical",
-        WebkitLineClamp: 2,
+        WebkitLineClamp: 3,
         overflow: "hidden",
         textOverflow: "ellipsis",
       }}

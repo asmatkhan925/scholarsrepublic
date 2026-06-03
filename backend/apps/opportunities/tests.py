@@ -145,6 +145,7 @@ from apps.opportunities.services.social_reel_rendering import calculate_scene_du
 from apps.opportunities.services.social_reel_rendering import (
     add_optional_background_music,
     build_scenes,
+    deterministic_background_music_path,
     expected_reel_duration,
     render_ready_checks_pass,
     render_reel_plan,
@@ -359,7 +360,7 @@ class SocialReelPlanningTests(APITestCase):
         dark = short_title(title, template_key="closing_soon_dark_premium_v1")
 
         self.assertGreater(len(elegant), len(dark))
-        self.assertLessEqual(len(elegant), 56)
+        self.assertLessEqual(len(elegant), 72)
         self.assertIn("Queen Elizabeth Commonwealth", elegant)
 
     def test_final_prepare_early_scenes_use_action_line(self):
@@ -528,6 +529,40 @@ class SocialReelPlanningTests(APITestCase):
             self.assertFalse(result["audio_added"])
             self.assertTrue(output.exists())
 
+    def test_renderer_selects_multi_track_music_deterministically(self):
+        plan = OpportunityReelPlan(
+            id=42,
+            title="Music Plan",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            template_key="closing_soon_elegant_light_v1",
+            source_opportunity_ids=[11, 12, 13],
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            first = Path(tmp_dir) / "first.mp3"
+            second = Path(tmp_dir) / "second.mp3"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+
+            with self.settings(SOCIAL_REELS_BACKGROUND_MUSIC_PATHS=f"{first},{second}"):
+                selected = deterministic_background_music_path(plan)
+                selected_again = deterministic_background_music_path(plan)
+
+        self.assertEqual(selected, selected_again)
+        self.assertIn(selected.name, {"first.mp3", "second.mp3"})
+
+    def test_renderer_multi_track_missing_falls_back_to_single_music_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fallback = Path(tmp_dir) / "fallback.mp3"
+            fallback.write_bytes(b"fallback")
+
+            with self.settings(
+                SOCIAL_REELS_BACKGROUND_MUSIC_PATHS=f"{Path(tmp_dir) / 'missing.mp3'}",
+                SOCIAL_REELS_BACKGROUND_MUSIC_PATH=str(fallback),
+            ):
+                selected = deterministic_background_music_path()
+
+        self.assertEqual(selected, fallback)
+
     @override_settings(SOCIAL_REELS_BACKGROUND_MUSIC_PATH="C:/fake/sr-background.mp3")
     def test_renderer_audio_mix_failure_records_warning_and_falls_back(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -615,9 +650,9 @@ class SocialReelPlanningTests(APITestCase):
             Image.new("RGB", (1080, 1920), "#fbf7ee").save(frame)
             return [frame]
 
-        def fake_audio(ffmpeg_path, silent_output_path, output_path, duration_seconds):
+        def fake_audio(ffmpeg_path, silent_output_path, output_path, duration_seconds, plan=None):
             output_path.write_bytes(b"fake-video")
-            return {"audio_added": False, "audio_path": "", "audio_error": ""}
+            return {"audio_added": False, "audio_path": "", "audio_track_name": "", "audio_error": ""}
 
         with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
             with patch("apps.opportunities.services.social_reel_rendering.shutil.which", return_value="ffmpeg"):
@@ -761,6 +796,124 @@ class SocialReelPlanningTests(APITestCase):
             generate_social_reel_plans(limit=1)
 
         mocked.assert_not_called()
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="agent-token", SOCIAL_REELS_FACEBOOK_DAILY_CAP=1)
+    def test_agent_due_reels_returns_only_ready_unposted_existing_video_plans(self):
+        safe = self.opportunity("due-reel-safe", deadline_days=5)
+        expired = self.opportunity("due-reel-expired", deadline_days=-1)
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            ready = OpportunityReelPlan.objects.create(
+                title="Ready Reel",
+                reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                status=OpportunityReelPlan.Status.READY,
+                caption_text="Ready caption.",
+                source_opportunity_ids=[safe.pk],
+                video_file=SimpleUploadedFile("ready.mp4", b"video", content_type="video/mp4"),
+            )
+            OpportunityReelPlan.objects.create(
+                title="Draft Reel",
+                reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                status=OpportunityReelPlan.Status.READY_FOR_RENDER,
+                caption_text="Draft caption.",
+                source_opportunity_ids=[safe.pk],
+                video_file=SimpleUploadedFile("draft.mp4", b"video", content_type="video/mp4"),
+            )
+            OpportunityReelPlan.objects.create(
+                title="Posted Reel",
+                reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                status=OpportunityReelPlan.Status.POSTED,
+                facebook_posted_at=timezone.now(),
+                source_opportunity_ids=[safe.pk],
+                video_file=SimpleUploadedFile("posted.mp4", b"video", content_type="video/mp4"),
+            )
+            OpportunityReelPlan.objects.create(
+                title="Expired Source Reel",
+                reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                status=OpportunityReelPlan.Status.READY,
+                source_opportunity_ids=[expired.pk],
+                video_file=SimpleUploadedFile("expired.mp4", b"video", content_type="video/mp4"),
+            )
+            OpportunityReelPlan.objects.create(
+                title="Missing Video Reel",
+                reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                status=OpportunityReelPlan.Status.READY,
+                source_opportunity_ids=[safe.pk],
+            )
+
+            response = self.client.post(
+                "/api/admin/agent/social/facebook/due-reels/",
+                {"limit": 5},
+                format="json",
+                HTTP_X_AGENT_TOKEN="agent-token",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["plan_id"] for item in response.data["items"]], [ready.pk])
+        self.assertEqual(response.data["daily_cap"], 1)
+        self.assertEqual(response.data["returned_count"], 1)
+        self.assertTrue(response.data["items"][0]["video_url"].startswith("http://testserver/"))
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="agent-token")
+    def test_agent_reel_posted_callback_marks_and_logs_plan(self):
+        plan = OpportunityReelPlan.objects.create(
+            title="Posted Callback Reel",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            status=OpportunityReelPlan.Status.READY,
+            video_file=SimpleUploadedFile("posted-callback.mp4", b"video", content_type="video/mp4"),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/social/facebook/reels/{plan.pk}/posted/",
+            {
+                "facebook_post_id": "fb_post_123",
+                "facebook_video_id": "fb_video_123",
+                "upload_surface": "page_videos",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="agent-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, OpportunityReelPlan.Status.POSTED)
+        self.assertEqual(plan.facebook_post_id, "fb_post_123")
+        self.assertEqual(plan.facebook_video_id, "fb_video_123")
+        self.assertIsNotNone(plan.facebook_posted_at)
+        self.assertTrue(
+            OpportunityReelLog.objects.filter(
+                reel_plan=plan,
+                status=OpportunityReelLog.Status.POSTED,
+            ).exists()
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="agent-token")
+    def test_agent_reel_failed_callback_stores_and_logs_error(self):
+        plan = OpportunityReelPlan.objects.create(
+            title="Failed Callback Reel",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            status=OpportunityReelPlan.Status.READY,
+            video_file=SimpleUploadedFile("failed-callback.mp4", b"video", content_type="video/mp4"),
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/social/facebook/reels/{plan.pk}/failed/",
+            {"error_message": "Graph upload failed."},
+            format="json",
+            HTTP_X_AGENT_TOKEN="agent-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, OpportunityReelPlan.Status.READY)
+        self.assertEqual(plan.facebook_post_error, "Graph upload failed.")
+        self.assertTrue(
+            OpportunityReelLog.objects.filter(
+                reel_plan=plan,
+                status=OpportunityReelLog.Status.FAILED,
+                error_message="Graph upload failed.",
+            ).exists()
+        )
 
 
 class OpportunityAPITests(APITestCase):

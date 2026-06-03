@@ -1079,6 +1079,10 @@ class OpportunityReelPlan(models.Model):
     )
     render_error = models.TextField(blank=True)
     next_post_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    facebook_post_id = models.CharField(max_length=255, blank=True, db_index=True)
+    facebook_video_id = models.CharField(max_length=255, blank=True, db_index=True)
+    facebook_posted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    facebook_post_error = models.TextField(blank=True)
     priority_score = models.IntegerField(default=0, db_index=True)
     deadline_window = models.CharField(max_length=60, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -1089,6 +1093,7 @@ class OpportunityReelPlan(models.Model):
         indexes = [
             models.Index(fields=["reel_type", "status"]),
             models.Index(fields=["status", "next_post_at"]),
+            models.Index(fields=["status", "facebook_posted_at"]),
             models.Index(fields=["deadline_window"]),
             models.Index(fields=["created_at"]),
         ]
@@ -1108,6 +1113,7 @@ class OpportunityReelLog(models.Model):
     class Status(models.TextChoices):
         CREATED = "created", "Created"
         RENDERED = "rendered", "Rendered"
+        POSTED = "posted", "Posted"
         FAILED = "failed", "Failed"
         SKIPPED = "skipped", "Skipped"
 

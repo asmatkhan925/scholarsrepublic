@@ -43,7 +43,10 @@ from apps.opportunities.views import (
     AdminScholarshipSocialPostReviewView,
     AgentDebugAuthView,
     AgentFacebookDuePostsView,
+    AgentFacebookDueReelsView,
     AgentFacebookPostResultView,
+    AgentFacebookReelFailedView,
+    AgentFacebookReelPostedView,
     AgentScholarshipCreateDraftView,
     AgentScholarshipDeadlineCheckQueueView,
     AgentScholarshipDeadlineCheckResultView,
@@ -314,6 +317,21 @@ urlpatterns = [
         "admin/agent/social/facebook/post-result/",
         AgentFacebookPostResultView.as_view(),
         name="agent-facebook-post-result",
+    ),
+    path(
+        "admin/agent/social/facebook/due-reels/",
+        AgentFacebookDueReelsView.as_view(),
+        name="agent-facebook-due-reels",
+    ),
+    path(
+        "admin/agent/social/facebook/reels/<int:plan_id>/posted/",
+        AgentFacebookReelPostedView.as_view(),
+        name="agent-facebook-reel-posted",
+    ),
+    path(
+        "admin/agent/social/facebook/reels/<int:plan_id>/failed/",
+        AgentFacebookReelFailedView.as_view(),
+        name="agent-facebook-reel-failed",
     ),
     path(
         "admin/opportunity-pathways/",

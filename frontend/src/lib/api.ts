@@ -445,11 +445,14 @@ export type AdminSocialReelPlan = {
   expected_duration_seconds: number | null;
   audio_added: boolean;
   audio_path: string;
+  audio_track_name: string;
   audio_error: string;
   audio_status: "enabled" | "silent" | "missing_file" | "mix_failed_fallback" | string;
   renderer_used: "remotion" | "fallback" | "";
   renderer_error: string;
   music_configured: boolean;
+  music_paths: string[];
+  music_track_count: number;
   music_volume: number;
   music_license_metadata: {
     source_url?: string;
@@ -458,6 +461,11 @@ export type AdminSocialReelPlan = {
     downloaded_at?: string;
     filename?: string;
   };
+  facebook_post_id: string;
+  facebook_video_id: string;
+  posted_at: string | null;
+  facebook_post_error: string;
+  ready_for_facebook: boolean;
   created_at: string | null;
   updated_at: string | null;
   admin_url: string;

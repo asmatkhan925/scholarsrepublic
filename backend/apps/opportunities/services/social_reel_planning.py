@@ -502,7 +502,7 @@ def scholarship_scene(candidate, rank, action_line="Check eligibility today", te
 
 
 def short_title(value, template_key=""):
-    width = 56 if template_key == "closing_soon_elegant_light_v1" else 42
+    width = 72 if template_key == "closing_soon_elegant_light_v1" else 42
     return shorten_reel_title(value, width)
 
 

@@ -219,15 +219,23 @@ function ReelPlanCard({
             <Badge tone={plan.audio_status === "enabled" ? "saffron" : "neutral"}>
               {audioLabel(plan)}
             </Badge>
+            {plan.ready_for_facebook ? <Badge tone="mint">Ready for Facebook</Badge> : null}
+            {plan.posted_at ? <Badge tone="pine">Facebook posted</Badge> : null}
             {plan.deadline_window ? <Badge tone="saffron">{plan.deadline_window}</Badge> : null}
           </div>
           <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{plan.title}</h2>
           <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
             Created {formatDateTime(plan.created_at)} | Scenes {plan.scenes_json.length} | Priority{" "}
             {plan.priority_score} | Music{" "}
-            {plan.music_configured ? plan.audio_path : "silent"} | Next post{" "}
+            {plan.music_configured ? plan.audio_track_name || plan.audio_path : "silent"} | Next post{" "}
             {formatDateTime(plan.next_post_at)}
           </p>
+          {plan.facebook_post_id || plan.facebook_video_id || plan.posted_at ? (
+            <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
+              Facebook video {plan.facebook_video_id || "-"} | post {plan.facebook_post_id || "-"} | posted{" "}
+              {formatDateTime(plan.posted_at)}
+            </p>
+          ) : null}
           {plan.music_license_metadata?.source_name || plan.music_license_metadata?.license_note ? (
             <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
               Music license: {plan.music_license_metadata.source_name || "source saved"} |{" "}
@@ -298,6 +306,8 @@ function ReelPlanCard({
             <AdminNotice tone="warning">Remotion fallback used: {plan.renderer_error}</AdminNotice>
           ) : plan.audio_error ? (
             <AdminNotice tone="warning">{plan.audio_error}</AdminNotice>
+          ) : plan.facebook_post_error ? (
+            <AdminNotice tone="warning">{plan.facebook_post_error}</AdminNotice>
           ) : null}
         </div>
 

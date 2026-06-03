@@ -1,6 +1,7 @@
 const BACKEND_BASE_URL = "https://scholarsrepublic.org";
 const DUE_POSTS_PATH = "/api/admin/agent/social/facebook/due-posts/";
 const POST_RESULT_PATH = "/api/admin/agent/social/facebook/post-result/";
+const DUE_REELS_PATH = "/api/admin/agent/social/facebook/due-reels/";
 const GRAPH_VERSION = "v25.0";
 
 function jsonResponse(payload, status = 200) {
@@ -118,6 +119,44 @@ async function postToFacebook(env, duePost) {
   };
 }
 
+async function postReelToFacebook(env, dueReel) {
+  requireEnv(env, ["FACEBOOK_PAGE_ID", "FACEBOOK_PAGE_ACCESS_TOKEN"]);
+
+  const videoUrl = String(dueReel.video_url || "").trim();
+  const caption = String(dueReel.caption || dueReel.message || "").trim();
+
+  if (!videoUrl) {
+    throw new Error("Missing reel video URL.");
+  }
+
+  const body = new URLSearchParams();
+  body.set("access_token", env.FACEBOOK_PAGE_ACCESS_TOKEN);
+  body.set("file_url", videoUrl);
+  body.set("description", caption);
+
+  const response = await fetch(graphPostUrl(env, "videos"), {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message || `Facebook Graph API returned HTTP ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  return {
+    facebook_video_id: data.id || "",
+    facebook_post_id: data.post_id || "",
+    raw_response: data,
+  };
+}
+
 async function notifyPostResult(env, payload) {
   requireEnv(env, ["SCHOLARS_SOCIAL_WORKER_TOKEN"]);
 
@@ -132,6 +171,29 @@ async function notifyPostResult(env, payload) {
 
   if (!response.ok) {
     throw new Error(`Backend post-result returned HTTP ${response.status}`);
+  }
+
+  return response.json().catch(() => ({}));
+}
+
+async function notifyReelResult(env, planId, status, payload) {
+  requireEnv(env, ["SCHOLARS_AGENT_TOKEN"]);
+
+  const endpoint = status === "posted" ? "posted" : "failed";
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/api/admin/agent/social/facebook/reels/${planId}/${endpoint}/`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Agent-Token": env.SCHOLARS_AGENT_TOKEN,
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Backend reel ${endpoint} callback returned HTTP ${response.status}`);
   }
 
   return response.json().catch(() => ({}));
@@ -163,6 +225,30 @@ async function fetchDuePosts(env, limit) {
       reason: data.length ? "" : "no_due_posts",
       items: data,
     };
+  }
+
+  return {
+    ...data,
+    items: Array.isArray(data.items) ? data.items : [],
+  };
+}
+
+async function fetchDueReels(env, limit) {
+  requireEnv(env, ["SCHOLARS_AGENT_TOKEN"]);
+
+  const response = await fetch(`${BACKEND_BASE_URL}${DUE_REELS_PATH}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "X-Agent-Token": env.SCHOLARS_AGENT_TOKEN,
+    },
+    body: JSON.stringify({ limit }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(`Backend due-reels returned HTTP ${response.status}`);
   }
 
   return {
@@ -280,6 +366,90 @@ async function runDuePosts(env, limit = 10) {
   };
 }
 
+async function runDueReels(env, limit = 1) {
+  requireEnv(env, [
+    "FACEBOOK_PAGE_ID",
+    "FACEBOOK_PAGE_ACCESS_TOKEN",
+    "SCHOLARS_AGENT_TOKEN",
+  ]);
+
+  const dueReelResponse = await fetchDueReels(env, limit);
+  const dueReels = dueReelResponse.items;
+  const results = [];
+
+  if (dueReels.length === 0) {
+    return {
+      requested_limit: limit,
+      due_count: Number(dueReelResponse.due_count || 0),
+      returned_count: 0,
+      posted_today: Number(dueReelResponse.posted_today || 0),
+      daily_cap: Number(dueReelResponse.daily_cap || 0),
+      daily_remaining: Number(dueReelResponse.daily_remaining || 0),
+      reason: dueReelResponse.reason || "no_due_reels",
+      posted_count: 0,
+      failed_count: 0,
+      results,
+    };
+  }
+
+  for (const dueReel of dueReels) {
+    const planId = dueReel.plan_id;
+
+    try {
+      const facebookResult = await postReelToFacebook(env, dueReel);
+
+      await notifyReelResult(env, planId, "posted", {
+        ...facebookResult,
+        caption: dueReel.caption || "",
+        video_url: dueReel.video_url || "",
+        upload_surface: "page_videos",
+      });
+
+      results.push({
+        type: "reel",
+        plan_id: planId,
+        status: "posted",
+        facebook_post_id: facebookResult.facebook_post_id,
+        facebook_video_id: facebookResult.facebook_video_id,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Reel posting failed.";
+
+      try {
+        await notifyReelResult(env, planId, "failed", {
+          error_message: errorMessage,
+          caption: dueReel.caption || "",
+          video_url: dueReel.video_url || "",
+          upload_surface: "page_videos",
+        });
+      } catch {
+        console.error("Failed to notify backend about Facebook reel posting failure.");
+      }
+
+      console.error("Facebook scheduled reel failed.");
+      results.push({
+        type: "reel",
+        plan_id: planId,
+        status: "failed",
+        error: errorMessage,
+      });
+    }
+  }
+
+  return {
+    requested_limit: limit,
+    due_count: Number(dueReelResponse.due_count || dueReels.length),
+    returned_count: Number(dueReelResponse.returned_count || dueReels.length),
+    posted_today: Number(dueReelResponse.posted_today || 0),
+    daily_cap: Number(dueReelResponse.daily_cap || 0),
+    daily_remaining: Number(dueReelResponse.daily_remaining || 0),
+    reason: dueReelResponse.reason || "",
+    posted_count: results.filter((item) => item.status === "posted").length,
+    failed_count: results.filter((item) => item.status === "failed").length,
+    results,
+  };
+}
+
 async function handleManualPost(request, env) {
   if (!hasManualAccess(request, env)) {
     return jsonResponse({ error: "Unauthorized." }, 401);
@@ -350,6 +520,35 @@ async function handleRunDuePosts(request, env) {
   }
 }
 
+async function handleRunDueReels(request, env) {
+  if (!hasManualAccess(request, env)) {
+    return jsonResponse({ error: "Unauthorized." }, 401);
+  }
+
+  const payload = await readJson(request);
+
+  if (payload === null) {
+    return jsonResponse({ error: "Invalid JSON body." }, 400);
+  }
+
+  const limit = Math.max(1, Math.min(Number(payload.limit || 1), 1));
+
+  try {
+    return jsonResponse({
+      ok: true,
+      ...(await runDueReels(env, limit)),
+    });
+  } catch (error) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Scheduled reel posting failed.",
+      },
+      502,
+    );
+  }
+}
+
 async function handlePostOne(request, env) {
   if (!hasSocialWorkerAccess(request, env)) {
     return jsonResponse({ error: "Unauthorized." }, 401);
@@ -391,6 +590,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/run-due-posts") {
       return handleRunDuePosts(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/run-due-reels") {
+      return handleRunDueReels(request, env);
     }
 
     if (request.method === "POST" && url.pathname === "/post-one") {

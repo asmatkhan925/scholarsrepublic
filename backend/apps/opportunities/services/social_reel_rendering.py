@@ -1,3 +1,4 @@
+import hashlib
 import json
 import math
 import re
@@ -154,6 +155,7 @@ def render_reel_plan(plan, force=False):
                 silent_output_path,
                 output_path,
                 expected_duration,
+                plan=plan,
             )
 
             thumbnail_path = tmp_path / f"scholars-republic-reel-{plan.pk}.jpg"
@@ -201,6 +203,7 @@ def render_reel_plan(plan, force=False):
             "source_images_used": bool(image_path),
             "audio_added": audio_payload["audio_added"],
             "audio_path": audio_payload["audio_path"],
+            "audio_track_name": audio_payload["audio_track_name"],
             "audio_error": audio_payload["audio_error"],
             "renderer_used": renderer_payload["renderer_used"],
             "renderer_error": renderer_payload["renderer_error"],
@@ -860,6 +863,42 @@ def configured_background_music_path():
     return Path(value)
 
 
+def configured_background_music_paths():
+    value = str(getattr(settings, "SOCIAL_REELS_BACKGROUND_MUSIC_PATHS", "") or "").strip()
+    paths = []
+    seen = set()
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        path = Path(item)
+        key = str(path)
+        if key in seen:
+            continue
+        paths.append(path)
+        seen.add(key)
+    return paths
+
+
+def deterministic_background_music_path(plan=None):
+    paths = [path for path in configured_background_music_paths() if path.exists()]
+    if not paths:
+        return configured_background_music_path()
+
+    seed_parts = []
+    if plan is not None:
+        seed_parts = [
+            str(getattr(plan, "pk", "") or ""),
+            str(getattr(plan, "template_key", "") or ""),
+            str(getattr(plan, "reel_type", "") or ""),
+            ",".join(str(item) for item in getattr(plan, "source_opportunity_ids", []) or []),
+        ]
+    seed = "|".join(seed_parts) or "scholars-republic-reels"
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    index = int(digest[:8], 16) % len(paths)
+    return paths[index]
+
+
 def configured_background_music_volume():
     try:
         volume = float(getattr(settings, "SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME", 0.12))
@@ -869,11 +908,16 @@ def configured_background_music_volume():
 
 
 def background_music_summary():
-    music_path = configured_background_music_path()
+    configured_paths = configured_background_music_paths()
+    valid_paths = [path for path in configured_paths if path.exists()]
+    fallback_path = configured_background_music_path()
+    music_path = valid_paths[0] if valid_paths else fallback_path
     if not music_path:
         return {
             "music_configured": False,
             "music_path": "",
+            "music_paths": [str(path) for path in configured_paths],
+            "music_track_count": 0,
             "music_volume": configured_background_music_volume(),
             "audio_status": "silent",
             "license_metadata": {},
@@ -882,6 +926,8 @@ def background_music_summary():
     return {
         "music_configured": exists,
         "music_path": str(music_path),
+        "music_paths": [str(path) for path in configured_paths],
+        "music_track_count": len(valid_paths),
         "music_volume": configured_background_music_volume(),
         "audio_status": "enabled" if exists else "missing_file",
         "license_metadata": read_music_license_metadata(music_path),
@@ -922,11 +968,12 @@ def encode_video(ffmpeg_path, concat_file, output_path):
         raise ReelRenderError(completed.stderr.strip() or "ffmpeg failed to render the reel.")
 
 
-def add_optional_background_music(ffmpeg_path, silent_video_path, output_path, duration_seconds):
-    music_path = configured_background_music_path()
+def add_optional_background_music(ffmpeg_path, silent_video_path, output_path, duration_seconds, plan=None):
+    music_path = deterministic_background_music_path(plan)
     payload = {
         "audio_added": False,
         "audio_path": str(music_path) if music_path else "",
+        "audio_track_name": music_path.name if music_path else "",
         "audio_error": "",
     }
     if not music_path or not music_path.exists():

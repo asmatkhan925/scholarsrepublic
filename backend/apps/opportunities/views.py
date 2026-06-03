@@ -86,6 +86,11 @@ from apps.opportunities.services.social_image_uploads import (
     save_social_image_from_url,
 )
 from apps.opportunities.services.social_reel_planning import generate_social_reel_plans
+from apps.opportunities.services.social_reel_posting import (
+    get_due_facebook_reel_plan_response,
+    mark_facebook_reel_failed,
+    mark_facebook_reel_posted,
+)
 from apps.opportunities.services.social_reel_rendering import (
     TEMPLATE_KEYS_BY_REEL_TYPE,
     background_music_summary,
@@ -2394,6 +2399,84 @@ class AgentFacebookPostResultView(SocialWorkerBaseView):
         )
 
 
+class AgentFacebookDueReelsView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            get_due_facebook_reel_plan_response(
+                limit=request.data.get("limit", 1),
+                request=request,
+            )
+        )
+
+
+class AgentFacebookReelPostedView(AgentScholarshipBaseView):
+    def post(self, request, plan_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plan = OpportunityReelPlan.objects.filter(pk=plan_id).first()
+        if not plan:
+            return Response({"detail": "Reel plan not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        log = mark_facebook_reel_posted(plan, request.data)
+        return Response(
+            {
+                "ok": True,
+                "log_id": log.pk,
+                "plan_id": plan.pk,
+                "status": plan.status,
+                "facebook_post_id": plan.facebook_post_id,
+                "facebook_video_id": plan.facebook_video_id,
+                "posted_at": _serialize_social_datetime(plan.facebook_posted_at),
+            }
+        )
+
+
+class AgentFacebookReelFailedView(AgentScholarshipBaseView):
+    def post(self, request, plan_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plan = OpportunityReelPlan.objects.filter(pk=plan_id).first()
+        if not plan:
+            return Response({"detail": "Reel plan not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        log = mark_facebook_reel_failed(plan, request.data)
+        return Response(
+            {
+                "ok": True,
+                "log_id": log.pk,
+                "plan_id": plan.pk,
+                "status": plan.status,
+                "facebook_post_error": plan.facebook_post_error,
+            }
+        )
+
+
 class AdminScholarshipResearchLeadListView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
@@ -3362,13 +3445,28 @@ def _serialize_admin_reel_plan(plan, request=None):
         "expected_duration_seconds": expected_duration,
         "audio_added": bool(latest_render_payload.get("audio_added")),
         "audio_path": latest_render_payload.get("audio_path") or music["music_path"],
+        "audio_track_name": latest_render_payload.get("audio_track_name") or "",
         "audio_error": latest_render_payload.get("audio_error") or "",
         "audio_status": audio_status,
         "renderer_used": latest_render_payload.get("renderer_used") or "",
         "renderer_error": latest_render_payload.get("renderer_error") or "",
         "music_configured": music["music_configured"],
+        "music_paths": music.get("music_paths", []),
+        "music_track_count": music.get("music_track_count", 0),
         "music_volume": music["music_volume"],
         "music_license_metadata": music["license_metadata"],
+        "facebook_post_id": plan.facebook_post_id,
+        "facebook_video_id": plan.facebook_video_id,
+        "posted_at": _serialize_social_datetime(plan.facebook_posted_at),
+        "facebook_post_error": plan.facebook_post_error,
+        "ready_for_facebook": bool(
+            plan.status == OpportunityReelPlan.Status.READY
+            and (plan.video_file or plan.video_url)
+            and not plan.render_error
+            and not plan.facebook_posted_at
+            and not plan.facebook_post_id
+            and not plan.facebook_video_id
+        ),
         "created_at": _serialize_social_datetime(plan.created_at),
         "updated_at": _serialize_social_datetime(plan.updated_at),
         "admin_url": f"/admin/opportunities/opportunityreelplan/{plan.pk}/change/",
