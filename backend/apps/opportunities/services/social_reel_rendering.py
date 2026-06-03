@@ -1,5 +1,6 @@
 import json
 import math
+import re
 import shutil
 import subprocess
 import tempfile
@@ -32,9 +33,9 @@ MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
 REMOTION_RENDERER_RELATIVE_DIR = Path("frontend")
 TEXT_TEMPLATE_BY_REEL_TYPE = {
-    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_premium_v31",
-    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_premium_v31",
-    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_spotlight_v1",
+    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_elegant_v1",
+    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_elegant_v1",
+    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_spotlight_elegant_v1",
 }
 LEGACY_TEXT_TEMPLATE_KEYS = {
     "closing_soon_text_v1",
@@ -49,6 +50,8 @@ LEGACY_TEXT_TEMPLATE_KEYS = {
 }
 TEMPLATE_KEYS_BY_REEL_TYPE = {
     OpportunityReelPlan.ReelType.CLOSING_SOON: {
+        "closing_soon_elegant_v1",
+        "closing_soon_dark_v1",
         "closing_soon_premium_v31",
         "closing_soon_dark_accent_v1",
         "closing_soon_card_stack_v1",
@@ -57,12 +60,14 @@ TEMPLATE_KEYS_BY_REEL_TYPE = {
         "closing_soon_text_v2",
     },
     OpportunityReelPlan.ReelType.PREPARE_EARLY: {
+        "prepare_early_elegant_v1",
         "prepare_early_premium_v31",
         "prepare_early_premium_v3",
         "prepare_early_text_v1",
         "prepare_early_text_v2",
     },
     OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: {
+        "single_spotlight_elegant_v1",
         "single_scholarship_spotlight_v1",
         "single_scholarship_premium_v3",
         "single_scholarship_text_v1",
@@ -391,7 +396,7 @@ def resolved_template_key(plan):
     template_key = str(getattr(plan, "template_key", "") or "").strip()
     if template_key in TEXT_TEMPLATE_KEYS:
         return template_key
-    return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_scholarship_premium_v3")
+    return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_spotlight_elegant_v1")
 
 
 def template_key_is_valid_for_reel_type(template_key, reel_type):
@@ -406,27 +411,41 @@ def shorten_reel_title(value, width=MAX_AUTO_TITLE_CHARS):
     if len(text) <= width:
         return text
 
-    removable = ["Scholarships", "Scholarship", "2026", "2027", "Fully Funded", "Fully-funded"]
     cleaned = text
-    for word in removable:
-        candidate = cleaned.replace(word, "")
-        for separator in [" - ", ": ", " | "]:
-            candidate = candidate.replace(separator, " ")
+    removals = [
+        r"\bFully[- ]Funded\b",
+        r"\bScholarships\b",
+        r"\bScholarship\b",
+        r"\b2026\b",
+        r"\b2027\b",
+    ]
+    for pattern in removals:
+        candidate = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+        candidate = re.sub(r"\s+([:|,-])\s+", " ", candidate)
+        candidate = " ".join(candidate.split(" - "))
         candidate = " ".join(candidate.split())
         if candidate and len(candidate) <= width:
             return candidate
         if candidate:
             cleaned = candidate
 
-    separators = [" at ", " for ", " in ", " - ", ": "]
-    for separator in separators:
-        if separator in cleaned:
-            left, right = cleaned.split(separator, 1)
-            if len(left) >= 14 and len(left) <= width:
-                return left
-            candidate = f"{left}{separator}{right}".strip()
-            if len(candidate) <= width:
-                return candidate
+    provider_match = re.search(r"\b(at|by|from)\s+(.+)$", cleaned, flags=re.IGNORECASE)
+    if provider_match:
+        provider = provider_match.group(2).strip()
+        prefix = cleaned[: provider_match.start()].strip(" -:|")
+        provider_fragment = f"{provider_match.group(1)} {provider}"
+        if len(provider_fragment) <= width:
+            available = width - len(provider_fragment) - 4
+            prefix_words = []
+            for word in prefix.split():
+                candidate = " ".join(prefix_words + [word])
+                if len(candidate) <= available:
+                    prefix_words.append(word)
+            if prefix_words:
+                candidate = f"{' '.join(prefix_words)}... {provider_fragment}"
+                if len(candidate) <= width:
+                    return candidate
+            return textwrap.shorten(provider_fragment, width=width, placeholder="...")
 
     return textwrap.shorten(cleaned, width=width, placeholder="...")
 

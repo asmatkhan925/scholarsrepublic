@@ -24,10 +24,11 @@ if (!inputPath || !outputPath) {
 }
 
 const raw = JSON.parse(fs.readFileSync(inputPath, "utf8"));
+const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE || undefined;
 const inputProps = {
   title: raw.title || "Scholars Republic Reel",
   reelType: raw.reel_type || raw.reelType || "single_scholarship",
-  templateKey: raw.template_key || raw.templateKey || "single_scholarship_premium_v3",
+  templateKey: raw.template_key || raw.templateKey || "single_spotlight_elegant_v1",
   durationSeconds: Number(raw.duration_seconds || raw.durationSeconds || 5),
   scenes: Array.isArray(raw.scenes) ? raw.scenes : [],
 };
@@ -42,6 +43,7 @@ const composition = await selectComposition({
   serveUrl,
   id: "scholars-republic-social-reel",
   inputProps,
+  browserExecutable,
 });
 
 await renderMedia({
@@ -50,6 +52,7 @@ await renderMedia({
   codec: "h264",
   outputLocation: outputPath,
   inputProps,
+  browserExecutable,
   chromiumOptions: {
     gl: "angle",
   },

@@ -149,6 +149,7 @@ from apps.opportunities.services.social_reel_rendering import (
     render_reel_plan,
     resolved_template_key,
     shorten_reel_title,
+    template_key_is_valid_for_reel_type,
 )
 from apps.opportunities.services.deadline_checker import classify_deadline_candidates
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
@@ -235,14 +236,14 @@ class SocialReelPlanningTests(APITestCase):
         self.assertLessEqual(sum(durations), 6)
         self.assertEqual(len(durations), 3)
 
-    def test_default_template_key_is_text_first(self):
+    def test_default_template_key_is_final_elegant_template(self):
         plan = OpportunityReelPlan(
             title="Template Test",
             reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
             scenes_json=[{"scene_type": "hook", "title": "3 Scholarships Closing Soon"}],
         )
 
-        self.assertEqual(resolved_template_key(plan), "closing_soon_premium_v31")
+        self.assertEqual(resolved_template_key(plan), "closing_soon_elegant_v1")
 
     def test_title_shortening_keeps_text_under_target_length(self):
         title = "Fully Funded International Research Scholarship 2026 at Example University"
@@ -251,6 +252,16 @@ class SocialReelPlanningTests(APITestCase):
 
         self.assertLessEqual(len(shortened), 42)
         self.assertNotIn("2026", shortened)
+        self.assertIn("Example University", shortened)
+
+    def test_title_shortening_uses_clean_word_boundary_cut(self):
+        title = "International Development Scholarship for Emerging Leaders and Researchers"
+
+        shortened = shorten_reel_title(title, 38)
+
+        self.assertLessEqual(len(shortened), 38)
+        self.assertTrue(shortened.endswith("..."))
+        self.assertNotIn("  ", shortened)
 
     def test_renderer_scene_build_does_not_require_source_image(self):
         plan = OpportunityReelPlan(
@@ -294,9 +305,8 @@ class SocialReelPlanningTests(APITestCase):
         self.assertIn(
             selection["template_key"],
             {
-                "closing_soon_premium_v31",
-                "closing_soon_dark_accent_v1",
-                "closing_soon_card_stack_v1",
+                "closing_soon_elegant_v1",
+                "closing_soon_dark_v1",
             },
         )
         self.assertLessEqual(selection["expected_duration_seconds"], 9)
@@ -311,9 +321,8 @@ class SocialReelPlanningTests(APITestCase):
         self.assertIn(
             template_key,
             {
-                "closing_soon_premium_v31",
-                "closing_soon_dark_accent_v1",
-                "closing_soon_card_stack_v1",
+                "closing_soon_elegant_v1",
+                "closing_soon_dark_v1",
             },
         )
 
@@ -331,7 +340,7 @@ class SocialReelPlanningTests(APITestCase):
 
         self.assertNotEqual(first, second)
 
-    def test_v3_closing_soon_scenes_use_premium_hook_and_action_line(self):
+    def test_final_closing_soon_scenes_use_premium_hook_and_action_line(self):
         self.opportunity("v3-one", deadline_days=2)
         self.opportunity("v3-two", deadline_days=8)
         self.opportunity("v3-three", deadline_days=18)
@@ -347,7 +356,7 @@ class SocialReelPlanningTests(APITestCase):
         self.assertEqual(selection["scenes_json"][1]["action_line"], "Check eligibility today")
         self.assertIn("#InternationalStudents", selection["hashtags"])
 
-    def test_v3_prepare_early_scenes_use_action_line(self):
+    def test_final_prepare_early_scenes_use_action_line(self):
         self.opportunity("prepare-one", deadline_days=18)
         self.opportunity("prepare-two", deadline_days=28)
         self.opportunity("prepare-three", deadline_days=35)
@@ -357,12 +366,12 @@ class SocialReelPlanningTests(APITestCase):
             run_date=timezone.localdate(),
         )
 
-        self.assertEqual(selection["template_key"], "prepare_early_premium_v31")
+        self.assertEqual(selection["template_key"], "prepare_early_elegant_v1")
         self.assertEqual(selection["scenes_json"][0]["title"], "Start before the rush")
         self.assertEqual(selection["scenes_json"][1]["action_line"], "Prepare documents early")
         self.assertLessEqual(selection["expected_duration_seconds"], 9)
 
-    def test_single_scholarship_selection_uses_v3_duration_and_caption(self):
+    def test_single_scholarship_selection_uses_final_duration_and_caption(self):
         self.opportunity("single-v3", deadline_days=12)
 
         selection = select_reel_candidates(
@@ -370,7 +379,7 @@ class SocialReelPlanningTests(APITestCase):
             run_date=timezone.localdate(),
         )
 
-        self.assertEqual(selection["template_key"], "single_scholarship_spotlight_v1")
+        self.assertEqual(selection["template_key"], "single_spotlight_elegant_v1")
         self.assertLessEqual(selection["expected_duration_seconds"], 6)
         self.assertIn("Scholarship opportunity for international students", selection["caption_text"])
 
@@ -388,20 +397,30 @@ class SocialReelPlanningTests(APITestCase):
             reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
             limit=1,
             dry_run=True,
-            template_key="closing_soon_dark_accent_v1",
+            template_key="closing_soon_dark_v1",
         )
 
-        self.assertEqual(result["plans"][0]["template_key"], "closing_soon_dark_accent_v1")
+        self.assertEqual(result["plans"][0]["template_key"], "closing_soon_dark_v1")
 
-    def test_invalid_template_key_is_rejected(self):
+    def test_mismatched_template_key_is_rejected(self):
         result = generate_social_reel_plans(
             reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
             limit=1,
             dry_run=True,
-            template_key="single_scholarship_spotlight_v1",
+            template_key="single_spotlight_elegant_v1",
         )
 
         self.assertIn("template_key_does_not_match_reel_type", result["skipped_reasons"])
+
+    def test_unknown_template_key_is_rejected(self):
+        result = generate_social_reel_plans(
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            limit=1,
+            dry_run=True,
+            template_key="not_a_real_template",
+        )
+
+        self.assertIn("invalid_template_key", result["skipped_reasons"])
 
     def test_old_template_keys_are_still_recognized(self):
         plan = OpportunityReelPlan(
@@ -412,6 +431,30 @@ class SocialReelPlanningTests(APITestCase):
 
         self.assertEqual(resolved_template_key(plan), "closing_soon_text_v1")
 
+    def test_new_and_old_template_keys_are_valid_for_their_reel_types(self):
+        expectations = {
+            OpportunityReelPlan.ReelType.CLOSING_SOON: [
+                "closing_soon_elegant_v1",
+                "closing_soon_dark_v1",
+                "closing_soon_text_v1",
+                "closing_soon_premium_v31",
+            ],
+            OpportunityReelPlan.ReelType.PREPARE_EARLY: [
+                "prepare_early_elegant_v1",
+                "prepare_early_text_v1",
+                "prepare_early_premium_v31",
+            ],
+            OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: [
+                "single_spotlight_elegant_v1",
+                "single_scholarship_text_v1",
+                "single_scholarship_spotlight_v1",
+            ],
+        }
+
+        for reel_type, template_keys in expectations.items():
+            for template_key in template_keys:
+                self.assertTrue(template_key_is_valid_for_reel_type(template_key, reel_type))
+
     def test_remotion_sample_json_files_exist(self):
         root = Path(settings.BASE_DIR).parent / "frontend" / "remotion"
 
@@ -421,6 +464,10 @@ class SocialReelPlanningTests(APITestCase):
             "sample-card-stack.json",
             "sample-prepare-v31.json",
             "sample-single-spotlight.json",
+            "sample-closing-elegant.json",
+            "sample-closing-dark-final.json",
+            "sample-prepare-elegant.json",
+            "sample-single-spotlight-final.json",
         ]:
             self.assertTrue((root / filename).exists())
 
@@ -638,6 +685,40 @@ class SocialReelPlanningTests(APITestCase):
         self.assertEqual(response.data["created_count"], 0)
         self.assertTrue(response.data["plans"])
         self.assertEqual(OpportunityReelPlan.objects.count(), 0)
+
+    def test_api_explicit_invalid_template_key_returns_clear_400(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/social/reels/generate/",
+            {
+                "reel_type": "closing_soon",
+                "template_key": "not_a_real_template",
+                "limit": 1,
+                "dry_run": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["template_key"], "Invalid template key.")
+
+    def test_api_explicit_mismatched_template_key_returns_clear_400(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/social/reels/generate/",
+            {
+                "reel_type": "closing_soon",
+                "template_key": "single_spotlight_elegant_v1",
+                "limit": 1,
+                "dry_run": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["template_key"], "Template key does not match reel type.")
 
     def test_reel_generation_does_not_post_to_facebook(self):
         self.opportunity("no-facebook-one", deadline_days=2)

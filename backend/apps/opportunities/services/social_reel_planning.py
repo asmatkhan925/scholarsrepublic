@@ -167,10 +167,13 @@ def result_payload(*, plans, created_count, rendered_count, skipped_reasons):
 
 
 def template_override_error(reel_type, template_key):
+    known_template_keys = {key for keys in TEMPLATE_KEYS_BY_REEL_TYPE.values() for key in keys}
     if reel_type == "auto":
-        if template_key not in {key for keys in TEMPLATE_KEYS_BY_REEL_TYPE.values() for key in keys}:
+        if template_key not in known_template_keys:
             return "invalid_template_key"
         return ""
+    if template_key not in known_template_keys:
+        return "invalid_template_key"
     if not template_key_is_valid_for_reel_type(template_key, reel_type):
         return "template_key_does_not_match_reel_type"
     return ""
@@ -186,16 +189,15 @@ def reel_type_for_template_key(template_key):
 def choose_reel_template_key(reel_type, source_opportunity_ids, date=None):
     if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
         options = [
-            "closing_soon_premium_v31",
-            "closing_soon_dark_accent_v1",
-            "closing_soon_card_stack_v1",
+            "closing_soon_elegant_v1",
+            "closing_soon_dark_v1",
         ]
     elif reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
-        options = ["prepare_early_premium_v31"]
+        options = ["prepare_early_elegant_v1"]
     elif reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
-        options = ["single_scholarship_spotlight_v1"]
+        options = ["single_spotlight_elegant_v1"]
     else:
-        return TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_spotlight_v1")
+        return TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_spotlight_elegant_v1")
 
     run_date = parse_run_date(date) or timezone.localdate()
     seed = sum(int(item) for item in source_opportunity_ids if str(item).isdigit())
@@ -508,7 +510,7 @@ def opportunity_info_line(opportunity):
     degree = degree_label(opportunity)
     if degree:
         parts.append(degree)
-    return " / ".join(parts)
+    return " · ".join(parts)
 
 
 def degree_label(opportunity):

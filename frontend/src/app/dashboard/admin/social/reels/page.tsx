@@ -75,11 +75,15 @@ function audioLabel(plan: AdminSocialReelPlan) {
 }
 
 function templateFamilyLabel(templateKey: string) {
-  if (templateKey === "closing_soon_premium_v31" || templateKey === "closing_soon_premium_v3") {
-    return "Premium v3.1";
+  if (
+    templateKey === "closing_soon_elegant_v1" ||
+    templateKey === "closing_soon_premium_v31" ||
+    templateKey === "closing_soon_premium_v3"
+  ) {
+    return "Elegant Closing Soon";
   }
-  if (templateKey === "closing_soon_dark_accent_v1") {
-    return "Dark Accent";
+  if (templateKey === "closing_soon_dark_v1" || templateKey === "closing_soon_dark_accent_v1") {
+    return "Dark Deadline";
   }
   if (templateKey === "closing_soon_card_stack_v1") {
     return "Card Stack";
@@ -87,7 +91,11 @@ function templateFamilyLabel(templateKey: string) {
   if (templateKey.startsWith("prepare_early")) {
     return "Prepare Early";
   }
-  if (templateKey === "single_scholarship_spotlight_v1" || templateKey.startsWith("single_scholarship")) {
+  if (
+    templateKey === "single_spotlight_elegant_v1" ||
+    templateKey === "single_scholarship_spotlight_v1" ||
+    templateKey.startsWith("single_scholarship")
+  ) {
     return "Single Spotlight";
   }
   return "Legacy";
@@ -534,9 +542,9 @@ function ReelsContent() {
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
         <AdminNotice>
-          Default automatic reels use premium v3 text-first templates for mobile readability.
-          Successful local renders become ready automatically. Source images are not embedded as
-          poster previews.
+          Default automatic reels use the final Elegant Closing Soon, Dark Deadline, Prepare
+          Early, and Single Spotlight templates. Successful local renders become ready
+          automatically. Source images are not embedded as poster previews.
         </AdminNotice>
 
         <section className="rounded-xl border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
@@ -544,16 +552,21 @@ function ReelsContent() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => void generatePlans("closing_soon")}
+              onClick={() =>
+                void generatePlans("closing_soon", {
+                  templateKey: "closing_soon_elegant_v1",
+                  render: true,
+                })
+              }
               disabled={generating}
             >
-              Generate Closing Soon Reel
+              Generate Closing Soon Elegant
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() =>
-                void generatePlans("closing_soon", { templateKey: "closing_soon_dark_accent_v1" })
+                void generatePlans("closing_soon", { templateKey: "closing_soon_dark_v1", render: true })
               }
               disabled={generating}
             >
@@ -563,28 +576,22 @@ function ReelsContent() {
               type="button"
               variant="outline"
               onClick={() =>
-                void generatePlans("closing_soon", { templateKey: "closing_soon_card_stack_v1" })
+                void generatePlans("prepare_early", {
+                  templateKey: "prepare_early_elegant_v1",
+                  render: true,
+                })
               }
               disabled={generating}
             >
-              Generate Card Stack
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                void generatePlans("prepare_early", { templateKey: "prepare_early_premium_v31" })
-              }
-              disabled={generating}
-            >
-              Generate Prepare Early Reel
+              Generate Prepare Early
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() =>
                 void generatePlans("single_scholarship", {
-                  templateKey: "single_scholarship_spotlight_v1",
+                  templateKey: "single_spotlight_elegant_v1",
+                  render: true,
                 })
               }
               disabled={generating}

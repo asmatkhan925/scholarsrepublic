@@ -23,6 +23,7 @@ class Command(BaseCommand):
         parser.add_argument("--render", action="store_true")
         parser.add_argument("--force", action="store_true")
         parser.add_argument("--date", type=str, default=None, help="Selection date in YYYY-MM-DD.")
+        parser.add_argument("--template-key", type=str, default="", help="Force a recognized reel template key.")
 
     def handle(self, *args, **options):
         if options["limit"] < 1:
@@ -35,11 +36,13 @@ class Command(BaseCommand):
             render=options["render"],
             force=options["force"],
             run_date=options["date"],
+            template_key=options["template_key"],
         )
 
         self.stdout.write("Automatic social reel planning")
         self.stdout.write(f"Dry run: {'yes' if options['dry_run'] else 'no'}")
         self.stdout.write(f"Reel type: {options['reel_type']}")
+        self.stdout.write(f"Template key: {options['template_key'] or 'automatic'}")
         self.stdout.write(f"Created: {result['created_count']}")
         self.stdout.write(f"Rendered: {result['rendered_count']}")
         self.stdout.write(
@@ -51,7 +54,8 @@ class Command(BaseCommand):
             prefix = "Preview" if options["dry_run"] or not plan.get("id") else f"Plan #{plan['id']}"
             self.stdout.write(
                 f"{prefix}: {plan['reel_type']} | expected_duration={plan.get('expected_duration_seconds')}s | "
-                f"status={plan.get('status')} | source_ids={plan.get('source_opportunity_ids')}"
+                f"template={plan.get('template_key') or '-'} | status={plan.get('status')} | "
+                f"source_ids={plan.get('source_opportunity_ids')}"
             )
             if plan.get("skip_reason"):
                 self.stdout.write(f"  skip_reason={plan['skip_reason']}")

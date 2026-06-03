@@ -26,21 +26,23 @@ Reels are intentionally short:
 
 Scene timing is calculated by the renderer at render time. The renderer rejects plans with more than five scenes and writes a clear render error instead of creating a long video.
 
-## Text-First Templates
+## Final Templates
 
-Automatic reels use text-first templates by default:
+Automatic reels use these final text-first templates by default:
 
-- `closing_soon_premium_v3`
-- `prepare_early_premium_v3`
-- `single_scholarship_premium_v3`
+- `closing_soon_elegant_v1`: cream/white base, deep green header/footer, gold deadline pill
+- `closing_soon_dark_v1`: deep green background, cream card, gold urgent accents
+- `prepare_early_elegant_v1`: calm academic planning layout with checklist/document styling
+- `single_spotlight_elegant_v1`: one-scholarship spotlight with large title and deadline pill
 
 The renderer uses large mobile-readable text cards, stronger hook copy, rank badges, deadline badges, action lines, Scholars Republic branding, cream/white backgrounds, deep green gradient areas, gold badges, subtle animated background shapes, card shadows, and a progress bar.
 
 Template examples:
 
-- `closing_soon_premium_v3`: "Deadlines are close" / "3 scholarships to check today"
-- `prepare_early_premium_v3`: "Start before the rush" / "Scholarships to prepare early"
-- `single_scholarship_premium_v3`: "Scholarship alert" / country and degree when available
+- `closing_soon_elegant_v1`: "Deadlines are close" / "3 scholarships to check today"
+- `closing_soon_dark_v1`: same concise closing-soon scenes with a dark deadline treatment
+- `prepare_early_elegant_v1`: "Start before the rush" / "Scholarships to prepare early"
+- `single_spotlight_elegant_v1`: "Scholarship alert" / country and degree when available
 
 Older keys still render for existing plans:
 
@@ -50,6 +52,14 @@ Older keys still render for existing plans:
 - `closing_soon_text_v2`
 - `prepare_early_text_v2`
 - `single_scholarship_text_v2`
+- `closing_soon_premium_v3`
+- `prepare_early_premium_v3`
+- `single_scholarship_premium_v3`
+- `closing_soon_premium_v31`
+- `closing_soon_dark_accent_v1`
+- `closing_soon_card_stack_v1`
+- `prepare_early_premium_v31`
+- `single_scholarship_spotlight_v1`
 
 Source scholarship/social images are disabled by default:
 
@@ -114,19 +124,23 @@ It does not mark normal Facebook social plans as posted, skipped, consumed, or d
 - Picks three scholarships from `urgent`, `soon`, and `advance_notice`
 - Prefers max one urgent and max one soon, then fills with advance notice when available
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
-- Uses `closing_soon_premium_v3`
+- Rotates between `closing_soon_elegant_v1` and `closing_soon_dark_v1`
 
 `prepare_early`
 
 - Picks three scholarships from `advance_notice` and `early_awareness`
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
-- Uses `prepare_early_premium_v3`
+- Uses `prepare_early_elegant_v1`
 
 `single_scholarship`
 
 - Picks one strong safe scholarship
 - Used when there are not enough safe candidates for a three-scholarship reel
-- Uses `single_scholarship_premium_v3`
+- Uses `single_spotlight_elegant_v1`
+
+Closing-soon rotation is deterministic. The planner adds the run date ordinal to
+the numeric source opportunity IDs and chooses from the final closing-soon
+template list by modulo. No random behavior is used.
 
 ## Deduplication
 
@@ -166,6 +180,33 @@ cd backend
 python manage.py generate_social_reel_plans --limit 1 --render
 ```
 
+Force a specific final template key from the CLI:
+
+```bash
+cd backend
+python manage.py generate_social_reel_plans --reel-type closing_soon --template-key closing_soon_dark_v1 --limit 1 --render --force
+python manage.py generate_social_reel_plans --reel-type prepare_early --template-key prepare_early_elegant_v1 --limit 1 --render --force
+python manage.py generate_social_reel_plans --reel-type single_scholarship --template-key single_spotlight_elegant_v1 --limit 1 --render --force
+```
+
+Force a template from the admin API:
+
+```http
+POST /api/admin/social/reels/generate/
+```
+
+```json
+{
+  "reel_type": "closing_soon",
+  "template_key": "closing_soon_dark_v1",
+  "limit": 1,
+  "render": true
+}
+```
+
+Unknown template keys return `400` with `Invalid template key.`. Valid keys for
+the wrong reel type return `400` with `Template key does not match reel type.`.
+
 Force generation/render in a test environment:
 
 ```bash
@@ -197,6 +238,25 @@ python manage.py run_daily_social_scheduler --generate-reels --render-reels
 ```
 
 Do not add these flags to the production timer until reel posting/review operations are ready.
+
+## Remotion Samples
+
+Render final samples from the frontend directory:
+
+```bash
+cd frontend
+npm run render:reel -- --input remotion/sample-closing-elegant.json --output /tmp/sample-closing-elegant.mp4
+npm run render:reel -- --input remotion/sample-closing-dark-final.json --output /tmp/sample-closing-dark-final.mp4
+npm run render:reel -- --input remotion/sample-prepare-elegant.json --output /tmp/sample-prepare-elegant.mp4
+npm run render:reel -- --input remotion/sample-single-spotlight-final.json --output /tmp/sample-single-spotlight-final.mp4
+```
+
+If Remotion cannot download its browser binary in the current environment, point
+the renderer at an existing Chrome/Chromium executable:
+
+```bash
+REMOTION_BROWSER_EXECUTABLE=/path/to/chrome npm run render:reel -- --input remotion/sample-closing-elegant.json --output /tmp/sample-closing-elegant.mp4
+```
 
 ## MP4 Storage
 

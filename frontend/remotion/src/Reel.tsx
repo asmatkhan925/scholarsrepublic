@@ -83,7 +83,7 @@ export function SingleScholarshipPremium(props: ReelProps) {
 
 type Variant = {
   key: string;
-  family: "premium" | "dark" | "stack" | "prepare" | "spotlight";
+  family: "elegant" | "dark" | "prepare" | "spotlight" | "legacy";
   base: string;
   card: string;
   ink: string;
@@ -97,7 +97,7 @@ type Variant = {
 };
 
 function getVariant(templateKey: string, reelType: ReelProps["reelType"]): Variant {
-  if (templateKey === "closing_soon_dark_accent_v1") {
+  if (templateKey === "closing_soon_dark_v1" || templateKey === "closing_soon_dark_accent_v1") {
     return {
       key: templateKey,
       family: "dark",
@@ -113,23 +113,11 @@ function getVariant(templateKey: string, reelType: ReelProps["reelType"]): Varia
       shadow: "rgba(0,0,0,0.28)",
     };
   }
-  if (templateKey === "closing_soon_card_stack_v1") {
-    return {
-      key: templateKey,
-      family: "stack",
-      base: colors.cream,
-      card: colors.paper,
-      ink: colors.ink,
-      muted: colors.muted,
-      pill: colors.gold,
-      pillText: colors.deepPine,
-      accent: colors.pine,
-      brandBg: "#ffffff",
-      brandText: colors.pine,
-      shadow: "rgba(23,52,42,0.22)",
-    };
-  }
-  if (templateKey === "prepare_early_premium_v31" || reelType === "prepare_early") {
+  if (
+    templateKey === "prepare_early_elegant_v1" ||
+    templateKey === "prepare_early_premium_v31" ||
+    reelType === "prepare_early"
+  ) {
     return {
       key: templateKey,
       family: "prepare",
@@ -145,7 +133,11 @@ function getVariant(templateKey: string, reelType: ReelProps["reelType"]): Varia
       shadow: "rgba(23,52,42,0.14)",
     };
   }
-  if (templateKey === "single_scholarship_spotlight_v1" || reelType === "single_scholarship") {
+  if (
+    templateKey === "single_spotlight_elegant_v1" ||
+    templateKey === "single_scholarship_spotlight_v1" ||
+    reelType === "single_scholarship"
+  ) {
     return {
       key: templateKey,
       family: "spotlight",
@@ -163,7 +155,7 @@ function getVariant(templateKey: string, reelType: ReelProps["reelType"]): Varia
   }
   return {
     key: templateKey,
-    family: "premium",
+    family: templateKey === "closing_soon_elegant_v1" ? "elegant" : "legacy",
     base: colors.cream,
     card: colors.paper,
     ink: colors.ink,
@@ -181,7 +173,7 @@ function AnimatedBackground({ variant }: { variant: Variant }) {
   const frame = useCurrentFrame();
   const drift = Math.sin(frame / 48) * 24;
   const dark = variant.family === "dark";
-  const stack = variant.family === "stack";
+  const prepare = variant.family === "prepare";
   return (
     <AbsoluteFill>
       <div
@@ -190,21 +182,23 @@ function AnimatedBackground({ variant }: { variant: Variant }) {
           inset: 0,
           background: dark
             ? "linear-gradient(165deg, #05291f 0%, #0b3c2d 48%, #0f4f3a 100%)"
-            : "linear-gradient(170deg, #083729 0%, #0f4f3a 12%, #fbf7ee 30%, #fbf7ee 100%)",
+            : prepare
+              ? "linear-gradient(180deg, #0d4936 0%, #0f4f3a 14%, #fbf8f0 14%, #fbf8f0 86%, #0f4f3a 86%, #083729 100%)"
+              : "linear-gradient(180deg, #083729 0%, #0f4f3a 15%, #fbf7ee 15%, #fbf7ee 84%, #0f4f3a 84%, #083729 100%)",
         }}
       />
-      <FloatingBlob left={770 + drift} top={170} size={520} color={dark ? "rgba(215,166,66,0.12)" : "rgba(232, 242, 236, 0.72)"} />
-      <FloatingBlob left={-230 - drift} top={1160} size={580} color={dark ? "rgba(255,253,248,0.07)" : "rgba(245, 234, 208, 0.78)"} />
-      <FloatingBlob left={770 - drift / 2} top={1280} size={320} color={dark ? "rgba(255,255,255,0.05)" : "rgba(237, 247, 242, 0.84)"} />
-      {stack ? <StackBackplates /> : null}
+      <FloatingShape left={714 + drift} top={224} width={420} height={156} color={dark ? "rgba(215,166,66,0.16)" : "rgba(245,234,208,0.82)"} rotate={-12} />
+      <FloatingShape left={-190 - drift} top={1170} width={520} height={190} color={dark ? "rgba(255,253,248,0.08)" : "rgba(232,242,236,0.92)"} rotate={14} />
+      <FloatingShape left={760 - drift / 2} top={1394} width={360} height={128} color={dark ? "rgba(255,255,255,0.06)" : "rgba(245,234,208,0.72)"} rotate={-8} />
+      {variant.family === "legacy" ? <StackBackplates /> : null}
       <div
         style={{
           position: "absolute",
-          left: stack ? 120 : 88,
-          right: stack ? 64 : 88,
-          top: stack ? 320 : 284,
-          bottom: stack ? 314 : 346,
-          borderRadius: 64,
+          left: dark ? 94 : 82,
+          right: dark ? 94 : 82,
+          top: dark ? 302 : 282,
+          bottom: dark ? 332 : 334,
+          borderRadius: 44,
           background: variant.card,
           boxShadow: `0 32px 80px ${variant.shadow}`,
           border: `3px solid ${dark ? "rgba(245,234,208,0.9)" : "#eadfc9"}`,
@@ -223,18 +217,32 @@ function StackBackplates() {
   );
 }
 
-function FloatingBlob({ left, top, size, color }: { left: number; top: number; size: number; color: string }) {
+function FloatingShape({
+  left,
+  top,
+  width,
+  height,
+  color,
+  rotate,
+}: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  color: string;
+  rotate: number;
+}) {
   return (
     <div
       style={{
         position: "absolute",
         left,
         top,
-        width: size,
-        height: size,
-        borderRadius: size,
+        width,
+        height,
+        borderRadius: 42,
         background: color,
-        filter: "blur(1px)",
+        transform: `rotate(${rotate}deg)`,
       }}
     />
   );
@@ -249,7 +257,7 @@ function Brand({ variant }: { variant: Variant }) {
           left: 72,
           top: 78,
           padding: "18px 34px",
-          borderRadius: 42,
+          borderRadius: 8,
           background: variant.brandBg,
           color: variant.brandText,
           fontWeight: 800,
@@ -267,7 +275,7 @@ function Brand({ variant }: { variant: Variant }) {
           top: 168,
           width: 240,
           height: 16,
-          borderRadius: 12,
+          borderRadius: 8,
           background: variant.accent,
         }}
       />
@@ -342,9 +350,9 @@ function ScholarshipScene({
           width: 156,
           height: 156,
           borderRadius: 48,
-          background: variant.family === "dark" || variant.family === "stack" ? colors.gold : colors.pine,
+          background: variant.family === "dark" || variant.family === "legacy" ? colors.gold : colors.pine,
           transform: `scale(${badge})`,
-          color: variant.family === "dark" || variant.family === "stack" ? colors.deepPine : "#fff",
+          color: variant.family === "dark" || variant.family === "legacy" ? colors.deepPine : "#fff",
           fontSize: 68,
           fontWeight: 900,
           display: "flex",
@@ -356,7 +364,7 @@ function ScholarshipScene({
       </div>
       <Badge top={408} left={328} width={490} variant={variant}>{scene.label || "Scholarship"}</Badge>
       <div style={{ transform: `translateY(${(1 - card) * 84}px)`, opacity: card }}>
-        <Title y={variant.family === "stack" ? 790 : 800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
+        <Title y={variant.family === "legacy" ? 790 : 800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
         {blocks[0] ? <Subtitle y={1116} variant={variant}>{blocks[0]}</Subtitle> : null}
         {blocks[1] ? (
           <Pill top={1236} scale={deadlinePulse} variant={variant}>{blocks[1]}</Pill>

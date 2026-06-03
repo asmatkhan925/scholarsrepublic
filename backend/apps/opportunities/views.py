@@ -87,6 +87,7 @@ from apps.opportunities.services.social_image_uploads import (
 )
 from apps.opportunities.services.social_reel_planning import generate_social_reel_plans
 from apps.opportunities.services.social_reel_rendering import (
+    TEMPLATE_KEYS_BY_REEL_TYPE,
     background_music_summary,
     expected_reel_duration,
     render_reel_plan,
@@ -3513,11 +3514,15 @@ class AdminSocialReelPlanGenerateView(APIView):
         render = parse_bool(data.get("render")) is True
         force = parse_bool(data.get("force")) is True
         template_key = str(data.get("template_key") or "").strip()
-        if template_key and reel_type != "auto" and not template_key_is_valid_for_reel_type(template_key, reel_type):
-            return Response(
-                {"template_key": "Template key does not match reel type."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if template_key and reel_type != "auto":
+            known_template_keys = {key for keys in TEMPLATE_KEYS_BY_REEL_TYPE.values() for key in keys}
+            if template_key not in known_template_keys:
+                return Response({"template_key": "Invalid template key."}, status=status.HTTP_400_BAD_REQUEST)
+            if not template_key_is_valid_for_reel_type(template_key, reel_type):
+                return Response(
+                    {"template_key": "Template key does not match reel type."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         result = generate_social_reel_plans(
             reel_type=reel_type,

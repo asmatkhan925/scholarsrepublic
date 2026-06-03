@@ -6,7 +6,7 @@ import { SocialReel, type ReelProps } from "./Reel";
 const defaultProps: ReelProps = {
   title: "Scholars Republic Reel",
   reelType: "single_scholarship",
-  templateKey: "single_scholarship_spotlight_v1",
+  templateKey: "single_spotlight_elegant_v1",
   durationSeconds: 5,
   scenes: [
     {
