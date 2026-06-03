@@ -338,7 +338,7 @@ def build_selection(*, reel_type, title, candidates):
         "ok": True,
         "title": title,
         "reel_type": reel_type,
-        "template_key": TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_text_v2"),
+        "template_key": TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_premium_v3"),
         "source_opportunity_ids": source_ids,
         "source_opportunities": [serialize_candidate(item) for item in candidates],
         "scenes_json": scenes,
@@ -360,35 +360,36 @@ def build_auto_scenes(reel_type, candidates):
             {
                 "scene_type": "hook",
                 "label": "Alert",
-                "title": "Scholarship Alert",
+                "title": "Scholarship alert",
                 "subheadline": info_line,
                 "blocks": [],
             },
             {
                 "scene_type": "scholarship",
-                "rank": 1,
+                "rank": "01",
                 "label": "Deadline",
                 "title": short_title(opportunity.title),
                 "blocks": [info_line, f"Deadline: {readable_deadline(opportunity.deadline)}"],
+                "action_line": "Check eligibility",
             },
             {
                 "scene_type": "cta",
                 "label": "Next step",
-                "title": "Check eligibility",
-                "subheadline": "Official links on Scholars Republic",
+                "title": "Read official details",
+                "subheadline": "Scholars Republic",
                 "blocks": ["ScholarsRepublic.org"],
             },
         ]
 
     if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
-        hook = "Prepare Early"
-        subheadline = "Scholarships to plan for"
-        action_line = "Start documents now"
+        hook = "Start before the rush"
+        subheadline = "Scholarships to prepare early"
+        action_line = "Prepare documents early"
         cta = "Plan your application"
-        cta_subheadline = "Check requirements early"
+        cta_subheadline = "Requirements + official links"
     else:
-        hook = "Don't miss these deadlines"
-        subheadline = "3 scholarships closing soon"
+        hook = "Deadlines are close"
+        subheadline = "3 scholarships to check today"
         action_line = "Check eligibility today"
         cta = "Apply before deadlines"
         cta_subheadline = "Official links on Scholars Republic"
@@ -403,7 +404,7 @@ def build_auto_scenes(reel_type, candidates):
         }
     ]
     scenes.extend(
-        scholarship_scene(candidate, rank=index, action_line=action_line)
+        scholarship_scene(candidate, rank=f"{index:02d}", action_line=action_line)
         for index, candidate in enumerate(candidates[:3], start=1)
     )
     scenes.append(

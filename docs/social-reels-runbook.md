@@ -30,17 +30,26 @@ Scene timing is calculated by the renderer at render time. The renderer rejects 
 
 Automatic reels use text-first templates by default:
 
-- `closing_soon_text_v2`
-- `prepare_early_text_v2`
-- `single_scholarship_text_v2`
+- `closing_soon_premium_v3`
+- `prepare_early_premium_v3`
+- `single_scholarship_premium_v3`
 
-The renderer uses large mobile-readable text cards, stronger hook copy, rank badges, deadline badges, action lines, Scholars Republic branding, cream/white backgrounds, deep green gradient accents, gold badges, subtle animated background shapes, and a progress bar.
+The renderer uses large mobile-readable text cards, stronger hook copy, rank badges, deadline badges, action lines, Scholars Republic branding, cream/white backgrounds, deep green gradient areas, gold badges, subtle animated background shapes, card shadows, and a progress bar.
 
 Template examples:
 
-- `closing_soon_text_v2`: "Don't miss these deadlines" / "3 scholarships closing soon"
-- `prepare_early_text_v2`: "Prepare Early" / "Scholarships to plan for"
-- `single_scholarship_text_v2`: "Scholarship Alert" / country and degree when available
+- `closing_soon_premium_v3`: "Deadlines are close" / "3 scholarships to check today"
+- `prepare_early_premium_v3`: "Start before the rush" / "Scholarships to prepare early"
+- `single_scholarship_premium_v3`: "Scholarship alert" / country and degree when available
+
+Older keys still render for existing plans:
+
+- `closing_soon_text_v1`
+- `prepare_early_text_v1`
+- `single_scholarship_text_v1`
+- `closing_soon_text_v2`
+- `prepare_early_text_v2`
+- `single_scholarship_text_v2`
 
 Source scholarship/social images are disabled by default:
 
@@ -67,6 +76,25 @@ backend/media/social_reels/audio/default_background.mp3
 
 Do not commit copyrighted music. Use only royalty-free, CC0, or properly licensed audio. The renderer loops or trims the track to the exact video duration and muxes it with ffmpeg when available.
 
+Install a licensed direct audio file:
+
+```bash
+cd backend
+python manage.py install_social_reel_music --url "<DIRECT_MP3_URL>" --source-name "Pixabay/Mixkit/FMA/etc." --license-note "Royalty-free/CC0/Creative Commons/license details"
+```
+
+The installer rejects non-http URLs, YouTube/TikTok/Instagram hosts, unsupported content types, files over 15 MB, and missing license notes unless `--allow-missing-license` is explicitly passed. It saves audio to:
+
+```text
+backend/media/social_reels/audio/default_background.mp3
+```
+
+It also writes license/source metadata beside the file:
+
+```text
+backend/media/social_reels/audio/default_background.license.json
+```
+
 ## Automatic Selection
 
 Automatic reel planning selects published, non-expired scholarship opportunities only. It requires a title and public slug, avoids expired records, and avoids missing or unclear deadlines for urgent-style reels.
@@ -86,19 +114,19 @@ It does not mark normal Facebook social plans as posted, skipped, consumed, or d
 - Picks three scholarships from `urgent`, `soon`, and `advance_notice`
 - Prefers max one urgent and max one soon, then fills with advance notice when available
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
-- Uses `closing_soon_text_v2`
+- Uses `closing_soon_premium_v3`
 
 `prepare_early`
 
 - Picks three scholarships from `advance_notice` and `early_awareness`
 - Falls back to a single-scholarship reel if fewer than three safe candidates exist
-- Uses `prepare_early_text_v2`
+- Uses `prepare_early_premium_v3`
 
 `single_scholarship`
 
 - Picks one strong safe scholarship
 - Used when there are not enough safe candidates for a three-scholarship reel
-- Uses `single_scholarship_text_v2`
+- Uses `single_scholarship_premium_v3`
 
 ## Deduplication
 
@@ -136,6 +164,13 @@ Generate and render one automatic reel plan:
 ```bash
 cd backend
 python manage.py generate_social_reel_plans --limit 1 --render
+```
+
+Force generation/render in a test environment:
+
+```bash
+cd backend
+python manage.py generate_social_reel_plans --limit 1 --render --force
 ```
 
 Render a specific existing reel plan:

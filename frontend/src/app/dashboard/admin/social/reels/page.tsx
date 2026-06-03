@@ -61,6 +61,19 @@ function formatLabel(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function audioLabel(plan: AdminSocialReelPlan) {
+  if (plan.audio_status === "enabled") {
+    return "audio enabled";
+  }
+  if (plan.audio_status === "missing_file") {
+    return "music missing";
+  }
+  if (plan.audio_status === "mix_failed_fallback") {
+    return "mix failed fallback";
+  }
+  return "silent";
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "-";
@@ -161,9 +174,12 @@ function ReelPlanCard({
             <Badge tone="neutral">{formatLabel(plan.status)}</Badge>
             <Badge tone="sky">{formatLabel(plan.reel_type)}</Badge>
             <Badge tone="pine">{plan.template_key}</Badge>
+            {plan.template_key.includes("premium_v3") ? (
+              <Badge tone="saffron">premium v3 text-first</Badge>
+            ) : null}
             <Badge tone="mint">Expected {plan.expected_duration_seconds ?? "-"}s</Badge>
-            <Badge tone={plan.audio_added ? "saffron" : "neutral"}>
-              Audio {plan.audio_added ? "yes" : "silent"}
+            <Badge tone={plan.audio_status === "enabled" ? "saffron" : "neutral"}>
+              {audioLabel(plan)}
             </Badge>
             {plan.deadline_window ? <Badge tone="saffron">{plan.deadline_window}</Badge> : null}
           </div>
@@ -173,6 +189,12 @@ function ReelPlanCard({
             {plan.music_configured ? plan.audio_path : "silent"} | Next post{" "}
             {formatDateTime(plan.next_post_at)}
           </p>
+          {plan.music_license_metadata?.source_name || plan.music_license_metadata?.license_note ? (
+            <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
+              Music license: {plan.music_license_metadata.source_name || "source saved"} |{" "}
+              {plan.music_license_metadata.license_note || "license metadata saved"}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <CopyButton value={gptPrompt(plan)} label="Copy GPT prompt" />
@@ -487,9 +509,9 @@ function ReelsContent() {
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
         <AdminNotice>
-          Default automatic reels use v2 text-first templates for mobile readability. Successful
-          local renders become ready automatically. Source images are not embedded as poster
-          previews.
+          Default automatic reels use premium v3 text-first templates for mobile readability.
+          Successful local renders become ready automatically. Source images are not embedded as
+          poster previews.
         </AdminNotice>
 
         <section className="rounded-xl border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">

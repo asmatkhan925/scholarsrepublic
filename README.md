@@ -28,22 +28,29 @@ Admins can create manual or automatic short scholarship reel plans at
 `/dashboard/admin/social/reels`. Automatic reel planning selects safe published,
 non-expired scholarship records, applies seven-day deduplication, and renders
 local MP4 files only. Default reel templates are text-first for mobile
-readability, use `*_text_v2` layouts, and do not embed scholarship posters or
-social images. Successful local renders become `ready` automatically after
-basic file, duration, scene, and caption checks. This system does not post to
-Facebook or change Worker behavior.
+readability, use premium `*_premium_v3` layouts, and do not embed scholarship
+posters or social images. Successful local renders become `ready` automatically
+after basic file, duration, scene, and caption checks. This system does not post
+to Facebook or change Worker behavior.
 
 Optional background music can be configured with
 `SOCIAL_REELS_BACKGROUND_MUSIC_PATH` and `SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME`.
 If no licensed or royalty-free audio file is configured, reels render silently.
 Do not use copyrighted music.
 
+Install licensed audio only from a direct URL:
+
+```bash
+cd backend
+python manage.py install_social_reel_music --url "<DIRECT_MP3_URL>" --source-name "Pixabay/Mixkit/FMA/etc." --license-note "Royalty-free/CC0/Creative Commons/license details"
+```
+
 Useful commands:
 
 ```bash
 cd backend
 python manage.py generate_social_reel_plans --limit 1 --dry-run
-python manage.py generate_social_reel_plans --limit 1 --render
+python manage.py generate_social_reel_plans --limit 1 --render --force
 python manage.py render_social_reels --plan-id <PLAN_ID> --force
 python manage.py run_daily_social_scheduler --generate-reels
 ```

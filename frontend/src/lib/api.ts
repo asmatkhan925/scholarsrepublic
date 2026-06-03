@@ -446,8 +446,16 @@ export type AdminSocialReelPlan = {
   audio_added: boolean;
   audio_path: string;
   audio_error: string;
+  audio_status: "enabled" | "silent" | "missing_file" | "mix_failed_fallback" | string;
   music_configured: boolean;
   music_volume: number;
+  music_license_metadata: {
+    source_url?: string;
+    source_name?: string;
+    license_note?: string;
+    downloaded_at?: string;
+    filename?: string;
+  };
   created_at: string | null;
   updated_at: string | null;
   admin_url: string;

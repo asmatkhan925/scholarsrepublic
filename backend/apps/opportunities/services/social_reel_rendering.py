@@ -31,14 +31,17 @@ MAX_AUTO_BLOCK_CHARS = 48
 MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
 TEXT_TEMPLATE_BY_REEL_TYPE = {
-    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_text_v2",
-    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_text_v2",
-    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_text_v2",
+    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_premium_v3",
+    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_premium_v3",
+    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_premium_v3",
 }
 LEGACY_TEXT_TEMPLATE_KEYS = {
     "closing_soon_text_v1",
     "prepare_early_text_v1",
     "single_scholarship_text_v1",
+    "closing_soon_text_v2",
+    "prepare_early_text_v2",
+    "single_scholarship_text_v2",
 }
 TEXT_TEMPLATE_KEYS = set(TEXT_TEMPLATE_BY_REEL_TYPE.values()) | LEGACY_TEXT_TEMPLATE_KEYS
 BG = "#fbf7ee"
@@ -51,6 +54,7 @@ WHITE = "#ffffff"
 SOFT_GREEN = "#e8f2ec"
 SOFT_GOLD = "#f5ead0"
 PATTERN = "#eef4ef"
+SHADOW = "#e5d9c4"
 
 
 class ReelRenderError(Exception):
@@ -354,7 +358,7 @@ def resolved_template_key(plan):
     template_key = str(getattr(plan, "template_key", "") or "").strip()
     if template_key in TEXT_TEMPLATE_KEYS:
         return template_key
-    return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_scholarship_text_v2")
+    return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_scholarship_premium_v3")
 
 
 def shorten_reel_title(value, width=MAX_AUTO_TITLE_CHARS):
@@ -514,25 +518,28 @@ def render_scene_frame(scene, index, total, output_path, image_path=None, progre
 
 
 def render_background(draw, *, index, progress):
-    draw.rectangle((0, 0, WIDTH, 30), fill=PINE)
+    drift = int(progress * 64)
+    draw.rectangle((0, 0, WIDTH, 280), fill=DEEP_PINE)
+    draw.polygon((0, 210, WIDTH, 118, WIDTH, 322, 0, 380), fill=PINE)
     draw.rectangle((0, HEIGHT - 34, WIDTH, HEIGHT), fill=GOLD)
-    offset = int(progress * 54)
-    draw.ellipse((WIDTH - 380 + offset, 148, WIDTH + 180 + offset, 708), fill=SOFT_GREEN)
-    draw.ellipse((-210 - offset, 1160, 320 - offset, 1690), fill=SOFT_GOLD)
-    draw.ellipse((780 - offset // 2, 1240, 1160 - offset // 2, 1620), fill="#edf7f2")
+    draw.ellipse((WIDTH - 440 + drift, 156, WIDTH + 190 + drift, 786), fill=SOFT_GREEN)
+    draw.ellipse((-260 - drift, 1160, 340 - drift, 1760), fill=SOFT_GOLD)
+    draw.ellipse((760 - drift // 2, 1260, 1180 - drift // 2, 1680), fill="#edf7f2")
+    draw.ellipse((118 + drift // 3, 214, 340 + drift // 3, 436), fill="#155f45")
     for row in range(320, 1460, 170):
         for column in range(126, 960, 170):
             radius = 4 if (row + column + index * 17) % 3 else 6
             draw.ellipse((column, row, column + radius, row + radius), fill=PATTERN)
     card_y = 286 + (index % 2) * 20
-    draw.rounded_rectangle((80, card_y, 1000, 1532 + (index % 2) * 20), radius=56, fill="#fffdf8")
+    draw.rounded_rectangle((96, card_y + 18, 1012, 1550 + (index % 2) * 20), radius=60, fill=SHADOW)
+    draw.rounded_rectangle((80, card_y, 1000, 1532 + (index % 2) * 20), radius=60, fill="#fffdf8")
     draw.rounded_rectangle((80, card_y, 1000, 1532 + (index % 2) * 20), radius=56, outline="#eadfc9", width=3)
 
 
 def render_brand(draw, fonts):
-    draw.rounded_rectangle((72, 80, 448, 150), radius=35, fill=WHITE, outline="#eadfc9", width=2)
+    draw.rounded_rectangle((72, 78, 478, 154), radius=38, fill=WHITE, outline="#eadfc9", width=2)
     draw.text((104, 96), "Scholars Republic", fill=PINE, font=fonts["brand"])
-    draw.rounded_rectangle((104, 160, 316, 174), radius=7, fill=GOLD)
+    draw.rounded_rectangle((104, 168, 344, 184), radius=8, fill=GOLD)
 
 
 def centered_text(draw, text, y, font, fill, max_width, line_gap=12):
@@ -547,13 +554,14 @@ def centered_text(draw, text, y, font, fill, max_width, line_gap=12):
 
 
 def render_hook_scene(draw, scene, fonts, *, slide):
+    delayed_slide = max(0, slide - 22)
     draw.rounded_rectangle((218, 454 + slide, 862, 540 + slide), radius=43, fill=SOFT_GOLD)
     centered_text(draw, scene.get("label") or "Scholarship update", 497 + slide, fonts["label"], PINE, 580)
     centered_text(draw, scene["title"], 820 + slide, fonts["hook"], INK, 820, line_gap=18)
     subheadline = scene.get("subheadline") or first_block(scene) or "For International Students"
-    centered_text(draw, subheadline, 1045 + slide, fonts["body"], MUTED, 780, line_gap=8)
-    draw.rounded_rectangle((282, 1248 + slide, 798, 1338 + slide), radius=45, fill=PINE)
-    centered_text(draw, "ScholarsRepublic.org", 1293 + slide, fonts["badge"], WHITE, 470)
+    centered_text(draw, subheadline, 1045 + delayed_slide, fonts["body"], MUTED, 780, line_gap=8)
+    draw.rounded_rectangle((282, 1248 + delayed_slide, 798, 1338 + delayed_slide), radius=45, fill=PINE)
+    centered_text(draw, "ScholarsRepublic.org", 1293 + delayed_slide, fonts["badge"], WHITE, 470)
 
 
 def render_scholarship_scene(draw, scene, index, fonts, *, slide):
@@ -576,7 +584,12 @@ def render_scholarship_scene(draw, scene, index, fonts, *, slide):
     if country_degree:
         centered_text(draw, country_degree, 1116 + slide, fonts["body"], MUTED, 760)
     if deadline:
-        draw.rounded_rectangle((190, 1236 + slide, 890, 1336 + slide), radius=48, fill=DEEP_PINE)
+        pulse = max(0, 12 - slide // 5)
+        draw.rounded_rectangle(
+            (190 - pulse, 1236 + slide - pulse, 890 + pulse, 1336 + slide + pulse),
+            radius=52,
+            fill=DEEP_PINE,
+        )
         centered_text(draw, deadline, 1286 + slide, fonts["badge"], WHITE, 640)
 
     action = scene.get("action_line") or scene.get("funding_badge", "")
@@ -588,13 +601,14 @@ def render_scholarship_scene(draw, scene, index, fonts, *, slide):
 
 
 def render_cta_scene(draw, scene, fonts, *, slide):
-    centered_text(draw, scene["title"], 820 + slide, fonts["cta_large"], INK, 820, line_gap=18)
+    zoom_slide = max(0, slide - 26)
+    centered_text(draw, scene["title"], 820 + zoom_slide, fonts["cta_large"], INK, 820, line_gap=18)
     blocks = scene.get("blocks") or []
     second = scene.get("subheadline") or (blocks[0] if blocks else "ScholarsRepublic.org")
-    draw.rounded_rectangle((210, 1054 + slide, 870, 1162 + slide), radius=54, fill=PINE)
-    centered_text(draw, second, 1108 + slide, fonts["badge"], WHITE, 600)
+    draw.rounded_rectangle((210, 1054 + zoom_slide, 870, 1162 + zoom_slide), radius=54, fill=PINE)
+    centered_text(draw, second, 1108 + zoom_slide, fonts["badge"], WHITE, 600)
     footer = blocks[-1] if blocks else "ScholarsRepublic.org"
-    centered_text(draw, footer, 1348 + slide, fonts["body"], MUTED, 760)
+    centered_text(draw, footer, 1348 + zoom_slide, fonts["body"], MUTED, 760)
 
 
 def first_block(scene):
@@ -717,12 +731,28 @@ def background_music_summary():
             "music_configured": False,
             "music_path": "",
             "music_volume": configured_background_music_volume(),
+            "audio_status": "silent",
+            "license_metadata": {},
         }
+    exists = music_path.exists()
     return {
-        "music_configured": music_path.exists(),
+        "music_configured": exists,
         "music_path": str(music_path),
         "music_volume": configured_background_music_volume(),
+        "audio_status": "enabled" if exists else "missing_file",
+        "license_metadata": read_music_license_metadata(music_path),
     }
+
+
+def read_music_license_metadata(music_path):
+    license_path = music_path.with_suffix(".license.json")
+    if not license_path.exists():
+        return {}
+    try:
+        data = json.loads(license_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def encode_video(ffmpeg_path, concat_file, output_path):

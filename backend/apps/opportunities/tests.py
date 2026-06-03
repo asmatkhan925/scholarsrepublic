@@ -241,7 +241,7 @@ class SocialReelPlanningTests(APITestCase):
             scenes_json=[{"scene_type": "hook", "title": "3 Scholarships Closing Soon"}],
         )
 
-        self.assertEqual(resolved_template_key(plan), "closing_soon_text_v2")
+        self.assertEqual(resolved_template_key(plan), "closing_soon_premium_v3")
 
     def test_title_shortening_keeps_text_under_target_length(self):
         title = "Fully Funded International Research Scholarship 2026 at Example University"
@@ -290,24 +290,26 @@ class SocialReelPlanningTests(APITestCase):
             set(selection["source_opportunity_ids"]),
             {urgent.id, soon.id, advance.id},
         )
-        self.assertEqual(selection["template_key"], "closing_soon_text_v2")
+        self.assertEqual(selection["template_key"], "closing_soon_premium_v3")
         self.assertLessEqual(selection["expected_duration_seconds"], 9)
 
-    def test_v2_closing_soon_scenes_use_stronger_hook_and_action_line(self):
-        self.opportunity("v2-one", deadline_days=2)
-        self.opportunity("v2-two", deadline_days=8)
-        self.opportunity("v2-three", deadline_days=18)
+    def test_v3_closing_soon_scenes_use_premium_hook_and_action_line(self):
+        self.opportunity("v3-one", deadline_days=2)
+        self.opportunity("v3-two", deadline_days=8)
+        self.opportunity("v3-three", deadline_days=18)
 
         selection = select_reel_candidates(
             reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
             run_date=timezone.localdate(),
         )
 
-        self.assertEqual(selection["scenes_json"][0]["title"], "Don't miss these deadlines")
+        self.assertEqual(selection["scenes_json"][0]["title"], "Deadlines are close")
+        self.assertEqual(selection["scenes_json"][0]["subheadline"], "3 scholarships to check today")
+        self.assertEqual(selection["scenes_json"][1]["rank"], "01")
         self.assertEqual(selection["scenes_json"][1]["action_line"], "Check eligibility today")
         self.assertIn("#InternationalStudents", selection["hashtags"])
 
-    def test_v2_prepare_early_scenes_use_action_line(self):
+    def test_v3_prepare_early_scenes_use_action_line(self):
         self.opportunity("prepare-one", deadline_days=18)
         self.opportunity("prepare-two", deadline_days=28)
         self.opportunity("prepare-three", deadline_days=35)
@@ -317,20 +319,20 @@ class SocialReelPlanningTests(APITestCase):
             run_date=timezone.localdate(),
         )
 
-        self.assertEqual(selection["template_key"], "prepare_early_text_v2")
-        self.assertEqual(selection["scenes_json"][0]["title"], "Prepare Early")
-        self.assertEqual(selection["scenes_json"][1]["action_line"], "Start documents now")
+        self.assertEqual(selection["template_key"], "prepare_early_premium_v3")
+        self.assertEqual(selection["scenes_json"][0]["title"], "Start before the rush")
+        self.assertEqual(selection["scenes_json"][1]["action_line"], "Prepare documents early")
         self.assertLessEqual(selection["expected_duration_seconds"], 9)
 
-    def test_single_scholarship_selection_uses_v2_duration_and_caption(self):
-        self.opportunity("single-v2", deadline_days=12)
+    def test_single_scholarship_selection_uses_v3_duration_and_caption(self):
+        self.opportunity("single-v3", deadline_days=12)
 
         selection = select_reel_candidates(
             reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
             run_date=timezone.localdate(),
         )
 
-        self.assertEqual(selection["template_key"], "single_scholarship_text_v2")
+        self.assertEqual(selection["template_key"], "single_scholarship_premium_v3")
         self.assertLessEqual(selection["expected_duration_seconds"], 6)
         self.assertIn("Scholarship opportunity for international students", selection["caption_text"])
 
@@ -358,6 +360,70 @@ class SocialReelPlanningTests(APITestCase):
 
             self.assertFalse(result["audio_added"])
             self.assertTrue(output.exists())
+
+    @override_settings(SOCIAL_REELS_BACKGROUND_MUSIC_PATH="C:/fake/sr-background.mp3")
+    def test_renderer_audio_mix_failure_records_warning_and_falls_back(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            music = Path(tmp_dir) / "music.mp3"
+            silent = Path(tmp_dir) / "silent.mp4"
+            output = Path(tmp_dir) / "output.mp4"
+            music.write_bytes(b"music")
+            silent.write_bytes(b"silent-video")
+
+            with self.settings(SOCIAL_REELS_BACKGROUND_MUSIC_PATH=str(music)):
+                with patch("apps.opportunities.services.social_reel_rendering.subprocess.run") as mocked:
+                    mocked.return_value.returncode = 1
+                    mocked.return_value.stderr = "audio failed"
+                    result = add_optional_background_music("ffmpeg", silent, output, 4.0)
+
+            self.assertFalse(result["audio_added"])
+            self.assertIn("audio failed", result["audio_error"])
+            self.assertEqual(output.read_bytes(), b"silent-video")
+
+    def test_music_installer_rejects_missing_url(self):
+        with self.assertRaises(CommandError):
+            call_command("install_social_reel_music", stdout=StringIO())
+
+    def test_music_installer_writes_license_metadata(self):
+        class FakeAudioResponse:
+            headers = {"content-type": "audio/mpeg"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, size=-1):
+                if getattr(self, "_used", False):
+                    return b""
+                self._used = True
+                return b"fake-audio"
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            with patch(
+                "apps.opportunities.management.commands.install_social_reel_music.urllib.request.urlopen",
+                return_value=FakeAudioResponse(),
+            ):
+                output = StringIO()
+                call_command(
+                    "install_social_reel_music",
+                    "--url",
+                    "https://example.com/free-track.mp3",
+                    "--source-name",
+                    "Example Library",
+                    "--license-note",
+                    "Royalty-free test license",
+                    stdout=output,
+                )
+
+            audio_path = Path(media_root) / "social_reels" / "audio" / "default_background.mp3"
+            license_path = audio_path.with_suffix(".license.json")
+            self.assertTrue(audio_path.exists())
+            metadata = json.loads(license_path.read_text(encoding="utf-8"))
+            self.assertEqual(metadata["source_url"], "https://example.com/free-track.mp3")
+            self.assertEqual(metadata["source_name"], "Example Library")
+            self.assertIn("SOCIAL_REELS_BACKGROUND_MUSIC_PATH", output.getvalue())
 
     def test_render_ready_checks_require_video_caption_and_valid_duration(self):
         plan = OpportunityReelPlan(

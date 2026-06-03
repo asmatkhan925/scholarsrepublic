@@ -13,6 +13,9 @@ backend/.env
 *.log
 *.sqlite3
 media/
+backend/media/social_reels/audio/*.mp3
+backend/media/social_reels/audio/*.wav
+backend/media/social_reels/audio/*.ogg
 staticfiles/
 *.bak
 *.backup
