@@ -1,0 +1,32 @@
+{
+  "title": "Scholarship Alert",
+  "reel_type": "single_scholarship",
+  "template_key": "single_scholarship_spotlight_v1",
+  "duration_seconds": 4.4,
+  "scenes": [
+    {
+      "scene_type": "hook",
+      "label": "Alert",
+      "title": "Scholarship alert",
+      "subheadline": "China / Master",
+      "duration": 1.2
+    },
+    {
+      "scene_type": "scholarship",
+      "rank": "01",
+      "label": "Deadline",
+      "title": "Global Graduate Award",
+      "blocks": ["China / Master", "Deadline: Jun 15"],
+      "action_line": "Check eligibility",
+      "duration": 2
+    },
+    {
+      "scene_type": "cta",
+      "label": "Next step",
+      "title": "Read official details",
+      "subheadline": "Scholars Republic",
+      "blocks": ["ScholarsRepublic.org"],
+      "duration": 1.2
+    }
+  ]
+}

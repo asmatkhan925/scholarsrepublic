@@ -74,6 +74,25 @@ function audioLabel(plan: AdminSocialReelPlan) {
   return "silent";
 }
 
+function templateFamilyLabel(templateKey: string) {
+  if (templateKey === "closing_soon_premium_v31" || templateKey === "closing_soon_premium_v3") {
+    return "Premium v3.1";
+  }
+  if (templateKey === "closing_soon_dark_accent_v1") {
+    return "Dark Accent";
+  }
+  if (templateKey === "closing_soon_card_stack_v1") {
+    return "Card Stack";
+  }
+  if (templateKey.startsWith("prepare_early")) {
+    return "Prepare Early";
+  }
+  if (templateKey === "single_scholarship_spotlight_v1" || templateKey.startsWith("single_scholarship")) {
+    return "Single Spotlight";
+  }
+  return "Legacy";
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "-";
@@ -174,9 +193,7 @@ function ReelPlanCard({
             <Badge tone="neutral">{formatLabel(plan.status)}</Badge>
             <Badge tone="sky">{formatLabel(plan.reel_type)}</Badge>
             <Badge tone="pine">{plan.template_key}</Badge>
-            {plan.template_key.includes("premium_v3") ? (
-              <Badge tone="saffron">premium v3 text-first</Badge>
-            ) : null}
+            <Badge tone="saffron">{templateFamilyLabel(plan.template_key)}</Badge>
             {plan.renderer_used ? (
               <Badge tone={plan.renderer_used === "remotion" ? "mint" : "neutral"}>
                 renderer {plan.renderer_used}
@@ -441,13 +458,14 @@ function ReelsContent() {
 
   async function generatePlans(
     reelType: "auto" | AdminSocialReelPlanPayload["reel_type"],
-    options?: { dryRun?: boolean; render?: boolean },
+    options?: { dryRun?: boolean; render?: boolean; templateKey?: string },
   ) {
     setGenerating(true);
     setError("");
     try {
       const response = await generateAdminSocialReelPlans({
         reel_type: reelType,
+        template_key: options?.templateKey,
         limit: 1,
         dry_run: options?.dryRun,
         render: options?.render,
@@ -534,7 +552,29 @@ function ReelsContent() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => void generatePlans("prepare_early")}
+              onClick={() =>
+                void generatePlans("closing_soon", { templateKey: "closing_soon_dark_accent_v1" })
+              }
+              disabled={generating}
+            >
+              Generate Closing Soon Dark
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void generatePlans("closing_soon", { templateKey: "closing_soon_card_stack_v1" })
+              }
+              disabled={generating}
+            >
+              Generate Card Stack
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void generatePlans("prepare_early", { templateKey: "prepare_early_premium_v31" })
+              }
               disabled={generating}
             >
               Generate Prepare Early Reel
@@ -542,10 +582,14 @@ function ReelsContent() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => void generatePlans("single_scholarship")}
+              onClick={() =>
+                void generatePlans("single_scholarship", {
+                  templateKey: "single_scholarship_spotlight_v1",
+                })
+              }
               disabled={generating}
             >
-              Generate Single Reel
+              Generate Single Spotlight
             </Button>
           </div>
 
@@ -565,6 +609,9 @@ function ReelsContent() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone="sky">{result.reel_type ? formatLabel(result.reel_type) : "preview"}</Badge>
                     {result.template_key ? <Badge tone="pine">{result.template_key}</Badge> : null}
+                    {result.template_key ? (
+                      <Badge tone="saffron">{templateFamilyLabel(result.template_key)}</Badge>
+                    ) : null}
                     <Badge tone="neutral">{result.status}</Badge>
                     <Badge tone="mint">Expected {result.expected_duration_seconds ?? "-"}s</Badge>
                     {result.skip_reason ? <Badge tone="danger">{formatLabel(result.skip_reason)}</Badge> : null}

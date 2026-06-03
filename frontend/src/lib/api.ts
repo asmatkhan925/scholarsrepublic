@@ -799,6 +799,7 @@ export async function getAdminSocialReelPlan(id: number) {
 
 export async function generateAdminSocialReelPlans(payload: {
   reel_type?: "auto" | AdminSocialReelPlan["reel_type"];
+  template_key?: string;
   limit?: number;
   render?: boolean;
   dry_run?: boolean;

@@ -1,0 +1,50 @@
+{
+  "title": "Prepare Early",
+  "reel_type": "prepare_early",
+  "template_key": "prepare_early_premium_v31",
+  "duration_seconds": 7.99,
+  "scenes": [
+    {
+      "scene_type": "hook",
+      "label": "Scholars Republic",
+      "title": "Start before the rush",
+      "subheadline": "Scholarships to prepare early",
+      "duration": 1.1
+    },
+    {
+      "scene_type": "scholarship",
+      "rank": "01",
+      "label": "Advance notice",
+      "title": "Graduate Research Award",
+      "blocks": ["China / Master", "Deadline: Aug 15"],
+      "action_line": "Prepare documents early",
+      "duration": 1.93
+    },
+    {
+      "scene_type": "scholarship",
+      "rank": "02",
+      "label": "Early awareness",
+      "title": "International Fellowship",
+      "blocks": ["Germany / PhD", "Deadline: Sep 10"],
+      "action_line": "Prepare documents early",
+      "duration": 1.93
+    },
+    {
+      "scene_type": "scholarship",
+      "rank": "03",
+      "label": "Advance notice",
+      "title": "Study Abroad Grant",
+      "blocks": ["Malaysia / Bachelor", "Deadline: Sep 30"],
+      "action_line": "Prepare documents early",
+      "duration": 1.93
+    },
+    {
+      "scene_type": "cta",
+      "label": "Next step",
+      "title": "Plan your application",
+      "subheadline": "Requirements + official links",
+      "blocks": ["ScholarsRepublic.org"],
+      "duration": 1.1
+    }
+  ]
+}

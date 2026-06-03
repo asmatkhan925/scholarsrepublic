@@ -92,6 +92,7 @@ from apps.opportunities.services.social_reel_rendering import (
     render_reel_plan,
     resolved_template_key,
     shorten_reel_title,
+    template_key_is_valid_for_reel_type,
 )
 from apps.users.models import User
 
@@ -3396,6 +3397,9 @@ def _reel_plan_payload(data):
     valid_reel_types = {choice[0] for choice in OpportunityReelPlan.ReelType.choices}
     if reel_type not in valid_reel_types:
         return None, {"reel_type": "Invalid reel type."}
+    template_key = str(data.get("template_key") or "").strip()[:80]
+    if template_key and not template_key_is_valid_for_reel_type(template_key, reel_type):
+        return None, {"template_key": "Template key does not match reel type."}
 
     status_value = str(data.get("status") or OpportunityReelPlan.Status.READY_FOR_RENDER).strip()
     valid_statuses = {choice[0] for choice in OpportunityReelPlan.Status.choices}
@@ -3428,7 +3432,7 @@ def _reel_plan_payload(data):
     return {
         "title": title[:255],
         "reel_type": reel_type,
-        "template_key": str(data.get("template_key") or "").strip()[:80],
+        "template_key": template_key,
         "status": status_value,
         "scenes_json": scenes_json,
         "script_text": str(data.get("script_text") or "").strip(),
@@ -3508,6 +3512,12 @@ class AdminSocialReelPlanGenerateView(APIView):
         dry_run = parse_bool(data.get("dry_run")) is True
         render = parse_bool(data.get("render")) is True
         force = parse_bool(data.get("force")) is True
+        template_key = str(data.get("template_key") or "").strip()
+        if template_key and reel_type != "auto" and not template_key_is_valid_for_reel_type(template_key, reel_type):
+            return Response(
+                {"template_key": "Template key does not match reel type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         result = generate_social_reel_plans(
             reel_type=reel_type,
@@ -3515,7 +3525,15 @@ class AdminSocialReelPlanGenerateView(APIView):
             dry_run=dry_run,
             render=render,
             force=force,
+            template_key=template_key,
         )
+        if "invalid_template_key" in result["skipped_reasons"]:
+            return Response({"template_key": "Invalid template key."}, status=status.HTTP_400_BAD_REQUEST)
+        if "template_key_does_not_match_reel_type" in result["skipped_reasons"]:
+            return Response(
+                {"template_key": "Template key does not match reel type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(result)
 
 

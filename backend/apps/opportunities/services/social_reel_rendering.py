@@ -32,9 +32,9 @@ MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
 REMOTION_RENDERER_RELATIVE_DIR = Path("frontend")
 TEXT_TEMPLATE_BY_REEL_TYPE = {
-    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_premium_v3",
-    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_premium_v3",
-    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_premium_v3",
+    OpportunityReelPlan.ReelType.CLOSING_SOON: "closing_soon_premium_v31",
+    OpportunityReelPlan.ReelType.PREPARE_EARLY: "prepare_early_premium_v31",
+    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: "single_scholarship_spotlight_v1",
 }
 LEGACY_TEXT_TEMPLATE_KEYS = {
     "closing_soon_text_v1",
@@ -43,8 +43,35 @@ LEGACY_TEXT_TEMPLATE_KEYS = {
     "closing_soon_text_v2",
     "prepare_early_text_v2",
     "single_scholarship_text_v2",
+    "closing_soon_premium_v3",
+    "prepare_early_premium_v3",
+    "single_scholarship_premium_v3",
 }
-TEXT_TEMPLATE_KEYS = set(TEXT_TEMPLATE_BY_REEL_TYPE.values()) | LEGACY_TEXT_TEMPLATE_KEYS
+TEMPLATE_KEYS_BY_REEL_TYPE = {
+    OpportunityReelPlan.ReelType.CLOSING_SOON: {
+        "closing_soon_premium_v31",
+        "closing_soon_dark_accent_v1",
+        "closing_soon_card_stack_v1",
+        "closing_soon_premium_v3",
+        "closing_soon_text_v1",
+        "closing_soon_text_v2",
+    },
+    OpportunityReelPlan.ReelType.PREPARE_EARLY: {
+        "prepare_early_premium_v31",
+        "prepare_early_premium_v3",
+        "prepare_early_text_v1",
+        "prepare_early_text_v2",
+    },
+    OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP: {
+        "single_scholarship_spotlight_v1",
+        "single_scholarship_premium_v3",
+        "single_scholarship_text_v1",
+        "single_scholarship_text_v2",
+    },
+}
+TEXT_TEMPLATE_KEYS = set(TEXT_TEMPLATE_BY_REEL_TYPE.values()) | LEGACY_TEXT_TEMPLATE_KEYS | {
+    template_key for keys in TEMPLATE_KEYS_BY_REEL_TYPE.values() for template_key in keys
+}
 BG = "#fbf7ee"
 PINE = "#0f4f3a"
 DEEP_PINE = "#0a3b2b"
@@ -365,6 +392,13 @@ def resolved_template_key(plan):
     if template_key in TEXT_TEMPLATE_KEYS:
         return template_key
     return TEXT_TEMPLATE_BY_REEL_TYPE.get(plan.reel_type, "single_scholarship_premium_v3")
+
+
+def template_key_is_valid_for_reel_type(template_key, reel_type):
+    template_key = str(template_key or "").strip()
+    if not template_key:
+        return True
+    return template_key in TEMPLATE_KEYS_BY_REEL_TYPE.get(reel_type, set())
 
 
 def shorten_reel_title(value, width=MAX_AUTO_TITLE_CHARS):

@@ -12,10 +12,12 @@ from apps.opportunities.services.social_posting import (
 )
 from apps.opportunities.services.social_reel_rendering import (
     TEXT_TEMPLATE_BY_REEL_TYPE,
+    TEMPLATE_KEYS_BY_REEL_TYPE,
     calculate_scene_durations,
     expected_reel_duration,
     render_reel_plan,
     shorten_reel_title,
+    template_key_is_valid_for_reel_type,
 )
 from apps.opportunities.services.social_scheduler import score_opportunity_for_social
 
@@ -75,9 +77,22 @@ def generate_social_reel_plans(
     force=False,
     run_date=None,
     renderer=render_reel_plan,
+    template_key="",
 ):
     if reel_type not in AUTO_REEL_TYPES:
         reel_type = "auto"
+    template_key = str(template_key or "").strip()
+    if template_key:
+        override_error = template_override_error(reel_type, template_key)
+        if override_error:
+            return result_payload(
+                plans=[],
+                created_count=0,
+                rendered_count=0,
+                skipped_reasons=[override_error],
+            )
+        if reel_type == "auto":
+            reel_type = reel_type_for_template_key(template_key) or "auto"
 
     run_date = parse_run_date(run_date) or timezone.localdate()
     limit = min(max(1, int(limit or configured_max_per_run())), configured_max_per_run())
@@ -97,7 +112,11 @@ def generate_social_reel_plans(
         limit = min(limit, remaining_daily)
 
     for _index in range(limit):
-        selection = select_reel_candidates(reel_type=reel_type, run_date=run_date)
+        selection = select_reel_candidates(
+            reel_type=reel_type,
+            run_date=run_date,
+            template_key=template_key,
+        )
         if not selection["ok"]:
             skipped_reasons.append(selection["reason"])
             break
@@ -147,6 +166,43 @@ def result_payload(*, plans, created_count, rendered_count, skipped_reasons):
     }
 
 
+def template_override_error(reel_type, template_key):
+    if reel_type == "auto":
+        if template_key not in {key for keys in TEMPLATE_KEYS_BY_REEL_TYPE.values() for key in keys}:
+            return "invalid_template_key"
+        return ""
+    if not template_key_is_valid_for_reel_type(template_key, reel_type):
+        return "template_key_does_not_match_reel_type"
+    return ""
+
+
+def reel_type_for_template_key(template_key):
+    for reel_type, keys in TEMPLATE_KEYS_BY_REEL_TYPE.items():
+        if template_key in keys:
+            return reel_type
+    return ""
+
+
+def choose_reel_template_key(reel_type, source_opportunity_ids, date=None):
+    if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
+        options = [
+            "closing_soon_premium_v31",
+            "closing_soon_dark_accent_v1",
+            "closing_soon_card_stack_v1",
+        ]
+    elif reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
+        options = ["prepare_early_premium_v31"]
+    elif reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
+        options = ["single_scholarship_spotlight_v1"]
+    else:
+        return TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_spotlight_v1")
+
+    run_date = parse_run_date(date) or timezone.localdate()
+    seed = sum(int(item) for item in source_opportunity_ids if str(item).isdigit())
+    seed += run_date.toordinal()
+    return options[seed % len(options)]
+
+
 def parse_run_date(value):
     if not value:
         return None
@@ -168,7 +224,7 @@ def reel_plan_count_for_date(run_date):
     ).count()
 
 
-def select_reel_candidates(*, reel_type="auto", run_date=None):
+def select_reel_candidates(*, reel_type="auto", run_date=None, template_key=""):
     run_date = run_date or timezone.localdate()
     candidates = safe_reel_candidates(run_date=run_date)
     if not candidates:
@@ -179,21 +235,23 @@ def select_reel_candidates(*, reel_type="auto", run_date=None):
             candidates,
             OpportunityReelPlan.ReelType.CLOSING_SOON,
             run_date=run_date,
+            template_key=template_key,
         )
         if not selection["ok"]:
             selection = select_balanced_candidates(
                 candidates,
                 OpportunityReelPlan.ReelType.PREPARE_EARLY,
                 run_date=run_date,
+                template_key=template_key,
             )
         if not selection["ok"]:
-            selection = select_single_candidate(candidates, run_date=run_date)
+            selection = select_single_candidate(candidates, run_date=run_date, template_key=template_key)
         return selection
 
     if reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
-        return select_single_candidate(candidates, run_date=run_date)
+        return select_single_candidate(candidates, run_date=run_date, template_key=template_key)
 
-    return select_balanced_candidates(candidates, reel_type, run_date=run_date)
+    return select_balanced_candidates(candidates, reel_type, run_date=run_date, template_key=template_key)
 
 
 def safe_reel_candidates(*, run_date):
@@ -258,7 +316,7 @@ def deadline_rank(window):
     return ranks.get(window, 99)
 
 
-def select_balanced_candidates(candidates, reel_type, *, run_date):
+def select_balanced_candidates(candidates, reel_type, *, run_date, template_key=""):
     if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
         allowed = {"urgent", "soon", "advance_notice"}
         selected = pick_by_windows(
@@ -277,10 +335,10 @@ def select_balanced_candidates(candidates, reel_type, *, run_date):
         return {"ok": False, "reason": "unsupported_reel_type", "candidates": []}
 
     if len(selected) < 3:
-        return select_single_candidate(candidates, run_date=run_date)
+        return select_single_candidate(candidates, run_date=run_date, template_key=template_key)
 
     selected = selected[:3]
-    return build_selection(reel_type=reel_type, title=title, candidates=selected)
+    return build_selection(reel_type=reel_type, title=title, candidates=selected, run_date=run_date, template_key=template_key)
 
 
 def pick_by_windows(candidates, window_order):
@@ -309,7 +367,7 @@ def pick_by_windows(candidates, window_order):
     return selected
 
 
-def select_single_candidate(candidates, *, run_date):
+def select_single_candidate(candidates, *, run_date, template_key=""):
     usable = [
         item
         for item in candidates
@@ -322,10 +380,12 @@ def select_single_candidate(candidates, *, run_date):
         reel_type=OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP,
         title="Scholarship Alert",
         candidates=[usable[0]],
+        run_date=run_date,
+        template_key=template_key,
     )
 
 
-def build_selection(*, reel_type, title, candidates):
+def build_selection(*, reel_type, title, candidates, run_date=None, template_key=""):
     scenes = build_auto_scenes(reel_type, candidates)
     durations = calculate_scene_durations(reel_type, len(scenes))
     expected_duration = round(sum(durations), 2)
@@ -334,11 +394,16 @@ def build_selection(*, reel_type, title, candidates):
     source_ids = [item["id"] for item in candidates]
     priority_score = sum(item["priority_score"] for item in candidates)
     deadline_window = candidates[0]["deadline_window"] if candidates else ""
+    chosen_template_key = template_key or choose_reel_template_key(
+        reel_type,
+        source_ids,
+        date=run_date,
+    )
     return {
         "ok": True,
         "title": title,
         "reel_type": reel_type,
-        "template_key": TEXT_TEMPLATE_BY_REEL_TYPE.get(reel_type, "single_scholarship_premium_v3"),
+        "template_key": chosen_template_key,
         "source_opportunity_ids": source_ids,
         "source_opportunities": [serialize_candidate(item) for item in candidates],
         "scenes_json": scenes,
