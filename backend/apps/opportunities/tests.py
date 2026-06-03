@@ -102,6 +102,7 @@ from apps.opportunities.models import (
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
+    OpportunityReelPlan,
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
@@ -132,6 +133,11 @@ from apps.opportunities.services.social_posting import (
     get_due_facebook_post_plans,
     plan_image_url,
 )
+from apps.opportunities.services.social_reel_planning import (
+    generate_social_reel_plans,
+    select_reel_candidates,
+)
+from apps.opportunities.services.social_reel_rendering import calculate_scene_durations
 from apps.opportunities.services.deadline_checker import classify_deadline_candidates
 from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
 from apps.profiles.models import StudentProfile
@@ -171,6 +177,142 @@ class FakeWorkerResponse:
 
     def json(self):
         return self.payload
+
+
+class SocialReelPlanningTests(APITestCase):
+    def setUp(self):
+        create_reference_data(self)
+        self.admin = User.objects.create_superuser(
+            email="reels-admin@example.com",
+            password="StrongPassword123!",
+            full_name="Reels Admin",
+        )
+
+    def opportunity(self, slug, *, deadline_days=10, status=None, opportunity_type=None, **overrides):
+        data = {
+            "title": slug.replace("-", " ").title(),
+            "slug": slug,
+            "opportunity_type": opportunity_type or Opportunity.OpportunityType.SCHOLARSHIP,
+            "status": status or Opportunity.Status.PUBLISHED,
+            "country": "China",
+            "provider_name": "Example Provider",
+            "funding_type": Opportunity.FundingType.FULLY_FUNDED,
+            "degree_levels": ["Master"],
+            "deadline": timezone.localdate() + timedelta(days=deadline_days),
+            "official_link": f"https://example.edu/{slug}",
+            "source_url": f"https://example.edu/{slug}/source",
+            "short_description": "A verified scholarship summary.",
+            "description": "A verified scholarship description.",
+            "how_to_apply": "Apply from the official page.",
+            "published_at": timezone.now() - timedelta(days=2),
+        }
+        data.update(overrides)
+        return Opportunity.objects.create(**data)
+
+    def test_duration_calculation_max_nine_seconds_for_three_scholarship_reel(self):
+        durations = calculate_scene_durations(OpportunityReelPlan.ReelType.CLOSING_SOON, 5)
+
+        self.assertLessEqual(sum(durations), 9)
+        self.assertEqual(len(durations), 5)
+
+    def test_duration_calculation_max_six_seconds_for_single_scholarship_reel(self):
+        durations = calculate_scene_durations(OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP, 3)
+
+        self.assertLessEqual(sum(durations), 6)
+        self.assertEqual(len(durations), 3)
+
+    def test_closing_soon_selection_uses_safe_published_non_expired_scholarships(self):
+        urgent = self.opportunity("urgent-safe", deadline_days=2)
+        soon = self.opportunity("soon-safe", deadline_days=8)
+        advance = self.opportunity("advance-safe", deadline_days=18)
+        self.opportunity("expired-hidden", deadline_days=-1)
+        self.opportunity("draft-hidden", deadline_days=4, status=Opportunity.Status.DRAFT)
+        self.opportunity("job-hidden", deadline_days=4, opportunity_type=Opportunity.OpportunityType.JOB)
+
+        selection = select_reel_candidates(
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            run_date=timezone.localdate(),
+        )
+
+        self.assertTrue(selection["ok"])
+        self.assertEqual(
+            set(selection["source_opportunity_ids"]),
+            {urgent.id, soon.id, advance.id},
+        )
+
+    @override_settings(SOCIAL_REELS_DAILY_PLAN_LIMIT=5)
+    def test_duplicate_prevention_avoids_same_source_set_within_recent_window(self):
+        first = self.opportunity("duplicate-one", deadline_days=2)
+        second = self.opportunity("duplicate-two", deadline_days=8)
+        third = self.opportunity("duplicate-three", deadline_days=18)
+        OpportunityReelPlan.objects.create(
+            title="Existing reel",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            status=OpportunityReelPlan.Status.READY_FOR_RENDER,
+            source_opportunity_ids=[first.id, second.id, third.id],
+        )
+
+        result = generate_social_reel_plans(
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            limit=1,
+        )
+
+        self.assertEqual(result["created_count"], 0)
+        self.assertIn("duplicate_recent_source_set", result["skipped_reasons"])
+
+    def test_dry_run_does_not_create_reel_plan(self):
+        self.opportunity("dry-run-one", deadline_days=2)
+        self.opportunity("dry-run-two", deadline_days=8)
+        self.opportunity("dry-run-three", deadline_days=18)
+
+        result = generate_social_reel_plans(limit=1, dry_run=True)
+
+        self.assertEqual(result["created_count"], 0)
+        self.assertEqual(OpportunityReelPlan.objects.count(), 0)
+        self.assertTrue(result["plans"])
+
+    def test_render_callback_runs_only_after_plan_creation(self):
+        self.opportunity("render-one", deadline_days=2)
+        self.opportunity("render-two", deadline_days=8)
+        self.opportunity("render-three", deadline_days=18)
+        rendered_plan_ids = []
+
+        def fake_renderer(plan, force=False):
+            self.assertIsNotNone(plan.pk)
+            rendered_plan_ids.append(plan.pk)
+
+        result = generate_social_reel_plans(limit=1, render=True, renderer=fake_renderer)
+
+        self.assertEqual(result["created_count"], 1)
+        self.assertEqual(len(rendered_plan_ids), 1)
+        self.assertEqual(rendered_plan_ids[0], OpportunityReelPlan.objects.first().pk)
+
+    def test_api_dry_run_returns_candidates_without_saving(self):
+        self.opportunity("api-dry-run-one", deadline_days=2)
+        self.opportunity("api-dry-run-two", deadline_days=8)
+        self.opportunity("api-dry-run-three", deadline_days=18)
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/admin/social/reels/generate/",
+            {"reel_type": "auto", "limit": 1, "dry_run": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["created_count"], 0)
+        self.assertTrue(response.data["plans"])
+        self.assertEqual(OpportunityReelPlan.objects.count(), 0)
+
+    def test_reel_generation_does_not_post_to_facebook(self):
+        self.opportunity("no-facebook-one", deadline_days=2)
+        self.opportunity("no-facebook-two", deadline_days=8)
+        self.opportunity("no-facebook-three", deadline_days=18)
+
+        with patch("apps.opportunities.services.social_posting.post_plan_to_facebook_now") as mocked:
+            generate_social_reel_plans(limit=1)
+
+        mocked.assert_not_called()
 
 
 class OpportunityAPITests(APITestCase):

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from apps.opportunities.models import OpportunityReelLog, OpportunityReelPlan
-from apps.opportunities.services.social_reel_rendering import render_reel_plan
+from apps.opportunities.services.social_reel_rendering import expected_reel_duration, render_reel_plan
 
 
 class Command(BaseCommand):
@@ -39,7 +39,14 @@ class Command(BaseCommand):
         if options["dry_run"]:
             self.stdout.write(f"Matched {len(plans)} reel plan(s):")
             for plan in plans:
-                self.stdout.write(f"- #{plan.pk} {plan.status} {plan.reel_type}: {plan.title}")
+                try:
+                    duration = expected_reel_duration(plan)
+                except Exception as exc:
+                    duration = f"error: {exc}"
+                self.stdout.write(
+                    f"- #{plan.pk} {plan.status} {plan.reel_type}: {plan.title} "
+                    f"expected_duration={duration}s"
+                )
                 OpportunityReelLog.objects.create(
                     reel_plan=plan,
                     status=OpportunityReelLog.Status.SKIPPED,

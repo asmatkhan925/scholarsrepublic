@@ -398,10 +398,18 @@ export type AdminSocialLogListResponse = {
 export type AdminSocialReelSourceOpportunity = {
   id: number;
   title: string;
+  short_title?: string;
   slug: string;
   provider_name: string;
   country: string;
+  degree?: string;
   deadline: string | null;
+  deadline_label?: string;
+  deadline_window?: string;
+  deadline_window_label?: string;
+  days_until_deadline?: number | null;
+  priority_score?: number;
+  selection_reason?: string;
 };
 
 export type AdminSocialReelPlan = {
@@ -433,6 +441,7 @@ export type AdminSocialReelPlan = {
   next_post_at: string | null;
   priority_score: number;
   deadline_window: string;
+  expected_duration_seconds: number | null;
   created_at: string | null;
   updated_at: string | null;
   admin_url: string;
@@ -464,6 +473,34 @@ export type AdminSocialReelPlanQuery = {
   status?: string;
   reel_type?: string;
   limit?: number;
+};
+
+export type AdminSocialReelGeneratePreview = {
+  ok: boolean;
+  id: number | null;
+  title: string;
+  reel_type: AdminSocialReelPlan["reel_type"] | "";
+  status: string;
+  source_opportunity_ids: number[];
+  source_opportunities: AdminSocialReelSourceOpportunity[];
+  scenes_json: Array<Record<string, unknown> | string>;
+  caption_text: string;
+  hashtags: string;
+  priority_score: number;
+  deadline_window: string;
+  expected_duration_seconds: number | null;
+  selection_reason: string;
+  skip_reason: string;
+  dry_run: boolean;
+  video_url: string;
+};
+
+export type AdminSocialReelGenerateResponse = {
+  ok: true;
+  created_count: number;
+  rendered_count: number;
+  skipped_reasons: string[];
+  plans: AdminSocialReelGeneratePreview[];
 };
 
 export type HealthResponse = {
@@ -739,6 +776,20 @@ export async function createAdminSocialReelPlan(payload: AdminSocialReelPlanPayl
 
 export async function getAdminSocialReelPlan(id: number) {
   const response = await api.get<AdminSocialReelPlan>(`/admin/social/reels/${id}/`);
+  return response.data;
+}
+
+export async function generateAdminSocialReelPlans(payload: {
+  reel_type?: "auto" | AdminSocialReelPlan["reel_type"];
+  limit?: number;
+  render?: boolean;
+  dry_run?: boolean;
+  force?: boolean;
+}) {
+  const response = await api.post<AdminSocialReelGenerateResponse>(
+    "/admin/social/reels/generate/",
+    payload,
+  );
   return response.data;
 }
 

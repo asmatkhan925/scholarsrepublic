@@ -22,6 +22,23 @@ future opportunity types in mind.
 - `docs/` - product brief, API notes, schema notes, and roadmap
 - `docs/social-reels-runbook.md` - local MP4 reel plan and render workflow
 
+## Social Reels
+
+Admins can create manual or automatic short scholarship reel plans at
+`/dashboard/admin/social/reels`. Automatic reel planning selects safe published,
+non-expired scholarship records, applies seven-day deduplication, and renders
+local MP4 files only. It does not post to Facebook or change Worker behavior.
+
+Useful commands:
+
+```bash
+cd backend
+python manage.py generate_social_reel_plans --limit 1 --dry-run
+python manage.py generate_social_reel_plans --limit 1 --render
+python manage.py render_social_reels --plan-id <PLAN_ID> --force
+python manage.py run_daily_social_scheduler --generate-reels
+```
+
 ## Backend Setup
 
 ```bash

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Check, Clipboard, Film, Play, RefreshCw, Save } from "lucide-react";
+import { Check, Clipboard, Film, Play, RefreshCw, Save, Sparkles } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminHero, AdminNotice } from "@/components/admin/AdminUI";
@@ -10,8 +10,10 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge, Button } from "@/components/ui";
 import {
   type AdminSocialReelPlan,
+  type AdminSocialReelGeneratePreview,
   type AdminSocialReelPlanPayload,
   createAdminSocialReelPlan,
+  generateAdminSocialReelPlans,
   getAdminSocialReelPlans,
   renderAdminSocialReelPlan,
 } from "@/lib/api";
@@ -87,14 +89,15 @@ function reelJson(plan: AdminSocialReelPlan) {
 }
 
 function gptPrompt(plan: AdminSocialReelPlan) {
-  return `Create a 20-35 second Facebook Reel script for Scholars Republic using only this JSON.
+  return `Create a 5-9 second Facebook Reel script for Scholars Republic using only this JSON.
 
 Rules:
 - Use only the supplied JSON.
 - Do not invent scholarship facts, deadlines, provider names, eligibility, or funding.
 - Do not use Canva, Creatomate, Facebook posting, paid APIs, fake logos, official seals, or copyrighted logos.
 - Keep scenes readable on mobile.
-- Return up to 5 scenes, each 3-6 seconds, plus caption text, hashtags, and optional voiceover text.
+- Return up to 5 very short scenes, plus caption text, hashtags, and optional voiceover text.
+- Do not write paragraph text for reel scenes.
 
 JSON:
 ${reelJson(plan)}`;
@@ -159,8 +162,8 @@ function ReelPlanCard({
           </div>
           <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{plan.title}</h2>
           <p className="mt-1 text-xs font-semibold text-ink/45 dark:text-white/45">
-            Scenes {plan.scenes_json.length} | Priority {plan.priority_score} | Next post{" "}
-            {formatDateTime(plan.next_post_at)}
+            Scenes {plan.scenes_json.length} | Expected {plan.expected_duration_seconds ?? "-"}s |
+            Priority {plan.priority_score} | Next post {formatDateTime(plan.next_post_at)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -207,7 +210,9 @@ function ReelPlanCard({
                 {plan.source_opportunities.length ? (
                   plan.source_opportunities.map((item) => (
                     <p key={item.id}>
-                      #{item.id} {item.title} {item.deadline ? `| ${item.deadline}` : ""}
+                      #{item.id} {item.short_title || item.title} |{" "}
+                      {item.deadline_window_label || item.deadline_window || "-"} | days{" "}
+                      {item.days_until_deadline ?? "-"}
                     </p>
                   ))
                 ) : (
@@ -365,7 +370,10 @@ function ReelsContent() {
   const [plans, setPlans] = useState<AdminSocialReelPlan[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [generationResult, setGenerationResult] = useState<AdminSocialReelGeneratePreview[]>([]);
+  const [skippedReasons, setSkippedReasons] = useState<string[]>([]);
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
@@ -392,6 +400,31 @@ function ReelsContent() {
 
   const allJson = useMemo(() => JSON.stringify(plans.map((plan) => JSON.parse(reelJson(plan))), null, 2), [plans]);
 
+  async function generatePlans(
+    reelType: "auto" | AdminSocialReelPlanPayload["reel_type"],
+    options?: { dryRun?: boolean; render?: boolean },
+  ) {
+    setGenerating(true);
+    setError("");
+    try {
+      const response = await generateAdminSocialReelPlans({
+        reel_type: reelType,
+        limit: 1,
+        dry_run: options?.dryRun,
+        render: options?.render,
+      });
+      setGenerationResult(response.plans);
+      setSkippedReasons(response.skipped_reasons);
+      if (!options?.dryRun) {
+        await loadPlans();
+      }
+    } catch (requestError) {
+      setError(getErrorMessage(requestError) ?? "Auto reel generation failed.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <DashboardShell
       mode="admin"
@@ -409,6 +442,30 @@ function ReelsContent() {
           backLabel="Social center"
           actions={
             <>
+              <Button
+                type="button"
+                onClick={() => void generatePlans("auto")}
+                disabled={generating}
+              >
+                <Sparkles size={15} aria-hidden="true" />
+                Generate Auto Reel Plan
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void generatePlans("auto", { dryRun: true })}
+                disabled={generating}
+              >
+                Dry Run Selection
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void generatePlans("auto", { render: true })}
+                disabled={generating}
+              >
+                Generate + Render
+              </Button>
               <Button type="button" variant="outline" onClick={() => void loadPlans()} disabled={loading}>
                 <RefreshCw size={15} aria-hidden="true" />
                 {loading ? "Refreshing" : "Refresh"}
@@ -419,6 +476,78 @@ function ReelsContent() {
         />
 
         {error ? <AdminNotice tone="danger">{error}</AdminNotice> : null}
+
+        <section className="rounded-xl border border-pine/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#181b1d]">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void generatePlans("closing_soon")}
+              disabled={generating}
+            >
+              Generate Closing Soon Reel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void generatePlans("prepare_early")}
+              disabled={generating}
+            >
+              Generate Prepare Early Reel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void generatePlans("single_scholarship")}
+              disabled={generating}
+            >
+              Generate Single Reel
+            </Button>
+          </div>
+
+          {skippedReasons.length ? (
+            <AdminNotice tone="warning">
+              Skipped: {skippedReasons.map((item) => formatLabel(item)).join(", ")}
+            </AdminNotice>
+          ) : null}
+
+          {generationResult.length ? (
+            <div className="mt-3 grid gap-3">
+              {generationResult.map((result, index) => (
+                <article
+                  key={`${result.reel_type}-${result.id ?? index}`}
+                  className="rounded-xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="sky">{result.reel_type ? formatLabel(result.reel_type) : "preview"}</Badge>
+                    <Badge tone="neutral">{result.status}</Badge>
+                    <Badge tone="mint">Expected {result.expected_duration_seconds ?? "-"}s</Badge>
+                    {result.skip_reason ? <Badge tone="danger">{formatLabel(result.skip_reason)}</Badge> : null}
+                  </div>
+                  <h2 className="mt-2 text-base font-bold text-ink dark:text-white">{result.title}</h2>
+                  <div className="mt-2 grid gap-2 md:grid-cols-3">
+                    {result.source_opportunities.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border border-pine/10 bg-white p-2 text-xs leading-5 text-ink/65 dark:border-white/10 dark:bg-[#101214] dark:text-white/65"
+                      >
+                        <p className="font-bold text-ink dark:text-white">
+                          #{item.id} {item.short_title || item.title}
+                        </p>
+                        <p>{item.country || "No country"} | {item.degree || "Degree"}</p>
+                        <p>
+                          {item.deadline_window_label || item.deadline_window || "-"} | days{" "}
+                          {item.days_until_deadline ?? "-"}
+                        </p>
+                        <p>Score {item.priority_score ?? "-"}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
 
         <CreateReelForm
           onCreated={(plan) => {

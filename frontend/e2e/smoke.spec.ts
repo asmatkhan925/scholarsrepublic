@@ -129,6 +129,16 @@ const studentUser = {
   date_joined: "2026-01-01T00:00:00Z",
 };
 
+const adminUser = {
+  id: 8,
+  email: "admin@example.com",
+  full_name: "E2E Admin",
+  role: "admin",
+  is_active: true,
+  email_verified: true,
+  date_joined: "2026-01-01T00:00:00Z",
+};
+
 async function mockStudentAuth(page: Page) {
   await page.addInitScript((user) => {
     window.localStorage.setItem("scholars_republic_access_token", "e2e-access-token");
@@ -142,6 +152,18 @@ async function mockStudentAuth(page: Page) {
 
   await page.route("**/api/saved-opportunities/slugs/**", async (route) => {
     await route.fulfill({ json: { slugs: [], ids: [] } });
+  });
+}
+
+async function mockAdminAuth(page: Page) {
+  await page.addInitScript((user) => {
+    window.localStorage.setItem("scholars_republic_access_token", "e2e-admin-access-token");
+    window.localStorage.setItem("scholars_republic_refresh_token", "e2e-admin-refresh-token");
+    window.localStorage.setItem("scholars_republic_user", JSON.stringify(user));
+  }, adminUser);
+
+  await page.route("**/api/auth/me/**", async (route) => {
+    await route.fulfill({ json: adminUser });
   });
 }
 
@@ -387,6 +409,71 @@ test("reset password page handles missing uid and token safely", async ({ page }
   await expect(page.getByLabel("New password", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Confirm new password")).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset password" })).toBeDisabled();
+});
+
+test("admin reels page can dry run automatic reel selection", async ({ page }) => {
+  await mockAdminAuth(page);
+
+  await page.route("**/api/admin/social/reels/?**", async (route) => {
+    await route.fulfill({ json: { count: 0, items: [] } });
+  });
+  await page.route("**/api/admin/social/reels/generate/**", async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        created_count: 0,
+        rendered_count: 0,
+        skipped_reasons: [],
+        plans: [
+          {
+            ok: true,
+            id: null,
+            title: "3 Scholarships Closing Soon",
+            reel_type: "closing_soon",
+            status: "preview",
+            source_opportunity_ids: [1, 2, 3],
+            source_opportunities: [
+              {
+                id: 1,
+                title: "Verified Test Scholarship",
+                short_title: "Verified Test Scholarship",
+                slug: "verified-test-scholarship",
+                provider_name: "Test Provider",
+                country: "Pakistan",
+                degree: "Master",
+                deadline: "2026-12-31",
+                deadline_label: "Dec 31, 2026",
+                deadline_window: "advance_notice",
+                deadline_window_label: "Advance notice",
+                days_until_deadline: 18,
+                priority_score: 90,
+                selection_reason: "published_non_expired_scholarship",
+              },
+            ],
+            scenes_json: [],
+            caption_text: "",
+            hashtags: "#Scholarships #ScholarsRepublic",
+            priority_score: 90,
+            deadline_window: "advance_notice",
+            expected_duration_seconds: 8,
+            selection_reason: "balanced_deadline_window_selection",
+            skip_reason: "",
+            dry_run: true,
+            video_url: "",
+          },
+        ],
+      },
+    });
+  });
+
+  await page.goto("/dashboard/admin/social/reels");
+
+  await expect(page.getByRole("button", { name: "Generate Auto Reel Plan" })).toBeVisible();
+  await page.getByRole("button", { name: "Dry Run Selection" }).click();
+
+  await expect(page.getByText("3 Scholarships Closing Soon")).toBeVisible();
+  await expect(page.getByText("Verified Test Scholarship")).toBeVisible();
+  await expect(page.getByText("Expected 8s")).toBeVisible();
 });
 
 test("verify email page shows invalid-link message before redirecting", async ({ page }) => {

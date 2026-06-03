@@ -85,7 +85,8 @@ from apps.opportunities.services.social_image_uploads import (
     save_social_image_from_openai_file_ref,
     save_social_image_from_url,
 )
-from apps.opportunities.services.social_reel_rendering import render_reel_plan
+from apps.opportunities.services.social_reel_planning import generate_social_reel_plans
+from apps.opportunities.services.social_reel_rendering import expected_reel_duration, render_reel_plan
 from apps.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -3313,6 +3314,11 @@ def _serialize_admin_reel_plan(plan, request=None):
             }
         )
 
+    try:
+        expected_duration = expected_reel_duration(plan)
+    except Exception:
+        expected_duration = None
+
     return {
         "id": plan.pk,
         "title": plan.title,
@@ -3333,6 +3339,7 @@ def _serialize_admin_reel_plan(plan, request=None):
         "next_post_at": _serialize_social_datetime(plan.next_post_at),
         "priority_score": plan.priority_score,
         "deadline_window": plan.deadline_window,
+        "expected_duration_seconds": expected_duration,
         "created_at": _serialize_social_datetime(plan.created_at),
         "updated_at": _serialize_social_datetime(plan.updated_at),
         "admin_url": f"/admin/opportunities/opportunityreelplan/{plan.pk}/change/",
@@ -3457,6 +3464,31 @@ class AdminSocialReelPlanDetailView(APIView):
         if not plan:
             return Response({"detail": "Reel plan not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(_serialize_admin_reel_plan(plan, request))
+
+
+class AdminSocialReelPlanGenerateView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def post(self, request):
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            limit = max(1, int(data.get("limit") or 1))
+        except (TypeError, ValueError):
+            return Response({"limit": "Must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        reel_type = str(data.get("reel_type") or "auto").strip()
+        dry_run = parse_bool(data.get("dry_run")) is True
+        render = parse_bool(data.get("render")) is True
+        force = parse_bool(data.get("force")) is True
+
+        result = generate_social_reel_plans(
+            reel_type=reel_type,
+            limit=limit,
+            dry_run=dry_run,
+            render=render,
+            force=force,
+        )
+        return Response(result)
 
 
 class AdminSocialReelPlanRenderView(APIView):

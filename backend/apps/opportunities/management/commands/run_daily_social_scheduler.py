@@ -22,6 +22,7 @@ from apps.opportunities.services.social_posting import (
     evaluate_opportunity_auto_post_eligibility,
     select_balanced_deadline_candidates,
 )
+from apps.opportunities.services.social_reel_planning import generate_social_reel_plans
 
 
 class Command(BaseCommand):
@@ -37,6 +38,8 @@ class Command(BaseCommand):
         parser.add_argument("--skip-collections", action="store_true")
         parser.add_argument("--skip-approval", action="store_true")
         parser.add_argument("--skip-plans", action="store_true")
+        parser.add_argument("--generate-reels", action="store_true")
+        parser.add_argument("--render-reels", action="store_true")
 
     def handle(self, *args, **options):
         if options["limit"] is not None and options["limit"] < 1:
@@ -121,6 +124,20 @@ class Command(BaseCommand):
             f"selected_estimate_by_deadline_window={self.format_counts(eligibility_counts['selected_estimate_by_deadline_window'])}"
         )
 
+        if options["generate_reels"]:
+            reel_result = generate_social_reel_plans(
+                reel_type="auto",
+                limit=1,
+                dry_run=dry_run,
+                render=options["render_reels"] and not dry_run,
+            )
+            self.stdout.write(
+                "Reel plans: "
+                f"created={reel_result['created_count']}; "
+                f"rendered={reel_result['rendered_count']}; "
+                f"skipped={self.format_counts(self.reason_counts(reel_result['skipped_reasons']))}"
+            )
+
     def recalculate_scores(self, *, dry_run=False, limit=None):
         queryset = OpportunitySocialPostPlan.objects.select_related("opportunity").filter(
             platform="facebook",
@@ -166,6 +183,12 @@ class Command(BaseCommand):
         if not counts:
             return "-"
         return ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+
+    def reason_counts(self, reasons):
+        counts = {}
+        for reason in reasons:
+            counts[reason] = counts.get(reason, 0) + 1
+        return counts
 
     def auto_post_eligibility_counts(self):
         counts = {

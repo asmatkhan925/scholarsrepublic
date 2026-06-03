@@ -1,5 +1,4 @@
 import json
-import math
 import shutil
 import subprocess
 import tempfile
@@ -20,11 +19,13 @@ from apps.opportunities.models import (
 
 WIDTH = 1080
 HEIGHT = 1920
-MIN_TOTAL_SECONDS = 20
-MAX_TOTAL_SECONDS = 35
+SINGLE_REEL_TARGET_SECONDS = 5.0
+SINGLE_REEL_MAX_SECONDS = 6.0
+MULTI_REEL_TARGET_SECONDS = 8.0
+MULTI_REEL_MAX_SECONDS = 9.0
 MAX_SCENES = 5
-MIN_SCENE_SECONDS = 3
-MAX_SCENE_SECONDS = 6
+MAX_AUTO_TITLE_CHARS = 45
+MAX_AUTO_BLOCK_CHARS = 48
 BG = "#fbf7ee"
 PINE = "#0f4f3a"
 GOLD = "#d7a642"
@@ -61,6 +62,7 @@ def render_reel_plan(plan, force=False):
 
     try:
         scenes = build_scenes(plan)
+        expected_duration = expected_reel_duration(plan)
         with tempfile.TemporaryDirectory(prefix=f"sr-reel-{plan.pk}-") as tmp_dir:
             tmp_path = Path(tmp_dir)
             frame_paths = []
@@ -101,7 +103,7 @@ def render_reel_plan(plan, force=False):
             "video_file": plan.video_file.name,
             "video_url": plan.resolved_video_url,
             "thumbnail_file": plan.thumbnail_file.name if plan.thumbnail_file else "",
-            "duration_seconds": sum(scene["duration"] for scene in scenes),
+            "duration_seconds": expected_duration,
             "scene_count": len(scenes),
         }
         OpportunityReelLog.objects.create(
@@ -128,17 +130,21 @@ def build_scenes(plan):
         raw_scenes = fallback_scenes(plan)
 
     scenes = []
-    for item in raw_scenes[:MAX_SCENES]:
+    if len(raw_scenes) > MAX_SCENES:
+        raise ReelRenderError(f"Reels support at most {MAX_SCENES} scenes.")
+
+    for item in raw_scenes:
         if isinstance(item, str):
             title = item
             body = ""
             label = ""
-            duration = 4
+            blocks = []
         elif isinstance(item, dict):
             title = str(item.get("title") or item.get("headline") or "").strip()
             body = str(item.get("body") or item.get("text") or item.get("description") or "").strip()
             label = str(item.get("label") or item.get("kicker") or "").strip()
-            duration = item.get("duration") or item.get("seconds") or 4
+            raw_blocks = item.get("blocks")
+            blocks = raw_blocks if isinstance(raw_blocks, list) else []
         else:
             continue
 
@@ -147,27 +153,16 @@ def build_scenes(plan):
         if not title:
             continue
 
-        try:
-            duration = int(duration)
-        except (TypeError, ValueError):
-            duration = 4
-        duration = max(MIN_SCENE_SECONDS, min(MAX_SCENE_SECONDS, duration))
-        scenes.append({"title": title, "body": body, "label": label, "duration": duration})
+        scenes.append(normalize_scene(title=title, body=body, label=label, blocks=blocks))
 
     if not scenes:
         scenes = fallback_scenes(plan)
 
-    while len(scenes) < 4:
-        scenes.append(
-            {
-                "label": "Scholars Republic",
-                "title": "Verify details before applying",
-                "body": "Use the official source and prepare documents early.",
-                "duration": 5,
-            }
-        )
-
-    return balance_scene_durations(scenes[:MAX_SCENES])
+    scenes = scenes[:MAX_SCENES]
+    durations = calculate_scene_durations(plan.reel_type, len(scenes))
+    for scene, duration in zip(scenes, durations):
+        scene["duration"] = duration
+    return scenes
 
 
 def fallback_scenes(plan):
@@ -175,62 +170,111 @@ def fallback_scenes(plan):
     title = plan.title or "Scholarship update"
     caption = plan.caption_text or plan.script_text or plan.voiceover_text
     scenes = [
-        {"label": "Scholars Republic", "title": title, "body": "", "duration": 4},
+        {"label": "Scholars Republic", "title": title, "body": ""},
     ]
 
     for opportunity in opportunities:
         deadline = opportunity.deadline.isoformat() if opportunity.deadline else "Check official page"
-        body = " | ".join(
-            item
-            for item in [
-                opportunity.provider_name,
-                opportunity.country,
-                f"Deadline: {deadline}",
-            ]
-            if item
+        scenes.append(
+            {
+                "label": "Scholarship",
+                "title": opportunity.title,
+                "blocks": [opportunity.country or opportunity.provider_name, f"Deadline: {deadline}"],
+            }
         )
-        scenes.append({"label": "Scholarship", "title": opportunity.title, "body": body, "duration": 5})
 
     if caption:
-        scenes.append({"label": "Next step", "title": "Review details before applying", "body": caption[:220], "duration": 5})
+        scenes.append(
+            {
+                "label": "Next step",
+                "title": "Review details before applying",
+                "body": caption[:80],
+            }
+        )
 
     scenes.append(
         {
             "label": "Scholars Republic",
-            "title": "Follow for verified scholarship alerts",
-            "body": "Use official sources and apply before the deadline.",
-            "duration": 4,
+            "title": "Check official links",
+            "blocks": ["ScholarsRepublic.org"],
         }
     )
-    return scenes[:MAX_SCENES]
+    return [normalize_scene(**scene) for scene in scenes[:MAX_SCENES]]
 
 
-def balance_scene_durations(scenes):
-    total = sum(scene["duration"] for scene in scenes)
-    if MIN_TOTAL_SECONDS <= total <= MAX_TOTAL_SECONDS:
-        return scenes
+def normalize_scene(*, title, body="", label="", blocks=None):
+    blocks = blocks or []
+    normalized_blocks = []
+    for item in blocks:
+        text = str(item or "").strip()
+        if text:
+            normalized_blocks.append(textwrap.shorten(text, width=MAX_AUTO_BLOCK_CHARS, placeholder="..."))
 
-    if total < MIN_TOTAL_SECONDS:
-        needed = MIN_TOTAL_SECONDS - total
-        while needed > 0:
-            changed = False
-            for scene in scenes:
-                if needed <= 0:
-                    break
-                if scene["duration"] < MAX_SCENE_SECONDS:
-                    scene["duration"] += 1
-                    needed -= 1
-                    changed = True
-            if not changed:
-                break
+    if body and not normalized_blocks:
+        for item in str(body).replace(" | ", "\n").splitlines():
+            text = item.strip()
+            if text:
+                normalized_blocks.append(
+                    textwrap.shorten(text, width=MAX_AUTO_BLOCK_CHARS, placeholder="...")
+                )
 
-    total = sum(scene["duration"] for scene in scenes)
-    if total > MAX_TOTAL_SECONDS:
-        scale = MAX_TOTAL_SECONDS / total
-        for scene in scenes:
-            scene["duration"] = max(MIN_SCENE_SECONDS, min(MAX_SCENE_SECONDS, math.floor(scene["duration"] * scale)))
+    return {
+        "title": textwrap.shorten(str(title).strip(), width=MAX_AUTO_TITLE_CHARS, placeholder="..."),
+        "body": "\n".join(normalized_blocks[:2]),
+        "blocks": normalized_blocks[:2],
+        "label": textwrap.shorten(str(label or "").strip(), width=28, placeholder="..."),
+    }
 
-    return scenes
+
+def calculate_scene_durations(reel_type, scene_count):
+    if scene_count <= 0:
+        raise ReelRenderError("A reel needs at least one scene.")
+    if scene_count > MAX_SCENES:
+        raise ReelRenderError(f"Reels support at most {MAX_SCENES} scenes.")
+
+    if reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
+        if scene_count == 1:
+            durations = [SINGLE_REEL_TARGET_SECONDS]
+        elif scene_count == 2:
+            durations = [1.2, 3.8]
+        else:
+            middle_count = scene_count - 2
+            middle_duration = min(2.0, (SINGLE_REEL_TARGET_SECONDS - 2.4) / middle_count)
+            durations = [1.2] + [middle_duration] * middle_count + [1.2]
+    else:
+        if scene_count == 1:
+            durations = [min(MULTI_REEL_TARGET_SECONDS, MULTI_REEL_MAX_SECONDS)]
+        elif scene_count == 2:
+            durations = [1.2, 2.0]
+        else:
+            middle_count = scene_count - 2
+            middle_duration = min(2.0, (MULTI_REEL_TARGET_SECONDS - 2.2) / middle_count)
+            durations = [1.1] + [middle_duration] * middle_count + [1.1]
+
+    max_seconds = max_reel_duration(reel_type)
+    total = round(sum(durations), 2)
+    if total > max_seconds:
+        scale = max_seconds / total
+        durations = [round(duration * scale, 2) for duration in durations]
+
+    return [round(duration, 2) for duration in durations]
+
+
+def max_reel_duration(reel_type):
+    if reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
+        return SINGLE_REEL_MAX_SECONDS
+    return MULTI_REEL_MAX_SECONDS
+
+
+def expected_reel_duration(plan):
+    scenes = build_scenes(plan)
+    total = round(sum(float(scene["duration"]) for scene in scenes), 2)
+    maximum = max_reel_duration(plan.reel_type)
+    if total > maximum:
+        raise ReelRenderError(
+            f"Expected reel duration {total}s exceeds the {maximum}s maximum for {plan.reel_type}."
+        )
+    return total
 
 
 def get_source_opportunities(plan):
@@ -286,13 +330,14 @@ def render_scene_frame(scene, index, total, output_path, image_path=None):
         draw.text((72, title_y), line, fill=INK, font=fonts["title"])
         title_y += 100
 
-    body = scene.get("body", "")
-    if body:
+    blocks = scene.get("blocks") or []
+    if not blocks and scene.get("body"):
+        blocks = str(scene.get("body", "")).splitlines()
+    if blocks:
         body_y = title_y + 40
-        body_lines = wrap_text(body, fonts["body"], 860, max_lines=7)
-        for line in body_lines:
+        for line in blocks[:2]:
             draw.text((78, body_y), line, fill=MUTED, font=fonts["body"])
-            body_y += 58
+            body_y += 64
 
     draw.rounded_rectangle((72, 1646, 1008, 1774), radius=24, fill=PINE)
     draw.text((112, 1682), "Verify details on Scholars Republic before applying", fill=WHITE, font=fonts["cta"])

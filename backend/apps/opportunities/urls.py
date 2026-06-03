@@ -29,6 +29,7 @@ from apps.opportunities.views import (
     AdminSocialOpportunityPlanCaptionView,
     AdminSocialOpportunityPlanListView,
     AdminSocialReelPlanDetailView,
+    AdminSocialReelPlanGenerateView,
     AdminSocialReelPlanListCreateView,
     AdminSocialReelPlanRenderView,
     AdminSocialSchedulerStatusView,
@@ -183,6 +184,11 @@ urlpatterns = [
         "admin/social/reels/",
         AdminSocialReelPlanListCreateView.as_view(),
         name="admin-social-reel-plan-list",
+    ),
+    path(
+        "admin/social/reels/generate/",
+        AdminSocialReelPlanGenerateView.as_view(),
+        name="admin-social-reel-plan-generate",
     ),
     path(
         "admin/social/reels/<int:pk>/",
