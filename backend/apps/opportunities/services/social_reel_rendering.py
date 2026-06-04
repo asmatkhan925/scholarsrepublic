@@ -29,6 +29,7 @@ MULTI_REEL_TARGET_SECONDS = 8.0
 MULTI_REEL_MAX_SECONDS = 9.0
 MAX_SCENES = 5
 MAX_AUTO_TITLE_CHARS = 42
+ELEGANT_LIGHT_TITLE_CHARS = 95
 MAX_AUTO_BLOCK_CHARS = 48
 MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
@@ -233,6 +234,11 @@ def build_scenes(plan):
         raw_scenes = fallback_scenes(plan)
 
     scenes = []
+    title_width = (
+        ELEGANT_LIGHT_TITLE_CHARS
+        if resolved_template_key(plan) == "closing_soon_elegant_light_v1"
+        else MAX_AUTO_TITLE_CHARS
+    )
     if len(raw_scenes) > MAX_SCENES:
         raise ReelRenderError(f"Reels support at most {MAX_SCENES} scenes.")
 
@@ -277,6 +283,7 @@ def build_scenes(plan):
                 action_line=action_line,
                 rank=rank,
                 funding_badge=funding_badge,
+                title_width=title_width,
             )
         )
 
@@ -334,7 +341,12 @@ def fallback_scenes(plan):
             "blocks": ["ScholarsRepublic.org"],
         }
     )
-    return [normalize_scene(**scene) for scene in scenes[:MAX_SCENES]]
+    title_width = (
+        ELEGANT_LIGHT_TITLE_CHARS
+        if resolved_template_key(plan) == "closing_soon_elegant_light_v1"
+        else MAX_AUTO_TITLE_CHARS
+    )
+    return [normalize_scene(**scene, title_width=title_width) for scene in scenes[:MAX_SCENES]]
 
 
 def normalize_scene(
@@ -348,6 +360,7 @@ def normalize_scene(
     action_line="",
     rank=None,
     funding_badge="",
+    title_width=MAX_AUTO_TITLE_CHARS,
 ):
     blocks = blocks or []
     normalized_blocks = []
@@ -366,7 +379,7 @@ def normalize_scene(
 
     return {
         "scene_type": normalize_scene_type(scene_type),
-        "title": shorten_reel_title(str(title).strip(), width=MAX_AUTO_TITLE_CHARS),
+        "title": shorten_reel_title(str(title).strip(), width=title_width),
         "subheadline": textwrap.shorten(
             str(subheadline or "").strip(),
             width=MAX_AUTO_BLOCK_CHARS,

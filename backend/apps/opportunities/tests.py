@@ -355,14 +355,52 @@ class SocialReelPlanningTests(APITestCase):
         self.assertIn("#InternationalStudents", selection["hashtags"])
 
     def test_elegant_light_title_shortening_allows_longer_titles(self):
-        title = "Queen Elizabeth Commonwealth Scholarships for International Students"
+        title = "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement"
 
         elegant = short_title(title, template_key="closing_soon_elegant_light_v1")
         dark = short_title(title, template_key="closing_soon_dark_premium_v1")
 
         self.assertGreater(len(elegant), len(dark))
-        self.assertLessEqual(len(elegant), 72)
-        self.assertIn("Queen Elizabeth Commonwealth", elegant)
+        self.assertEqual(elegant, title)
+        self.assertLessEqual(len(elegant), 95)
+        self.assertIn("Liquid Metal Embrittlement", elegant)
+
+    def test_elegant_light_sample_contains_long_three_line_title(self):
+        sample_path = (
+            Path(__file__).resolve().parents[3]
+            / "frontend"
+            / "remotion"
+            / "sample-closing-elegant-light.json"
+        )
+        sample = json.loads(sample_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            sample["scenes"][1]["title"],
+            "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement",
+        )
+        self.assertGreater(len(sample["scenes"][1]["title"]), 65)
+
+    def test_elegant_light_build_scenes_preserves_95_char_title(self):
+        title = "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement"
+        plan = OpportunityReelPlan(
+            title="Long title render",
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            template_key="closing_soon_elegant_light_v1",
+            scenes_json=[
+                {"scene_type": "hook", "title": "Scholarships Closing Soon"},
+                {
+                    "scene_type": "scholarship",
+                    "rank": "01",
+                    "label": "Urgent",
+                    "title": title,
+                    "blocks": ["Germany · PhD", "Deadline: Jun 15, 2026"],
+                },
+            ],
+        )
+
+        scenes = build_scenes(plan)
+
+        self.assertEqual(scenes[1]["title"], title)
 
     def test_final_prepare_early_scenes_use_action_line(self):
         self.opportunity("prepare-one", deadline_days=18)
