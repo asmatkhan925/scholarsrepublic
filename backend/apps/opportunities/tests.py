@@ -998,7 +998,7 @@ class SocialReelPlanningTests(APITestCase):
         self.assertIn("https://scholarsrepublic.org/scholarships/single-caption-scholarship", caption)
         self.assertNotIn("<a href=", caption)
 
-    @override_settings(SCHOLARS_AGENT_TOKEN="agent-token", SOCIAL_REELS_FACEBOOK_DAILY_CAP=1)
+    @override_settings(SCHOLARS_AGENT_TOKEN="agent-token", SOCIAL_REELS_FACEBOOK_DAILY_CAP=5)
     def test_agent_due_reels_returns_only_ready_unposted_existing_video_plans(self):
         safe = self.opportunity("due-reel-safe", deadline_days=5)
         expired = self.opportunity("due-reel-expired", deadline_days=-1)
@@ -1051,12 +1051,48 @@ class SocialReelPlanningTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual([item["plan_id"] for item in response.data["items"]], [ready.pk])
-        self.assertEqual(response.data["daily_cap"], 1)
+        self.assertEqual(response.data["daily_cap"], 5)
         self.assertEqual(response.data["returned_count"], 1)
         self.assertTrue(response.data["items"][0]["video_url"].startswith("http://testserver/"))
         self.assertIn(safe.title, response.data["items"][0]["caption"])
         self.assertIn("source_opportunities", response.data["items"][0])
         self.assertEqual(response.data["items"][0]["source_opportunities"][0]["id"], safe.pk)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="agent-token", SOCIAL_REELS_FACEBOOK_DAILY_CAP=1)
+    def test_agent_due_reels_daily_cap_prevents_more_than_one_per_day(self):
+        safe = self.opportunity("due-reel-cap-safe", deadline_days=5)
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            OpportunityReelPlan.objects.create(
+                title="Already Posted Today",
+                reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                status=OpportunityReelPlan.Status.POSTED,
+                facebook_posted_at=timezone.now(),
+                facebook_video_id="fb_video_today",
+                source_opportunity_ids=[safe.pk],
+                video_file=SimpleUploadedFile("posted-today.mp4", b"video", content_type="video/mp4"),
+            )
+            OpportunityReelPlan.objects.create(
+                title="Ready But Blocked By Cap",
+                reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                status=OpportunityReelPlan.Status.READY,
+                source_opportunity_ids=[safe.pk],
+                video_file=SimpleUploadedFile("ready-blocked.mp4", b"video", content_type="video/mp4"),
+            )
+
+            response = self.client.post(
+                "/api/admin/agent/social/facebook/due-reels/",
+                {"limit": 1},
+                format="json",
+                HTTP_X_AGENT_TOKEN="agent-token",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["reason"], "daily_cap_reached")
+        self.assertEqual(response.data["daily_cap"], 1)
+        self.assertEqual(response.data["posted_today"], 1)
+        self.assertEqual(response.data["daily_remaining"], 0)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="agent-token")
     def test_agent_reel_posted_callback_marks_and_logs_plan(self):

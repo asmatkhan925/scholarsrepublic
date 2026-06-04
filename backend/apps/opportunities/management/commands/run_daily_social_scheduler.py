@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.opportunities.models import (
     Opportunity,
     OpportunityCollectionSocialPostPlan,
+    OpportunityReelPlan,
     OpportunitySocialPostPlan,
 )
 from apps.opportunities.services.social_collection_posting import (
@@ -125,18 +126,27 @@ class Command(BaseCommand):
         )
 
         if options["generate_reels"]:
-            reel_result = generate_social_reel_plans(
-                reel_type="auto",
-                limit=1,
-                dry_run=dry_run,
-                render=options["render_reels"] and not dry_run,
-            )
-            self.stdout.write(
-                "Reel plans: "
-                f"created={reel_result['created_count']}; "
-                f"rendered={reel_result['rendered_count']}; "
-                f"skipped={self.format_counts(self.reason_counts(reel_result['skipped_reasons']))}"
-            )
+            try:
+                reel_result = generate_social_reel_plans(
+                    reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+                    limit=1,
+                    dry_run=dry_run,
+                    render=options["render_reels"] and not dry_run,
+                )
+                self.stdout.write(
+                    "Reel plans: "
+                    f"type={OpportunityReelPlan.ReelType.CLOSING_SOON}; "
+                    f"template=closing_soon_elegant_light_v1; "
+                    f"created={reel_result['created_count']}; "
+                    f"rendered={reel_result['rendered_count']}; "
+                    f"skipped={self.format_counts(self.reason_counts(reel_result['skipped_reasons']))}"
+                )
+            except Exception as exc:
+                self.stderr.write(
+                    self.style.WARNING(
+                        f"Reel plans failed without stopping scheduler: {exc}"
+                    )
+                )
 
     def recalculate_scores(self, *, dry_run=False, limit=None):
         queryset = OpportunitySocialPostPlan.objects.select_related("opportunity").filter(

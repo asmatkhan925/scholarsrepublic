@@ -27,13 +27,32 @@ future opportunity types in mind.
 Admins can create manual or automatic short scholarship reel plans at
 `/dashboard/admin/social/reels`. Automatic reel planning selects safe published,
 non-expired scholarship records, applies seven-day deduplication, and renders
-local MP4 files only. Final default templates are `closing_soon_elegant_light_v1`,
+local MP4 files. The production daily scheduler can generate and render one
+closing-soon reel per day with `python manage.py run_daily_social_scheduler
+--generate-reels --render-reels`. Final default templates are `closing_soon_elegant_light_v1`,
 `closing_soon_dark_premium_v1`, `closing_soon_minimal_kinetic_v1`,
 `prepare_early_elegant_v1`, and `single_spotlight_elegant_v1`. Closing-soon
 rotation is deterministic from the run date plus source opportunity IDs; old
 template keys still render but are not used as defaults. Successful local
 renders become `ready` automatically after basic file, duration, scene, and
-caption checks. This system does not post to Facebook or change Worker behavior.
+caption checks.
+
+The Cloudflare Facebook Worker keeps normal scheduled Facebook posts unchanged
+and posts at most one ready reel/video at `15:00 UTC`. The backend due-reels
+endpoint and `SOCIAL_REELS_FACEBOOK_DAILY_CAP = 1` remain the source of truth for
+duplicate prevention. Manual reel posting remains available through:
+
+```bash
+curl -X POST https://facebook-poster.scholarsrepublic.org/run-due-reels \
+  -H "X-GPT-Facebook-Token: <manual-token>" \
+  -H "content-type: application/json" \
+  --data '{"limit":1}'
+```
+
+Current Facebook publishing uploads the MP4 as a Facebook Page video, not a
+guaranteed native Facebook Reel. Verify production posting through Worker logs,
+`OpportunityReelPlan.facebook_video_id`, `OpportunityReelPlan.facebook_posted_at`,
+and the Facebook Page Videos tab.
 
 Optional background music can be configured with
 `SOCIAL_REELS_BACKGROUND_MUSIC_PATH` and `SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME`.
@@ -55,7 +74,7 @@ python manage.py generate_social_reel_plans --limit 1 --dry-run
 python manage.py generate_social_reel_plans --limit 1 --render --force
 python manage.py generate_social_reel_plans --reel-type closing_soon --template-key closing_soon_dark_premium_v1 --limit 1 --render --force
 python manage.py render_social_reels --plan-id <PLAN_ID> --force
-python manage.py run_daily_social_scheduler --generate-reels
+python manage.py run_daily_social_scheduler --generate-reels --render-reels
 ```
 
 Render Remotion samples from `frontend/`:

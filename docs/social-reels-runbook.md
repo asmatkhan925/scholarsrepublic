@@ -1,6 +1,6 @@
 # Scholars Republic Social Reels
 
-Social reels are local, low-cost MP4 renders for admin review. They do not use Canva, Creatomate, paid external APIs, backend GPT/OpenAI APIs, Facebook posting, or Worker automation.
+Social reels are local, low-cost MP4 renders that can be reviewed in admin and posted by the existing Cloudflare Facebook Worker. They do not use Canva, Creatomate, paid external APIs, or backend GPT/OpenAI APIs. Current Facebook publishing uploads the MP4 as a Facebook Page video, not a guaranteed native Facebook Reel.
 
 ## Admin Page
 
@@ -15,7 +15,7 @@ The page supports both workflows:
 - Manual reel plan creation
 - Automatic reel plan selection from safe scholarship records
 
-Nothing is posted automatically.
+Rendered `ready` reels can be posted automatically by the Worker at the daily reel hour. Manual review remains available in admin before a plan is ready.
 
 ## Short Duration Rules
 
@@ -119,7 +119,7 @@ Selection reuses existing social safety concepts:
 - Expiry checks from `is_opportunity_expired_for_social`
 - Priority scores from `score_opportunity_for_social`
 
-It does not mark normal Facebook social plans as posted, skipped, consumed, or due. It does not call the Facebook Worker.
+It does not mark normal Facebook social plans as posted, skipped, consumed, or due.
 
 ## Reel Types
 
@@ -229,7 +229,7 @@ python manage.py render_social_reels --plan-id <PLAN_ID> --force
 
 After a successful render, the plan status becomes `ready` automatically when the video exists, duration is within the hard maximum, scenes are valid, a caption exists or is generated, and no render error is present. No separate admin approval step is required for the rendered file.
 
-Run the normal daily social scheduler and also prepare one reel plan:
+Run the normal daily social scheduler and also prepare one closing-soon Elegant Light reel plan:
 
 ```bash
 cd backend
@@ -243,7 +243,66 @@ cd backend
 python manage.py run_daily_social_scheduler --generate-reels --render-reels
 ```
 
-Do not add these flags to the production timer until reel posting/review operations are ready.
+Production deployment intentionally runs the daily scheduler with these flags through:
+
+```text
+deploy/systemd/scholars-social-scheduler.service
+```
+
+Apply the deployment unit after updating production code:
+
+```bash
+sudo cp deploy/systemd/scholars-social-scheduler.service /etc/systemd/system/
+sudo cp deploy/systemd/scholars-social-scheduler.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now scholars-social-scheduler.timer
+sudo systemctl status scholars-social-scheduler.timer
+sudo journalctl -u scholars-social-scheduler.service -n 100 --no-pager
+```
+
+The timer runs once daily at `07:30 UTC`. The command generates at most one `closing_soon` reel per day and renders it immediately. The default closing-soon template remains `closing_soon_elegant_light_v1`. If no safe candidates exist, the scheduler logs a clean skip. If reel generation fails, it logs a warning and does not fail the rest of the daily social scheduler.
+
+## Facebook Posting Automation
+
+The Cloudflare Worker keeps the existing cron:
+
+```text
+0 9,12,15 * * *
+```
+
+At every cron run, the Worker still runs normal due Facebook posts with the existing `/run-due-posts` behavior. Reels are attempted only on the `15:00 UTC` scheduled run. The `09:00 UTC` and `12:00 UTC` scheduled runs log that reel posting was skipped because it is not the reel hour.
+
+The Worker calls the existing backend due-reels endpoint with `limit=1`. The backend remains the source of truth for duplicate prevention:
+
+- `SOCIAL_REELS_FACEBOOK_DAILY_CAP = 1`
+- posted reels are not returned again
+- already posted today returns `daily_cap_reached`
+
+Manual reel posting remains available:
+
+```http
+POST https://facebook-poster.scholarsrepublic.org/run-due-reels
+```
+
+Verify scheduled posting:
+
+```bash
+cd workers/facebook-poster
+npm run check
+npm run deploy
+wrangler tail facebook-poster
+```
+
+Check:
+
+- Worker logs include `Scheduled Facebook automation started`
+- `09:00` and `12:00 UTC` logs include `Scheduled reel posting skipped`
+- `15:00 UTC` logs include `Scheduled reel posting attempted`
+- `posted_count` and `failed_count` are logged for reels
+- Django Admin `OpportunityReelPlan` has `facebook_video_id` and `facebook_posted_at`
+- Facebook Page Videos tab shows the uploaded video
+
+Current implementation posts as a Facebook Page video through the Page `videos` edge. Do not treat it as a native Facebook Reel until the Graph API integration is intentionally changed and tested.
 
 ## Remotion Samples
 

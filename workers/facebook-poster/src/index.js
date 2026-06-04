@@ -450,6 +450,66 @@ async function runDueReels(env, limit = 1) {
   };
 }
 
+function scheduledHourUTC(controller) {
+  if (controller?.scheduledTime) {
+    return new Date(controller.scheduledTime).getUTCHours();
+  }
+
+  const cron = String(controller?.cron || "").trim();
+  const hourField = cron.split(/\s+/)[1] || "";
+  const firstHour = hourField.split(",")[0] || "";
+  const hour = Number(firstHour);
+
+  return Number.isInteger(hour) ? hour : null;
+}
+
+function shouldRunScheduledReels(controller) {
+  return scheduledHourUTC(controller) === 15;
+}
+
+async function runScheduledAutomation(controller, env) {
+  const hour = scheduledHourUTC(controller);
+  const cron = String(controller?.cron || "");
+  const errors = [];
+
+  console.log(
+    `Scheduled Facebook automation started: cron=${cron || "-"} utc_hour=${hour ?? "-"}`,
+  );
+
+  try {
+    const postResult = await runDuePosts(env, 10);
+    console.log(
+      `Scheduled normal posts completed: posted_count=${postResult.posted_count} failed_count=${postResult.failed_count} reason=${postResult.reason || "-"}`,
+    );
+  } catch (error) {
+    errors.push(error);
+    console.error(
+      `Scheduled normal posts failed: ${error instanceof Error ? error.message : "unknown error"}`,
+    );
+  }
+
+  if (!shouldRunScheduledReels(controller)) {
+    console.log(`Scheduled reel posting skipped: utc_hour=${hour ?? "-"} is not 15`);
+  } else {
+    console.log("Scheduled reel posting attempted: utc_hour=15 limit=1");
+    try {
+      const reelResult = await runDueReels(env, 1);
+      console.log(
+        `Scheduled reel posting completed: posted_count=${reelResult.posted_count} failed_count=${reelResult.failed_count} reason=${reelResult.reason || "-"}`,
+      );
+    } catch (error) {
+      errors.push(error);
+      console.error(
+        `Scheduled reel posting failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    }
+  }
+
+  if (errors.length > 0) {
+    throw errors[0];
+  }
+}
+
 async function handleManualPost(request, env) {
   if (!hasManualAccess(request, env)) {
     return jsonResponse({ error: "Unauthorized." }, 401);
@@ -603,7 +663,9 @@ export default {
     return jsonResponse({ error: "Not found." }, 404);
   },
 
-  async scheduled(_controller, env, ctx) {
-    ctx.waitUntil(runDuePosts(env, 10));
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(runScheduledAutomation(controller, env));
   },
 };
+
+export { scheduledHourUTC, shouldRunScheduledReels };

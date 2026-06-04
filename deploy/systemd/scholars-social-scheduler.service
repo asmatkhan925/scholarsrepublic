@@ -8,5 +8,4 @@ User=scholarsrepublic
 Group=www-data
 WorkingDirectory=/home/scholarsrepublic/scholarsrepublic/backend
 Environment="PATH=/home/scholarsrepublic/scholarsrepublic/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/bin/bash -lc 'source /home/scholarsrepublic/scholarsrepublic/backend/venv/bin/activate && exec python manage.py run_daily_social_scheduler'
-
+ExecStart=/bin/bash -lc 'source /home/scholarsrepublic/scholarsrepublic/backend/venv/bin/activate && exec python manage.py run_daily_social_scheduler --generate-reels --render-reels'
