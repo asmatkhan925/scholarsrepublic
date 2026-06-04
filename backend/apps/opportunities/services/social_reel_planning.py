@@ -9,6 +9,7 @@ from apps.opportunities.services.social_posting import (
     deadline_window_label,
     get_deadline_window,
     is_opportunity_expired_for_social,
+    scholarship_detail_url,
 )
 from apps.opportunities.services.social_reel_rendering import (
     TEXT_TEMPLATE_BY_REEL_TYPE,
@@ -406,7 +407,7 @@ def build_selection(*, reel_type, title, candidates, run_date=None, template_key
         "source_opportunity_ids": source_ids,
         "source_opportunities": [serialize_candidate(item) for item in candidates],
         "scenes_json": scenes,
-        "caption_text": build_caption_text(reel_type),
+        "caption_text": build_caption_text(reel_type, candidates),
         "hashtags": "#ScholarsRepublic #Scholarships #StudyAbroad #InternationalStudents #ScholarshipAlert",
         "priority_score": priority_score,
         "deadline_window": deadline_window,
@@ -491,19 +492,47 @@ def build_auto_scenes(reel_type, candidates, template_key=""):
 def scholarship_scene(candidate, rank, action_line="Check eligibility today", template_key=""):
     opportunity = candidate["opportunity"]
     deadline = readable_deadline(opportunity.deadline)
+    blocks = [opportunity_info_line(opportunity), f"Deadline: {deadline}"]
+    funding_line = funding_or_stipend_line(opportunity)
+    if funding_line:
+        blocks.append(funding_line)
     return {
         "scene_type": "scholarship",
         "rank": rank,
         "label": candidate["deadline_window_label"],
         "title": short_title(opportunity.title, template_key=template_key),
-        "blocks": [opportunity_info_line(opportunity), f"Deadline: {deadline}"],
+        "blocks": blocks,
         "action_line": action_line,
     }
 
 
 def short_title(value, template_key=""):
-    width = 95 if template_key == "closing_soon_elegant_light_v1" else 42
+    width = 120 if template_key == "closing_soon_elegant_light_v1" else 42
     return shorten_reel_title(value, width)
+
+
+def funding_or_stipend_line(opportunity):
+    amount = getattr(opportunity, "funding_amount", None)
+    currency = str(getattr(opportunity, "funding_currency", "") or "").strip().upper()
+    if amount is not None and currency:
+        amount_text = f"{amount:,.2f}".rstrip("0").rstrip(".")
+        currency_label = {"EUR": "€", "USD": "$", "GBP": "£"}.get(currency, currency)
+        return text_shorten(f"Stipend: {currency_label}{amount_text}", 38)
+
+    stipend_summary = " ".join(str(getattr(opportunity, "stipend_summary", "") or "").split())
+    if stipend_summary and len(stipend_summary) <= 42:
+        return text_shorten(f"Stipend: {stipend_summary}", 38)
+
+    funding_type = str(getattr(opportunity, "funding_type", "") or "").strip()
+    if funding_type and funding_type not in {Opportunity.FundingType.SELF_FUNDED, Opportunity.FundingType.OTHER}:
+        try:
+            label = opportunity.get_funding_type_display()
+        except Exception:
+            label = funding_type.replace("_", " ").title()
+        if label:
+            return text_shorten(f"Funding: {label}", 38)
+
+    return ""
 
 
 def opportunity_info_line(opportunity):
@@ -535,12 +564,21 @@ def text_shorten(value, width):
     return value if len(value) <= width else f"{value[: max(0, width - 3)].rstrip()}..."
 
 
-def build_caption_text(reel_type):
+def build_caption_text(reel_type, candidates=None):
+    candidates = candidates or []
     if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
-        return (
-            "Scholarships closing soon for international students. Check eligibility, "
-            "deadlines, and official links before applying."
-        )
+        lines = ["Scholarships closing soon for international students."]
+        for index, candidate in enumerate(candidates[:3], start=1):
+            opportunity = candidate["opportunity"]
+            lines.append(f"{index}. {shorten_reel_title(opportunity.title, 72)}")
+            lines.append(f"Deadline: {readable_deadline(opportunity.deadline)}")
+            funding_line = funding_or_stipend_line(opportunity)
+            if funding_line:
+                lines.append(funding_line)
+            lines.append(f"Apply/Details: {scholarship_detail_url(opportunity)}")
+        if len(lines) == 1:
+            lines.append("Check eligibility, deadlines, and official links before applying.")
+        return "\n".join(lines)
     if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
         return (
             "Start preparing early for these scholarship opportunities. Review requirements "

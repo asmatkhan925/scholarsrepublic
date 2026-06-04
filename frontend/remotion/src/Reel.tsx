@@ -421,9 +421,16 @@ function CardScene({
         ) : (
           <Title y={800} size={variant.family === "spotlight" ? 78 : 72} variant={variant}>{scene.title}</Title>
         )}
-        {blocks[0] ? <Subtitle y={1116} variant={variant}>{blocks[0]}</Subtitle> : null}
-        {blocks[1] ? <Pill top={1236} scale={deadlinePulse} variant={variant}>{blocks[1]}</Pill> : null}
-        {scene.action_line ? <ActionLine top={1386} variant={variant}>{scene.action_line}</ActionLine> : null}
+        {blocks[0] ? <Subtitle y={1086} variant={variant}>{blocks[0]}</Subtitle> : null}
+        {blocks[1] ? <Pill top={1188} scale={deadlinePulse} variant={variant}>{blocks[1]}</Pill> : null}
+        {variant.family === "closing_light" && blocks[2] ? (
+          <ElegantLightFundingPill top={1306} variant={variant}>{blocks[2]}</ElegantLightFundingPill>
+        ) : null}
+        {scene.action_line ? (
+          <ActionLine top={variant.family === "closing_light" && blocks[2] ? 1438 : 1386} variant={variant}>
+            {scene.action_line}
+          </ActionLine>
+        ) : null}
       </div>
       <Footer variant={variant} />
     </AbsoluteFill>
@@ -735,8 +742,8 @@ function ElegantLightScholarshipTitle({
         left: 190,
         right: 190,
         top,
-        height: 152,
-        minHeight: 152,
+        height: 196,
+        minHeight: 196,
         color: variant.ink,
         fontWeight: 950,
         fontSize: 44,
@@ -744,9 +751,44 @@ function ElegantLightScholarshipTitle({
         textAlign: "center",
         display: "-webkit-box",
         WebkitBoxOrient: "vertical",
-        WebkitLineClamp: 3,
+        WebkitLineClamp: 4,
         overflow: "hidden",
         textOverflow: "ellipsis",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ElegantLightFundingPill({
+  children,
+  top,
+  variant,
+}: {
+  children: React.ReactNode;
+  top: number;
+  variant: Variant;
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 210,
+        right: 210,
+        top,
+        minHeight: 82,
+        borderRadius: 46,
+        border: `2px solid ${colors.pine}26`,
+        background: "#ecf4ee",
+        color: variant.ink,
+        fontSize: 32,
+        fontWeight: 900,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: "0 30px",
       }}
     >
       {children}

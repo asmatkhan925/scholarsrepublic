@@ -355,15 +355,28 @@ class SocialReelPlanningTests(APITestCase):
         self.assertIn("#InternationalStudents", selection["hashtags"])
 
     def test_elegant_light_title_shortening_allows_longer_titles(self):
-        title = "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement"
+        title = (
+            "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement "
+            "and Materials Research"
+        )
 
         elegant = short_title(title, template_key="closing_soon_elegant_light_v1")
         dark = short_title(title, template_key="closing_soon_dark_premium_v1")
 
         self.assertGreater(len(elegant), len(dark))
         self.assertEqual(elegant, title)
-        self.assertLessEqual(len(elegant), 95)
-        self.assertIn("Liquid Metal Embrittlement", elegant)
+        self.assertLessEqual(len(elegant), 120)
+        self.assertIn("Materials Research", elegant)
+
+    def test_elegant_light_renderer_uses_four_line_title_clamp(self):
+        reel_path = Path(__file__).resolve().parents[3] / "frontend" / "remotion" / "src" / "Reel.tsx"
+        source = reel_path.read_text(encoding="utf-8")
+
+        self.assertIn("function ElegantLightScholarshipTitle", source)
+        self.assertIn("fontSize: 44", source)
+        self.assertIn("lineHeight: 1.08", source)
+        self.assertIn("height: 196", source)
+        self.assertIn("WebkitLineClamp: 4", source)
 
     def test_elegant_light_sample_contains_long_three_line_title(self):
         sample_path = (
@@ -376,12 +389,16 @@ class SocialReelPlanningTests(APITestCase):
 
         self.assertEqual(
             sample["scenes"][1]["title"],
-            "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement",
+            "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement and Materials Research",
         )
-        self.assertGreater(len(sample["scenes"][1]["title"]), 65)
+        self.assertGreater(len(sample["scenes"][1]["title"]), 85)
+        self.assertIn("Stipend: €2,500/month", sample["scenes"][1]["blocks"])
 
-    def test_elegant_light_build_scenes_preserves_95_char_title(self):
-        title = "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement"
+    def test_elegant_light_build_scenes_preserves_120_char_title(self):
+        title = (
+            "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement "
+            "and Materials Research"
+        )
         plan = OpportunityReelPlan(
             title="Long title render",
             reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
@@ -401,6 +418,89 @@ class SocialReelPlanningTests(APITestCase):
         scenes = build_scenes(plan)
 
         self.assertEqual(scenes[1]["title"], title)
+
+    def test_closing_soon_scene_includes_stipend_when_available(self):
+        funded = self.opportunity(
+            "funded-scene",
+            deadline_days=5,
+            funding_amount="2500.00",
+            funding_currency="EUR",
+            funding_type=Opportunity.FundingType.STIPEND_ONLY,
+        )
+        self.opportunity("funded-scene-two", deadline_days=8)
+        self.opportunity("funded-scene-three", deadline_days=12)
+
+        selection = select_reel_candidates(
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            run_date=timezone.localdate(),
+        )
+
+        funded_scene = next(
+            scene for scene in selection["scenes_json"] if scene.get("title") == funded.title
+        )
+        self.assertIn("Stipend: €2,500", funded_scene["blocks"])
+        self.assertIn("Stipend: €2,500", selection["caption_text"])
+
+    def test_closing_soon_scene_includes_funding_type_when_stipend_unavailable(self):
+        funded = self.opportunity(
+            "funding-type-scene",
+            deadline_days=5,
+            funding_type=Opportunity.FundingType.FULLY_FUNDED,
+            funding_amount=None,
+            funding_currency="",
+            stipend_summary="",
+        )
+        self.opportunity("funding-type-scene-two", deadline_days=8)
+        self.opportunity("funding-type-scene-three", deadline_days=12)
+
+        selection = select_reel_candidates(
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            run_date=timezone.localdate(),
+        )
+
+        funded_scene = next(
+            scene for scene in selection["scenes_json"] if scene.get("title") == funded.title
+        )
+        self.assertIn("Funding: Fully funded", funded_scene["blocks"])
+        self.assertIn("Funding: Fully funded", selection["caption_text"])
+
+    def test_closing_soon_scene_omits_funding_when_unavailable(self):
+        no_funding = self.opportunity(
+            "no-funding-scene",
+            deadline_days=5,
+            funding_type="",
+            funding_amount=None,
+            funding_currency="",
+            stipend_summary="",
+        )
+        self.opportunity(
+            "no-funding-scene-two",
+            deadline_days=8,
+            funding_type="",
+            funding_amount=None,
+            funding_currency="",
+            stipend_summary="",
+        )
+        self.opportunity(
+            "no-funding-scene-three",
+            deadline_days=12,
+            funding_type="",
+            funding_amount=None,
+            funding_currency="",
+            stipend_summary="",
+        )
+
+        selection = select_reel_candidates(
+            reel_type=OpportunityReelPlan.ReelType.CLOSING_SOON,
+            run_date=timezone.localdate(),
+        )
+
+        no_funding_scene = next(
+            scene for scene in selection["scenes_json"] if scene.get("title") == no_funding.title
+        )
+        self.assertEqual(len(no_funding_scene["blocks"]), 2)
+        self.assertNotIn("Funding:", selection["caption_text"])
+        self.assertNotIn("Stipend:", selection["caption_text"])
 
     def test_final_prepare_early_scenes_use_action_line(self):
         self.opportunity("prepare-one", deadline_days=18)

@@ -29,7 +29,7 @@ MULTI_REEL_TARGET_SECONDS = 8.0
 MULTI_REEL_MAX_SECONDS = 9.0
 MAX_SCENES = 5
 MAX_AUTO_TITLE_CHARS = 42
-ELEGANT_LIGHT_TITLE_CHARS = 95
+ELEGANT_LIGHT_TITLE_CHARS = 120
 MAX_AUTO_BLOCK_CHARS = 48
 MOTION_FPS = 8
 SOCIAL_REELS_USE_SOURCE_IMAGES = False
@@ -390,8 +390,8 @@ def normalize_scene(
             width=MAX_AUTO_BLOCK_CHARS,
             placeholder="...",
         ),
-        "body": "\n".join(normalized_blocks[:2]),
-        "blocks": normalized_blocks[:2],
+        "body": "\n".join(normalized_blocks[:3]),
+        "blocks": normalized_blocks[:3],
         "label": textwrap.shorten(str(label or "").strip(), width=28, placeholder="..."),
         "rank": rank,
         "funding_badge": textwrap.shorten(
