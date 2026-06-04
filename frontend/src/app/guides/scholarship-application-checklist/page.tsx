@@ -203,9 +203,9 @@ export default function ScholarshipApplicationChecklistPage() {
             </Section>
 
             <Section title="Eligibility checklist">
-              <div className="grid gap-3 md:grid-cols-2">
+              <ul className="grid list-none gap-3 p-0 md:grid-cols-2">
                 {eligibilityChecklist.map((item) => (
-                  <div
+                  <li
                     key={item}
                     className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                   >
@@ -215,9 +215,9 @@ export default function ScholarshipApplicationChecklistPage() {
                       aria-hidden="true"
                     />
                     <span>{item}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </Section>
 
             <Section id="documents" title="Core document checklist">
@@ -226,17 +226,17 @@ export default function ScholarshipApplicationChecklistPage() {
                 international scholarship applications require several of the following documents:
               </p>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <ul className="mt-4 grid list-none gap-3 p-0 md:grid-cols-2">
                 {documentChecklist.map((item) => (
-                  <div
+                  <li
                     key={item}
                     className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                   >
                     <FileText size={17} className="mt-0.5 shrink-0 text-pine" aria-hidden="true" />
                     <span>{item}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </Section>
 
             <Section title="Writing document checklist">
@@ -262,21 +262,21 @@ export default function ScholarshipApplicationChecklistPage() {
             </Section>
 
             <Section title="Simple application timeline">
-              <div className="grid gap-4 md:grid-cols-2">
+              <ol className="grid list-none gap-4 p-0 md:grid-cols-2">
                 {timelineSteps.map((item) => (
-                  <div key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
+                  <li key={item.title} className="rounded-xl border border-ink/10 bg-cream/40 p-4">
                     <CalendarCheck size={22} className="text-pine" aria-hidden="true" />
                     <h3 className="mt-3 text-sm font-bold text-ink">{item.title}</h3>
                     <p className="mt-2 text-sm leading-6 text-ink/70">{item.body}</p>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </Section>
 
             <Section id="final-review" title="Final review before submission">
-              <div className="grid gap-3 md:grid-cols-2">
+              <ul className="grid list-none gap-3 p-0 md:grid-cols-2">
                 {finalReview.map((item) => (
-                  <div
+                  <li
                     key={item}
                     className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                   >
@@ -286,22 +286,22 @@ export default function ScholarshipApplicationChecklistPage() {
                       aria-hidden="true"
                     />
                     <span>{item}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </Section>
 
             <Section title="Common mistakes to avoid">
-              <div className="grid gap-3 md:grid-cols-2">
+              <ul className="grid list-none gap-3 p-0 md:grid-cols-2">
                 {mistakes.map((mistake) => (
-                  <div
+                  <li
                     key={mistake}
                     className="rounded-xl border border-red-100 bg-red-50 px-4 py-3"
                   >
                     {mistake}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
 
               <div className="mt-5 rounded-xl border border-saffron/30 bg-saffron/10 p-4">
                 <div className="flex gap-3">

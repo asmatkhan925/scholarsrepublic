@@ -209,22 +209,31 @@ export default function ScholarshipCVGuidePage() {
             </Section>
 
             <Section title="Scholarship CV vs job CV">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-ink/10 bg-cream/40 p-4">
-                  <h3 className="text-sm font-semibold text-ink">Scholarship CV</h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/70">
-                    Focuses on education, research, projects, academic achievements, publications,
-                    awards, leadership, and future potential.
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-ink/10 bg-cream/40 p-4">
-                  <h3 className="text-sm font-semibold text-ink">Job CV</h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/70">
-                    Focuses more on employment history, workplace skills, industry experience, and
-                    professional results for a specific job role.
-                  </p>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[620px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-ink/10 bg-cream/60 text-ink">
+                      <th className="px-4 py-3 font-semibold">CV type</th>
+                      <th className="px-4 py-3 font-semibold">Main focus</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-ink/10">
+                      <td className="px-4 py-3 font-semibold text-ink">Scholarship CV</td>
+                      <td className="px-4 py-3 text-ink/75">
+                        Education, research, projects, academic achievements, publications, awards,
+                        leadership, and future potential.
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-semibold text-ink">Job CV</td>
+                      <td className="px-4 py-3 text-ink/75">
+                        Employment history, workplace skills, industry experience, and professional
+                        results for a specific job role.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </Section>
 
@@ -240,9 +249,9 @@ export default function ScholarshipCVGuidePage() {
             </Section>
 
             <Section title="Golden rules for a professional scholarship CV">
-              <div className="grid gap-3 md:grid-cols-2">
+              <ul className="grid list-none gap-3 p-0 md:grid-cols-2">
                 {cvRules.map((rule) => (
-                  <div
+                  <li
                     key={rule}
                     className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                   >
@@ -252,9 +261,9 @@ export default function ScholarshipCVGuidePage() {
                       aria-hidden="true"
                     />
                     <span>{rule}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </Section>
 
             <Section title="Weak vs strong CV bullet points">
@@ -297,9 +306,9 @@ export default function ScholarshipCVGuidePage() {
             </Section>
 
             <Section id="checklist" title="Scholarship CV checklist before submission">
-              <div className="grid gap-3 md:grid-cols-2">
+              <ul className="grid list-none gap-3 p-0 md:grid-cols-2">
                 {checklist.map((item) => (
-                  <div
+                  <li
                     key={item}
                     className="flex gap-3 rounded-xl border border-ink/10 bg-cream/40 px-4 py-3"
                   >
@@ -309,22 +318,22 @@ export default function ScholarshipCVGuidePage() {
                       aria-hidden="true"
                     />
                     <span>{item}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </Section>
 
             <Section title="Common CV mistakes to avoid">
-              <div className="grid gap-3 md:grid-cols-2">
+              <ul className="grid list-none gap-3 p-0 md:grid-cols-2">
                 {commonMistakes.map((mistake) => (
-                  <div
+                  <li
                     key={mistake}
                     className="rounded-xl border border-red-100 bg-red-50 px-4 py-3"
                   >
                     {mistake}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
 
               <div className="mt-5 rounded-xl border border-saffron/30 bg-saffron/10 p-4">
                 <div className="flex gap-3">

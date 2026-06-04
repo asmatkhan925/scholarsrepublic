@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://scholarsrepublic.org";
+const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT?.trim();
 const siteDescription =
   "Find verified scholarships, save opportunities, track applications, and prepare stronger scholarship documents.";
 
@@ -36,11 +37,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9654948811259287"
-          crossOrigin="anonymous"
-        />
+        {adsenseClient ? (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
       </head>
       <body>
         <ThemeProvider>

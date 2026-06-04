@@ -6,7 +6,7 @@ import { LegalContactBox, LegalList, LegalPageShell, LegalSection } from "@/comp
 export const metadata: Metadata = {
   title: "Privacy Policy | Scholars Republic",
   description:
-    "Learn how Scholars Republic handles account data, student profiles, scholarship activity, cookies, AI tools, service providers, and advertising cookies if ads are enabled.",
+    "Learn how Scholars Republic handles account data, student profiles, scholarship activity, cookies, AI tools, service providers, and advertising cookies.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -71,16 +71,26 @@ export default function PrivacyPolicyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Advertising and Third-Party Cookies">
+      <LegalSection title="Google AdSense and Third-Party Advertising Cookies">
         <p>
-          If advertising is enabled on Scholars Republic, third-party vendors, including Google, may
-          use cookies or similar technologies to serve ads, measure performance, and personalize ads
-          based on visits to this and/or other websites.
+          Scholars Republic uses Google AdSense. Third-party vendors, including Google, use cookies
+          to serve ads based on a user&apos;s prior visits to this website or other websites.
         </p>
         <p>
-          Users can manage cookies in browser or device settings. Where available, users can also
-          use Google ad personalization controls and industry opt-out tools to manage personalized
-          advertising choices.
+          Google&apos;s use of advertising cookies enables Google and its partners to serve ads to
+          users based on visits to Scholars Republic and/or other websites on the Internet.
+        </p>
+        <p>
+          Users may opt out of personalized advertising by visiting{" "}
+          <a
+            href="https://adssettings.google.com/"
+            className="font-semibold text-pine hover:text-pine/80"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Google Ads Settings
+          </a>
+          . Users may also manage cookies through their browser settings.
         </p>
       </LegalSection>
 

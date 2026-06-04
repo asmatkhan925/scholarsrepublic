@@ -254,7 +254,7 @@ export default function SOPGuidePage() {
             </Section>
 
             <Section title="Common SOP mistakes to avoid">
-              <ul className="grid gap-3">
+              <ul className="grid list-none gap-3 p-0">
                 {mistakes.map((mistake) => (
                   <li
                     key={mistake}
@@ -316,16 +316,16 @@ export default function SOPGuidePage() {
             </Section>
 
             <Section id="sop-checklist" title="SOP checklist before submission">
-              <div className="grid gap-3 md:grid-cols-2">
+              <ul className="grid list-none gap-3 p-0 md:grid-cols-2">
                 {checklist.map((item) => (
-                  <div
+                  <li
                     key={item}
                     className="rounded-xl border border-ink/10 bg-cream/40 px-4 py-3 text-sm leading-6 text-ink/75"
                   >
-                    ✓ {item}
-                  </div>
+                    {item}
+                  </li>
                 ))}
-              </div>
+              </ul>
             </Section>
 
             <Section title="Recommended SOP length">
