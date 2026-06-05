@@ -21,6 +21,7 @@ import {
 } from "@/lib/api";
 import {
   getAccessToken,
+  getRefreshToken,
   getStoredUser,
   removeTokens,
   removeUser,
@@ -121,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       if (getAccessToken()) {
-        await logoutUser();
+        await logoutUser(getRefreshToken());
       }
     } finally {
       clearSession();

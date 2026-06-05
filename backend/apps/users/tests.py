@@ -925,3 +925,62 @@ class AuthenticationAPITests(APITestCase):
             )
         )
 
+
+class LogoutTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            email="logout@example.com",
+            password="StrongPassword123!",
+            full_name="Logout User",
+            email_verified=True,
+            is_active=True,
+        )
+
+    def _get_tokens(self):
+        response = self.client.post(
+            reverse("login"),
+            {"email": "logout@example.com", "password": "StrongPassword123!"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.data["tokens"]
+
+    def test_logout_requires_authentication(self):
+        response = self.client.post(reverse("logout"), format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_succeeds_without_refresh_token(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(reverse("logout"), {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_logout_succeeds_and_blacklists_refresh_token(self):
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+
+        tokens = self._get_tokens()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        response = self.client.post(
+            reverse("logout"), {"refresh": tokens["refresh"]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(BlacklistedToken.objects.exists())
+
+    def test_blacklisted_refresh_token_cannot_be_reused(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        tokens = self._get_tokens()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        self.client.post(reverse("logout"), {"refresh": tokens["refresh"]}, format="json")
+
+        with self.assertRaises(Exception):
+            RefreshToken(tokens["refresh"]).blacklist()
+
+    def test_logout_with_invalid_refresh_token_still_succeeds(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            reverse("logout"), {"refresh": "not-a-valid-token"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

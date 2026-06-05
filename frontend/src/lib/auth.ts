@@ -52,6 +52,15 @@ export function getAccessToken() {
   return storage.getItem(ACCESS_TOKEN_KEY);
 }
 
+export function getRefreshToken() {
+  const storage = getBrowserStorage();
+  if (!storage) {
+    return null;
+  }
+
+  return storage.getItem(REFRESH_TOKEN_KEY);
+}
+
 export function removeTokens() {
   const storage = getBrowserStorage();
   if (!storage) {

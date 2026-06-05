@@ -598,8 +598,10 @@ export async function getCurrentUser() {
   return response.data;
 }
 
-export async function logoutUser() {
-  const response = await api.post<{ detail: string }>("/auth/logout/");
+export async function logoutUser(refreshToken?: string | null) {
+  const response = await api.post<{ detail: string }>("/auth/logout/", {
+    refresh: refreshToken ?? undefined,
+  });
   return response.data;
 }
 
