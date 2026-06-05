@@ -457,14 +457,66 @@ class AuthenticationAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_raw_simplejwt_refresh_endpoint_is_not_public(self):
+    def test_token_refresh_with_invalid_token_returns_401(self):
         response = self.client.post(
-            "/api/auth/token/refresh/",
+            reverse("token-refresh"),
             {"refresh": "not-a-real-token"},
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_token_refresh_returns_new_access_and_refresh_tokens(self):
+        User.objects.create_user(
+            email="refresh@example.com",
+            password="StrongPassword123!",
+            full_name="Refresh User",
+            email_verified=True,
+            is_active=True,
+        )
+        login_response = self.client.post(
+            reverse("login"),
+            {"email": "refresh@example.com", "password": "StrongPassword123!"},
+            format="json",
+        )
+        refresh_token = login_response.data["tokens"]["refresh"]
+
+        response = self.client.post(
+            reverse("token-refresh"),
+            {"refresh": refresh_token},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertNotEqual(response.data["refresh"], refresh_token)
+
+    def test_token_refresh_old_token_is_blacklisted_after_rotation(self):
+        from rest_framework_simplejwt.tokens import RefreshToken as JWTRefreshToken
+
+        User.objects.create_user(
+            email="rotation@example.com",
+            password="StrongPassword123!",
+            full_name="Rotation User",
+            email_verified=True,
+            is_active=True,
+        )
+        login_response = self.client.post(
+            reverse("login"),
+            {"email": "rotation@example.com", "password": "StrongPassword123!"},
+            format="json",
+        )
+        original_refresh = login_response.data["tokens"]["refresh"]
+
+        self.client.post(
+            reverse("token-refresh"),
+            {"refresh": original_refresh},
+            format="json",
+        )
+
+        with self.assertRaises(Exception):
+            JWTRefreshToken(original_refresh).blacklist()
 
     def test_login_throttle_triggers_after_configured_limit(self):
         User.objects.create_user(
