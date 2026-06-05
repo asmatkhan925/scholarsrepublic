@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   BookOpen,
@@ -27,7 +27,6 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 import {
   APPLICATION_FEE_PREFERENCES,
-  COMMON_FIELDS_OF_STUDY,
   COMMON_SKILLS,
   COUNTRY_REGIONS,
   DOCUMENT_OPTIONS,
@@ -41,981 +40,38 @@ import {
   STUDY_MODE_PREFERENCES,
   TARGET_DEGREE_LEVELS,
 } from "@/lib/profile-options";
-import type { ProfileCompletion, StudentProfile, StudentProfilePayload } from "@/types/profile";
-
-type ArrayField =
-  | "target_fields"
-  | "target_countries"
-  | "additional_documents"
-  | "research_interests"
-  | "skills"
-  | "special_scholarship_categories";
-
-type FieldName = keyof StudentProfilePayload;
-type SelectOption = string | { label: string; value: string };
-type CountryRegionMap = Record<string, readonly string[]>;
-type FieldCategoryMap = Record<string, readonly string[]>;
-
-const FALLBACK_STUDY_FIELD_CATEGORIES: FieldCategoryMap = {
-  Popular: COMMON_FIELDS_OF_STUDY,
-};
-
-const EMPTY_PROFILE: StudentProfilePayload = {
-  phone_number: "",
-  whatsapp_number: "",
-  date_of_birth: null,
-  nationality: "Pakistan",
-  current_country: "Pakistan",
-  city: "",
-  province: "",
-  domicile: "",
-  current_education_level: "",
-  current_institution: "",
-  current_field_of_study: "",
-  graduation_year: null,
-  result_status: "",
-  grading_system: "",
-  cgpa: null,
-  percentage: null,
-  division: "",
-  target_degree_level: "",
-  target_fields: [],
-  target_countries: [],
-  preferred_intake: "",
-  study_mode_preference: "",
-  funding_preference: "",
-  application_fee_preference: "",
-  language_instruction_preference: "",
-  has_ielts: false,
-  ielts_score: null,
-  has_toefl: false,
-  toefl_score: null,
-  has_duolingo: false,
-  duolingo_score: null,
-  has_pte: false,
-  pte_score: null,
-  has_hsk: false,
-  hsk_level: "",
-  has_gre: false,
-  gre_score: null,
-  has_gmat: false,
-  gmat_score: null,
-  english_proficiency_certificate: false,
-  has_cnic: false,
-  has_domicile: false,
-  has_passport: false,
-  passport_expiry_date: null,
-  has_transcript: false,
-  has_degree: false,
-  has_cv: false,
-  has_sop: false,
-  has_study_plan: false,
-  has_recommendation_letters: false,
-  recommendation_letters_count: 0,
-  has_research_proposal: false,
-  has_publications: false,
-  has_english_proficiency_letter: false,
-  has_income_certificate: false,
-  has_bank_statement: false,
-  has_police_clearance: false,
-  has_medical_certificate: false,
-  additional_documents: [],
-  research_interests: [],
-  has_research_experience: false,
-  publications_count: 0,
-  has_supervisor_acceptance: false,
-  supervisor_country: "",
-  supervisor_university: "",
-  skills: [],
-  work_experience_years: null,
-  has_internship_experience: false,
-  linkedin_url: "",
-  portfolio_url: "",
-  github_url: "",
-  need_based_support_required: false,
-  can_pay_application_fee: false,
-  max_application_fee_usd: null,
-  can_self_fund_partial: false,
-  special_scholarship_categories: [],
-  email_alerts_enabled: true,
-  whatsapp_alerts_enabled: false,
-  profile_data_consent: false,
-  profile_source: "manual",
-  ai_autofill_reviewed: false,
-};
-
-const nullableFields: FieldName[] = [
-  "date_of_birth",
-  "passport_expiry_date",
-  "graduation_year",
-  "cgpa",
-  "percentage",
-  "ielts_score",
-  "toefl_score",
-  "duolingo_score",
-  "pte_score",
-  "gre_score",
-  "gmat_score",
-  "work_experience_years",
-  "max_application_fee_usd",
-];
-
-const numericFieldLimits: Partial<Record<FieldName, { min?: number; max?: number }>> = {
-  graduation_year: { min: 1900, max: 2100 },
-  cgpa: { min: 0, max: 5 },
-  percentage: { min: 0, max: 100 },
-  ielts_score: { min: 0, max: 9 },
-  toefl_score: { min: 0, max: 120 },
-  duolingo_score: { min: 0, max: 160 },
-  pte_score: { min: 0, max: 90 },
-  gre_score: { min: 0, max: 340 },
-  gmat_score: { min: 0, max: 800 },
-  recommendation_letters_count: { min: 0, max: 20 },
-  publications_count: { min: 0, max: 500 },
-  work_experience_years: { min: 0, max: 60 },
-  max_application_fee_usd: { min: 0, max: 10000 },
-};
-
-function clampNumericField(name: FieldName, value: StudentProfilePayload[FieldName]) {
-  const limits = numericFieldLimits[name];
-
-  if (
-    !limits ||
-    value === "" ||
-    value === null ||
-    typeof value === "boolean" ||
-    Array.isArray(value)
-  ) {
-    return value;
-  }
-
-  const parsed = typeof value === "number" ? value : Number(value);
-
-  if (Number.isNaN(parsed)) {
-    return null;
-  }
-
-  let next = parsed;
-
-  if (typeof limits.min === "number" && next < limits.min) {
-    next = limits.min;
-  }
-
-  if (typeof limits.max === "number" && next > limits.max) {
-    next = limits.max;
-  }
-
-  return Number.isInteger(next) ? next : Number(next.toFixed(2));
-}
-
-function sanitizeFieldValue(name: FieldName, value: StudentProfilePayload[FieldName]) {
-  if (phoneFields.includes(name) && typeof value === "string") {
-    return sanitizePhoneNumber(value);
-  }
-
-  if (numericFieldLimits[name]) {
-    return clampNumericField(name, value);
-  }
-
-  if (name === "date_of_birth" && typeof value === "string" && value > TODAY_DATE) {
-    return TODAY_DATE;
-  }
-
-  if (name === "passport_expiry_date" && typeof value === "string" && value && value < TODAY_DATE) {
-    return TODAY_DATE;
-  }
-
-  return value;
-}
-
-function constrainProfilePayload(payload: StudentProfilePayload): StudentProfilePayload {
-  const next = { ...payload };
-
-  for (const field of Object.keys(numericFieldLimits) as FieldName[]) {
-    next[field] = clampNumericField(field, next[field]) as never;
-  }
-
-  next.phone_number = sanitizePhoneNumber(next.phone_number);
-  next.whatsapp_number = sanitizePhoneNumber(next.whatsapp_number);
-
-  if (next.date_of_birth && next.date_of_birth > TODAY_DATE) {
-    next.date_of_birth = TODAY_DATE;
-  }
-
-  if (next.passport_expiry_date && next.passport_expiry_date < TODAY_DATE) {
-    next.passport_expiry_date = TODAY_DATE;
-  }
-
-  return next;
-}
-
-function normalizePayload(payload: StudentProfilePayload): StudentProfilePayload {
-  const normalized = constrainProfilePayload(
-    withProfileDefaults({
-      ...payload,
-      profile_source: payload.profile_source || "manual",
-    }),
-  );
-
-  for (const field of nullableFields) {
-    if (normalized[field] === "") {
-      normalized[field] = null as never;
-    }
-  }
-
-  for (const field of Object.keys(numericFieldLimits) as FieldName[]) {
-    normalized[field] = clampNumericField(field, normalized[field]) as never;
-  }
-
-  for (const field of urlFields) {
-    const value = normalized[field];
-
-    if (typeof value === "string") {
-      normalized[field] = normalizeUrlValue(value) as never;
-    }
-  }
-
-  normalized.phone_number = sanitizePhoneNumber(normalized.phone_number);
-  normalized.whatsapp_number = sanitizePhoneNumber(normalized.whatsapp_number);
-
-  if (
-    normalized.recommendation_letters_count === null ||
-    normalized.recommendation_letters_count === ""
-  ) {
-    normalized.recommendation_letters_count = 0;
-  }
-
-  if (normalized.publications_count === null || normalized.publications_count === "") {
-    normalized.publications_count = 0;
-  }
-
-  return constrainProfilePayload(normalized);
-}
-
-function withProfileDefaults(payload: StudentProfilePayload): StudentProfilePayload {
-  return {
-    ...payload,
-    nationality: payload.nationality || "Pakistan",
-    current_country: payload.current_country || "Pakistan",
-    profile_source: payload.profile_source || "manual",
-  };
-}
-
-function completionFromProfile(profile: StudentProfile | null): ProfileCompletion {
-  return {
-    completion_percentage: profile?.completion_percentage ?? 0,
-    scholarship_readiness_score: profile?.scholarship_readiness_score ?? 0,
-    readiness_level: profile?.readiness_level ?? "Low",
-    missing_profile_fields: profile?.missing_profile_fields ?? [],
-    missing_core_documents: profile?.missing_core_documents ?? [],
-  };
-}
-
-function splitCommaList(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function joinCommaList(value: string[]) {
-  return value.join(", ");
-}
-
-function getTextInputValue(value: StudentProfilePayload[FieldName]) {
-  if (Array.isArray(value)) {
-    return value.join(", ");
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "true" : "false";
-  }
-
-  return value ?? "";
-}
-
-function getReadinessTone(level: string): "mint" | "saffron" | "danger" | "sky" {
-  if (level === "High") {
-    return "mint";
-  }
-
-  if (level === "Medium") {
-    return "saffron";
-  }
-
-  if (level === "Low") {
-    return "danger";
-  }
-
-  return "sky";
-}
-
-function buildPreferredIntakeOptions() {
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  const semesters = [
-    { label: "Spring", month: 0 },
-    { label: "Fall", month: 8 },
-  ];
-  const options: string[] = [];
-
-  for (let year = currentYear; options.length < 10 && year <= currentYear + 8; year += 1) {
-    for (const semester of semesters) {
-      if (year === currentYear && semester.month < currentMonth) {
-        continue;
-      }
-
-      options.push(`${semester.label} ${year}`);
-
-      if (options.length === 10) {
-        break;
-      }
-    }
-  }
-
-  return options;
-}
-
-const PREFERRED_INTAKE_OPTIONS = buildPreferredIntakeOptions();
-
-const TODAY_DATE = new Date().toISOString().slice(0, 10);
-
-const HSK_LEVELS = ["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"];
-
-const phoneFields: FieldName[] = ["phone_number", "whatsapp_number"];
-
-const urlFields: FieldName[] = ["linkedin_url", "portfolio_url", "github_url"];
-
-function sanitizePhoneNumber(value: string) {
-  const cleaned = value.replace(/[^0-9+()\-\s]/g, "");
-  return cleaned.replace(/(?!^)\+/g, "");
-}
-
-function normalizeUrlValue(value: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `https://${trimmed}`;
-}
-
-function isValidHttpUrl(value: string) {
-  if (!value) {
-    return true;
-  }
-
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function hasFutureDate(value: string | null) {
-  return Boolean(value && value > TODAY_DATE);
-}
-
-function hasPastDate(value: string | null) {
-  return Boolean(value && value < TODAY_DATE);
-}
-
-function validatePhoneField(label: string, value: string) {
-  if (!value.trim()) {
-    return null;
-  }
-
-  const digitCount = value.replace(/\D/g, "").length;
-
-  if (digitCount < 7 || digitCount > 15) {
-    return `${label} should contain 7 to 15 digits.`;
-  }
-
-  return null;
-}
-
-function validateProfilePayload(payload: StudentProfilePayload) {
-  const phoneError = validatePhoneField("Phone number", payload.phone_number);
-  if (phoneError) {
-    return phoneError;
-  }
-
-  const whatsappError = validatePhoneField("WhatsApp number", payload.whatsapp_number);
-  if (whatsappError) {
-    return whatsappError;
-  }
-
-  if (hasFutureDate(payload.date_of_birth)) {
-    return "Date of birth cannot be in the future.";
-  }
-
-  if (payload.has_passport && hasPastDate(payload.passport_expiry_date)) {
-    return "Passport expiry date must be today or a future date.";
-  }
-
-  for (const field of urlFields) {
-    const value = payload[field];
-
-    if (typeof value === "string" && value && !isValidHttpUrl(value)) {
-      return "Please enter valid profile links, for example https://linkedin.com/in/your-name.";
-    }
-  }
-
-  return null;
-}
-
-function TextField({
-  label,
-  type = "text",
-  helper,
-  placeholder,
-  value,
-  min,
-  max,
-  step,
-  inputMode,
-  maxLength,
-  onChange,
-}: {
-  label: string;
-  type?: string;
-  helper?: string;
-  placeholder?: string;
-  value: StudentProfilePayload[FieldName];
-  min?: number | string;
-  max?: number | string;
-  step?: number | string;
-  inputMode?: "text" | "tel" | "url" | "numeric" | "decimal";
-  maxLength?: number;
-  onChange: (value: string) => void;
-}) {
-  function handleChange(rawValue: string) {
-    if (type === "number") {
-      if (rawValue === "") {
-        onChange("");
-        return;
-      }
-
-      if (!/^\d*\.?\d*$/.test(rawValue)) {
-        return;
-      }
-
-      const parsed = Number(rawValue);
-
-      if (Number.isNaN(parsed)) {
-        return;
-      }
-
-      let next = parsed;
-      const minValue = typeof min === "number" ? min : undefined;
-      const maxValue = typeof max === "number" ? max : undefined;
-
-      if (typeof minValue === "number" && next < minValue) {
-        next = minValue;
-      }
-
-      if (typeof maxValue === "number" && next > maxValue) {
-        next = maxValue;
-      }
-
-      onChange(String(next));
-      return;
-    }
-
-    if (type === "tel") {
-      onChange(sanitizePhoneNumber(rawValue));
-      return;
-    }
-
-    onChange(rawValue);
-  }
-
-  return (
-    <label className="grid gap-1.5 text-sm font-medium text-ink/80 dark:text-white/75">
-      {label}
-      <input
-        type={type}
-        min={min}
-        max={max}
-        step={step}
-        inputMode={inputMode}
-        maxLength={maxLength}
-        value={getTextInputValue(value)}
-        onChange={(event) => handleChange(event.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
-      />
-      {helper ? <span className="text-xs leading-5 text-ink/45 dark:text-white/45">{helper}</span> : null}
-    </label>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: StudentProfilePayload[FieldName];
-  options: SelectOption[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="grid gap-1.5 text-sm font-medium text-ink/80 dark:text-white/75">
-      {label}
-      <select
-        value={getTextInputValue(value)}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-      >
-        <option value="">Select</option>
-        {options.map((option) => {
-          const optionValue = typeof option === "string" ? option : option.value;
-          const labelText = typeof option === "string" ? option : option.label;
-
-          return (
-            <option key={optionValue} value={optionValue}>
-              {labelText}
-            </option>
-          );
-        })}
-      </select>
-    </label>
-  );
-}
-
-function BooleanField({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex items-start gap-2 rounded-xl border border-pine/10 bg-white px-2.5 py-1.5 text-sm font-medium text-ink/70 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-1 h-4 w-4 accent-pine"
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-function MultiCheckboxField({
-  label,
-  values,
-  options,
-  helper,
-  onToggle,
-}: {
-  label: string;
-  values: string[];
-  options: string[];
-  helper?: string;
-  onToggle: (value: string) => void;
-}) {
-  return (
-    <div className="grid gap-2">
-      <div>
-        <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
-        {helper ? <p className="mt-1 text-xs leading-5 text-ink/45 dark:text-white/45">{helper}</p> : null}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {options.map((option) => {
-          const checked = values.includes(option);
-
-          return (
-            <label
-              key={option}
-              className={
-                checked
-                  ? "flex items-center gap-2 rounded-xl border border-pine bg-mint px-3 py-2 text-sm font-medium text-pine dark:border-pine/30 dark:bg-pine/15"
-                  : "flex items-center gap-2 rounded-xl border border-pine/10 bg-white px-3 py-2 text-sm font-medium text-ink/65 transition hover:bg-mint/35 dark:border-white/10 dark:bg-white/5 dark:text-white/65 dark:hover:bg-white/10"
-              }
-            >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => onToggle(option)}
-                className="h-4 w-4 accent-pine"
-              />
-              {option}
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function StudyFieldSelect({
-  label,
-  value,
-  fieldCategories,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  fieldCategories: FieldCategoryMap;
-  onChange: (value: string) => void;
-}) {
-  const categoryNames = Object.keys(fieldCategories);
-  const [category, setCategory] = useState(categoryNames[0] ?? "");
-
-  const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
-  const listId = `study-field-${label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
-
-  return (
-    <div className="grid min-w-0 gap-1.5 md:col-span-2 xl:col-span-2">
-      <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
-
-      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(9rem,12rem)_minmax(14rem,1fr)]">
-        <select
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-          aria-label={`${label} category`}
-        >
-          {categoryNames.map((categoryName) => (
-            <option key={categoryName} value={categoryName}>
-              {categoryName}
-            </option>
-          ))}
-        </select>
-
-        <input
-          list={listId}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Select or write your field"
-          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
-          aria-label={label}
-        />
-
-        <datalist id={listId}>
-          {fieldsForCategory.map((fieldName) => (
-            <option key={fieldName} value={fieldName} />
-          ))}
-        </datalist>
-      </div>
-    </div>
-  );
-}
-
-function StudyFieldMultiPicker({
-  label,
-  values,
-  fieldCategories,
-  onChange,
-}: {
-  label: string;
-  values: string[];
-  fieldCategories: FieldCategoryMap;
-  onChange: (value: string[]) => void;
-}) {
-  const categoryNames = Object.keys(fieldCategories);
-  const [category, setCategory] = useState(categoryNames[0] ?? "");
-  const [field, setField] = useState("");
-
-  const fieldsForCategory = category ? (fieldCategories[category] ?? []) : [];
-  const availableFields = fieldsForCategory.filter((fieldName) => !values.includes(fieldName));
-  const listId = `target-field-${label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
-
-  function addField(fieldName: string) {
-    const cleaned = fieldName.trim();
-
-    if (!cleaned || values.includes(cleaned)) {
-      return;
-    }
-
-    onChange([...values, cleaned]);
-    setField("");
-  }
-
-  function removeField(fieldName: string) {
-    onChange(values.filter((item) => item !== fieldName));
-  }
-
-  return (
-    <div className="grid min-w-0 gap-1.5">
-      <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
-
-      <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(9rem,12rem)_minmax(18rem,1fr)_auto]">
-        <select
-          value={category}
-          onChange={(event) => {
-            setCategory(event.target.value);
-            setField("");
-          }}
-          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-          aria-label={`${label} category`}
-        >
-          {categoryNames.map((categoryName) => (
-            <option key={categoryName} value={categoryName}>
-              {categoryName}
-            </option>
-          ))}
-        </select>
-
-        <input
-          list={listId}
-          value={field}
-          onChange={(event) => setField(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addField(field);
-            }
-          }}
-          placeholder="Select or write target field"
-          className="min-w-0 w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
-          aria-label={label}
-        />
-
-        <datalist id={listId}>
-          {availableFields.map((fieldName) => (
-            <option key={fieldName} value={fieldName} />
-          ))}
-        </datalist>
-
-        <Button
-          type="button"
-          onClick={() => addField(field)}
-          disabled={!field.trim()}
-          variant="outline"
-        >
-          Add
-        </Button>
-      </div>
-
-      {values.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {values.map((fieldName) => (
-            <button
-              key={fieldName}
-              type="button"
-              onClick={() => removeField(fieldName)}
-              className="rounded-full border border-pine/15 bg-mint px-2.5 py-1 text-xs font-semibold text-pine transition hover:bg-saffron/20 dark:border-pine/25 dark:bg-pine/10"
-            >
-              {fieldName} ×
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs leading-5 text-ink/45 dark:text-white/45">
-          Choose a suggestion or type your own field, then add it.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function CountryRegionPicker({
-  label,
-  values,
-  countryRegions,
-  onChange,
-}: {
-  label: string;
-  values: string[];
-  countryRegions: Record<string, readonly string[]>;
-  onChange: (value: string[]) => void;
-}) {
-  const regionNames = Object.keys(countryRegions);
-  const [region, setRegion] = useState(regionNames[0] ?? "");
-  const [country, setCountry] = useState("");
-
-  const countriesForRegion = region ? (countryRegions[region] ?? []) : [];
-
-  function addCountry() {
-    if (!country || values.includes(country)) {
-      return;
-    }
-
-    onChange([...values, country]);
-    setCountry("");
-  }
-
-  function removeCountry(countryName: string) {
-    onChange(values.filter((item) => item !== countryName));
-  }
-
-  return (
-    <div className="grid gap-2">
-      <p className="text-sm font-medium text-ink/80 dark:text-white/75">{label}</p>
-
-      <div className="grid gap-2 md:grid-cols-[12rem_1fr_auto]">
-        <select
-          value={region}
-          onChange={(event) => {
-            setRegion(event.target.value);
-            setCountry("");
-          }}
-          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-        >
-          {regionNames.map((regionName) => (
-            <option key={regionName} value={regionName}>
-              {regionName}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={country}
-          onChange={(event) => setCountry(event.target.value)}
-          className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
-        >
-          <option value="">Select country</option>
-          {countriesForRegion.map((countryName) => (
-            <option key={countryName} value={countryName} disabled={values.includes(countryName)}>
-              {countryName}
-            </option>
-          ))}
-        </select>
-
-        <Button type="button" onClick={addCountry} disabled={!country} variant="outline">
-          Add
-        </Button>
-      </div>
-
-      {values.length > 0 ? (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {values.map((countryName) => (
-            <button
-              key={countryName}
-              type="button"
-              onClick={() => removeCountry(countryName)}
-              className="rounded-2xl border border-pine/15 bg-mint px-3 py-1.5 text-sm font-medium text-pine transition hover:bg-saffron/20"
-            >
-              {countryName} ×
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs leading-5 text-ink/45 dark:text-white/45">
-          Select a region first, then add countries you are seriously considering.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function CommaField({
-  label,
-  values,
-  helper,
-  onChange,
-}: {
-  label: string;
-  values: string[];
-  helper: string;
-  onChange: (value: string[]) => void;
-}) {
-  return (
-    <label className="grid gap-1.5 text-sm font-medium text-ink/80 dark:text-white/75">
-      {label}
-      <input
-        value={joinCommaList(values)}
-        onChange={(event) => onChange(splitCommaList(event.target.value))}
-        className="w-full rounded-xl border border-pine/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white dark:placeholder:text-white/35"
-        placeholder="Separate items with commas"
-      />
-      <span className="text-xs leading-5 text-ink/45 dark:text-white/45">{helper}</span>
-    </label>
-  );
-}
-
-const PROFILE_SECTION_LINKS = [
-  { label: "Personal", href: "#profile-personal" },
-  { label: "Education", href: "#profile-education" },
-  { label: "Targets", href: "#profile-targets" },
-  { label: "Tests", href: "#profile-tests" },
-  { label: "Documents", href: "#profile-documents" },
-  { label: "Research", href: "#profile-research" },
-  { label: "Funding", href: "#profile-funding" },
-  { label: "Consent", href: "#profile-consent" },
-];
-
-function ProfileSectionNav() {
-  return (
-    <nav
-      aria-label="Profile sections"
-      className="sticky top-[4.75rem] z-30 overflow-x-auto rounded-2xl border border-pine/10 bg-white/95 p-1.5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-[#181b1d]/95"
-    >
-      <div className="flex min-w-max items-center gap-1">
-        <span className="hidden rounded-xl px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-pine sm:inline-flex">
-          Sections
-        </span>
-
-        {PROFILE_SECTION_LINKS.map((item) => (
-          <a
-            key={item.href}
-            href={item.href}
-            className="inline-flex h-8 items-center justify-center rounded-xl px-3 text-xs font-semibold text-ink/65 transition hover:bg-mint hover:text-pine dark:text-white/62 dark:hover:bg-pine/15 dark:hover:text-pine"
-          >
-            {item.label}
-          </a>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
-function Section({
-  id,
-  title,
-  description,
-  icon,
-  children,
-}: {
-  id?: string;
-  title: string;
-  description: string;
-  icon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section id={id} className="scroll-mt-28">
-      <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-        <CardContent className="p-3 md:p-4">
-          <div className="mb-3 flex flex-col gap-2 border-b border-pine/10 pb-2 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mint text-pine dark:bg-pine/20">
-                {icon}
-              </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <h2 className="text-base font-bold text-ink dark:text-white md:text-lg">
-                    {title}
-                  </h2>
-                </div>
-                <p className="mt-0.5 text-sm leading-5 text-ink/60 dark:text-white/58">
-                  {description}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div>{children}</div>
-        </CardContent>
-      </Card>
-    </section>
-  );
-}
+import type { StudentProfilePayload } from "@/types/profile";
+
+import {
+  ArrayField,
+  CountryRegionMap,
+  EMPTY_PROFILE,
+  FALLBACK_STUDY_FIELD_CATEGORIES,
+  FieldCategoryMap,
+  FieldName,
+  HSK_LEVELS,
+  PREFERRED_INTAKE_OPTIONS,
+  TODAY_DATE,
+} from "./profile-constants";
+import {
+  completionFromProfile,
+  constrainProfilePayload,
+  getReadinessTone,
+  normalizePayload,
+  sanitizeFieldValue,
+  validateProfilePayload,
+  withProfileDefaults,
+} from "./profile-utils";
+import { BooleanField } from "./fields/BooleanField";
+import { CommaField } from "./fields/CommaField";
+import { CountryRegionPicker } from "./fields/CountryRegionPicker";
+import { MultiCheckboxField } from "./fields/MultiCheckboxField";
+import { SelectField } from "./fields/SelectField";
+import { StudyFieldMultiPicker } from "./fields/StudyFieldMultiPicker";
+import { StudyFieldSelect } from "./fields/StudyFieldSelect";
+import { TextField } from "./fields/TextField";
+import { ProfileSection } from "./ProfileSection";
+import { ProfileSectionNav } from "./ProfileSectionNav";
 
 function ProfilePageContent() {
   const [form, setForm] = useState(EMPTY_PROFILE);
@@ -1316,6 +372,7 @@ function ProfilePageContent() {
   const countryOptions = useMemo(() => {
     return Array.from(new Set(Object.values(countryRegions).flat())).sort();
   }, [countryRegions]);
+
   const nextProfileSteps = useMemo(() => {
     return [
       ...completion.missing_profile_fields.slice(0, 3),
@@ -1473,7 +530,7 @@ function ProfilePageContent() {
           </div>
         ) : null}
 
-        <Section
+        <ProfileSection
           id="profile-personal"
           description="Basic contact and location details help match country-specific scholarships."
           icon={<UserRound size={20} aria-hidden="true" />}
@@ -1514,9 +571,9 @@ function ProfilePageContent() {
             <SelectField label="Province" options={PROVINCES} {...textField("province")} />
             <TextField label="Domicile" {...textField("domicile")} />
           </div>
-        </Section>
+        </ProfileSection>
 
-        <Section
+        <ProfileSection
           id="profile-education"
           description="Education details are heavily used for scholarship eligibility and match scoring."
           icon={<GraduationCap size={20} aria-hidden="true" />}
@@ -1570,9 +627,9 @@ function ProfilePageContent() {
             />
             <TextField label="Division" {...textField("division")} />
           </div>
-        </Section>
+        </ProfileSection>
 
-        <Section
+        <ProfileSection
           id="profile-targets"
           description="Tell Scholars Republic what you want, so recommendations stay focused."
           icon={<Target size={20} aria-hidden="true" />}
@@ -1626,9 +683,9 @@ function ProfilePageContent() {
               onChange={(value) => setField("target_fields", value)}
             />
           </div>
-        </Section>
+        </ProfileSection>
 
-        <Section
+        <ProfileSection
           id="profile-tests"
           description="Language tests and proficiency certificates can unlock more scholarship options."
           icon={<Languages size={20} aria-hidden="true" />}
@@ -1706,9 +763,9 @@ function ProfilePageContent() {
               </div>
             </div>
           </div>
-        </Section>
+        </ProfileSection>
 
-        <Section
+        <ProfileSection
           id="profile-documents"
           description="Documents decide whether you can apply quickly when deadlines are near."
           icon={<FileText size={20} aria-hidden="true" />}
@@ -1768,9 +825,9 @@ function ProfilePageContent() {
               {...commaField("additional_documents")}
             />
           </div>
-        </Section>
+        </ProfileSection>
 
-        <Section
+        <ProfileSection
           id="profile-research"
           description="Research, skills, work, and links help for graduate and research scholarships."
           icon={<BookOpen size={20} aria-hidden="true" />}
@@ -1846,9 +903,9 @@ function ProfilePageContent() {
               {...multiField("skills")}
             />
           </div>
-        </Section>
+        </ProfileSection>
 
-        <Section
+        <ProfileSection
           id="profile-funding"
           description="Funding needs and alerts help us prioritize practical opportunities."
           icon={<BriefcaseBusiness size={20} aria-hidden="true" />}
@@ -1885,9 +942,9 @@ function ProfilePageContent() {
               {...multiField("special_scholarship_categories")}
             />
           </div>
-        </Section>
+        </ProfileSection>
 
-        <Section
+        <ProfileSection
           id="profile-consent"
           description="Control alerts and consent for using your profile to calculate scholarship matches."
           icon={<Bell size={20} aria-hidden="true" />}
@@ -1905,7 +962,7 @@ function ProfilePageContent() {
             />
             <BooleanField label="AI autofill reviewed" {...booleanField("ai_autofill_reviewed")} />
           </div>
-        </Section>
+        </ProfileSection>
 
         {pendingNavigationHref && hasUnsavedChanges ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 px-4 py-5 backdrop-blur-sm dark:bg-black/55 sm:items-center">

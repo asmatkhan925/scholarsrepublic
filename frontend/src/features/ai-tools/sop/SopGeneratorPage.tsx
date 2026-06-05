@@ -17,7 +17,6 @@ import {
   Search,
   Sparkles,
   Users,
-  X,
 } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -32,13 +31,13 @@ import {
   getStudyFields,
   submitSOPJob,
 } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
 import type { AIJobStatus, CreateSOPDraftPayload, GenerateSOPPayload } from "@/types/ai";
 import type { OpportunityListItem } from "@/types/opportunity";
-import type { StudentProfile } from "@/types/profile";
 import type { CountryOption, StudyFieldOption } from "@/types/reference";
+import { DeepSeekJobBar } from "./DeepSeekJobBar";
 import { FormattedSOPText } from "./FormattedSOPText";
+import { ScholarshipPickerModal } from "./ScholarshipPickerModal";
 import { initialForm, PUTER_MODEL } from "./constants";
 import {
   downloadSOPAsDocx,
@@ -49,260 +48,38 @@ import {
 } from "./format";
 import { buildPuterPrompt, buildSOPImprovementPrompt, extractPuterText } from "./puter";
 import { validateSOPImprovementInstruction, validateSOPInput } from "./safety";
+import {
+  buildAcademicBackgroundFromProfile,
+  buildKeyStrengthFromProfile,
+  cancelDeepSeekJobWithKeepalive,
+  deepSeekLeaveWarning,
+  deepSeekTerminalStatuses,
+  fallbackCountryOptions,
+  fallbackStudyFieldOptions,
+  formatCooldown,
+  formatScholarshipDeadline,
+  formatScholarshipMeta,
+  getBackendSOPPayload,
+  getDeepSeekLimitPayload,
+  getProfileFieldOfStudy,
+  getProfileTargetDegree,
+  getProviderDisplayName,
+  getScholarshipDegree,
+  getScholarshipField,
+  scholarshipPickerMaxResults,
+  sopImprovementOptions,
+  wait,
+} from "./sop-utils";
 import type {
   AIHealthStatus,
+  CreateDeepSeekJobResponse,
+  DeepSeekJobResponse,
+  DeepSeekWorkerStatusResponse,
   GenerationProvider,
   PuterWindow,
   SOPImprovementFocus,
+  ScholarshipPickerItem,
 } from "./types";
-
-type DeepSeekWorkerStatusResponse = {
-  online: boolean;
-  status: "online" | "offline" | string;
-  message: string;
-};
-
-type DeepSeekJobStatus = "queued" | "running" | "completed" | "failed" | "canceled";
-
-type CreateDeepSeekJobResponse = {
-  job_id: number;
-  status: DeepSeekJobStatus;
-  message: string;
-  poll_url: string;
-};
-
-type DeepSeekJobResponse = {
-  id: number;
-  kind: string;
-  status: DeepSeekJobStatus;
-  ok: boolean | null;
-  text: string;
-  user_message: string;
-  jobs_ahead: number | null;
-  queue_position: number | null;
-  processing_label: string;
-  result_payload: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-  claimed_at: string | null;
-  completed_at: string | null;
-  failed_at: string | null;
-};
-
-type DeepSeekLimitErrorResponse = {
-  detail?: string;
-  status?: string;
-  retry_after_seconds?: number;
-};
-
-type LocalSOPRequestPayload = Omit<GenerateSOPPayload, "academic_background" | "key_strength"> & {
-  output_type: "full_sop";
-  tone: "formal";
-};
-
-type ScholarshipPickerItem = {
-  scholarship: OpportunityListItem;
-  isSaved: boolean;
-  matchScore: number | null;
-  rank: 0 | 1 | 2;
-};
-
-const deepSeekTerminalStatuses: DeepSeekJobStatus[] = ["completed", "failed", "canceled"];
-const scholarshipPickerMaxResults = 100;
-const sopImprovementOptions: Array<{ value: SOPImprovementFocus; label: string }> = [
-  { value: "opening", label: "Improve opening/motivation" },
-  { value: "academic_background", label: "Improve academic background" },
-  { value: "scholarship_fit", label: "Improve scholarship fit" },
-  { value: "future_goals", label: "Improve future goals/contribution" },
-  { value: "clarity", label: "Make the whole SOP clearer" },
-];
-const fallbackCountryOptions = ["Pakistan", "China", "Turkey", "Germany", "United States"];
-const fallbackStudyFieldOptions = [
-  "Computer Science",
-  "Artificial Intelligence",
-  "Engineering",
-  "Business Administration",
-  "Public Health",
-];
-const deepSeekLeaveWarning =
-  "Your SOP request is still processing. Leaving may cancel or lose the result.";
-
-function getDeepSeekLimitPayload(error: unknown): DeepSeekLimitErrorResponse | null {
-  if (!isAxiosError<DeepSeekLimitErrorResponse>(error)) {
-    return null;
-  }
-
-  return error.response?.data ?? null;
-}
-
-function formatCooldown(seconds: number) {
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${minutes}m ${remainingSeconds.toString().padStart(2, "0")}s`;
-}
-
-function wait(milliseconds: number) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, milliseconds);
-  });
-}
-
-function formatScholarshipMeta(values: Array<string | null | undefined>) {
-  return values
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value))
-    .join(" | ");
-}
-
-function firstProfileValue(values: Array<string | null | undefined>) {
-  return values.find((value) => value?.trim())?.trim() ?? "";
-}
-
-function getScholarshipDegree(scholarship: OpportunityListItem) {
-  return scholarship.degree_levels?.[0] ?? "";
-}
-
-function getScholarshipField(scholarship: OpportunityListItem) {
-  return scholarship.fields_of_study?.[0] ?? "";
-}
-
-function formatScholarshipDeadline(deadline: string | null) {
-  if (!deadline) {
-    return "";
-  }
-
-  const parsedDate = new Date(deadline);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return deadline;
-  }
-
-  return parsedDate.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function buildAcademicBackgroundFromProfile(profile: StudentProfile) {
-  return formatScholarshipMeta([
-    profile.current_education_level,
-    profile.current_field_of_study,
-    profile.current_institution,
-    profile.cgpa ? `CGPA ${profile.cgpa}` : "",
-    profile.percentage ? `${profile.percentage}%` : "",
-    profile.graduation_year ? `Graduation ${profile.graduation_year}` : "",
-  ]);
-}
-
-function buildKeyStrengthFromProfile(profile: StudentProfile) {
-  const strengths = [
-    ...(profile.skills ?? []).slice(0, 4),
-    profile.has_research_experience ? "research experience" : "",
-    profile.publications_count ? `${profile.publications_count} publication(s)` : "",
-    profile.work_experience_years ? `${profile.work_experience_years} year(s) work experience` : "",
-    profile.has_internship_experience ? "internship experience" : "",
-    ...(profile.research_interests ?? []).slice(0, 2).map((interest) => `${interest} interest`),
-  ];
-
-  return formatScholarshipMeta(strengths);
-}
-
-function getProfileFieldOfStudy(profile: StudentProfile) {
-  return firstProfileValue([profile.target_fields?.[0], profile.current_field_of_study]);
-}
-
-function getProfileTargetDegree(profile: StudentProfile) {
-  return firstProfileValue([profile.target_degree_level]);
-}
-
-function getProviderDisplayName(provider: GenerationProvider | null) {
-  if (provider === "local") return "Server 1";
-  if (provider === "puter") return "Server 2";
-  if (provider === "deepseek") return "Server 3";
-  return "";
-}
-
-function getBackendSOPPayload(form: GenerateSOPPayload): LocalSOPRequestPayload {
-  const extraNotes = [
-    form.existing_draft?.trim(),
-    form.academic_background?.trim()
-      ? `Academic background: ${form.academic_background.trim()}`
-      : "",
-    form.key_strength?.trim()
-      ? `Key strength or achievement: ${form.key_strength.trim()}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
-  return {
-    target_scholarship: form.target_scholarship,
-    target_country: form.target_country,
-    target_degree: form.target_degree,
-    field_of_study: form.field_of_study,
-    why_scholarship: form.why_scholarship,
-    future_goals: form.future_goals,
-    contribution_goal: form.contribution_goal,
-    existing_draft: extraNotes,
-    output_type: "full_sop",
-    tone: "formal",
-  };
-}
-
-function cancelDeepSeekJobWithKeepalive(jobId: number) {
-  const accessToken = getAccessToken();
-  const baseUrl = api.defaults.baseURL ?? "";
-
-  void fetch(`${baseUrl}/desktop-automation/jobs/${jobId}/cancel/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    body: "{}",
-    keepalive: true,
-  }).catch(() => {
-    // Best effort during page unload.
-  });
-}
-
-function getDeepSeekProcessingLabel(job: DeepSeekJobResponse) {
-  const backendLabel = job.processing_label?.replace("Queued - ", "Queued — ");
-
-  if (job.status === "running") {
-    return backendLabel || "Processing now";
-  }
-
-  if (job.status !== "queued") {
-    return backendLabel || "Please keep this page open";
-  }
-
-  const jobsAhead =
-    job.jobs_ahead ??
-    (job.queue_position && job.queue_position > 0
-      ? Math.max(0, job.queue_position - 1)
-      : null);
-
-  if (jobsAhead === 0 && job.queue_position === 1) {
-    return "Queued — you are next";
-  }
-
-  if (backendLabel) {
-    return backendLabel;
-  }
-
-  if (typeof jobsAhead === "number") {
-    return jobsAhead > 0 ? `Queued — ${jobsAhead} job(s) ahead` : "Queued — you are next";
-  }
-
-  return "Queued";
-}
 
 function CompactOptionInput({
   id,
@@ -354,7 +131,6 @@ function SOPGeneratorContent() {
   const [scholarships, setScholarships] = useState<ScholarshipPickerItem[]>([]);
   const [selectedScholarship, setSelectedScholarship] = useState<OpportunityListItem | null>(null);
   const [scholarshipPickerOpen, setScholarshipPickerOpen] = useState(false);
-  const [scholarshipSearch, setScholarshipSearch] = useState("");
   const [scholarshipsLoading, setScholarshipsLoading] = useState(false);
   const [scholarshipsError, setScholarshipsError] = useState<string | null>(null);
   const [form, setForm] = useState<GenerateSOPPayload>(initialForm);
@@ -396,27 +172,6 @@ function SOPGeneratorContent() {
       ((form.future_goals || "").trim().length > 0 || (form.existing_draft || "").trim().length > 0)
     );
   }, [form, selectedScholarship]);
-
-  const filteredScholarships = useMemo(() => {
-    const normalizedSearch = scholarshipSearch.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return scholarships;
-    }
-
-    return scholarships.filter(({ scholarship }) => {
-      const searchableText = [
-        scholarship.title,
-        scholarship.country,
-        ...(scholarship.degree_levels ?? []),
-        ...(scholarship.fields_of_study ?? []),
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      return searchableText.includes(normalizedSearch);
-    });
-  }, [scholarshipSearch, scholarships]);
 
   async function checkAIHealth() {
     setCheckingAI(true);
@@ -590,21 +345,6 @@ function SOPGeneratorContent() {
   useEffect(() => {
     selectedScholarshipRef.current = selectedScholarship;
   }, [selectedScholarship]);
-
-  useEffect(() => {
-    if (!scholarshipPickerOpen) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void loadScholarshipOptions(scholarshipSearch);
-    }, 250);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [loadScholarshipOptions, scholarshipPickerOpen, scholarshipSearch]);
-
 
   useEffect(() => {
     if (deepSeekCooldownSeconds <= 0) {
@@ -1751,132 +1491,15 @@ function SOPGeneratorContent() {
               </button>
             </div>
 
-            {scholarshipPickerOpen ? (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 px-3 py-6 dark:bg-black/60"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="scholarship-picker-title"
-              >
-                <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-soft dark:border-white/10 dark:bg-[#181b1d]">
-                  <div className="flex items-start justify-between gap-3 border-b border-ink/10 p-4 dark:border-white/10">
-                    <div>
-                      <h3 id="scholarship-picker-title" className="text-base font-bold text-ink dark:text-white">
-                        Choose scholarship
-                      </h3>
-                      <p className="mt-1 text-xs leading-5 text-ink/60 dark:text-white/55">
-                        Saved scholarships appear first, followed by profile matches and other
-                        scholarships.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setScholarshipPickerOpen(false)}
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink/10 text-ink/60 transition hover:bg-ink/5 dark:border-white/10 dark:text-white/60 dark:hover:bg-white/10"
-                      aria-label="Close scholarship picker"
-                    >
-                      <X size={18} aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  <div className="border-b border-ink/10 p-3 dark:border-white/10">
-                    <label className="relative block">
-                      <Search
-                        size={16}
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/40"
-                        aria-hidden="true"
-                      />
-                      <input
-                        value={scholarshipSearch}
-                        onChange={(event) => setScholarshipSearch(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                          }
-                        }}
-                        placeholder="Search title, country, degree, or field"
-                        className="h-10 w-full rounded-xl border border-ink/15 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10"
-                        autoFocus
-                      />
-                    </label>
-                  </div>
-
-                  <div className="overflow-y-auto p-3">
-                    {scholarshipsLoading ? (
-                      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink/10 bg-cream/40 p-3 text-sm text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/58">
-                        <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                        Loading scholarships...
-                      </div>
-                    ) : scholarshipsError ? (
-                      <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-700">
-                        {scholarshipsError}
-                        <button
-                          type="button"
-                          onClick={() => void loadScholarshipOptions()}
-                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
-                        >
-                          <RefreshCw size={14} aria-hidden="true" />
-                          Retry
-                        </button>
-                      </div>
-                    ) : filteredScholarships.length ? (
-                      <div className="grid gap-2">
-                        {filteredScholarships.map(({ scholarship, isSaved, matchScore }) => {
-                          const degree = getScholarshipDegree(scholarship);
-                          const field = getScholarshipField(scholarship);
-                          const deadline = formatScholarshipDeadline(scholarship.deadline);
-                          const metadata = formatScholarshipMeta([
-                            scholarship.country,
-                            degree,
-                            field,
-                            deadline ? `Deadline ${deadline}` : "",
-                          ]);
-
-                          return (
-                            <button
-                              key={scholarship.slug}
-                              type="button"
-                              onClick={() => selectScholarship(scholarship)}
-                              className="rounded-xl border border-ink/10 bg-white p-3 text-left transition hover:border-pine/30 hover:bg-pine/5 dark:border-white/10 dark:bg-white/5 dark:hover:border-pine/35 dark:hover:bg-pine/10"
-                            >
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-bold leading-5 text-ink dark:text-white">
-                                    {scholarship.title}
-                                  </p>
-                                  {metadata ? (
-                                    <p className="mt-1 text-xs leading-5 text-ink/60 dark:text-white/55">
-                                      {metadata}
-                                    </p>
-                                  ) : null}
-                                </div>
-
-                                <div className="flex shrink-0 flex-wrap gap-1.5">
-                                  {isSaved ? (
-                                    <span className="rounded-full bg-pine/10 px-2 py-0.5 text-[11px] font-semibold text-pine">
-                                      Saved
-                                    </span>
-                                  ) : null}
-                                  {matchScore !== null ? (
-                                    <span className="rounded-full bg-saffron/15 px-2 py-0.5 text-[11px] font-semibold text-ink/70">
-                                      Match {Math.round(matchScore)}%
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-ink/10 bg-cream/40 p-3 text-sm leading-6 text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/58">
-                        No scholarships match your search.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            <ScholarshipPickerModal
+              open={scholarshipPickerOpen}
+              scholarships={scholarships}
+              loading={scholarshipsLoading}
+              error={scholarshipsError}
+              onClose={() => setScholarshipPickerOpen(false)}
+              onSelect={selectScholarship}
+              onRetry={() => void loadScholarshipOptions()}
+            />
           </form>
         </section>
 
@@ -1910,47 +1533,12 @@ function SOPGeneratorContent() {
         )}
 
         {showDeepSeekJobBar && deepSeekJob && (
-          <section className="flex flex-col gap-2 rounded-2xl border border-pine/15 bg-pine/5 p-3 shadow-soft dark:border-pine/20 dark:bg-pine/10 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-semibold text-pine dark:bg-white/5">
-                <Users size={14} aria-hidden="true" />
-                Server 3
-              </span>
-              <span className="font-bold capitalize text-ink dark:text-white">
-                {deepSeekJob.status === "running" ? "Processing now" : deepSeekJob.status}
-              </span>
-              <span className="text-ink/45">&middot;</span>
-              <span className="text-ink/65 dark:text-white/58">{getDeepSeekProcessingLabel(deepSeekJob)}</span>
-              {deepSeekJob.queue_position && deepSeekJob.queue_position > 0 ? (
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink/60 dark:bg-white/5 dark:text-white/55">
-                  Position #{deepSeekJob.queue_position}
-                </span>
-              ) : null}
-            </div>
-
-            {deepSeekIsWaiting ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pine">
-                  <Clock size={14} aria-hidden="true" />
-                  Keep open
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void cancelDeepSeekJob(deepSeekJob.id)}
-                  className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-400/25 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/10"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : deepSeekJob.status === "failed" || deepSeekJob.status === "canceled" ? (
-              <span className="text-sm font-semibold text-red-700 dark:text-red-300">
-                {deepSeekError ||
-                  deepSeekJob.user_message ||
-                  deepSeekJob.text ||
-                  "Your Server 3 request could not be completed."}
-              </span>
-            ) : null}
-          </section>
+          <DeepSeekJobBar
+            job={deepSeekJob}
+            isWaiting={deepSeekIsWaiting}
+            error={deepSeekError}
+            onCancel={() => void cancelDeepSeekJob(deepSeekJob.id)}
+          />
         )}
 
         <section className="min-w-0 rounded-2xl border border-ink/10 bg-white p-4 shadow-soft dark:border-white/10 dark:bg-[#181b1d] md:p-5">
