@@ -13,7 +13,7 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=255)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.STUDENT)
-    email_verified = models.BooleanField(default=True)
+    email_verified = models.BooleanField(default=False)
     email_verification_sent_at = models.DateTimeField(null=True, blank=True)
     email_verification_nonce = models.CharField(max_length=128, blank=True, default="")
     password_reset_sent_at = models.DateTimeField(null=True, blank=True)

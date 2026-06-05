@@ -944,6 +944,23 @@ class AuthenticationAPITests(APITestCase):
         self.assertEqual(user.role, User.Role.ADMIN)
         self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
+        self.assertTrue(user.email_verified)
+        self.assertTrue(user.is_active)
+
+    def test_create_user_email_verified_defaults_to_false(self):
+        user = User.objects.create_user(
+            email="newuser@example.com",
+            password="StrongPassword123!",
+            full_name="New User",
+        )
+        self.assertFalse(user.email_verified)
+
+    def test_user_model_email_verified_default_is_false(self):
+        user = User(
+            email="modeldefault@example.com",
+            full_name="Model Default",
+        )
+        self.assertFalse(user.email_verified)
 
     def test_resending_verification_email_invalidates_previous_token(self):
         from django.test import override_settings
