@@ -1,9 +1,14 @@
 from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import check_password as verify_password, make_password
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
+
+# Pre-computed at module load. Used for constant-time checks when the email is unknown,
+# so unknown-email requests take the same time as known-email requests.
+_DUMMY_HASH = make_password("sr-timing-guard-dummy")
 
 from apps.users.models import User
 
@@ -66,10 +71,16 @@ class LoginSerializer(serializers.Serializer):
 
         user = authenticate(request=request, username=email, password=password)
         if user is None:
-            # Check if credentials are correct but account isn't verified/active,
-            # so we can give a specific error rather than the generic one.
             existing = User.objects.filter(email__iexact=email).first()
-            if existing and existing.check_password(password):
+            if existing:
+                password_correct = existing.check_password(password)
+            else:
+                # Always run one hash comparison so unknown-email requests take
+                # the same time as known-email ones (prevents timing oracle).
+                verify_password(password, _DUMMY_HASH)
+                password_correct = False
+
+            if password_correct and not existing.email_verified:
                 raise serializers.ValidationError(
                     "Please verify your email address before logging in."
                 )

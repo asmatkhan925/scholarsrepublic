@@ -22,6 +22,18 @@ class LoginRateThrottle(AuthEndpointRateThrottle):
     scope = "auth_login"
 
 
+class LoginEmailRateThrottle(SimpleRateThrottle):
+    """Per-email rate limit so brute-forcing one account from many IPs is blocked."""
+
+    scope = "auth_login_email"
+
+    def get_cache_key(self, request, view):
+        email = str(request.data.get("email", "")).strip().lower()
+        if not email:
+            return None
+        return self.cache_format % {"scope": self.scope, "ident": email}
+
+
 class ResendVerificationRateThrottle(AuthEndpointRateThrottle):
     scope = "auth_resend_verification"
 

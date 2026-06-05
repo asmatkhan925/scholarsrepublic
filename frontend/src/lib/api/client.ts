@@ -1,6 +1,6 @@
 import axios from "axios";
 
-import { getAccessToken, getRefreshToken, removeTokens, removeUser, saveTokens } from "@/lib/auth";
+import { getRefreshToken, removeTokens, removeUser, saveTokens } from "@/lib/auth";
 
 export function resolvePublicApiBaseUrl() {
   const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
@@ -35,11 +35,6 @@ api.interceptors.request.use((config) => {
     throw new Error(
       "Missing NEXT_PUBLIC_API_BASE_URL in production. Set it to the Django API base URL.",
     );
-  }
-
-  const accessToken = getAccessToken();
-  if (accessToken && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
   }
 
   return config;
@@ -135,4 +130,26 @@ export function setAuthToken(token: string) {
 
 export function clearAuthToken() {
   delete api.defaults.headers.common.Authorization;
+}
+
+/**
+ * Called on page load to bootstrap the session from the stored refresh token.
+ * Returns the new access token (set in the axios header) or null if refresh fails.
+ */
+export async function bootstrapSessionFromRefreshToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  try {
+    const { data } = await axios.post<{ access: string; refresh: string }>(
+      `${API_BASE_URL}/auth/token/refresh/`,
+      { refresh: refreshToken },
+    );
+    saveTokens(data);
+    setAuthToken(data.access);
+    return data.access;
+  } catch {
+    clearAuthToken();
+    return null;
+  }
 }

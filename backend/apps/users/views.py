@@ -22,6 +22,7 @@ from apps.users.serializers import (
 )
 from apps.users.safe_redirects import clean_next_path
 from apps.users.throttles import (
+    LoginEmailRateThrottle,
     LoginRateThrottle,
     PasswordResetConfirmRateThrottle,
     PasswordResetRequestRateThrottle,
@@ -177,12 +178,15 @@ class ResendVerificationEmailView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [LoginRateThrottle]
+    throttle_classes = [LoginRateThrottle, LoginEmailRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        return auth_response_for_user(serializer.validated_data["user"])
+        user = serializer.validated_data["user"]
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+        return auth_response_for_user(user)
 
 
 class PasswordResetRequestView(APIView):

@@ -1,6 +1,5 @@
 import type { AuthTokens, User } from "@/types/auth";
 
-const ACCESS_TOKEN_KEY = "scholars_republic_access_token";
 const REFRESH_TOKEN_KEY = "scholars_republic_refresh_token";
 const USER_KEY = "scholars_republic_user";
 
@@ -33,23 +32,15 @@ function isStoredUser(value: unknown): value is User {
   );
 }
 
-export function saveTokens(tokens: AuthTokens) {
+export function saveTokens(tokens: Pick<AuthTokens, "refresh">) {
   const storage = getBrowserStorage();
   if (!storage) {
     return;
   }
 
-  storage.setItem(ACCESS_TOKEN_KEY, tokens.access);
+  // Access token is intentionally not persisted to storage — it lives only in
+  // memory (the axios default Authorization header) so XSS cannot read it.
   storage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
-}
-
-export function getAccessToken() {
-  const storage = getBrowserStorage();
-  if (!storage) {
-    return null;
-  }
-
-  return storage.getItem(ACCESS_TOKEN_KEY);
 }
 
 export function getRefreshToken() {
@@ -67,12 +58,7 @@ export function removeTokens() {
     return;
   }
 
-  storage.removeItem(ACCESS_TOKEN_KEY);
   storage.removeItem(REFRESH_TOKEN_KEY);
-}
-
-export function isAuthenticated() {
-  return Boolean(getAccessToken());
 }
 
 export function saveUser(user: User) {

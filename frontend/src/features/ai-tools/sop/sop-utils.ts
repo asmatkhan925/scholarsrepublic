@@ -1,7 +1,6 @@
 import { isAxiosError } from "axios";
 
 import { api } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
 import type { GenerateSOPPayload } from "@/types/ai";
 import type { OpportunityListItem } from "@/types/opportunity";
 import type { StudentProfile } from "@/types/profile";
@@ -163,14 +162,19 @@ export function getBackendSOPPayload(form: GenerateSOPPayload): LocalSOPRequestP
 }
 
 export function cancelDeepSeekJobWithKeepalive(jobId: number) {
-  const accessToken = getAccessToken();
+  // Access token is in the axios default header (not localStorage), so we
+  // read it from there for this keepalive fetch-on-unload request.
+  const authHeader =
+    typeof api.defaults.headers.common.Authorization === "string"
+      ? api.defaults.headers.common.Authorization
+      : undefined;
   const baseUrl = api.defaults.baseURL ?? "";
 
   void fetch(`${baseUrl}/desktop-automation/jobs/${jobId}/cancel/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(authHeader ? { Authorization: authHeader } : {}),
     },
     body: "{}",
     keepalive: true,

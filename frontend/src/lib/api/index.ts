@@ -1,4 +1,4 @@
-export { api, setAuthToken, clearAuthToken } from "./client";
+export { api, setAuthToken, clearAuthToken, bootstrapSessionFromRefreshToken } from "./client";
 export type { PaginationParams, PendingRequest } from "./client";
 
 export type { HealthResponse } from "./reference";

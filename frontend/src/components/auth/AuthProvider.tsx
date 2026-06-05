@@ -6,11 +6,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
 import {
+  bootstrapSessionFromRefreshToken,
   clearAuthToken,
   getCurrentUser,
   loginUser,
@@ -20,7 +22,6 @@ import {
   verifyEmail as verifyEmailRequest,
 } from "@/lib/api";
 import {
-  getAccessToken,
   getRefreshToken,
   getStoredUser,
   removeTokens,
@@ -54,6 +55,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
   const clearSession = useCallback(() => {
     clearAuthToken();
@@ -71,26 +73,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshCurrentUser = useCallback(async () => {
-    const accessToken = getAccessToken();
-
-    if (!accessToken) {
-      clearSession();
-      setLoading(false);
-      return null;
-    }
-
-    setAuthToken(accessToken);
-
     try {
+      const accessToken = await bootstrapSessionFromRefreshToken();
+      if (!accessToken) {
+        clearSession();
+        setLoading(false);
+        return null;
+      }
+
       const currentUser = await getCurrentUser();
+      if (!isMountedRef.current) return null;
       saveUser(currentUser);
       setUser(currentUser);
       return currentUser;
     } catch {
-      clearSession();
+      if (isMountedRef.current) clearSession();
       return null;
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }, [clearSession]);
 
@@ -101,6 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     void refreshCurrentUser();
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [refreshCurrentUser]);
 
   const login = useCallback(
@@ -121,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      if (getAccessToken()) {
+      if (getRefreshToken()) {
         await logoutUser(getRefreshToken());
       }
     } finally {
