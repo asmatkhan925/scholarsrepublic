@@ -73,7 +73,12 @@ def collect_pathway_and_descendant_ids(pathways):
 def public_pathway_queryset():
     return (
         OpportunityPathway.objects.filter(is_active=True)
-        .select_related("country_ref", "parent")
+        .select_related(
+            "country_ref",
+            "parent",
+            "parent__parent",
+            "parent__parent__parent",
+        )
         .annotate(
             active_children_count=Count(
                 "children",

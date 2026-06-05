@@ -53,7 +53,12 @@ class AdminOpportunityPathwayListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = (
             OpportunityPathway.objects.all()
-            .select_related("country_ref", "parent")
+            .select_related(
+                "country_ref",
+                "parent",
+                "parent__parent",
+                "parent__parent__parent",
+            )
             .annotate(
                 active_children_count=Count(
                     "children",
@@ -100,7 +105,12 @@ class AdminOpportunityPathwayListCreateView(generics.ListCreateAPIView):
 class AdminOpportunityPathwayDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OpportunityPathwaySerializer
     permission_classes = [IsPlatformAdmin]
-    queryset = OpportunityPathway.objects.select_related("country_ref", "parent").all()
+    queryset = OpportunityPathway.objects.select_related(
+        "country_ref",
+        "parent",
+        "parent__parent",
+        "parent__parent__parent",
+    ).all()
 
     def perform_destroy(self, instance):
         instance.is_active = False
@@ -124,6 +134,8 @@ class AdminOpportunityListCreateView(OpportunityFilterMixin, generics.ListCreate
                 "pathway",
                 "pathway__country_ref",
                 "pathway__parent",
+                "pathway__parent__parent",
+                "pathway__parent__parent__parent",
             )
             .prefetch_related(
                 "eligible_country_refs",
@@ -150,6 +162,8 @@ class AdminOpportunityDetailView(generics.RetrieveUpdateDestroyAPIView):
                 "pathway",
                 "pathway__country_ref",
                 "pathway__parent",
+                "pathway__parent__parent",
+                "pathway__parent__parent__parent",
             )
             .prefetch_related(
                 "eligible_country_refs",

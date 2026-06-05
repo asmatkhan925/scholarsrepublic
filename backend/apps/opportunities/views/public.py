@@ -134,6 +134,8 @@ class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
                 "pathway",
                 "pathway__country_ref",
                 "pathway__parent",
+                "pathway__parent__parent",
+                "pathway__parent__parent__parent",
             )
             .prefetch_related(
                 "eligible_country_refs",
@@ -158,6 +160,8 @@ class PublicOpportunityDetailView(generics.RetrieveAPIView):
                 "pathway",
                 "pathway__country_ref",
                 "pathway__parent",
+                "pathway__parent__parent",
+                "pathway__parent__parent__parent",
             )
             .prefetch_related(
                 "eligible_country_refs",
@@ -355,6 +359,8 @@ class ScholarshipPickerView(StudentMatchMixin, APIView):
                 "pathway",
                 "pathway__country_ref",
                 "pathway__parent",
+                "pathway__parent__parent",
+                "pathway__parent__parent__parent",
             )
             .prefetch_related(
                 "eligible_country_refs",
