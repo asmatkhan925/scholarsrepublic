@@ -302,3 +302,52 @@ DEFAULT_FROM_EMAIL = os.getenv(
 
 
 DESKTOP_WORKER_TOKEN = os.getenv("DESKTOP_WORKER_TOKEN", "")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "{asctime} {levelname} {name}: {message}",
+            "style": "{",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        # Django internals — WARNING keeps startup/ORM noise out of logs.
+        # Override with DJANGO_LOG_LEVEL=DEBUG for deep framework tracing.
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "WARNING"),
+            "propagate": False,
+        },
+        # 4xx → WARNING, 5xx → ERROR; always keep these visible.
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        # All apps.* loggers inherit this. DEBUG in development, INFO in production.
+        # Override with APP_LOG_LEVEL=DEBUG on the server for temporary tracing.
+        "apps": {
+            "handlers": ["console"],
+            "level": os.getenv("APP_LOG_LEVEL", "DEBUG" if DEBUG else "INFO"),
+            "propagate": False,
+        },
+    },
+}
