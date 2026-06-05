@@ -64,22 +64,18 @@ class LoginSerializer(serializers.Serializer):
         email = User.objects.normalize_email(attrs["email"])
         password = attrs["password"]
 
-        existing_user = User.objects.filter(email__iexact=email).first()
-        if existing_user and existing_user.check_password(password):
-            if not existing_user.email_verified or not existing_user.is_active:
+        user = authenticate(request=request, username=email, password=password)
+        if user is None:
+            # Check if credentials are correct but account isn't verified/active,
+            # so we can give a specific error rather than the generic one.
+            existing = User.objects.filter(email__iexact=email).first()
+            if existing and existing.check_password(password):
                 raise serializers.ValidationError(
                     "Please verify your email address before logging in."
                 )
-
-        user = authenticate(
-            request=request,
-            username=email,
-            password=password,
-        )
-        if user is None:
             raise serializers.ValidationError("Invalid email or password.")
 
-        if not user.email_verified or not user.is_active:
+        if not user.email_verified:
             raise serializers.ValidationError(
                 "Please verify your email address before logging in."
             )

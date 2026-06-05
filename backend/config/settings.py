@@ -254,10 +254,13 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+API_DOCS_ENABLED = env_bool("API_DOCS_ENABLED", DEBUG)
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Scholars Republic API",
     "DESCRIPTION": "API for the Scholars Republic scholarship matching platform.",
     "VERSION": "0.1.0",
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
 }
 AI_FEATURES_ENABLED = env_bool("AI_FEATURES_ENABLED", False)
 AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "")
