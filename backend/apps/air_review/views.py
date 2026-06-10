@@ -98,6 +98,77 @@ def _missing_snapshot() -> HttpResponse:
 # Endpoints
 # --------------------------------------------------------------------------- #
 
+PUBLIC_BASE = "https://scholarsrepublic.org"
+
+# Files surfaced as clickable links on the landing page.
+_INDEX_FILES = [
+    "00_project_management/decision_log.md",
+    "03_references/references.bib",
+    "05_synthesis_matrices/seed_paper_map.csv",
+    "05_synthesis_matrices/evidence_to_claim_matrix.csv",
+    "05_synthesis_matrices/evaluation_robustness_matrix.csv",
+    "05_synthesis_matrices/foundation_model_matrix.csv",
+    "05_synthesis_matrices/dataset_benchmark_matrix.csv",
+]
+
+
+@csrf_exempt
+@require_http_methods(["GET", "OPTIONS"])
+def index(request):
+    """Plain-HTML landing page with clickable links to every endpoint.
+
+    Exists so external assistants (e.g. ChatGPT's browser) can reach the JSON/CSV
+    endpoints by clicking links on a page, instead of being blocked from opening
+    URLs that didn't appear in the chat. No JavaScript.
+    """
+    if request.method == "OPTIONS":
+        return _options()
+
+    commit, generated = _commit_and_time()
+
+    def li(href, label):
+        return f'  <li><a href="{href}">{label}</a></li>'
+
+    endpoint_links = [
+        li(f"{PUBLIC_BASE}/api/air/latest", "/api/air/latest — current state + verification targets"),
+        li(f"{PUBLIC_BASE}/api/air/manifest", "/api/air/manifest — per-file hashes, counts, validations"),
+        li(f"{PUBLIC_BASE}/api/air/health", "/api/air/health — status + commit"),
+    ]
+    file_links = [
+        li(f"{PUBLIC_BASE}/api/air/file?path={p}", f"/api/air/file?path={p}")
+        for p in _INDEX_FILES
+    ]
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="index,follow">
+<title>AIR_review Public API</title>
+</head>
+<body>
+<h1>AIR_review Public Snapshot API</h1>
+<p>Cache-resistant, read-only access to the latest state of the
+<code>asmatkhan925/AIR_review</code> repository. Use these instead of GitHub raw URLs.</p>
+<p><b>Current commit:</b> <code>{commit}</code><br>
+<b>Generated (UTC):</b> <code>{generated}</code></p>
+<h2>Endpoints</h2>
+<ul>
+{chr(10).join(endpoint_links)}
+</ul>
+<h2>Key files</h2>
+<ul>
+{chr(10).join(file_links)}
+</ul>
+<p>Full file list and integrity metadata are in
+<a href="{PUBLIC_BASE}/api/air/manifest">/api/air/manifest</a>.</p>
+</body>
+</html>
+"""
+    resp = HttpResponse(html, content_type="text/html; charset=utf-8")
+    return _apply_headers(resp)
+
+
 @csrf_exempt
 @require_http_methods(["GET", "OPTIONS"])
 def health(request):

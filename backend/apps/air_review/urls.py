@@ -4,6 +4,7 @@ from apps.air_review import views
 
 # Mounted at /api/air/ by config/urls.py
 urlpatterns = [
+    path("", views.index, name="air-index"),
     path("health", views.health, name="air-health"),
     path("latest", views.latest, name="air-latest"),
     path("manifest", views.manifest, name="air-manifest"),

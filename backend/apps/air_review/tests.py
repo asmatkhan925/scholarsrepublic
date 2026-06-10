@@ -93,6 +93,15 @@ class AirReviewApiTests(TestCase):
         self.assertEqual(resp.headers["X-AIR-Source"], "scholarsrepublic-api")
         self.assertEqual(resp.headers["Access-Control-Allow-Origin"], "*")
 
+    def test_index_landing_page(self):
+        r = self.client.get("/api/air/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers["Content-Type"], "text/html; charset=utf-8")
+        body = r.content.decode()
+        self.assertIn("/api/air/latest", body)
+        self.assertIn("/api/air/file?path=05_synthesis_matrices/seed_paper_map.csv", body)
+        self._assert_common_headers(r)
+
     def test_health(self):
         r = self.client.get("/api/air/health")
         self.assertEqual(r.status_code, 200)
