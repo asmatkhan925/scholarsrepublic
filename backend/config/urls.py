@@ -15,7 +15,6 @@ urlpatterns = [
     path("api/", include("apps.applications.urls")),
     path("api/", include("apps.opportunities.urls")),
     path("api/ai/", include("apps.ai_tools.urls")),
-    path("api/air/", include("apps.air_review.urls")),
     path("api/internal/desktop-worker/", include("apps.desktop_automation.urls")),
     path("api/desktop-automation/", include("apps.desktop_automation.public_urls")),
 ]
