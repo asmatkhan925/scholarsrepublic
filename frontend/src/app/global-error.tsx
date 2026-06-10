@@ -42,6 +42,9 @@ export default function GlobalError({
             >
               Try again
             </button>
+            {/* global-error replaces the root layout on a fatal error, where next/link
+                and the router context are not reliable, so a plain anchor is intentional. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/"
               style={{
