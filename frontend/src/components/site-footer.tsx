@@ -72,6 +72,10 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
                 {link.label}
               </Link>
             ))}
+            {/* Plain <a>: /air/ is served as a static snapshot by nginx, not a Next route. */}
+            <a href="/air/" className="transition hover:text-pine">
+              AIR Review Repository Snapshot
+            </a>
           </nav>
         </div>
 
