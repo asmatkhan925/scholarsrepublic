@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "apps.blog",
     "apps.ai_tools.apps.AiToolsConfig",
     "apps.desktop_automation.apps.DesktopAutomationConfig",
+    "apps.air_review.apps.AirReviewConfig",
 ]
 
 MIDDLEWARE = [
@@ -160,6 +161,28 @@ SOCIAL_REELS_BACKGROUND_MUSIC_PATH = os.getenv(
 SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME = float(
     os.getenv("SOCIAL_REELS_BACKGROUND_MUSIC_VOLUME", "0.12")
 )
+
+# AIR_review public snapshot API (apps.air_review).
+# Directory holding the generated snapshot bundle (manifest.json, latest.json,
+# health.json, files/...). Kept OUTSIDE media/static so nginx never serves it
+# directly and only the allowlisted Django views can reach it.
+AIR_SNAPSHOT_DIR = Path(
+    os.getenv(
+        "AIR_SNAPSHOT_DIR",
+        "/var/www/scholarsrepublic/air_api_snapshot"
+        if not DEBUG
+        else str(BASE_DIR / "air_api_snapshot"),
+    )
+)
+# GitHub push webhook -> POST /api/air/refresh triggers air_sync.sh.
+# Disabled (503) unless AIR_WEBHOOK_SECRET is set; requests are HMAC-verified
+# against GitHub's X-Hub-Signature-256 header.
+AIR_WEBHOOK_SECRET = os.getenv("AIR_WEBHOOK_SECRET", "")
+AIR_SYNC_SCRIPT = os.getenv(
+    "AIR_SYNC_SCRIPT", "/var/www/scholarsrepublic/AIR_review/scripts/air_sync.sh"
+)
+# Only pushes to this branch trigger a sync.
+AIR_BRANCH = os.getenv("AIR_BRANCH", "main")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
