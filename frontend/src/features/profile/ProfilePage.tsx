@@ -1,18 +1,8 @@
 "use client";
 
 import axios from "axios";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Bell,
-  BookOpen,
-  BriefcaseBusiness,
-  FileText,
-  GraduationCap,
-  Languages,
-  Save,
-  Target,
-  UserRound,
-} from "lucide-react";
+import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Save } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -25,21 +15,7 @@ import {
   patchStudentProfile,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  APPLICATION_FEE_PREFERENCES,
-  COMMON_SKILLS,
-  COUNTRY_REGIONS,
-  DOCUMENT_OPTIONS,
-  EDUCATION_LEVELS,
-  FUNDING_PREFERENCES,
-  GRADING_SYSTEMS,
-  LANGUAGE_INSTRUCTION_PREFERENCES,
-  PROVINCES,
-  RESULT_STATUSES,
-  SPECIAL_SCHOLARSHIP_CATEGORIES,
-  STUDY_MODE_PREFERENCES,
-  TARGET_DEGREE_LEVELS,
-} from "@/lib/profile-options";
+import { COUNTRY_REGIONS, DOCUMENT_OPTIONS } from "@/lib/profile-options";
 import type { StudentProfilePayload } from "@/types/profile";
 
 import {
@@ -49,9 +25,8 @@ import {
   FALLBACK_STUDY_FIELD_CATEGORIES,
   FieldCategoryMap,
   FieldName,
-  HSK_LEVELS,
+  MISSING_FIELD_SECTION,
   PREFERRED_INTAKE_OPTIONS,
-  TODAY_DATE,
 } from "./profile-constants";
 import {
   completionFromProfile,
@@ -62,17 +37,15 @@ import {
   validateProfilePayload,
   withProfileDefaults,
 } from "./profile-utils";
-import { BooleanField } from "./fields/BooleanField";
-import { CommaField } from "./fields/CommaField";
-import { CountryRegionPicker } from "./fields/CountryRegionPicker";
-import { MultiCheckboxField } from "./fields/MultiCheckboxField";
-import { SelectField } from "./fields/SelectField";
-import { StudyFieldMultiPicker } from "./fields/StudyFieldMultiPicker";
-import { StudyFieldSelect } from "./fields/StudyFieldSelect";
-import { TextField } from "./fields/TextField";
-import { NotificationSettings } from "./NotificationSettings";
-import { ProfileSection } from "./ProfileSection";
 import { ProfileSectionNav } from "./ProfileSectionNav";
+import { AlertsSection } from "./sections/AlertsSection";
+import { DocumentsSection } from "./sections/DocumentsSection";
+import { EducationSection } from "./sections/EducationSection";
+import { FundingSection } from "./sections/FundingSection";
+import { PersonalSection } from "./sections/PersonalSection";
+import { ResearchSection } from "./sections/ResearchSection";
+import { TargetsSection } from "./sections/TargetsSection";
+import { TestsSection } from "./sections/TestsSection";
 
 function ProfilePageContent() {
   const [form, setForm] = useState(EMPTY_PROFILE);
@@ -381,16 +354,32 @@ function ProfilePageContent() {
     ].slice(0, 5);
   }, [completion]);
 
+  // Shared props passed to every section component
+  const sectionProps = { form, textField, booleanField, multiField, commaField, setField };
+
   if (loading) {
     return (
-      <DashboardShell
-        description="Loading your student profile."
-        hideHeader
-        title="Student Profile"
-      >
-        <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-          <CardContent className="p-6 text-sm text-ink/70 dark:text-white/60">Loading profile form...</CardContent>
-        </Card>
+      <DashboardShell description="" hideHeader title="Student Profile">
+        <div className="grid gap-3 animate-pulse">
+          <div className="h-28 rounded-[1.5rem] bg-slate-100 dark:bg-white/6" />
+          <div className="h-11 rounded-2xl bg-slate-100 dark:bg-white/6" />
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-[1.5rem] border border-pine/8 bg-white p-4 dark:border-white/8 dark:bg-[#181b1d]">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-white/10" />
+                <div className="grid gap-1.5">
+                  <div className="h-4 w-32 rounded bg-slate-100 dark:bg-white/10" />
+                  <div className="h-3 w-56 rounded bg-slate-100 dark:bg-white/6" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {[1, 2, 3, 4].map((j) => (
+                  <div key={j} className="h-10 rounded-xl bg-slate-100 dark:bg-white/6" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </DashboardShell>
     );
   }
@@ -402,6 +391,7 @@ function ProfilePageContent() {
       title="Student Profile"
     >
       <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
+        {/* ── Hero / readiness banner ── */}
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
           <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_36rem] xl:items-center">
@@ -413,8 +403,7 @@ function ProfilePageContent() {
                   Improve your scholarship match.
                 </h1>
                 <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
-                  Fill the most important details first. You can save partial progress and return
-                  later.
+                  Fill the most important details first. You can save partial progress and return later.
                 </p>
               </div>
 
@@ -446,58 +435,52 @@ function ProfilePageContent() {
                         style={{ width: `${completion.completion_percentage}%` }}
                       />
                     </div>
+
+                    {hasUnsavedChanges && (
+                      <p className="mt-1.5 text-[10px] font-medium text-pine/60 dark:text-pine/50">
+                        Save to update score
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                     <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                        Complete
-                      </p>
-                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                        {completion.completion_percentage}%
-                      </p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Complete</p>
+                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">{completion.completion_percentage}%</p>
                     </div>
 
                     <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                        Docs
-                      </p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Docs</p>
                       <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
                         {preparedDocumentCount}
-                        <span className="text-[11px] font-bold text-ink/40 dark:text-white/40">
-                          /{DOCUMENT_OPTIONS.length}
-                        </span>
+                        <span className="text-[11px] font-bold text-ink/40 dark:text-white/40">/{DOCUMENT_OPTIONS.length}</span>
                       </p>
                     </div>
 
                     <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                        Targets
-                      </p>
-                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                        {form.target_countries.length}
-                      </p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Targets</p>
+                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">{form.target_countries.length}</p>
                     </div>
 
                     <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
-                        Fields
-                      </p>
-                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                        {form.target_fields.length}
-                      </p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Fields</p>
+                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">{form.target_fields.length}</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
         </section>
 
-        <ProfileSectionNav />
+        {/* ── Section nav ── */}
+        <ProfileSectionNav
+          missingFields={completion.missing_profile_fields}
+          missingDocuments={completion.missing_core_documents}
+        />
 
-        {nextProfileSteps.length > 0 ? (
+        {/* ── Next steps card ── */}
+        {nextProfileSteps.length > 0 && (
           <Card className="dark:border-white/10 dark:bg-[#181b1d]">
             <CardContent className="p-3">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -508,465 +491,51 @@ function ProfilePageContent() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {nextProfileSteps.map((item) => (
-                    <Badge key={item} tone="saffron">
-                      {item}
-                    </Badge>
-                  ))}
+                  {nextProfileSteps.map((item) => {
+                    const href = MISSING_FIELD_SECTION[item];
+                    return href ? (
+                      <a key={item} href={href} className="no-underline">
+                        <Badge tone="saffron">{item} ↓</Badge>
+                      </a>
+                    ) : (
+                      <Badge key={item} tone="saffron">{item}</Badge>
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>
           </Card>
-        ) : null}
+        )}
 
-        {message ? (
+        {/* ── Status messages ── */}
+        {message && (
           <div className="rounded-2xl border border-pine/10 bg-mint/40 p-4 text-sm font-medium text-pine dark:border-pine/20 dark:bg-pine/10">
             {message}
           </div>
-        ) : null}
-
-        {error ? (
+        )}
+        {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
             {error}
           </div>
-        ) : null}
+        )}
 
-        <ProfileSection
-          id="profile-personal"
-          description="Basic contact and location details help match country-specific scholarships."
-          icon={<UserRound size={20} aria-hidden="true" />}
-          title="Personal details"
-        >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <TextField
-              label="Phone number"
-              type="tel"
-              inputMode="tel"
-              maxLength={20}
-              {...textField("phone_number")}
-            />
-            <TextField
-              label="WhatsApp number"
-              type="tel"
-              inputMode="tel"
-              maxLength={20}
-              {...textField("whatsapp_number")}
-            />
-            <TextField
-              label="Date of birth"
-              type="date"
-              max={TODAY_DATE}
-              {...textField("date_of_birth")}
-            />
-            <SelectField
-              label="Nationality"
-              options={countryOptions}
-              {...textField("nationality")}
-            />
-            <SelectField
-              label="Current country"
-              options={countryOptions}
-              {...textField("current_country")}
-            />
-            <TextField label="City" {...textField("city")} />
-            <SelectField label="Province" options={PROVINCES} {...textField("province")} />
-            <TextField label="Domicile" {...textField("domicile")} />
-          </div>
-        </ProfileSection>
+        {/* ── Profile sections ── */}
+        <PersonalSection {...sectionProps} countryOptions={countryOptions} />
+        <EducationSection {...sectionProps} studyFieldCategories={studyFieldCategories} />
+        <TargetsSection
+          {...sectionProps}
+          countryRegions={countryRegions}
+          studyFieldCategories={studyFieldCategories}
+          preferredIntakeOptions={PREFERRED_INTAKE_OPTIONS}
+        />
+        <TestsSection {...sectionProps} />
+        <DocumentsSection {...sectionProps} />
+        <ResearchSection {...sectionProps} />
+        <FundingSection {...sectionProps} />
+        <AlertsSection {...sectionProps} />
 
-        <ProfileSection
-          id="profile-education"
-          description="Education details are heavily used for scholarship eligibility and match scoring."
-          icon={<GraduationCap size={20} aria-hidden="true" />}
-          title="Education"
-        >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <SelectField
-              label="Current education level"
-              options={EDUCATION_LEVELS}
-              {...textField("current_education_level")}
-            />
-            <TextField label="Current institution" {...textField("current_institution")} />
-            <StudyFieldSelect
-              label="Current field of study"
-              value={String(form.current_field_of_study || "")}
-              fieldCategories={studyFieldCategories}
-              onChange={(value) => setField("current_field_of_study", value)}
-            />
-            <TextField
-              label="Graduation year"
-              type="number"
-              min={1900}
-              max={2100}
-              {...textField("graduation_year")}
-            />
-            <SelectField
-              label="Result status"
-              options={RESULT_STATUSES}
-              {...textField("result_status")}
-            />
-            <SelectField
-              label="Grading system"
-              options={GRADING_SYSTEMS}
-              {...textField("grading_system")}
-            />
-            <TextField
-              label="CGPA"
-              type="number"
-              min={0}
-              max={5}
-              step="0.01"
-              {...textField("cgpa")}
-            />
-            <TextField
-              label="Percentage"
-              type="number"
-              min={0}
-              max={100}
-              step="0.01"
-              {...textField("percentage")}
-            />
-            <TextField label="Division" {...textField("division")} />
-          </div>
-        </ProfileSection>
-
-        <ProfileSection
-          id="profile-targets"
-          description="Tell Scholars Republic what you want, so recommendations stay focused."
-          icon={<Target size={20} aria-hidden="true" />}
-          title="Scholarship targets"
-        >
-          <div className="grid gap-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <SelectField
-                label="Target degree level"
-                options={TARGET_DEGREE_LEVELS}
-                {...textField("target_degree_level")}
-              />
-              <SelectField
-                label="Preferred intake"
-                options={PREFERRED_INTAKE_OPTIONS}
-                {...textField("preferred_intake")}
-              />
-              <SelectField
-                label="Study mode"
-                options={STUDY_MODE_PREFERENCES}
-                {...textField("study_mode_preference")}
-              />
-              <SelectField
-                label="Funding preference"
-                options={FUNDING_PREFERENCES}
-                {...textField("funding_preference")}
-              />
-              <SelectField
-                label="Application fee preference"
-                options={APPLICATION_FEE_PREFERENCES}
-                {...textField("application_fee_preference")}
-              />
-              <SelectField
-                label="Language preference"
-                options={LANGUAGE_INSTRUCTION_PREFERENCES}
-                {...textField("language_instruction_preference")}
-              />
-            </div>
-
-            <CountryRegionPicker
-              label="Target countries"
-              values={form.target_countries}
-              countryRegions={countryRegions}
-              onChange={(value) => setField("target_countries", value)}
-            />
-
-            <StudyFieldMultiPicker
-              label="Target fields"
-              values={form.target_fields}
-              fieldCategories={studyFieldCategories}
-              onChange={(value) => setField("target_fields", value)}
-            />
-          </div>
-        </ProfileSection>
-
-        <ProfileSection
-          id="profile-tests"
-          description="Language tests and proficiency certificates can unlock more scholarship options."
-          icon={<Languages size={20} aria-hidden="true" />}
-          title="Language and tests"
-        >
-          <div className="grid gap-3 lg:grid-cols-[1.15fr_1fr]">
-            <div className="grid gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-pine">
-                Tests and certificates
-              </p>
-              <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-                <BooleanField label="IELTS" {...booleanField("has_ielts")} />
-                <BooleanField label="TOEFL" {...booleanField("has_toefl")} />
-                <BooleanField label="Duolingo" {...booleanField("has_duolingo")} />
-                <BooleanField label="PTE" {...booleanField("has_pte")} />
-                <BooleanField label="HSK" {...booleanField("has_hsk")} />
-                <BooleanField label="GRE" {...booleanField("has_gre")} />
-                <BooleanField label="GMAT" {...booleanField("has_gmat")} />
-                <BooleanField
-                  label="English proficiency certificate"
-                  {...booleanField("english_proficiency_certificate")}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2 rounded-xl border border-pine/10 bg-[#f7faf8] p-2.5 dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-pine">
-                Scores
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <TextField
-                  label="IELTS"
-                  type="number"
-                  min={0}
-                  max={9}
-                  step="0.5"
-                  {...textField("ielts_score")}
-                />
-                <TextField
-                  label="TOEFL"
-                  type="number"
-                  min={0}
-                  max={120}
-                  {...textField("toefl_score")}
-                />
-                <TextField
-                  label="Duolingo"
-                  type="number"
-                  min={0}
-                  max={160}
-                  {...textField("duolingo_score")}
-                />
-                <TextField
-                  label="PTE"
-                  type="number"
-                  min={0}
-                  max={90}
-                  {...textField("pte_score")}
-                />
-                <SelectField label="HSK level" options={HSK_LEVELS} {...textField("hsk_level")} />
-                <TextField
-                  label="GRE"
-                  type="number"
-                  min={0}
-                  max={340}
-                  {...textField("gre_score")}
-                />
-                <TextField
-                  label="GMAT"
-                  type="number"
-                  min={0}
-                  max={800}
-                  {...textField("gmat_score")}
-                />
-              </div>
-            </div>
-          </div>
-        </ProfileSection>
-
-        <ProfileSection
-          id="profile-documents"
-          description="Documents decide whether you can apply quickly when deadlines are near."
-          icon={<FileText size={20} aria-hidden="true" />}
-          title="Documents"
-        >
-          <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-              <BooleanField label="CNIC" {...booleanField("has_cnic")} />
-              <BooleanField label="Domicile" {...booleanField("has_domicile")} />
-              <BooleanField label="Passport" {...booleanField("has_passport")} />
-              <BooleanField label="Transcript" {...booleanField("has_transcript")} />
-              <BooleanField label="Degree" {...booleanField("has_degree")} />
-              <BooleanField label="CV" {...booleanField("has_cv")} />
-              <BooleanField label="SOP" {...booleanField("has_sop")} />
-              <BooleanField label="Study plan" {...booleanField("has_study_plan")} />
-              <BooleanField
-                label="Recommendation letters"
-                {...booleanField("has_recommendation_letters")}
-              />
-              <BooleanField label="Research proposal" {...booleanField("has_research_proposal")} />
-              <BooleanField label="Publications" {...booleanField("has_publications")} />
-              <BooleanField
-                label="English proficiency letter"
-                {...booleanField("has_english_proficiency_letter")}
-              />
-              <BooleanField
-                label="Income certificate"
-                {...booleanField("has_income_certificate")}
-              />
-              <BooleanField label="Bank statement" {...booleanField("has_bank_statement")} />
-              <BooleanField label="Police clearance" {...booleanField("has_police_clearance")} />
-              <BooleanField
-                label="Medical certificate"
-                {...booleanField("has_medical_certificate")}
-              />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <TextField
-                label="Passport expiry date"
-                type="date"
-                min={TODAY_DATE}
-                {...textField("passport_expiry_date")}
-              />
-              <TextField
-                label="Recommendation letters count"
-                type="number"
-                min={0}
-                max={20}
-                {...textField("recommendation_letters_count")}
-              />
-            </div>
-
-            <CommaField
-              label="Additional documents"
-              helper="Add any extra documents you already have."
-              {...commaField("additional_documents")}
-            />
-          </div>
-        </ProfileSection>
-
-        <ProfileSection
-          id="profile-research"
-          description="Research, skills, work, and links help for graduate and research scholarships."
-          icon={<BookOpen size={20} aria-hidden="true" />}
-          title="Research and experience"
-        >
-          <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-              <BooleanField
-                label="Research experience"
-                {...booleanField("has_research_experience")}
-              />
-              <BooleanField
-                label="Supervisor acceptance"
-                {...booleanField("has_supervisor_acceptance")}
-              />
-              <BooleanField
-                label="Internship experience"
-                {...booleanField("has_internship_experience")}
-              />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <TextField
-                label="Publications count"
-                type="number"
-                min={0}
-                max={500}
-                {...textField("publications_count")}
-              />
-              <TextField label="Supervisor country" {...textField("supervisor_country")} />
-              <TextField label="Supervisor university" {...textField("supervisor_university")} />
-              <TextField
-                label="Work experience years"
-                type="number"
-                min={0}
-                max={60}
-                step="0.5"
-                {...textField("work_experience_years")}
-              />
-              <TextField
-                label="LinkedIn URL"
-                type="text"
-                inputMode="url"
-                placeholder="linkedin.com/in/your-name"
-                {...textField("linkedin_url")}
-              />
-              <TextField
-                label="Portfolio URL"
-                type="text"
-                inputMode="url"
-                placeholder="your-portfolio.com"
-                {...textField("portfolio_url")}
-              />
-              <TextField
-                label="GitHub URL"
-                type="text"
-                inputMode="url"
-                placeholder="github.com/username"
-                {...textField("github_url")}
-              />
-            </div>
-
-            <CommaField
-              label="Research interests"
-              helper="Example: AI, public health, renewable energy"
-              {...commaField("research_interests")}
-            />
-
-            <MultiCheckboxField
-              label="Skills"
-              helper="Select skills that strengthen your applications."
-              options={COMMON_SKILLS}
-              {...multiField("skills")}
-            />
-          </div>
-        </ProfileSection>
-
-        <ProfileSection
-          id="profile-funding"
-          description="Funding needs and alerts help us prioritize practical opportunities."
-          icon={<BriefcaseBusiness size={20} aria-hidden="true" />}
-          title="Funding and preferences"
-        >
-          <div className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-              <BooleanField
-                label="I need need-based support"
-                {...booleanField("need_based_support_required")}
-              />
-              <BooleanField
-                label="I can pay application fee"
-                {...booleanField("can_pay_application_fee")}
-              />
-              <BooleanField
-                label="I can self-fund partially"
-                {...booleanField("can_self_fund_partial")}
-              />
-            </div>
-
-            <TextField
-              label="Maximum application fee USD"
-              type="number"
-              min={0}
-              max={10000}
-              {...textField("max_application_fee_usd")}
-            />
-
-            <MultiCheckboxField
-              label="Special scholarship categories"
-              helper="Choose any category relevant to your applications."
-              options={SPECIAL_SCHOLARSHIP_CATEGORIES}
-              {...multiField("special_scholarship_categories")}
-            />
-          </div>
-        </ProfileSection>
-
-        <ProfileSection
-          id="profile-consent"
-          description="Control alerts and consent for using your profile to calculate scholarship matches."
-          icon={<Bell size={20} aria-hidden="true" />}
-          title="Alerts and consent"
-        >
-          <div className="grid gap-2 md:grid-cols-2">
-            <BooleanField label="Email alerts enabled" {...booleanField("email_alerts_enabled")} />
-            <BooleanField
-              label="WhatsApp alerts enabled"
-              {...booleanField("whatsapp_alerts_enabled")}
-            />
-            <BooleanField
-              label="I agree to use this profile for scholarship matching"
-              {...booleanField("profile_data_consent")}
-            />
-            <BooleanField label="AI autofill reviewed" {...booleanField("ai_autofill_reviewed")} />
-          </div>
-          <NotificationSettings />
-        </ProfileSection>
-
-        {pendingNavigationHref && hasUnsavedChanges ? (
+        {/* ── Unsaved changes navigation guard ── */}
+        {pendingNavigationHref && hasUnsavedChanges && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 px-4 py-5 backdrop-blur-sm dark:bg-black/55 sm:items-center">
             <div className="w-full max-w-md rounded-[1.5rem] border border-pine/10 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-[#181b1d]">
               <div className="flex items-start gap-3">
@@ -1026,8 +595,9 @@ function ProfilePageContent() {
               </div>
             </div>
           </div>
-        ) : null}
+        )}
 
+        {/* ── Sticky save bar ── */}
         <Card className="sticky bottom-3 z-10 border-pine/15 bg-white/95 shadow-lg backdrop-blur dark:border-white/10 dark:bg-[#181b1d]/95">
           <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>

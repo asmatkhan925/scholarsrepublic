@@ -97,7 +97,7 @@ export const EMPTY_PROFILE: StudentProfilePayload = {
   special_scholarship_categories: [],
   email_alerts_enabled: true,
   whatsapp_alerts_enabled: false,
-  profile_data_consent: false,
+  profile_data_consent: true,
   profile_source: "manual",
   ai_autofill_reviewed: false,
 };
@@ -171,6 +171,40 @@ export const phoneFields: FieldName[] = ["phone_number", "whatsapp_number"];
 
 export const urlFields: FieldName[] = ["linkedin_url", "portfolio_url", "github_url"];
 
+/** Maps backend missing-field labels → the section anchor they live in */
+export const MISSING_FIELD_SECTION: Record<string, string> = {
+  // Personal
+  City: "#profile-personal",
+  Province: "#profile-personal",
+  Domicile: "#profile-personal",
+  // Education
+  "Current education level": "#profile-education",
+  "Current institution": "#profile-education",
+  "Current field of study": "#profile-education",
+  "Academic score": "#profile-education",
+  // Targets
+  "Target degree level": "#profile-targets",
+  "Target countries": "#profile-targets",
+  "Target fields": "#profile-targets",
+  "Funding preference": "#profile-targets",
+  "Preferred intake": "#profile-targets",
+  // Tests
+  "Language test information": "#profile-tests",
+  "English Proficiency / IELTS / TOEFL / Duolingo / PTE": "#profile-tests",
+  // Documents
+  "Available documents": "#profile-documents",
+  CNIC: "#profile-documents",
+  Passport: "#profile-documents",
+  Transcript: "#profile-documents",
+  Degree: "#profile-documents",
+  CV: "#profile-documents",
+  "SOP or Study Plan": "#profile-documents",
+  "Recommendation Letters": "#profile-documents",
+  "Research Proposal": "#profile-documents",
+  // Consent
+  "Profile data consent": "#profile-consent",
+};
+
 export const PROFILE_SECTION_LINKS = [
   { label: "Personal", href: "#profile-personal" },
   { label: "Education", href: "#profile-education" },
@@ -179,5 +213,40 @@ export const PROFILE_SECTION_LINKS = [
   { label: "Documents", href: "#profile-documents" },
   { label: "Research", href: "#profile-research" },
   { label: "Funding", href: "#profile-funding" },
-  { label: "Consent", href: "#profile-consent" },
+  { label: "Alerts", href: "#profile-consent" },
 ];
+
+/** Which missing-field / missing-document labels belong to each section */
+export const SECTION_MISSING_LABELS: Record<string, string[]> = {
+  "#profile-personal": ["City", "Province", "Domicile"],
+  "#profile-education": [
+    "Current education level",
+    "Current institution",
+    "Current field of study",
+    "Academic score",
+  ],
+  "#profile-targets": [
+    "Target degree level",
+    "Target countries",
+    "Target fields",
+    "Funding preference",
+    "Preferred intake",
+  ],
+  "#profile-tests": [
+    "Language test information",
+    "English Proficiency / IELTS / TOEFL / Duolingo / PTE",
+  ],
+  "#profile-documents": [
+    "Available documents",
+    "CNIC",
+    "Domicile",
+    "Passport",
+    "Transcript",
+    "Degree",
+    "CV",
+    "SOP or Study Plan",
+    "Recommendation Letters",
+    "Research Proposal",
+  ],
+  "#profile-consent": ["Profile data consent"],
+};

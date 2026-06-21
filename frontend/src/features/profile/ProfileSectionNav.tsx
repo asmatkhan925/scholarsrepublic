@@ -1,8 +1,20 @@
 "use client";
 
-import { PROFILE_SECTION_LINKS } from "./profile-constants";
+import { PROFILE_SECTION_LINKS, SECTION_MISSING_LABELS } from "./profile-constants";
 
-export function ProfileSectionNav() {
+interface Props {
+  missingFields?: string[];
+  missingDocuments?: string[];
+}
+
+export function ProfileSectionNav({ missingFields = [], missingDocuments = [] }: Props) {
+  const allMissing = new Set([...missingFields, ...missingDocuments]);
+
+  function sectionHasMissing(href: string) {
+    const labels = SECTION_MISSING_LABELS[href] ?? [];
+    return labels.some((l) => allMissing.has(l));
+  }
+
   return (
     <nav
       aria-label="Profile sections"
@@ -13,15 +25,24 @@ export function ProfileSectionNav() {
           Sections
         </span>
 
-        {PROFILE_SECTION_LINKS.map((item) => (
-          <a
-            key={item.href}
-            href={item.href}
-            className="inline-flex h-8 items-center justify-center rounded-xl px-3 text-xs font-semibold text-ink/65 transition hover:bg-mint hover:text-pine dark:text-white/62 dark:hover:bg-pine/15 dark:hover:text-pine"
-          >
-            {item.label}
-          </a>
-        ))}
+        {PROFILE_SECTION_LINKS.map((item) => {
+          const incomplete = allMissing.size > 0 && sectionHasMissing(item.href);
+          return (
+            <a
+              key={item.href}
+              href={item.href}
+              className="relative inline-flex h-8 items-center justify-center rounded-xl px-3 text-xs font-semibold text-ink/65 transition hover:bg-mint hover:text-pine dark:text-white/62 dark:hover:bg-pine/15 dark:hover:text-pine"
+            >
+              {item.label}
+              {incomplete && (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-saffron"
+                />
+              )}
+            </a>
+          );
+        })}
       </div>
     </nav>
   );
