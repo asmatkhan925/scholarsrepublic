@@ -963,6 +963,7 @@ function ProfilePageContent() {
             />
             <BooleanField label="AI autofill reviewed" {...booleanField("ai_autofill_reviewed")} />
           </div>
+          <NotificationSettings />
         </ProfileSection>
 
         {pendingNavigationHref && hasUnsavedChanges ? (
@@ -1050,8 +1051,6 @@ function ProfilePageContent() {
           </CardContent>
         </Card>
       </form>
-
-      <NotificationSettings />
     </DashboardShell>
   );
 }

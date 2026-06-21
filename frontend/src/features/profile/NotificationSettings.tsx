@@ -1,6 +1,5 @@
 "use client";
 
-import { Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -65,26 +64,14 @@ export function NotificationSettings() {
   if (!prefs) return null;
 
   return (
-    <div
-      id="profile-notifications"
-      className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft dark:border-white/10 dark:bg-[#181b1d]"
-    >
-      <div className="flex items-start gap-3 border-b border-pine/8 bg-pine/3 px-5 py-4 dark:border-white/8 dark:bg-white/3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pine/12 text-pine dark:bg-pine/20">
-          <Bell size={18} aria-hidden="true" />
-        </span>
-        <div>
-          <h2 className="font-bold text-ink dark:text-white">Email notifications</h2>
-          <p className="text-sm leading-6 text-ink/60 dark:text-white/55">
-            Control which emails Scholars Republic sends to your account.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-3 p-5 sm:grid-cols-2">
+    <div className="mt-3 border-t border-pine/10 pt-3 dark:border-white/10">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink/45 dark:text-white/35">
+        Email notifications
+      </p>
+      <div className="grid gap-2 md:grid-cols-2">
         <ToggleRow
           label="Weekly digest"
-          description="A summary of your saved scholarships with upcoming deadlines, sent every Monday."
+          description="Upcoming deadlines from your saved list, sent every Monday."
           checked={prefs.notify_weekly_digest}
           disabled={saving}
           onChange={() => handleToggle("notify_weekly_digest")}
@@ -97,14 +84,11 @@ export function NotificationSettings() {
           onChange={() => handleToggle("notify_deadline_reminder")}
         />
       </div>
-
-      {(saved || error) && (
-        <div className="px-5 pb-4">
-          {saved && (
-            <p className="text-sm font-medium text-pine">Notification preferences saved.</p>
-          )}
-          {error && <p className="text-sm font-medium text-red-500">{error}</p>}
-        </div>
+      {saved && (
+        <p className="mt-2 text-xs font-medium text-pine">Notification preferences saved.</p>
+      )}
+      {error && (
+        <p className="mt-2 text-xs font-medium text-red-500">{error}</p>
       )}
     </div>
   );
