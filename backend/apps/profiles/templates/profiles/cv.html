@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Scholarship CV – {{ name }}</title>
+<style>
+/* ─── Page Setup ─────────────────────────────────── */
+@page {
+  size: A4;
+  margin: 1.8cm 2.2cm 2cm 2.2cm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9.4pt;
+  color: #1c1c1c;
+  line-height: 1.5;
+}
+
+/* ─── Header ─────────────────────────────────────── */
+.header {
+  padding-bottom: 12px;
+  border-bottom: 2.5px solid #1a6b4a;
+  margin-bottom: 0;
+}
+
+.header-name {
+  font-size: 21pt;
+  font-weight: 900;
+  letter-spacing: -0.4px;
+  color: #0d2218;
+  line-height: 1.1;
+}
+
+.header-contact {
+  margin-top: 5px;
+  color: #4a5568;
+  font-size: 8.8pt;
+  line-height: 1.6;
+}
+
+.header-contact a {
+  color: #1a6b4a;
+  text-decoration: none;
+}
+
+.dot-sep { margin: 0 5px; color: #ccc; }
+
+/* ─── Section heading ────────────────────────────── */
+.section-heading {
+  font-size: 8pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #1a6b4a;
+  border-bottom: 1px solid #c5dfd1;
+  padding-bottom: 3px;
+  margin-top: 14px;
+  margin-bottom: 9px;
+}
+
+/* ─── Key-value pairs ────────────────────────────── */
+.kv { margin-bottom: 3px; }
+.kv-label { font-weight: 700; color: #2d3748; }
+
+/* ─── Institution row ────────────────────────────── */
+.inst-row {
+  display: table;
+  width: 100%;
+}
+.inst-name { display: table-cell; font-weight: 700; font-size: 10pt; }
+.inst-year { display: table-cell; text-align: right; color: #666; font-size: 9pt; white-space: nowrap; }
+
+/* ─── Two-column table ───────────────────────────── */
+.two-col { display: table; width: 100%; border-collapse: collapse; }
+.col-a { display: table-cell; width: 50%; padding-right: 16px; vertical-align: top; }
+.col-b { display: table-cell; width: 50%; vertical-align: top; }
+
+/* ─── Test scores row ────────────────────────────── */
+.test-row { display: table; width: 100%; }
+.test-cell {
+  display: table-cell;
+  padding-right: 20px;
+  white-space: nowrap;
+}
+.test-name { font-weight: 700; }
+.test-score { color: #1c1c1c; }
+
+/* ─── Tag chips ──────────────────────────────────── */
+.tags { line-height: 1.9; }
+.tag {
+  display: inline-block;
+  background: #e6f4ed;
+  color: #155236;
+  border-radius: 3px;
+  padding: 1px 7px;
+  margin: 1px 3px 1px 0;
+  font-size: 8.5pt;
+  font-weight: 600;
+}
+
+/* ─── Document grid ──────────────────────────────── */
+.doc-table { border-collapse: collapse; width: 100%; }
+.doc-table td {
+  padding: 2px 8px 2px 0;
+  font-size: 9pt;
+  vertical-align: top;
+  width: 33.33%;
+}
+.check-icon { color: #1a6b4a; font-weight: 900; margin-right: 3px; }
+
+/* ─── Divider row ────────────────────────────────── */
+.divider { margin: 10px 0 8px; border: none; border-top: 1px solid #e5e7eb; }
+
+/* ─── Footer ─────────────────────────────────────── */
+.footer {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  color: #a0aec0;
+  font-size: 7.8pt;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ HEADER ══════════════════ -->
+<div class="header">
+  <div class="header-name">{{ name }}</div>
+  <div class="header-contact">
+    {% if location %}{{ location }}{% if email %}<span class="dot-sep">·</span>{% endif %}{% endif %}
+    {% if email %}<a href="mailto:{{ email }}">{{ email }}</a>{% endif %}
+    {% if phone %}<span class="dot-sep">·</span>{{ phone }}{% endif %}
+    {% if linkedin_url or github_url or portfolio_url %}
+    <br/>
+    {% if linkedin_url %}<a href="{{ linkedin_url }}">{{ linkedin_url }}</a>{% endif %}
+    {% if github_url %}{% if linkedin_url %}<span class="dot-sep">·</span>{% endif %}<a href="{{ github_url }}">{{ github_url }}</a>{% endif %}
+    {% if portfolio_url %}{% if linkedin_url or github_url %}<span class="dot-sep">·</span>{% endif %}<a href="{{ portfolio_url }}">{{ portfolio_url }}</a>{% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══════════════════ EDUCATION ══════════════════ -->
+{% if institution or field_of_study %}
+<div class="section-heading">Education</div>
+<div class="inst-row">
+  <span class="inst-name">{{ institution }}</span>
+  {% if graduation_year %}<span class="inst-year">Graduation {{ graduation_year }}</span>{% endif %}
+</div>
+<div style="margin-top:3px; color:#4a5568;">
+  {% if field_of_study %}{{ field_of_study }}{% endif %}
+  {% if education_level %}<span class="dot-sep">·</span>{{ education_level }}{% endif %}
+</div>
+<div style="margin-top:5px;">
+  {% if cgpa %}<span class="kv-label">CGPA:</span> {{ cgpa }}{% if cgpa_scale %} / {{ cgpa_scale }}{% endif %}{% endif %}
+  {% if percentage %}{% if cgpa %}<span class="dot-sep">·</span>{% endif %}<span class="kv-label">Percentage:</span> {{ percentage }}{% endif %}
+  {% if division %}{% if cgpa or percentage %}<span class="dot-sep">·</span>{% endif %}<span class="kv-label">Division:</span> {{ division }}{% endif %}
+  {% if result_status %}{% if cgpa or percentage or division %}<span class="dot-sep">·</span>{% endif %}<span style="color:#555;">{{ result_status }}</span>{% endif %}
+</div>
+{% endif %}
+
+<!-- ══════════════════ SCHOLARSHIP TARGETS ══════════════════ -->
+{% if target_degree or target_countries or target_fields %}
+<div class="section-heading">Scholarship Targets</div>
+<div class="two-col">
+  <div class="col-a">
+    {% if target_degree %}<div class="kv"><span class="kv-label">Degree:</span> {{ target_degree }}</div>{% endif %}
+    {% if preferred_intake %}<div class="kv"><span class="kv-label">Intake:</span> {{ preferred_intake }}</div>{% endif %}
+    {% if funding_preference %}<div class="kv"><span class="kv-label">Funding:</span> {{ funding_preference }}</div>{% endif %}
+  </div>
+  <div class="col-b">
+    {% if target_countries %}<div class="kv"><span class="kv-label">Countries:</span> {{ target_countries|join:", " }}</div>{% endif %}
+    {% if target_fields %}<div class="kv"><span class="kv-label">Fields:</span> {{ target_fields|join:", " }}</div>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ══════════════════ LANGUAGE & APTITUDE TESTS ══════════════════ -->
+{% if tests %}
+<div class="section-heading">Language &amp; Aptitude Test Scores</div>
+<div class="test-row">
+  {% for test in tests %}
+  <span class="test-cell">
+    <span class="test-name">{{ test.name }}:</span>
+    <span class="test-score"> {{ test.score }}</span>
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══════════════════ RESEARCH & EXPERIENCE ══════════════════ -->
+{% if show_research %}
+<div class="section-heading">Research &amp; Professional Experience</div>
+<div class="two-col">
+  <div class="col-a">
+    {% if has_research_experience %}<div class="kv"><span class="check-icon">✓</span>Research experience</div>{% endif %}
+    {% if has_internship_experience %}<div class="kv"><span class="check-icon">✓</span>Internship experience</div>{% endif %}
+    {% if work_experience_years %}<div class="kv"><span class="kv-label">Work experience:</span> {{ work_experience_years }} yr{% if work_experience_years != "1" %}s{% endif %}</div>{% endif %}
+    {% if publications_count %}<div class="kv"><span class="kv-label">Publications:</span> {{ publications_count }} peer-reviewed</div>{% endif %}
+    {% if has_supervisor %}
+    <div class="kv"><span class="check-icon">✓</span>Supervisor acceptance letter</div>
+    {% if supervisor_info %}<div class="kv" style="padding-left:14px; color:#555;">{{ supervisor_info }}</div>{% endif %}
+    {% endif %}
+  </div>
+  <div class="col-b">
+    {% if research_interests %}
+    <div class="kv-label" style="margin-bottom:3px;">Research interests:</div>
+    <div class="tags">{% for i in research_interests %}<span class="tag">{{ i }}</span>{% endfor %}</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ══════════════════ SKILLS ══════════════════ -->
+{% if skills %}
+<div class="section-heading">Skills</div>
+<div class="tags">
+  {% for skill in skills %}<span class="tag">{{ skill }}</span>{% endfor %}
+</div>
+{% endif %}
+
+<!-- ══════════════════ DOCUMENTS PREPARED ══════════════════ -->
+{% if prepared_docs %}
+<div class="section-heading">Documents Prepared</div>
+<table class="doc-table">
+  {% for doc in doc_rows %}
+  <tr>
+    {% for cell in doc %}
+    <td>{% if cell %}<span class="check-icon">✓</span>{{ cell }}{% endif %}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<!-- ══════════════════ SPECIAL CATEGORIES ══════════════════ -->
+{% if special_categories %}
+<div class="section-heading">Scholarship Categories</div>
+<div class="tags">
+  {% for cat in special_categories %}<span class="tag">{{ cat }}</span>{% endfor %}
+</div>
+{% endif %}
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<div class="footer">
+  Generated by Scholars Republic &nbsp;·&nbsp; scholarsrepublic.org &nbsp;·&nbsp; {{ generated_date }}
+</div>
+
+</body>
+</html>

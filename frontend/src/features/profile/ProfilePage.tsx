@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Save } from "lucide-react";
+import { Download, Save } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -14,6 +14,7 @@ import {
   getStudyFields,
   patchStudentProfile,
 } from "@/lib/api";
+import { api } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/errors";
 import { COUNTRY_REGIONS, DOCUMENT_OPTIONS } from "@/lib/profile-options";
 import type { StudentProfilePayload } from "@/types/profile";
@@ -66,6 +67,7 @@ function ProfilePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
+  const [cvDownloading, setCvDownloading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -384,6 +386,28 @@ function ProfilePageContent() {
     );
   }
 
+  async function downloadCV() {
+    setCvDownloading(true);
+    try {
+      const response = await api.get("/profile/cv/download/", { responseType: "blob" });
+      const blob = new Blob([response.data as BlobPart], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ScholarshipCV.pdf";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+    } catch {
+      setError("CV download failed. Make sure your profile is saved, then try again.");
+    } finally {
+      setCvDownloading(false);
+    }
+  }
+
   return (
     <DashboardShell
       description="Keep your profile updated so recommendations and match scores stay useful."
@@ -471,6 +495,24 @@ function ProfilePageContent() {
               </div>
             </div>
           </div>
+
+          {/* ── Download CV action strip ── */}
+          {profileExists && (
+            <div className="flex items-center justify-between gap-3 border-t border-pine/10 px-3 py-2 dark:border-white/8">
+              <p className="text-xs text-ink/50 dark:text-white/40">
+                Generate a scholarship-ready PDF CV from your profile data.
+              </p>
+              <button
+                type="button"
+                onClick={downloadCV}
+                disabled={cvDownloading}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-pine/25 bg-white px-3 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:text-pine dark:hover:bg-pine/20"
+              >
+                <Download size={12} aria-hidden="true" />
+                {cvDownloading ? "Generating…" : "Download Scholarship CV"}
+              </button>
+            </div>
+          )}
         </section>
 
         {/* ── Section nav ── */}
