@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { CookieConsent } from "@/components/CookieConsent";
 import { SiteFooter } from "@/components/site-footer";
 
 const hiddenFooterPrefixes = ["/dashboard", "/admin"];
@@ -25,6 +26,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
     <>
       {children}
       {hideFooter ? null : <SiteFooter />}
+      <CookieConsent />
     </>
   );
 }
