@@ -345,7 +345,6 @@ export const discoveryLandingPages: DiscoveryLandingPage[] = [
     metaDescription:
       "Find master's scholarships for Pakistani students and prepare stronger applications with SOP, CV, checklist, eligibility, deadline, and official source guidance.",
   },
-];
 
   // ── Country pages ──────────────────────────────────────────────
   {
