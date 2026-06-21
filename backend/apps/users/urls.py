@@ -4,11 +4,13 @@ from apps.users.views import (
     LoginView,
     LogoutView,
     MeView,
+    NotificationPreferencesView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
     ResendVerificationEmailView,
     TokenRefreshView,
+    UnsubscribeView,
     VerifyEmailView,
 )
 
@@ -34,4 +36,10 @@ urlpatterns = [
     path("token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("me/", MeView.as_view(), name="me"),
+    path(
+        "notification-preferences/",
+        NotificationPreferencesView.as_view(),
+        name="notification-preferences",
+    ),
+    path("unsubscribe/", UnsubscribeView.as_view(), name="unsubscribe"),
 ]

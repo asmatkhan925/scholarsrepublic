@@ -1,6 +1,8 @@
 import logging
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core import signing
 from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
@@ -276,3 +278,75 @@ class LogoutView(APIView):
             except TokenError:
                 pass
         return Response({"detail": "Logged out successfully."})
+
+
+class NotificationPreferencesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "notify_weekly_digest": request.user.notify_weekly_digest,
+            "notify_deadline_reminder": request.user.notify_deadline_reminder,
+        })
+
+    def patch(self, request):
+        user = request.user
+        update_fields = []
+
+        if "notify_weekly_digest" in request.data:
+            user.notify_weekly_digest = bool(request.data["notify_weekly_digest"])
+            update_fields.append("notify_weekly_digest")
+
+        if "notify_deadline_reminder" in request.data:
+            user.notify_deadline_reminder = bool(request.data["notify_deadline_reminder"])
+            update_fields.append("notify_deadline_reminder")
+
+        if update_fields:
+            update_fields.append("updated_at")
+            user.save(update_fields=update_fields)
+
+        return Response({
+            "notify_weekly_digest": user.notify_weekly_digest,
+            "notify_deadline_reminder": user.notify_deadline_reminder,
+        })
+
+
+class UnsubscribeView(APIView):
+    permission_classes = [AllowAny]
+
+    # Max token age: 90 days
+    _MAX_AGE = 60 * 60 * 24 * 90
+
+    def get(self, request):
+        token = request.query_params.get("token", "")
+        if not token:
+            return Response({"detail": "Missing token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            data = signing.loads(token, salt="sr-unsub", max_age=self._MAX_AGE)
+        except signing.SignatureExpired:
+            return Response({"detail": "This unsubscribe link has expired."}, status=status.HTTP_400_BAD_REQUEST)
+        except signing.BadSignature:
+            return Response({"detail": "Invalid unsubscribe link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+        try:
+            user = User.objects.get(pk=data["user_id"])
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        pref = data.get("pref")
+        if pref == "digest":
+            user.notify_weekly_digest = False
+            user.save(update_fields=["notify_weekly_digest", "updated_at"])
+            label = "weekly digest"
+        elif pref == "reminder":
+            user.notify_deadline_reminder = False
+            user.save(update_fields=["notify_deadline_reminder", "updated_at"])
+            label = "deadline reminders"
+        else:
+            return Response({"detail": "Unknown preference."}, status=status.HTTP_400_BAD_REQUEST)
+
+        frontend_url = settings.FRONTEND_URL.rstrip("/")
+        redirect_url = f"{frontend_url}/dashboard/settings?unsubscribed={pref}"
+        return Response({"detail": f"Unsubscribed from {label}.", "redirect": redirect_url})

@@ -70,6 +70,7 @@ import { SelectField } from "./fields/SelectField";
 import { StudyFieldMultiPicker } from "./fields/StudyFieldMultiPicker";
 import { StudyFieldSelect } from "./fields/StudyFieldSelect";
 import { TextField } from "./fields/TextField";
+import { NotificationSettings } from "./NotificationSettings";
 import { ProfileSection } from "./ProfileSection";
 import { ProfileSectionNav } from "./ProfileSectionNav";
 
@@ -1049,6 +1050,8 @@ function ProfilePageContent() {
           </CardContent>
         </Card>
       </form>
+
+      <NotificationSettings />
     </DashboardShell>
   );
 }

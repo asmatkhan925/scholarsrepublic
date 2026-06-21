@@ -17,6 +17,8 @@ class User(AbstractUser):
     email_verification_sent_at = models.DateTimeField(null=True, blank=True)
     email_verification_nonce = models.CharField(max_length=128, blank=True, default="")
     password_reset_sent_at = models.DateTimeField(null=True, blank=True)
+    notify_weekly_digest = models.BooleanField(default=True)
+    notify_deadline_reminder = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
