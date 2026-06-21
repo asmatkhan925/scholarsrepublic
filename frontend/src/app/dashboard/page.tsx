@@ -21,6 +21,7 @@ import {
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 import {
   getApplications,
@@ -249,6 +250,7 @@ function StudentDashboardContent() {
   const [applications, setApplications] = useState<OpportunityApplication[]>([]);
   const [applicationSummary, setApplicationSummary] = useState<ApplicationSummary | null>(null);
   const [recentSavedOpportunities, setRecentSavedOpportunities] = useState<SavedOpportunity[]>([]);
+  const [totalSavedCount, setTotalSavedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [, setLoadingCompletion] = useState(true);
   const [loadingApplications, setLoadingApplications] = useState(true);
@@ -302,6 +304,7 @@ function StudentDashboardContent() {
           );
           setApplicationSummary(summaryData);
           setRecentSavedOpportunities(savedData.results);
+          setTotalSavedCount(savedData.count ?? 0);
         }
       } catch (requestError) {
         if (mounted) {
@@ -438,6 +441,10 @@ function StudentDashboardContent() {
 
   return (
     <div className="grid gap-4">
+      <OnboardingChecklist
+        profileComplete={(completion?.completion_percentage ?? 0) >= 40}
+        hasSaved={totalSavedCount > 0}
+      />
       <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="bg-gradient-to-r from-mint/80 via-white to-skyglass px-4 py-4 dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-5">

@@ -32,7 +32,7 @@ from apps.users.throttles import (
     ResendVerificationRateThrottle,
 )
 from apps.users.tokens import email_verification_token
-from apps.users.utils import send_password_reset_email, send_verification_email
+from apps.users.utils import send_password_reset_email, send_verification_email, send_welcome_email
 
 User = get_user_model()
 RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
@@ -117,6 +117,8 @@ class VerifyEmailView(APIView):
         user.email_verified = True
         user.is_active = True
         user.save(update_fields=["email_verified", "is_active", "updated_at"])
+
+        send_welcome_email(user)
 
         return Response(
             {

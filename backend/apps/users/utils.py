@@ -89,6 +89,42 @@ Scholars Republic
         raise
 
 
+def send_welcome_email(user) -> None:
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    first_name = (user.full_name or "there").strip().split()[0]
+    body = f"""Hi {first_name},
+
+Welcome to Scholars Republic — your scholarship is confirmed.
+
+Here's what to do next:
+
+1. Complete your profile
+   The more you fill in, the better your scholarship matches.
+   {frontend_url}/dashboard/profile
+
+2. Browse scholarships
+   Filter by country, degree level, field of study, and funding type.
+   {frontend_url}/scholarships
+
+3. Save opportunities
+   Save scholarships you're interested in and track your applications.
+   {frontend_url}/dashboard/saved
+
+Your profile, saved scholarships, and application tracker are always at:
+{frontend_url}/dashboard
+
+---
+Scholars Republic · {frontend_url}
+"""
+    send_mail(
+        subject="Welcome to Scholars Republic — here's how to get started",
+        message=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=True,
+    )
+
+
 def send_password_reset_email(user) -> None:
     reset_url = build_password_reset_url(user)
     subject = "Reset your Scholars Republic password"
