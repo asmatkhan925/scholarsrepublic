@@ -139,6 +139,8 @@ export default function ScholarshipCVGuidePage() {
         title="Scholarship CV Format for Pakistani Students"
         description={metadata.description}
         path="/guides/scholarship-cv-format-for-pakistani-students"
+        datePublished="2026-05-10"
+        dateModified="2026-06-21"
       />
       <SiteHeader />
 
@@ -154,6 +156,8 @@ export default function ScholarshipCVGuidePage() {
                 <h1 className="mt-3 text-2xl font-bold leading-tight text-ink md:text-3xl">
                   Scholarship CV Format for Pakistani Students
                 </h1>
+
+                <p className="mt-2 text-xs text-ink/50 dark:text-white/40">Published May 2026 · Updated June 2026</p>
 
                 <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
                   A scholarship CV is different from a job CV. It should show your academic

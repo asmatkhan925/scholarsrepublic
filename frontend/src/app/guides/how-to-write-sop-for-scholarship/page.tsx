@@ -124,6 +124,8 @@ export default function SOPGuidePage() {
         title="How to Write a Good SOP for Scholarship Applications"
         description={metadata.description}
         path="/guides/how-to-write-sop-for-scholarship"
+        datePublished="2026-05-10"
+        dateModified="2026-06-21"
       />
       <SiteHeader />
 

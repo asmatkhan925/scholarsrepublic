@@ -111,14 +111,21 @@ export default function ServicesPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-pine">
-                  Coming soon
+                  Available by request
                 </p>
                 <h2 className="mt-3 text-2xl font-bold text-ink dark:text-white">
-                  Planned student support services
+                  Student support services
                 </h2>
               </div>
               <p className="max-w-xl text-sm leading-7 text-ink/62 dark:text-white/52">
-                Pilot support will focus on practical review and readiness, not guaranteed outcomes.
+                Request a review by emailing{" "}
+                <a
+                  href="mailto:support@scholarsrepublic.org"
+                  className="font-semibold text-pine hover:text-pine/80"
+                >
+                  support@scholarsrepublic.org
+                </a>
+                . Review focuses on practical readiness, not guaranteed outcomes.
               </p>
             </div>
 

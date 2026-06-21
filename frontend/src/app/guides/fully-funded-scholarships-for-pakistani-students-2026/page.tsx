@@ -121,6 +121,8 @@ export default function FullyFundedScholarshipsGuidePage() {
         title="Fully Funded Scholarships for Pakistani Students in 2026"
         description={metadata.description}
         path="/guides/fully-funded-scholarships-for-pakistani-students-2026"
+        datePublished="2026-05-10"
+        dateModified="2026-06-21"
       />
       <SiteHeader />
 
@@ -136,6 +138,8 @@ export default function FullyFundedScholarshipsGuidePage() {
                 <h1 className="mt-3 text-2xl font-bold leading-tight text-ink md:text-3xl">
                   Fully Funded Scholarships for Pakistani Students in 2026
                 </h1>
+
+                <p className="mt-2 text-xs text-ink/50 dark:text-white/40">Published May 2026 · Updated June 2026</p>
 
                 <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
                   Fully funded scholarships can help Pakistani students study abroad without

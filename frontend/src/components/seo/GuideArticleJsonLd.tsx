@@ -6,9 +6,11 @@ type GuideArticleJsonLdProps = {
   title: string;
   description: string;
   path: string;
+  datePublished?: string;
+  dateModified?: string;
 };
 
-export function GuideArticleJsonLd({ title, description, path }: GuideArticleJsonLdProps) {
+export function GuideArticleJsonLd({ title, description, path, datePublished, dateModified }: GuideArticleJsonLdProps) {
   return (
     <JsonLd
       data={[
@@ -16,6 +18,8 @@ export function GuideArticleJsonLd({ title, description, path }: GuideArticleJso
           headline: title,
           description,
           path,
+          datePublished,
+          dateModified,
         }),
         createBreadcrumbJsonLd([
           { name: "Home", path: "/" },

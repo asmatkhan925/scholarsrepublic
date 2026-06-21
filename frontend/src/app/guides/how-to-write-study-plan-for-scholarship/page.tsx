@@ -125,6 +125,8 @@ export default function StudyPlanGuidePage() {
         title="How to Write a Study Plan for Scholarship Applications"
         description={metadata.description}
         path="/guides/how-to-write-study-plan-for-scholarship"
+        datePublished="2026-05-10"
+        dateModified="2026-06-21"
       />
       <SiteHeader />
 
@@ -140,6 +142,8 @@ export default function StudyPlanGuidePage() {
                 <h1 className="mt-3 text-2xl font-bold leading-tight text-ink md:text-3xl">
                   How to Write a Study Plan for Scholarship Applications
                 </h1>
+
+                <p className="mt-2 text-xs text-ink/50 dark:text-white/40">Published May 2026 · Updated June 2026</p>
 
                 <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
                   A study plan explains what you want to study, how you will organize your learning,

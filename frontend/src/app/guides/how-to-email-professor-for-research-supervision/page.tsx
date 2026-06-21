@@ -110,6 +110,8 @@ export default function ProfessorEmailGuidePage() {
         title="How to Email a Professor for Research Supervision"
         description={metadata.description}
         path="/guides/how-to-email-professor-for-research-supervision"
+        datePublished="2026-05-10"
+        dateModified="2026-06-21"
       />
       <SiteHeader />
 
@@ -125,6 +127,8 @@ export default function ProfessorEmailGuidePage() {
                 <h1 className="mt-3 text-2xl font-bold leading-tight text-ink md:text-3xl">
                   How to Email a Professor for Research Supervision
                 </h1>
+
+                <p className="mt-2 text-xs text-ink/50 dark:text-white/40">Published May 2026 · Updated June 2026</p>
 
                 <p className="mt-4 text-sm leading-7 text-ink/70 md:text-base">
                   Emailing a professor can help MS and PhD applicants find research supervision,
