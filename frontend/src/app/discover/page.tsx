@@ -8,13 +8,13 @@ import { discoveryLandingPages } from "@/features/discover/discoveryLandingPages
 import { createBreadcrumbJsonLd, createWebPageJsonLd } from "@/lib/seo/jsonLd";
 
 export const metadata: Metadata = {
-  title: "Popular Scholarship Searches - Scholars Republic",
+  title: "Scholarship Search Pages - Scholars Republic",
   description:
-    "Explore popular scholarship search pages for fully funded scholarships, scholarships without IELTS, no application fee scholarships, PhD scholarships, and master's scholarships.",
+    "Explore curated scholarship search pages by country, degree level, field of study, and funding type — China, Germany, Turkey, UK, USA, Canada, engineering, medicine, and more.",
   openGraph: {
-    title: "Popular Scholarship Searches - Scholars Republic",
+    title: "Scholarship Search Pages - Scholars Republic",
     description:
-      "Explore popular scholarship search pages for fully funded scholarships, scholarships without IELTS, no application fee scholarships, PhD scholarships, and master's scholarships.",
+      "Explore curated scholarship search pages by country, degree level, field of study, and funding type — China, Germany, Turkey, UK, USA, Canada, engineering, medicine, and more.",
     type: "website",
     url: "/discover",
   },
@@ -51,11 +51,11 @@ export default function DiscoverPage() {
               Discovery
             </Badge>
             <h1 className="text-4xl font-bold leading-tight md:text-5xl">
-              Popular Scholarship Searches
+              Scholarship Search Pages
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-8 text-ink/72 dark:text-white/62 md:text-lg">
-              Start with common scholarship search paths and then browse matching opportunities on
-              Scholars Republic.
+              Curated search pages by country, degree level, field of study, and funding type. Each
+              page links to matching scholarships and guides to help you prepare.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="/scholarships">Explore all scholarships</ButtonLink>

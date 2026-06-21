@@ -23,6 +23,7 @@ const coreRoutes: SitemapRoute[] = [
   { path: "/services", changeFrequency: "monthly", priority: 0.65 },
   { path: "/verification-policy", changeFrequency: "monthly", priority: 0.65 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/faq", changeFrequency: "monthly", priority: 0.6 },
   { path: "/privacy-policy", changeFrequency: "yearly", priority: 0.5 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.5 },
   { path: "/disclaimer", changeFrequency: "yearly", priority: 0.5 },

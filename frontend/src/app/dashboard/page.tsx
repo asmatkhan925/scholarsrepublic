@@ -615,7 +615,30 @@ function StudentDashboardContent() {
                 </ButtonLink>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-1.5">
+              <div className="mt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-ink/60 dark:text-white/50">Scholarship readiness</span>
+                  <span className={`text-sm font-bold ${readinessScore >= 70 ? "text-pine" : "text-saffron"}`}>{readinessScore}%</span>
+                </div>
+                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${readinessScore >= 70 ? "bg-pine" : readinessScore >= 40 ? "bg-saffron" : "bg-red-400"}`}
+                    style={{ width: `${readinessScore}%` }}
+                    role="progressbar"
+                    aria-valuenow={readinessScore}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Scholarship readiness"
+                  />
+                </div>
+                {(missingFields.length + missingDocuments.length) > 0 && (
+                  <p className="mt-1 text-[11px] text-ink/45 dark:text-white/35">
+                    {missingFields.length + missingDocuments.length} item{missingFields.length + missingDocuments.length !== 1 ? "s" : ""} remaining — complete profile to improve match score
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-1.5">
                 <MetricPill label="Level" value={readinessLevel} />
                 <MetricPill label="Docs" value={missingDocuments.length} tone={missingDocuments.length > 0 ? "warning" : "good"} />
                 <MetricPill label="Fields" value={missingFields.length} tone={missingFields.length > 0 ? "warning" : "good"} />
