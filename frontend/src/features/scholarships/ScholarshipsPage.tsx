@@ -588,13 +588,25 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
         if (user?.role === "student") {
           try {
             const response = await getRecommendedScholarships(filters);
+            const hasFilters = Object.keys(filters).some((k) => k !== "ordering");
 
             if (mounted) {
-              setRecommendedData(response);
-              setData(null);
+              if (response.results.length > 0 || hasFilters) {
+                // Show recommendations when there are matches, or when the user
+                // applied filters (empty result is meaningful — "no matches for
+                // these filters").
+                setRecommendedData(response);
+                setData(null);
+                return;
+              }
+              // No recommendations and no filters: fall through to show all
+              // scholarships so students always see content regardless of profile
+              // completion.
+              setRecommendedData(null);
+              setMatchNotice("Complete your profile to see personalized scholarship matches.");
+            } else {
+              return;
             }
-
-            return;
           } catch {
             if (mounted) {
               setMatchNotice("Complete your profile to see personalized match scores.");
