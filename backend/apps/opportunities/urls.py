@@ -7,8 +7,10 @@ from apps.applications.views import (
     ScholarshipStartApplicationView,
 )
 from apps.opportunities.views import (
+    AdminApplicationListView,
     AdminOverviewView,
     AdminOpportunityCommentListView,
+    AdminStudentProfileListView,
     AdminOpportunityCommentModerateView,
     AdminOpportunityDetailView,
     AdminOpportunityDuplicateCheckView,
@@ -174,6 +176,16 @@ urlpatterns = [
         "admin/overview/",
         AdminOverviewView.as_view(),
         name="admin-overview",
+    ),
+    path(
+        "admin/students/profiles/",
+        AdminStudentProfileListView.as_view(),
+        name="admin-student-profile-list",
+    ),
+    path(
+        "admin/applications/",
+        AdminApplicationListView.as_view(),
+        name="admin-application-list",
     ),
     path(
         "admin/social/scheduler-status/",

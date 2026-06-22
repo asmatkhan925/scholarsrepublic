@@ -37,6 +37,8 @@ from .admin_core import (
     AdminOpportunityCommentListView,
     AdminOpportunityCommentModerateView,
     AdminOverviewView,
+    AdminStudentProfileListView,
+    AdminApplicationListView,
 )
 
 # Agent draft creation, research leads, social images
@@ -132,6 +134,8 @@ __all__ = [
     "AdminOpportunityCommentListView",
     "AdminOpportunityCommentModerateView",
     "AdminOverviewView",
+    "AdminStudentProfileListView",
+    "AdminApplicationListView",
     # agent_core
     "AgentDebugAuthView",
     "AgentScholarshipValidateView",

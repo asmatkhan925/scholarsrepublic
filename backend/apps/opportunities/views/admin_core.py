@@ -1,5 +1,5 @@
 """
-Admin CRUD views: opportunities, drafts, pathways, overview, comments.
+Admin CRUD views: opportunities, drafts, pathways, overview, comments, students, applications.
 """
 import logging
 from datetime import timedelta
@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.applications.models import OpportunityApplication, SavedOpportunity
+from apps.profiles.models import StudentProfile
 from apps.opportunities.models import (
     Opportunity,
     OpportunityComment,
@@ -457,3 +458,124 @@ class AdminOverviewView(APIView):
                 },
             }
         )
+
+
+class AdminStudentProfileListView(APIView):
+    """GET /admin/students/profiles/ — paginated student profile overview."""
+
+    permission_classes = [IsPlatformAdmin]
+
+    def get(self, request):
+        qs = (
+            StudentProfile.objects.select_related("user")
+            .only(
+                "user__id", "user__email", "user__full_name", "user__created_at", "user__is_active",
+                "current_education_level", "current_institution", "graduation_year",
+                "profile_source", "ai_autofill_reviewed",
+            )
+            .order_by("user__full_name")
+        )
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(user__email__icontains=search) | Q(user__full_name__icontains=search)
+            )
+
+        readiness = request.query_params.get("readiness", "")
+        # Can't filter in DB on a Python property — filter in Python after slicing
+        # Use pagination then post-filter for readiness (small dataset)
+
+        try:
+            limit = min(int(request.query_params.get("limit", 50)), 200)
+            offset = int(request.query_params.get("offset", 0))
+        except ValueError:
+            limit, offset = 50, 0
+
+        all_profiles = list(qs)
+        # Post-filter by readiness (computed property)
+        if readiness in ("High", "Medium", "Low"):
+            all_profiles = [p for p in all_profiles if p.readiness_level == readiness]
+
+        total = len(all_profiles)
+        page = all_profiles[offset: offset + limit]
+
+        data = [
+            {
+                "user_id": p.user_id,
+                "email": p.user.email,
+                "full_name": p.user.full_name,
+                "is_active": p.user.is_active,
+                "joined": p.user.created_at.isoformat(),
+                "completion_percentage": p.completion_percentage,
+                "scholarship_readiness_score": p.scholarship_readiness_score,
+                "readiness_level": p.readiness_level,
+                "current_education_level": p.current_education_level,
+                "current_institution": p.current_institution or "",
+                "missing_count": len(p.missing_profile_fields) + len(p.missing_core_documents),
+            }
+            for p in page
+        ]
+        return Response({"count": total, "results": data})
+
+
+class AdminApplicationListView(APIView):
+    """GET /admin/applications/ — paginated cross-user application list."""
+
+    permission_classes = [IsPlatformAdmin]
+
+    def get(self, request):
+        qs = (
+            OpportunityApplication.objects.select_related(
+                "user", "opportunity", "opportunity__country_ref"
+            )
+            .order_by("-updated_at")
+        )
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(user__email__icontains=search)
+                | Q(user__full_name__icontains=search)
+                | Q(opportunity__title__icontains=search)
+            )
+
+        app_status = request.query_params.get("status", "")
+        if app_status:
+            qs = qs.filter(status=app_status)
+
+        priority = request.query_params.get("priority", "")
+        if priority:
+            qs = qs.filter(priority=priority)
+
+        try:
+            limit = min(int(request.query_params.get("limit", 50)), 200)
+            offset = int(request.query_params.get("offset", 0))
+        except ValueError:
+            limit, offset = 50, 0
+
+        total = qs.count()
+        apps = qs[offset: offset + limit]
+
+        data = [
+            {
+                "id": a.pk,
+                "user_id": a.user_id,
+                "user_email": a.user.email,
+                "user_name": a.user.full_name,
+                "opportunity_id": a.opportunity_id,
+                "opportunity_title": a.opportunity.title,
+                "opportunity_deadline": (
+                    a.opportunity.deadline.isoformat() if a.opportunity.deadline else None
+                ),
+                "country": (
+                    a.opportunity.country_ref.name if a.opportunity.country_ref else a.opportunity.country
+                ),
+                "status": a.status,
+                "priority": a.priority,
+                "created_at": a.created_at.isoformat(),
+                "updated_at": a.updated_at.isoformat(),
+            }
+            for a in apps
+        ]
+        return Response({"count": total, "results": data})

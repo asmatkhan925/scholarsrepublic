@@ -10,6 +10,9 @@ import {
   GraduationCap,
   Settings,
   ShieldCheck,
+  Users,
+  BookOpen,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +58,27 @@ const adminHubs: AdminHub[] = [
     description: "Moderation, deadline queues, scheduler health, and operational monitoring.",
     href: "/dashboard/admin/comments",
     icon: ShieldCheck,
+  },
+  {
+    title: "User Management",
+    description: "View all registered users, toggle verification, change roles, and deactivate accounts.",
+    href: "/dashboard/admin/users",
+    icon: Users,
+    badge: "New",
+  },
+  {
+    title: "Student Profiles",
+    description: "Monitor profile completion, scholarship readiness scores, and identify incomplete profiles.",
+    href: "/dashboard/admin/students",
+    icon: BookOpen,
+    badge: "New",
+  },
+  {
+    title: "Applications Overview",
+    description: "Browse all student applications, filter by status, and track the scholarship pipeline.",
+    href: "/dashboard/admin/applications",
+    icon: ClipboardList,
+    badge: "New",
   },
   {
     title: "Settings / Tools",
@@ -176,6 +200,16 @@ function AdminDashboardContent() {
                 label="Unverified"
                 value={overview?.scholarships.unverified ?? "..."}
                 tone={(overview?.scholarships.unverified ?? 0) > 0 ? "warning" : "normal"}
+              />
+              <AdminMetric
+                label="Students"
+                value={overview?.students.total ?? "..."}
+                tone="normal"
+              />
+              <AdminMetric
+                label="Applications"
+                value={overview?.applications.total ?? "..."}
+                tone="normal"
               />
             </>
           }

@@ -3,10 +3,11 @@ import logging
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import signing
+from django.db.models import BooleanField, Case, IntegerField, Q, Value, When
 from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -416,3 +417,154 @@ class UnsubscribeView(APIView):
         frontend_url = settings.FRONTEND_URL.rstrip("/")
         redirect_url = f"{frontend_url}/dashboard/settings?unsubscribed={pref}"
         return Response({"detail": f"Unsubscribed from {label}.", "redirect": redirect_url})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin: User management
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _IsPlatformAdmin(IsAuthenticated):
+    def has_permission(self, request, view):
+        return (
+            super().has_permission(request, view)
+            and (request.user.role == "admin" or request.user.is_staff)
+        )
+
+
+class AdminUserListView(APIView):
+    """GET /auth/admin/users/ — list all users with search + filters."""
+
+    permission_classes = [_IsPlatformAdmin]
+
+    def get(self, request):
+        User = get_user_model()
+        qs = User.objects.annotate(
+            has_profile=Case(
+                When(student_profile__isnull=False, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            ),
+            profile_completion=Case(
+                When(student_profile__isnull=False, then=Value(None)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+        ).order_by("-created_at")
+
+        # Filters
+        search = request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(Q(email__icontains=search) | Q(full_name__icontains=search))
+
+        role = request.query_params.get("role", "")
+        if role in ("student", "admin"):
+            qs = qs.filter(role=role)
+
+        verified = request.query_params.get("email_verified", "")
+        if verified == "true":
+            qs = qs.filter(email_verified=True)
+        elif verified == "false":
+            qs = qs.filter(email_verified=False)
+
+        active = request.query_params.get("is_active", "")
+        if active == "true":
+            qs = qs.filter(is_active=True)
+        elif active == "false":
+            qs = qs.filter(is_active=False)
+
+        # Pagination (simple limit/offset)
+        try:
+            limit = min(int(request.query_params.get("limit", 50)), 200)
+            offset = int(request.query_params.get("offset", 0))
+        except ValueError:
+            limit, offset = 50, 0
+
+        total = qs.count()
+        users = qs[offset: offset + limit]
+
+        data = [
+            {
+                "id": u.pk,
+                "email": u.email,
+                "full_name": u.full_name,
+                "role": u.role,
+                "email_verified": u.email_verified,
+                "is_active": u.is_active,
+                "has_profile": u.has_profile,
+                "created_at": u.created_at.isoformat(),
+            }
+            for u in users
+        ]
+        return Response({"count": total, "results": data})
+
+
+class AdminUserDetailView(APIView):
+    """GET/PATCH /auth/admin/users/<pk>/ — view or update a user."""
+
+    permission_classes = [_IsPlatformAdmin]
+
+    def _get_user(self, pk):
+        User = get_user_model()
+        try:
+            return User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        user = self._get_user(pk)
+        if not user:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        has_profile = hasattr(user, "student_profile")
+        profile_data = {}
+        if has_profile:
+            p = user.student_profile
+            profile_data = {
+                "completion_percentage": p.completion_percentage,
+                "scholarship_readiness_score": p.scholarship_readiness_score,
+                "readiness_level": p.readiness_level,
+            }
+
+        return Response({
+            "id": user.pk,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "email_verified": user.email_verified,
+            "is_active": user.is_active,
+            "has_profile": has_profile,
+            "profile": profile_data,
+            "notify_weekly_digest": user.notify_weekly_digest,
+            "notify_deadline_reminder": user.notify_deadline_reminder,
+            "created_at": user.created_at.isoformat(),
+            "updated_at": user.updated_at.isoformat(),
+        })
+
+    def patch(self, request, pk):
+        user = self._get_user(pk)
+        if not user:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        allowed = {"role", "email_verified", "is_active"}
+        save_fields = ["updated_at"]
+        for field in allowed:
+            if field in request.data:
+                if field == "role" and request.data[field] not in ("student", "admin"):
+                    return Response(
+                        {"detail": "role must be 'student' or 'admin'."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                setattr(user, field, request.data[field])
+                save_fields.append(field)
+
+        if len(save_fields) > 1:
+            user.save(update_fields=save_fields)
+
+        return Response({
+            "id": user.pk,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "email_verified": user.email_verified,
+            "is_active": user.is_active,
+        })
