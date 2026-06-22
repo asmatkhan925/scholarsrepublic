@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Save } from "lucide-react";
+import { Download, Save, Sparkles } from "lucide-react";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -38,6 +38,7 @@ import {
   validateProfilePayload,
   withProfileDefaults,
 } from "./profile-utils";
+import { CvAutofillModal } from "./CvAutofillModal";
 import { ProfileSectionNav } from "./ProfileSectionNav";
 import { AlertsSection } from "./sections/AlertsSection";
 import { DocumentsSection } from "./sections/DocumentsSection";
@@ -68,6 +69,7 @@ function ProfilePageContent() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
   const [cvDownloading, setCvDownloading] = useState(false);
+  const [showCvAutofill, setShowCvAutofill] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -496,20 +498,30 @@ function ProfilePageContent() {
             </div>
           </div>
 
-          {/* ── Download CV action strip ── */}
-          <div className="flex items-center justify-between gap-3 border-t border-pine/10 px-3 py-2 dark:border-white/8">
+          {/* ── Action strip ── */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-pine/10 px-3 py-2 dark:border-white/8">
             <p className="text-xs text-ink/50 dark:text-white/40">
               Generate a scholarship-ready PDF CV from your saved profile.
             </p>
-            <button
-              type="button"
-              onClick={downloadCV}
-              disabled={cvDownloading}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-pine/25 bg-white px-3 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:text-pine dark:hover:bg-pine/20"
-            >
-              <Download size={12} aria-hidden="true" />
-              {cvDownloading ? "Generating…" : "Download Scholarship CV"}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCvAutofill(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-saffron/40 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-saffron/20 dark:border-saffron/30 dark:bg-saffron/10 dark:text-white"
+              >
+                <Sparkles size={12} aria-hidden="true" />
+                Auto-fill from CV
+              </button>
+              <button
+                type="button"
+                onClick={downloadCV}
+                disabled={cvDownloading}
+                className="flex items-center gap-1.5 rounded-lg border border-pine/25 bg-white px-3 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:text-pine dark:hover:bg-pine/20"
+              >
+                <Download size={12} aria-hidden="true" />
+                {cvDownloading ? "Generating…" : "Download CV"}
+              </button>
+            </div>
           </div>
         </section>
 
@@ -661,6 +673,22 @@ function ProfilePageContent() {
           </CardContent>
         </Card>
       </form>
+
+      {showCvAutofill && (
+        <CvAutofillModal
+          onClose={() => setShowCvAutofill(false)}
+          onApplied={async () => {
+            try {
+              const profile = await getStudentProfile();
+              setForm(constrainProfilePayload(withProfileDefaults({ ...EMPTY_PROFILE, ...profile })));
+              setCompletion(completionFromProfile(profile));
+              setProfileExists(true);
+            } catch (_) {
+              // profile refresh failed silently
+            }
+          }}
+        />
+      )}
     </DashboardShell>
   );
 }

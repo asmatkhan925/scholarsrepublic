@@ -1,10 +1,13 @@
 import datetime
+import io
+import json
 import logging
 import math
+import os
 
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-from rest_framework import status
+from rest_framework import parsers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -335,3 +338,241 @@ class CVDownloadView(StudentProfileAccessMixin, APIView):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         response["Content-Length"] = len(pdf_bytes)
         return response
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CV Auto-fill
+# ─────────────────────────────────────────────────────────────────────────────
+
+_EXTRACTION_PROMPT = """Extract profile information from this CV/resume text for a Pakistani student applying for international scholarships.
+
+Return ONLY a JSON object. Use null for any field you cannot confidently determine. Do not guess — only extract what is explicitly stated.
+
+CV text:
+{cv_text}
+
+Return JSON with these exact keys:
+{{
+  "city": string or null,
+  "province": one of ["Punjab","Sindh","Khyber Pakhtunkhwa","Balochistan","Gilgit-Baltistan","Azad Jammu and Kashmir","Islamabad Capital Territory","Other"] or null,
+  "current_education_level": one of ["Matric","FSc","A-Level","DAE/Diploma","Bachelor","Master","MS/MPhil","PhD","Other"] or null,
+  "current_institution": string or null,
+  "graduation_year": integer (4-digit year) or null,
+  "grading_system": one of ["CGPA_4","CGPA_5","Percentage","Division"] or null,
+  "cgpa": float or null,
+  "percentage": float or null,
+  "current_field_of_study": string or null,
+  "has_ielts": true/false or null,
+  "ielts_score": float or null,
+  "has_toefl": true/false or null,
+  "toefl_score": integer or null,
+  "has_gre": true/false or null,
+  "gre_score": integer or null,
+  "has_gmat": true/false or null,
+  "gmat_score": integer or null,
+  "has_duolingo": true/false or null,
+  "duolingo_score": integer or null,
+  "has_pte": true/false or null,
+  "pte_score": integer or null,
+  "has_research_experience": true/false or null,
+  "has_publications": true/false or null,
+  "publications_count": integer or null,
+  "research_interests": list of strings or null,
+  "skills": list of strings or null,
+  "work_experience_years": float or null,
+  "has_internship_experience": true/false or null,
+  "linkedin_url": string or null,
+  "github_url": string or null,
+  "portfolio_url": string or null
+}}
+
+Return only valid JSON, no explanation, no markdown code fences."""
+
+
+def _extract_pdf_text(file_bytes: bytes) -> str:
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(file_bytes))
+        pages = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(pages).strip()
+    except ImportError:
+        raise RuntimeError("pypdf is not installed. Run: pip install pypdf")
+    except Exception as exc:
+        raise RuntimeError(f"Could not read PDF: {exc}") from exc
+
+
+def _call_anthropic(cv_text: str) -> dict:
+    import requests as http
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not configured on this server.")
+
+    prompt = _EXTRACTION_PROMPT.format(cv_text=cv_text[:8000])
+    resp = http.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    raw = resp.json()["content"][0]["text"].strip()
+    # Strip markdown code fences if model wraps output anyway
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    return json.loads(raw)
+
+
+class CVAutofillExtractView(StudentProfileAccessMixin, APIView):
+    """Step 1 — upload a PDF CV and get extracted fields back for preview."""
+
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
+
+    def post(self, request):
+        denied = self.deny_admin(request)
+        if denied:
+            return denied
+
+        file_obj = request.FILES.get("file")
+        raw_text = request.data.get("text", "").strip()
+
+        if not file_obj and not raw_text:
+            return Response(
+                {"detail": "Provide either a 'file' (PDF) or 'text' field."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if file_obj:
+            name = file_obj.name.lower()
+            if not name.endswith(".pdf"):
+                return Response(
+                    {"detail": "Only PDF files are supported. Please upload a .pdf file."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if file_obj.size > 5 * 1024 * 1024:
+                return Response(
+                    {"detail": "File too large. Maximum size is 5 MB."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                cv_text = _extract_pdf_text(file_obj.read())
+            except RuntimeError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+            if not cv_text:
+                return Response(
+                    {"detail": "Could not extract any text from this PDF. It may be a scanned image — please paste the CV text instead."},
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+        else:
+            cv_text = raw_text
+
+        try:
+            extracted = _call_anthropic(cv_text)
+        except RuntimeError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as exc:
+            logger.exception("CV autofill AI extraction failed for user %s", request.user.pk)
+            return Response(
+                {"detail": "AI extraction failed. Please try again."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Remove null values — only return fields that were actually found
+        filtered = {k: v for k, v in extracted.items() if v is not None}
+        return Response({"extracted": filtered})
+
+
+# Fields that can be directly set on the profile (no FK lookup needed)
+_SIMPLE_FIELDS = {
+    "city", "province", "current_education_level", "current_institution",
+    "graduation_year", "grading_system", "cgpa", "percentage",
+    "has_ielts", "ielts_score", "has_toefl", "toefl_score",
+    "has_gre", "gre_score", "has_gmat", "gmat_score",
+    "has_duolingo", "duolingo_score", "has_pte", "pte_score",
+    "has_research_experience", "has_publications", "publications_count",
+    "research_interests", "skills", "work_experience_years",
+    "has_internship_experience", "linkedin_url", "github_url", "portfolio_url",
+}
+
+
+class CVAutofillApplyView(StudentProfileAccessMixin, APIView):
+    """Step 2 — apply confirmed extracted fields to the student's profile."""
+
+    def post(self, request):
+        denied = self.deny_admin(request)
+        if denied:
+            return denied
+
+        fields = request.data.get("fields", {})
+        if not isinstance(fields, dict) or not fields:
+            return Response(
+                {"detail": "Provide a non-empty 'fields' object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile = self.get_profile(request)
+        if profile is None:
+            return Response(
+                {"detail": "No profile found. Please create your profile first."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        updated = []
+        skipped = []
+        save_fields = []
+
+        for key, value in fields.items():
+            if key not in _SIMPLE_FIELDS:
+                continue
+            current = getattr(profile, key, None)
+            # Don't overwrite existing data (empty list counts as empty)
+            is_empty = (
+                current is None
+                or current == ""
+                or current is False and key.startswith("has_") is False
+                or (isinstance(current, list) and len(current) == 0)
+            )
+            if not is_empty and key != "research_interests" and key != "skills":
+                skipped.append(key)
+                continue
+            if key == "current_field_of_study":
+                profile.current_field_of_study = value
+                save_fields.append("current_study_field_ref")
+                save_fields.append("custom_current_study_field")
+            else:
+                setattr(profile, key, value)
+                save_fields.append(key)
+            updated.append(key)
+
+        # Handle current_field_of_study separately (it's a property)
+        if "current_field_of_study" in fields:
+            profile.current_field_of_study = fields["current_field_of_study"]
+            if "current_study_field_ref" not in save_fields:
+                save_fields += ["current_study_field_ref", "custom_current_study_field"]
+            if "current_field_of_study" not in updated:
+                updated.append("current_field_of_study")
+
+        if updated:
+            profile.ai_autofill_reviewed = True
+            save_fields.append("ai_autofill_reviewed")
+            # Mark source as cv_imported if it was previously manual and profile was sparse
+            if profile.profile_source == StudentProfile.ProfileSource.MANUAL:
+                profile.profile_source = StudentProfile.ProfileSource.CV_IMPORTED
+                save_fields.append("profile_source")
+            profile.save(update_fields=list(set(save_fields)))
+
+        return Response(
+            {
+                "updated": updated,
+                "skipped": skipped,
+                "profile": StudentProfileSerializer(profile).data,
+            }
+        )
