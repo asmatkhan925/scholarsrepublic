@@ -497,22 +497,20 @@ function ProfilePageContent() {
           </div>
 
           {/* ── Download CV action strip ── */}
-          {profileExists && (
-            <div className="flex items-center justify-between gap-3 border-t border-pine/10 px-3 py-2 dark:border-white/8">
-              <p className="text-xs text-ink/50 dark:text-white/40">
-                Generate a scholarship-ready PDF CV from your profile data.
-              </p>
-              <button
-                type="button"
-                onClick={downloadCV}
-                disabled={cvDownloading}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-pine/25 bg-white px-3 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:text-pine dark:hover:bg-pine/20"
-              >
-                <Download size={12} aria-hidden="true" />
-                {cvDownloading ? "Generating…" : "Download Scholarship CV"}
-              </button>
-            </div>
-          )}
+          <div className="flex items-center justify-between gap-3 border-t border-pine/10 px-3 py-2 dark:border-white/8">
+            <p className="text-xs text-ink/50 dark:text-white/40">
+              Generate a scholarship-ready PDF CV from your saved profile.
+            </p>
+            <button
+              type="button"
+              onClick={downloadCV}
+              disabled={cvDownloading}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-pine/25 bg-white px-3 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:text-pine dark:hover:bg-pine/20"
+            >
+              <Download size={12} aria-hidden="true" />
+              {cvDownloading ? "Generating…" : "Download Scholarship CV"}
+            </button>
+          </div>
         </section>
 
         {/* ── Section nav ── */}

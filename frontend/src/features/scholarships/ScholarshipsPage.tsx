@@ -724,6 +724,26 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     return [...activeAdvancedFilters, pathwayLabel].filter(Boolean);
   }, [activeAdvancedFilters, exactPathway, selectedPathwayLabel, selectedPathwaySlug]);
 
+  const filterChips = useMemo(() => {
+    const chips: { label: string; onRemove: () => void }[] = [];
+    if (country) chips.push({ label: country, onRemove: () => { setCountry(""); applyWithOverride({ country: undefined }); } });
+    if (field) chips.push({ label: field, onRemove: () => { setField(""); applyWithOverride({ field: undefined }); } });
+    if (selectedFundingLabel) chips.push({ label: selectedFundingLabel, onRemove: () => { setFundingType(""); applyWithOverride({ funding_type: undefined }); } });
+    if (noIelts) chips.push({ label: "No IELTS", onRemove: () => { setNoIelts(false); applyWithOverride({ no_ielts: undefined }); } });
+    if (noApplicationFee) chips.push({ label: "No application fee", onRemove: () => { setNoApplicationFee(false); applyWithOverride({ no_application_fee: undefined }); } });
+    if (verified) chips.push({ label: "Verified only", onRemove: () => { setVerified(false); applyWithOverride({ verified: undefined }); } });
+    const pathwayName = selectedPathwayLabel || selectedPathwaySlug;
+    if (pathwayName) chips.push({
+      label: exactPathway ? `Exact: ${pathwayName}` : pathwayName,
+      onRemove: () => {
+        setSelectedPathwaySlug(""); setSelectedPathwayLabel(""); setExactPathway(false);
+        applyWithOverride({ pathway: undefined, exact_pathway: undefined });
+      },
+    });
+    return chips;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [country, field, selectedFundingLabel, noIelts, noApplicationFee, verified, selectedPathwayLabel, selectedPathwaySlug, exactPathway]);
+
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
 
@@ -744,6 +764,24 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     updateScholarshipUrl(nextFilters);
   }
 
+  function applyWithOverride(override: Partial<OpportunityQueryParams>) {
+    const nextFilters = {
+      ordering: "deadline" as const,
+      search: search || undefined,
+      country: country || undefined,
+      field: field || undefined,
+      funding_type: fundingType || undefined,
+      pathway: selectedPathwaySlug || undefined,
+      exact_pathway: exactPathway || undefined,
+      no_ielts: noIelts || undefined,
+      no_application_fee: noApplicationFee || undefined,
+      verified: verified || undefined,
+      ...override,
+    };
+    setFilters(nextFilters);
+    updateScholarshipUrl(nextFilters);
+  }
+
   function handleClearFilters() {
     setSearch("");
     setCountry("");
@@ -755,7 +793,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     setSelectedPathwaySlug("");
     setSelectedPathwayLabel("");
     setExactPathway(false);
-    const nextFilters = { ordering: "deadline" };
+    const nextFilters = { ordering: "deadline" as const };
     setFilters(nextFilters);
     updateScholarshipUrl(nextFilters);
   }
@@ -873,22 +911,31 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                   </div>
                 </div>
 
-                {activeFilterSummary.length > 0 ? (
-                  <div className="flex flex-col gap-2 rounded-2xl border border-pine/10 bg-white px-3 py-2 text-xs text-ink/65 dark:border-white/10 dark:bg-white/5 dark:text-white/60 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="min-w-0">
-                      <span className="font-bold text-ink/70">Filtered by:</span>{" "}
-                      <span className="break-words">{activeFilterSummary.join(" · ")}</span>
-                    </p>
-                    <Button
+                {filterChips.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {filterChips.map((chip) => (
+                      <span
+                        key={chip.label}
+                        className="inline-flex items-center gap-1 rounded-full border border-pine/20 bg-mint/50 py-0.5 pl-2.5 pr-1 text-xs font-semibold text-pine dark:border-pine/30 dark:bg-pine/15 dark:text-pine"
+                      >
+                        {chip.label}
+                        <button
+                          type="button"
+                          onClick={chip.onRemove}
+                          aria-label={`Remove ${chip.label} filter`}
+                          className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full hover:bg-pine/15"
+                        >
+                          <X size={10} aria-hidden="true" />
+                        </button>
+                      </span>
+                    ))}
+                    <button
                       type="button"
-                      className="h-8 shrink-0 px-2.5 text-xs"
                       onClick={handleClearFilters}
-                      size="sm"
-                      variant="ghost"
+                      className="text-xs font-semibold text-ink/45 hover:text-ink dark:text-white/35 dark:hover:text-white"
                     >
-                      <X size={14} aria-hidden="true" />
-                      Clear
-                    </Button>
+                      Clear all
+                    </button>
                   </div>
                 ) : null}
 

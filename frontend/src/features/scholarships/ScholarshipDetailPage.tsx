@@ -24,6 +24,7 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 import { getScholarship, getScholarshipMatch } from "@/lib/api";
 import { ScholarshipComments } from "@/features/scholarships/ScholarshipComments";
+import { RelatedScholarships } from "@/features/scholarships/RelatedScholarships";
 import { ScholarshipSocialShareCard } from "@/features/scholarships/ScholarshipSocialShareCard";
 import { getErrorMessage } from "@/lib/errors";
 import type { OpportunityDetail, OpportunityMatch } from "@/types/opportunity";
@@ -946,6 +947,13 @@ export default function ScholarshipDetailPage({
               </section>
 
               <ScholarshipComments slug={scholarship.slug} />
+
+              <RelatedScholarships
+                currentSlug={scholarship.slug}
+                country={scholarship.country || null}
+                fieldsOfStudy={scholarship.fields_of_study}
+                fundingType={scholarship.funding_type || null}
+              />
             </div>
           ) : null}
         </section>
