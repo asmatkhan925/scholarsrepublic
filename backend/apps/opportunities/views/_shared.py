@@ -555,9 +555,14 @@ class StudentMatchMixin:
         return request.user.student_profile
 
     def get_published_queryset(self):
+        from django.utils import timezone
         queryset = Opportunity.objects.filter(status=Opportunity.Status.PUBLISHED)
         if self.opportunity_type:
             queryset = queryset.filter(opportunity_type=self.opportunity_type)
+        today = timezone.localdate()
+        queryset = queryset.filter(
+            Q(is_rolling_deadline=True) | Q(deadline__isnull=True) | Q(deadline__gte=today)
+        )
         return queryset
 
     def profile_missing_response(self):

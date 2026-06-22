@@ -225,7 +225,7 @@ class ScholarshipMatchView(OpportunityMatchView):
 
 
 class RecommendedOpportunitiesView(OpportunityFilterMixin, StudentMatchMixin, APIView):
-    limit = 20
+    limit = 50
 
     def get_user_state_maps(self, request, opportunity_ids):
         saved_by_opportunity = dict(
@@ -267,7 +267,7 @@ class RecommendedOpportunitiesView(OpportunityFilterMixin, StudentMatchMixin, AP
             return self.profile_missing_response()
 
         queryset = self.filter_queryset(self.get_published_queryset())
-        opportunities = list(queryset[:100])
+        opportunities = list(queryset[:200])
         opportunity_ids = [opportunity.id for opportunity in opportunities]
         saved_by_opportunity, applications_by_opportunity = self.get_user_state_maps(
             request,
