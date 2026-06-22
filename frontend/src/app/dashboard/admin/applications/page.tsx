@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { ClipboardList, Search } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { ClipboardList, Search, RefreshCw } from "lucide-react";
 import { AdminApplication, getAdminApplications } from "@/lib/api/admin/users";
 import {
   AdminHero,
@@ -81,13 +81,16 @@ export default function AdminApplicationsPage() {
   const [apps, setApps] = useState<AdminApplication[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [offset, setOffset] = useState(0);
+  const isFirstRender = useRef(true);
 
   const fetchApps = useCallback(
     async (q: string, s: string, off: number) => {
       setLoading(true);
+      setError(null);
       try {
         const params: Record<string, string | number> = {
           limit: PAGE_SIZE,
@@ -100,6 +103,8 @@ export default function AdminApplicationsPage() {
         );
         setApps(res.results);
         setTotal(res.count);
+      } catch {
+        setError("Failed to load applications. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -108,6 +113,11 @@ export default function AdminApplicationsPage() {
   );
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void fetchApps(search, statusFilter, offset);
+      return;
+    }
     const t = setTimeout(() => fetchApps(search, statusFilter, offset), 300);
     return () => clearTimeout(t);
   }, [search, statusFilter, offset, fetchApps]);
@@ -183,6 +193,16 @@ export default function AdminApplicationsPage() {
         {loading ? (
           <div className="p-6">
             <AdminLoading label="Loading applications…" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="text-sm text-red-500">{error}</p>
+            <button
+              onClick={() => fetchApps(search, statusFilter, offset)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-pine/20 px-3 py-1.5 text-sm text-pine hover:bg-pine/5"
+            >
+              <RefreshCw size={13} /> Retry
+            </button>
           </div>
         ) : apps.length === 0 ? (
           <div className="py-16 text-center text-sm text-pine/50">

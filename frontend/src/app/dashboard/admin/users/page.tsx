@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Users, Search, CheckCircle, XCircle } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Users, Search, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import {
   AdminUser,
   getAdminUsers,
@@ -54,14 +54,17 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [offset, setOffset] = useState(0);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const isFirstRender = useRef(true);
 
   const fetchUsers = useCallback(
     async (q: string, f: FilterKey, off: number) => {
       setLoading(true);
+      setError(null);
       try {
         const params: Record<string, string | number> = {
           limit: PAGE_SIZE,
@@ -77,6 +80,8 @@ export default function AdminUsersPage() {
         );
         setUsers(res.results);
         setTotal(res.count);
+      } catch {
+        setError("Failed to load users. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -85,6 +90,12 @@ export default function AdminUsersPage() {
   );
 
   useEffect(() => {
+    // No debounce on initial load — only debounce subsequent filter/search changes
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void fetchUsers(search, filter, offset);
+      return;
+    }
     const t = setTimeout(() => fetchUsers(search, filter, offset), 300);
     return () => clearTimeout(t);
   }, [search, filter, offset, fetchUsers]);
@@ -186,6 +197,16 @@ export default function AdminUsersPage() {
         {loading ? (
           <div className="p-6">
             <AdminLoading label="Loading users…" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="text-sm text-red-500">{error}</p>
+            <button
+              onClick={() => fetchUsers(search, filter, offset)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-pine/20 px-3 py-1.5 text-sm text-pine hover:bg-pine/5"
+            >
+              <RefreshCw size={13} /> Retry
+            </button>
           </div>
         ) : users.length === 0 ? (
           <div className="py-16 text-center text-sm text-pine/50">

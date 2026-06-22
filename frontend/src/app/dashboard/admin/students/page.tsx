@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { GraduationCap, Search } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { GraduationCap, Search, RefreshCw } from "lucide-react";
 import {
   AdminStudentProfile,
   getAdminStudentProfiles,
@@ -64,13 +64,16 @@ export default function AdminStudentsPage() {
   const [profiles, setProfiles] = useState<AdminStudentProfile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [readiness, setReadiness] = useState<ReadinessFilter>("all");
   const [offset, setOffset] = useState(0);
+  const isFirstRender = useRef(true);
 
   const fetchProfiles = useCallback(
     async (q: string, r: ReadinessFilter, off: number) => {
       setLoading(true);
+      setError(null);
       try {
         const params: Record<string, string | number> = {
           limit: PAGE_SIZE,
@@ -83,6 +86,8 @@ export default function AdminStudentsPage() {
         );
         setProfiles(res.results);
         setTotal(res.count);
+      } catch {
+        setError("Failed to load profiles. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -91,10 +96,12 @@ export default function AdminStudentsPage() {
   );
 
   useEffect(() => {
-    const t = setTimeout(
-      () => fetchProfiles(search, readiness, offset),
-      300,
-    );
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void fetchProfiles(search, readiness, offset);
+      return;
+    }
+    const t = setTimeout(() => fetchProfiles(search, readiness, offset), 300);
     return () => clearTimeout(t);
   }, [search, readiness, offset, fetchProfiles]);
 
@@ -168,6 +175,16 @@ export default function AdminStudentsPage() {
         {loading ? (
           <div className="p-6">
             <AdminLoading label="Loading profiles…" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="text-sm text-red-500">{error}</p>
+            <button
+              onClick={() => fetchProfiles(search, readiness, offset)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-pine/20 px-3 py-1.5 text-sm text-pine hover:bg-pine/5"
+            >
+              <RefreshCw size={13} /> Retry
+            </button>
           </div>
         ) : profiles.length === 0 ? (
           <div className="py-16 text-center text-sm text-pine/50">
