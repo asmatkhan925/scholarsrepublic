@@ -253,6 +253,70 @@ class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
+    def patch(self, request):
+        user = request.user
+        allowed = {"full_name"}
+        update_fields = []
+        for field in allowed:
+            if field in request.data:
+                value = str(request.data[field]).strip()
+                if not value:
+                    return Response(
+                        {"detail": f"{field} cannot be blank."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                setattr(user, field, value)
+                update_fields.append(field)
+        if update_fields:
+            user.save(update_fields=update_fields)
+        return Response(UserSerializer(user).data)
+
+    def delete(self, request):
+        user = request.user
+        # Require password confirmation before deletion
+        password = request.data.get("password", "")
+        if not user.check_password(password):
+            return Response(
+                {"detail": "Password is incorrect. Account not deleted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.delete()
+        return Response({"detail": "Account deleted."}, status=status.HTTP_204_NO_CONTENT)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        current = request.data.get("current_password", "")
+        new_password = request.data.get("new_password", "")
+        confirm = request.data.get("confirm_password", "")
+
+        if not user.check_password(current):
+            return Response(
+                {"detail": "Current password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(new_password) < 8:
+            return Response(
+                {"detail": "New password must be at least 8 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if new_password != confirm:
+            return Response(
+                {"detail": "New passwords do not match."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if new_password == current:
+            return Response(
+                {"detail": "New password must be different from the current one."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        return Response({"detail": "Password changed successfully."})
+
 
 class TokenRefreshView(APIView):
     permission_classes = [AllowAny]

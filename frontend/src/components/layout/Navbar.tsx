@@ -35,13 +35,13 @@ const studentLinks: NavLink[] = [
   { label: "Applications", href: "/dashboard/applications" },
   { label: "Saved", href: "/dashboard/saved" },
   { label: "Profile", href: "/dashboard/profile" },
+  { label: "Settings", href: "/dashboard/settings" },
 ];
 
 const studentToolLinks: NavLink[] = [
   { label: "SOP Generator", href: "/dashboard/ai/sop", badge: "AI" },
   { label: "SOP History", href: "/dashboard/ai/sop/history" },
   { label: "Recommendations", href: "/dashboard/recommendations" },
-  { label: "Notifications", href: "/dashboard/notifications" },
   { label: "Guides", href: "/guides", activePrefixes: ["/guides"] },
   { label: "CV Builder", href: "/dashboard/tools/cv", badge: "Soon", disabled: true },
   { label: "Study Plan", href: "/dashboard/tools/study-plan", badge: "Soon", disabled: true },

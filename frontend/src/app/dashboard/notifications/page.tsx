@@ -1,8 +1,5 @@
-import { NotificationsPage } from "@/features/notifications/NotificationsPage";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Notification Preferences — Scholars Republic",
-  description: "Manage which emails you receive from Scholars Republic.",
-};
-
-export default NotificationsPage;
+export default function NotificationsRedirect() {
+  redirect("/dashboard/settings#settings-notifications");
+}
