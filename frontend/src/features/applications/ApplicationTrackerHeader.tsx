@@ -15,6 +15,8 @@ export function ApplicationsSummaryHeader({
   applied,
   waiting,
   selected,
+  overdue,
+  dueSoon,
   onSearch,
   search,
   statusFilter,
@@ -27,6 +29,8 @@ export function ApplicationsSummaryHeader({
   applied: number;
   waiting: number;
   selected: number;
+  overdue: number;
+  dueSoon: number;
   search: string;
   statusFilter: string;
   priorityFilter: string;
@@ -62,19 +66,20 @@ export function ApplicationsSummaryHeader({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+      <div className="grid grid-cols-3 divide-y divide-pine/10 dark:divide-white/10 sm:grid-cols-6 sm:divide-x sm:divide-y-0">
         {[
-          ["Total", total],
-          ["Prep", preparing],
-          ["Applied", applied],
-          ["Waiting", waiting],
-          ["Selected", selected],
-        ].map(([label, value]) => (
+          { label: "Total", value: total, tone: null },
+          { label: "Prep", value: preparing, tone: null },
+          { label: "Applied", value: applied, tone: null },
+          { label: "Waiting", value: waiting, tone: null },
+          { label: "Selected", value: selected, tone: null },
+          { label: "Urgent", value: overdue + dueSoon, tone: overdue > 0 ? "danger" : dueSoon > 0 ? "warn" : null },
+        ].map(({ label, value, tone }) => (
           <div key={label} className="flex items-center justify-between gap-2 px-2.5 py-1.5 md:px-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">
+            <p className={`text-[10px] font-bold uppercase tracking-[0.1em] ${tone === "danger" ? "text-red-500" : tone === "warn" ? "text-saffron" : "text-ink/35 dark:text-white/35"}`}>
               {label}
             </p>
-            <p className="text-base font-bold leading-none text-ink dark:text-white">{value}</p>
+            <p className={`text-base font-bold leading-none ${tone === "danger" ? "text-red-500" : tone === "warn" ? "text-saffron" : "text-ink dark:text-white"}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -176,11 +181,11 @@ export function TrackerAlertsPanel({
   const hasAlerts = alerts.some((alert) => alert.value > 0);
 
   return (
-    <section className="rounded-2xl border border-pine/10 bg-white px-3 py-2 shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
+    <section className={`rounded-2xl border px-3 py-2 shadow-soft transition-colors ${overdue > 0 ? "border-red-200/60 bg-red-50/50 dark:border-red-400/20 dark:bg-red-900/10" : "border-pine/10 bg-white dark:border-white/10 dark:bg-[#181b1d]"}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-ink/40 dark:text-white/40">
+        <span className={`mr-1 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] ${overdue > 0 ? "text-red-500 dark:text-red-400" : "text-ink/40 dark:text-white/40"}`}>
           <Bell size={14} aria-hidden="true" />
-          {hasAlerts ? "Action alerts" : "Clear today"}
+          {overdue > 0 ? `${overdue} overdue` : hasAlerts ? "Action alerts" : "Clear today"}
         </span>
 
         {alerts.map((alert) => (

@@ -571,3 +571,35 @@ class OpportunityCommentDeleteView(APIView):
 
         comment.soft_delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PlatformStatsView(APIView):
+    """Unauthenticated endpoint returning live platform-wide counts for the homepage."""
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = []
+
+    def get(self, request):
+        from django.core.cache import cache
+        cached = cache.get("platform_stats")
+        if cached:
+            return Response(cached)
+
+        scholarships_listed = Opportunity.objects.filter(
+            status=Opportunity.Status.PUBLISHED,
+            opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
+        ).count()
+
+        students_registered = User.objects.filter(
+            role=User.Role.STUDENT,
+            email_verified=True,
+        ).count()
+
+        applications_tracked = OpportunityApplication.objects.count()
+
+        data = {
+            "scholarships_listed": scholarships_listed,
+            "students_registered": students_registered,
+            "applications_tracked": applications_tracked,
+        }
+        cache.set("platform_stats", data, timeout=3600)
+        return Response(data)

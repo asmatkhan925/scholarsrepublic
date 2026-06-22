@@ -519,6 +519,7 @@ class OpportunityFilterMixin:
 
         search = params.get("search") or params.get("q")
         if search:
+            from django.db.models import Case, IntegerField, Value, When
             queryset = queryset.filter(
                 Q(title__icontains=search)
                 | Q(provider_name__icontains=search)
@@ -532,7 +533,25 @@ class OpportunityFilterMixin:
                 | Q(short_description__icontains=search)
                 | Q(description__icontains=search)
                 | Q(search_keywords__icontains=search)
+            ).annotate(
+                _search_rank=Case(
+                    When(title__iexact=search, then=Value(5)),
+                    When(title__istartswith=search, then=Value(4)),
+                    When(title__icontains=search, then=Value(3)),
+                    When(
+                        Q(provider_name__icontains=search)
+                        | Q(university_name__icontains=search)
+                        | Q(search_keywords__icontains=search),
+                        then=Value(2),
+                    ),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
             )
+            ordering = params.get("ordering")
+            if ordering in self.allowed_ordering:
+                return queryset.order_by("-_search_rank", self.allowed_ordering[ordering])
+            return queryset.order_by("-_search_rank", "-featured", F("deadline").asc(nulls_last=True))
 
         ordering = params.get("ordering")
         if ordering in self.allowed_ordering:

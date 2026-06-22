@@ -1,8 +1,9 @@
 """
-Daily command: send 2-day deadline reminders for saved scholarships.
+Daily command: send 7-day and 2-day deadline reminders for saved scholarships.
 Run every day at 8 AM PKT (3 AM UTC):
-    0 3 * * * /home/scholarsrepublic/scholarsrepublic/backend/venv/bin/python \
-        /home/scholarsrepublic/scholarsrepublic/backend/manage.py send_deadline_reminders
+    0 3 * * * cd /home/scholarsrepublic/scholarsrepublic/backend && \
+        /home/scholarsrepublic/scholarsrepublic/backend/venv/bin/python \
+        manage.py send_deadline_reminders >> /home/scholarsrepublic/logs/deadline_reminders.log 2>&1
 """
 import logging
 from datetime import timedelta
@@ -18,7 +19,7 @@ from apps.opportunities.models import Opportunity
 
 logger = logging.getLogger(__name__)
 
-DAYS_BEFORE = 2
+REMINDER_DAYS = [7, 2]
 
 
 def build_unsubscribe_url(user, pref: str) -> str:
@@ -27,17 +28,25 @@ def build_unsubscribe_url(user, pref: str) -> str:
     return f"{frontend_url}/unsubscribe?token={token}"
 
 
-def deadline_reminder_body(user, opportunity) -> str:
+def deadline_reminder_body(user, opportunity, days_before: int) -> str:
     frontend_url = settings.FRONTEND_URL.rstrip("/")
     scholarship_url = f"{frontend_url}/scholarships/{opportunity.slug}"
     source_url = opportunity.source_url or scholarship_url
     deadline_str = opportunity.deadline.strftime("%-d %B %Y") if opportunity.deadline else "soon"
     provider = opportunity.provider_name or opportunity.university_name or "the provider"
     unsubscribe_url = build_unsubscribe_url(user, "reminder")
+    first_name = (user.full_name or "there").strip().split()[0]
 
-    return f"""Hi {user.full_name or "there"},
+    if days_before == 7:
+        urgency = "closes in 7 days — time to finalise your documents."
+        action = "Review your application materials and make sure everything is ready before the final push."
+    else:
+        urgency = f"closes in {days_before} days — last chance to prepare."
+        action = "Check your documents, confirm the official deadline, and submit before it closes."
 
-This is a reminder that one of your saved scholarships closes in {DAYS_BEFORE} days.
+    return f"""Hi {first_name},
+
+One of your saved scholarships {urgency}
 
   {opportunity.title}
   Provider: {provider}
@@ -49,7 +58,7 @@ View on Scholars Republic:
 Apply on the official source:
   {source_url}
 
-Make sure your documents are ready before the deadline. Always confirm the final deadline on the official scholarship page before submitting.
+{action} Always confirm the final deadline on the official scholarship page before submitting.
 
 ---
 You are receiving this email because you saved this scholarship on Scholars Republic and have deadline reminders enabled.
@@ -58,7 +67,7 @@ Unsubscribe from deadline reminders: {unsubscribe_url}
 
 
 class Command(BaseCommand):
-    help = f"Send {DAYS_BEFORE}-day deadline reminders for saved scholarships."
+    help = "Send 7-day and 2-day deadline reminders for saved scholarships."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -67,10 +76,9 @@ class Command(BaseCommand):
             help="Print what would be sent without actually sending emails.",
         )
 
-    def handle(self, *args, **options):
-        dry_run = options["dry_run"]
+    def _run_for_days(self, days_before: int, dry_run: bool) -> tuple[int, int]:
         today = timezone.localdate()
-        target_date = today + timedelta(days=DAYS_BEFORE)
+        target_date = today + timedelta(days=days_before)
 
         saved = (
             SavedOpportunity.objects.filter(
@@ -90,9 +98,8 @@ class Command(BaseCommand):
         for item in saved:
             user = item.user
             opportunity = item.opportunity
-
-            subject = f"Deadline in {DAYS_BEFORE} days: {opportunity.title}"
-            body = deadline_reminder_body(user, opportunity)
+            subject = f"Deadline in {days_before} days: {opportunity.title}"
+            body = deadline_reminder_body(user, opportunity, days_before)
 
             if dry_run:
                 self.stdout.write(f"[DRY RUN] Would send to {user.email}: {subject}")
@@ -108,16 +115,31 @@ class Command(BaseCommand):
                     fail_silently=False,
                 )
                 sent += 1
-                logger.info("Deadline reminder sent to %s for %s", user.email, opportunity.slug)
+                logger.info(
+                    "Deadline reminder (%dd) sent to %s for %s",
+                    days_before, user.email, opportunity.slug,
+                )
             except Exception:
                 logger.exception(
                     "Failed to send deadline reminder to %s for %s", user.email, opportunity.slug
                 )
                 skipped += 1
 
+        return sent, skipped
+
+    def handle(self, *args, **options):
+        dry_run = options["dry_run"]
+        total_sent = 0
+        total_skipped = 0
+
+        for days in REMINDER_DAYS:
+            sent, skipped = self._run_for_days(days, dry_run)
+            total_sent += sent
+            total_skipped += skipped
+
         self.stdout.write(
             self.style.SUCCESS(
-                f"send_deadline_reminders: sent={sent} skipped={skipped} "
-                f"target_date={target_date}"
+                f"send_deadline_reminders: sent={total_sent} skipped={total_skipped} "
+                f"days_checked={REMINDER_DAYS}"
             )
         )

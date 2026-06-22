@@ -286,9 +286,11 @@ function ApplicationTrackerContent() {
       <div className="space-y-3">
         <ApplicationsSummaryHeader
           applied={counts?.applied ?? 0}
+          dueSoon={trackerAlerts.dueSoon}
           onPriorityFilter={setPriorityFilter}
           onSearch={setSearch}
           onStatusFilter={setStatusFilter}
+          overdue={trackerAlerts.overdue}
           preparing={counts?.preparing ?? 0}
           priorityFilter={priorityFilter}
           search={search}

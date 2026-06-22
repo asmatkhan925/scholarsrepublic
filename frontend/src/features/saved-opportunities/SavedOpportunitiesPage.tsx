@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { ArrowRight, ClipboardCheck, Search, ShieldCheck, Trash2 } from "lucide-react";
+import { ArrowRight, Bookmark, ClipboardCheck, Search, ShieldCheck, Trash2 } from "lucide-react";
+import Link from "next/link";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -10,11 +11,12 @@ import { Badge, Button, ButtonLink, Card, CardContent, EmptyState } from "@/comp
 import {
   deleteApplication,
   deleteSavedOpportunity,
+  getRecommendedScholarships,
   getSavedOpportunities,
   startApplicationFromSaved,
 } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import type { SavedOpportunity, SavedOpportunityResponse } from "@/types/opportunity";
+import type { OpportunityListItem, SavedOpportunity, SavedOpportunityResponse } from "@/types/opportunity";
 
 function humanize(value: string) {
   if (!value) {
@@ -64,6 +66,58 @@ function getDeadlineBadge(deadline: string | null) {
   }
 
   return { label: `${days} days left`, tone: "mint" as const };
+}
+
+function RecommendedPrompt() {
+  const [items, setItems] = useState<OpportunityListItem[]>([]);
+
+  useEffect(() => {
+    getRecommendedScholarships({ page_size: 3 } as Parameters<typeof getRecommendedScholarships>[0])
+      .then((r) => setItems(r.results.slice(0, 3).map((x) => x.opportunity)))
+      .catch(() => {});
+  }, []);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mt-2 rounded-2xl border border-pine/10 bg-[#f7faf8] p-4 dark:border-white/10 dark:bg-white/4">
+      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-pine">
+        Recommended for you — save a few to get started
+      </p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {items.map((s) => {
+          const provider = s.university_name || s.provider_name || null;
+          const daysLeft = s.days_until_deadline;
+          const deadlineLabel =
+            daysLeft === null ? "Rolling" : daysLeft < 0 ? "Expired" : `${daysLeft}d left`;
+          const tone: "mint" | "saffron" | "danger" | "sky" =
+            daysLeft === null ? "sky" : daysLeft < 0 ? "danger" : daysLeft <= 14 ? "saffron" : "mint";
+          return (
+            <Link key={s.slug} href={`/scholarships/${s.slug}`} className="no-underline group">
+              <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#181b1d]">
+                <CardContent className="flex flex-col gap-1.5 p-3">
+                  <div className="flex items-center gap-1.5">
+                    <Badge tone={tone}>{deadlineLabel}</Badge>
+                    {s.verified_status && <Badge tone="mint">Verified</Badge>}
+                  </div>
+                  <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink group-hover:text-pine dark:text-white">
+                    {s.title}
+                  </p>
+                  {provider && (
+                    <p className="line-clamp-1 text-xs text-ink/55 dark:text-white/45">{provider}</p>
+                  )}
+                  <div className="mt-auto flex items-center gap-1 text-[11px] font-semibold text-pine">
+                    <Bookmark size={10} aria-hidden="true" />
+                    Save this
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function SavedOpportunityCard({
@@ -430,17 +484,20 @@ function SavedOpportunitiesContent() {
         ) : null}
 
         {!loading && !error && savedItems.length === 0 ? (
-          <EmptyState
-            action={
-              <ButtonLink href="/scholarships">
-                Browse Scholarships
-                <ArrowRight size={16} aria-hidden="true" />
-              </ButtonLink>
-            }
-            description="Save scholarships you want to revisit, compare, or prepare for later. Your shortlist will appear here."
-            icon={<ShieldCheck size={22} aria-hidden="true" />}
-            title="You have not saved any opportunities yet"
-          />
+          <>
+            <EmptyState
+              action={
+                <ButtonLink href="/scholarships">
+                  Browse Scholarships
+                  <ArrowRight size={16} aria-hidden="true" />
+                </ButtonLink>
+              }
+              description="Save scholarships you want to revisit, compare, or prepare for later. Your shortlist will appear here."
+              icon={<ShieldCheck size={22} aria-hidden="true" />}
+              title="You have not saved any opportunities yet"
+            />
+            <RecommendedPrompt />
+          </>
         ) : null}
 
         {!loading && !error && savedItems.length > 0 ? (

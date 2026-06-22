@@ -652,65 +652,65 @@ function StudentDashboardContent() {
                 <MetricPill label="Ready" value={`${readinessScore}%`} tone={readinessScore >= 70 ? "good" : "warning"} />
               </div>
 
-              <div className="mt-3 grid gap-3">
-                <div className="rounded-2xl border border-pine/10 bg-mint/25 p-3 dark:border-white/10 dark:bg-pine/10">
-                  <div className="flex items-center gap-2">
-                    <ListChecks size={16} className="text-pine" aria-hidden="true" />
-                    <p className="text-sm font-bold text-ink dark:text-white">Missing fields</p>
-                  </div>
-
-                  {missingFields.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {missingFields.slice(0, 5).map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65 dark:bg-white/10 dark:text-white/65"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                      {missingFields.length > 5 ? (
-                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45 dark:bg-white/10 dark:text-white/45">
-                          +{missingFields.length - 5} more
-                        </span>
-                      ) : null}
+              {(missingFields.length > 0 || missingDocuments.length > 0) && (
+                <div className="mt-3 rounded-2xl border border-pine/10 bg-mint/20 p-3 dark:border-white/10 dark:bg-pine/10">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <ListChecks size={15} className="text-pine" aria-hidden="true" />
+                      <p className="text-xs font-bold text-ink dark:text-white">
+                        {missingFields.length + missingDocuments.length} items to complete
+                      </p>
                     </div>
-                  ) : (
-                    <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60 dark:bg-white/10 dark:text-white/58">
-                      Key profile fields look complete.
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-2xl border border-pine/10 bg-skyglass p-3 dark:border-white/10 dark:bg-white/5">
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-pine" aria-hidden="true" />
-                    <p className="text-sm font-bold text-ink dark:text-white">Missing documents</p>
+                    <Link
+                      href="/dashboard/profile"
+                      className="text-[11px] font-semibold text-pine hover:underline"
+                    >
+                      Edit profile →
+                    </Link>
                   </div>
-
-                  {missingDocuments.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {missingDocuments.slice(0, 5).map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/65 dark:bg-white/10 dark:text-white/65"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                      {missingDocuments.length > 5 ? (
-                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink/45 dark:bg-white/10 dark:text-white/45">
-                          +{missingDocuments.length - 5} more
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-ink/60 dark:bg-white/10 dark:text-white/58">
-                      Core documents look ready.
-                    </p>
-                  )}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {[
+                      ...missingFields.slice(0, 4).map((f) => ({
+                        label: f,
+                        href: `/dashboard/profile#${
+                          ["City", "Province", "Domicile"].includes(f) ? "profile-personal" :
+                          ["Current education level", "Current institution", "Current field of study"].includes(f) ? "profile-education" :
+                          ["Target degree level", "Target countries", "Target fields"].includes(f) ? "profile-targets" :
+                          ["Language test information"].includes(f) ? "profile-tests" :
+                          ["Academic score"].includes(f) ? "profile-education" :
+                          ["Funding preference", "Preferred intake"].includes(f) ? "profile-funding" :
+                          "profile-personal"
+                        }`,
+                      })),
+                      ...missingDocuments.slice(0, 3).map((d) => ({
+                        label: d,
+                        href: "/dashboard/profile#profile-documents",
+                      })),
+                    ].map(({ label, href }) => (
+                      <Link
+                        key={label}
+                        href={href}
+                        className="rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink/70 hover:border-pine/40 hover:text-pine dark:border-white/10 dark:bg-white/8 dark:text-white/65 dark:hover:text-white"
+                      >
+                        + {label}
+                      </Link>
+                    ))}
+                    {(missingFields.length + missingDocuments.length) > 7 && (
+                      <Link
+                        href="/dashboard/profile"
+                        className="rounded-full border border-pine/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink/45 hover:text-pine dark:border-white/10 dark:bg-white/8 dark:text-white/40"
+                      >
+                        +{missingFields.length + missingDocuments.length - 7} more
+                      </Link>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+              {missingFields.length === 0 && missingDocuments.length === 0 && (
+                <p className="mt-3 rounded-2xl border border-pine/10 bg-mint/20 px-3 py-2 text-xs font-medium text-pine dark:border-white/10 dark:bg-pine/10">
+                  Profile complete — all key fields and documents are set.
+                </p>
+              )}
             </CardContent>
           </Card>
         </aside>

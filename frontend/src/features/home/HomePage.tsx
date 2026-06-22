@@ -11,9 +11,32 @@ import {
   Sparkles,
   UserRoundCheck,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
+
+interface PlatformStats {
+  scholarships_listed: number;
+  students_registered: number;
+  applications_tracked: number;
+}
+
+function useStats() {
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  useEffect(() => {
+    fetch("/api/platform-stats/")
+      .then((r) => r.json())
+      .then((d: PlatformStats) => setStats(d))
+      .catch(() => {});
+  }, []);
+  return stats;
+}
+
+function fmt(n: number): string {
+  if (n >= 1000) return `${Math.floor(n / 100) / 10}k+`;
+  return String(n);
+}
 
 const loggedOutSteps = [
   {
@@ -121,6 +144,7 @@ const guideLinks = [
 
 export function HomePage() {
   const { isAuthenticated, loading, user } = useAuth();
+  const stats = useStats();
 
   const isLoggedIn = isAuthenticated && !loading;
   const isAuthLoading = loading;
@@ -264,6 +288,21 @@ export function HomePage() {
               );
             })}
           </div>
+
+          {stats && (
+            <div className="mt-4 grid grid-cols-3 divide-x divide-pine/10 overflow-hidden rounded-2xl border border-pine/10 bg-white/90 shadow-soft">
+              {[
+                { value: fmt(stats.scholarships_listed), label: "Scholarships listed" },
+                { value: fmt(stats.students_registered), label: "Students registered" },
+                { value: fmt(stats.applications_tracked), label: "Applications tracked" },
+              ].map(({ value, label }) => (
+                <div key={label} className="flex flex-col items-center gap-0.5 px-4 py-3 text-center">
+                  <span className="text-xl font-black tabular-nums text-pine sm:text-2xl">{value}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/45">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

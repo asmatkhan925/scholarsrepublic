@@ -20,6 +20,7 @@ from .public import (
     ScholarshipCommentListCreateView,
     ScholarshipCommentReplyCreateView,
     OpportunityCommentDeleteView,
+    PlatformStatsView,
 )
 
 # Admin CRUD
@@ -117,6 +118,7 @@ __all__ = [
     "ScholarshipCommentListCreateView",
     "ScholarshipCommentReplyCreateView",
     "OpportunityCommentDeleteView",
+    "PlatformStatsView",
     # admin_core
     "AdminOpportunityListCreateView",
     "AdminOpportunityDetailView",

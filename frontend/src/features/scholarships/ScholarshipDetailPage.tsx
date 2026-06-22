@@ -8,10 +8,12 @@ import {
   BadgeCheck,
   BookOpenCheck,
   CheckCircle2,
+  Copy,
   ExternalLink,
   FileText,
   GraduationCap,
   Globe2,
+  Share2,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -431,6 +433,7 @@ export default function ScholarshipDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(Boolean(initialScholarship?.is_saved));
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     hasScholarshipRef.current = Boolean(scholarship);
@@ -808,6 +811,46 @@ export default function ScholarshipDetailPage({
                       >
                         Verify official source before applying.
                       </p>
+
+                      <div className="mt-3 border-t border-pine/10 pt-3 dark:border-white/10">
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-ink/35 dark:text-white/35">
+                          Share
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = window.location.href;
+                              void navigator.clipboard.writeText(url).then(() => {
+                                setCopied(true);
+                                setTimeout(() => setCopied(false), 2000);
+                              });
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-pine/15 bg-[#f7faf8] px-2.5 py-1.5 text-xs font-semibold text-ink/70 transition hover:border-pine/30 hover:text-pine dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:text-white"
+                          >
+                            <Copy size={12} aria-hidden="true" />
+                            {copied ? "Copied!" : "Copy link"}
+                          </button>
+                          <a
+                            href={`https://wa.me/?text=${encodeURIComponent(`${scholarship.title} — ${typeof window !== "undefined" ? window.location.href : ""}`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-pine/15 bg-[#f7faf8] px-2.5 py-1.5 text-xs font-semibold text-ink/70 transition hover:border-green-400/40 hover:text-green-700 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:text-white"
+                          >
+                            <Share2 size={12} aria-hidden="true" />
+                            WhatsApp
+                          </a>
+                          <a
+                            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${scholarship.title}`)}&url=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-pine/15 bg-[#f7faf8] px-2.5 py-1.5 text-xs font-semibold text-ink/70 transition hover:border-sky-400/40 hover:text-sky-700 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:text-white"
+                          >
+                            <Share2 size={12} aria-hidden="true" />
+                            X / Twitter
+                          </a>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
