@@ -419,108 +419,66 @@ function ProfilePageContent() {
       <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
         {/* ── Hero / readiness banner ── */}
         <section className="overflow-hidden rounded-[1.5rem] border border-pine/10 bg-white shadow-soft transition-colors dark:border-white/10 dark:bg-[#181b1d]">
-          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-3 py-3 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20 md:px-4">
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_36rem] xl:items-center">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-pine">
-                  Student profile
-                </p>
-                <h1 className="mt-1.5 text-xl font-bold tracking-tight text-ink dark:text-white md:text-2xl">
-                  Improve your scholarship match.
-                </h1>
-                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
-                  Fill the most important details first. You can save partial progress and return later.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-pine/10 bg-white/90 p-2.5 shadow-sm transition-colors dark:border-white/10 dark:bg-white/5">
-                <div className="grid gap-1.5 lg:grid-cols-[10rem_1fr] lg:items-stretch">
-                  <div className="rounded-xl border border-pine/10 bg-mint/45 px-2.5 py-2 dark:border-white/10 dark:bg-pine/10">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pine">
-                        Readiness
-                      </p>
-                      <Badge tone={getReadinessTone(completion.readiness_level)}>
-                        {completion.readiness_level}
-                      </Badge>
-                    </div>
-
-                    <div className="mt-1 flex items-end justify-between gap-2">
-                      <p className="text-2xl font-black leading-none text-pine">
-                        {completion.scholarship_readiness_score}
-                        <span className="text-sm font-bold text-ink/45 dark:text-white/45">/100</span>
-                      </p>
-                      <span className="text-[11px] font-semibold text-ink/50 dark:text-white/45">
-                        {completion.completion_percentage}%
-                      </span>
-                    </div>
-
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white dark:bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-pine"
-                        style={{ width: `${completion.completion_percentage}%` }}
-                      />
-                    </div>
-
-                    {hasUnsavedChanges && (
-                      <p className="mt-1.5 text-[10px] font-medium text-pine/60 dark:text-pine/50">
-                        Save to update score
-                      </p>
-                    )}
+          <div className="bg-gradient-to-r from-mint/75 via-white to-skyglass px-4 py-2.5 transition-colors dark:from-pine/10 dark:via-[#181b1d] dark:to-skyglass/20">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              {/* Left: title + readiness score */}
+              <div className="flex items-center gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pine">Student profile</p>
+                  <h1 className="text-base font-bold tracking-tight text-ink dark:text-white">
+                    Scholarship Readiness
+                  </h1>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-pine/10 bg-mint/60 px-3 py-1.5 dark:border-white/10 dark:bg-pine/15">
+                  <span className="text-xl font-black leading-none text-pine">
+                    {completion.scholarship_readiness_score}
+                    <span className="text-xs font-bold text-ink/40 dark:text-white/40">/100</span>
+                  </span>
+                  <Badge tone={getReadinessTone(completion.readiness_level)}>
+                    {completion.readiness_level}
+                  </Badge>
+                </div>
+                {/* Progress bar */}
+                <div className="hidden w-28 sm:block">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-pine/10 dark:bg-white/10">
+                    <div className="h-full rounded-full bg-pine transition-all" style={{ width: `${completion.completion_percentage}%` }} />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Complete</p>
-                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">{completion.completion_percentage}%</p>
-                    </div>
-
-                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Docs</p>
-                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">
-                        {preparedDocumentCount}
-                        <span className="text-[11px] font-bold text-ink/40 dark:text-white/40">/{DOCUMENT_OPTIONS.length}</span>
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Targets</p>
-                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">{form.target_countries.length}</p>
-                    </div>
-
-                    <div className="rounded-xl border border-pine/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/35">Fields</p>
-                      <p className="mt-0.5 text-base font-black leading-none text-ink dark:text-white">{form.target_fields.length}</p>
-                    </div>
-                  </div>
+                  <p className="mt-0.5 text-[10px] font-semibold text-ink/45 dark:text-white/40">{completion.completion_percentage}% filled</p>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* ── Action strip ── */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-pine/10 px-3 py-2 dark:border-white/8">
-            <p className="text-xs text-ink/50 dark:text-white/40">
-              Generate a scholarship-ready PDF CV from your saved profile.
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCvAutofill(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-saffron/40 bg-saffron/10 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-saffron/20 dark:border-saffron/30 dark:bg-saffron/10 dark:text-white"
-              >
-                <Sparkles size={12} aria-hidden="true" />
-                Auto-fill from CV
-              </button>
-              <button
-                type="button"
-                onClick={downloadCV}
-                disabled={cvDownloading}
-                className="flex items-center gap-1.5 rounded-lg border border-pine/25 bg-white px-3 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:text-pine dark:hover:bg-pine/20"
-              >
-                <Download size={12} aria-hidden="true" />
-                {cvDownloading ? "Generating…" : "Download CV"}
-              </button>
+              {/* Right: mini stats + actions */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { label: "Docs", value: `${preparedDocumentCount}/${DOCUMENT_OPTIONS.length}` },
+                  { label: "Targets", value: form.target_countries.length },
+                  { label: "Fields", value: form.target_fields.length },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-pine/10 bg-white px-2 py-1 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/30">{s.label}</p>
+                    <p className="text-sm font-black leading-tight text-ink dark:text-white">{s.value}</p>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5 border-l border-pine/10 pl-1.5 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setShowCvAutofill(true)}
+                    className="flex items-center gap-1 rounded-lg border border-saffron/40 bg-saffron/10 px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-saffron/20 dark:border-saffron/30 dark:text-white"
+                  >
+                    <Sparkles size={11} aria-hidden="true" />
+                    Auto-fill
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadCV}
+                    disabled={cvDownloading}
+                    className="flex items-center gap-1 rounded-lg border border-pine/25 bg-white px-2.5 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:hover:bg-pine/20"
+                  >
+                    <Download size={11} aria-hidden="true" />
+                    {cvDownloading ? "…" : "CV"}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -533,30 +491,19 @@ function ProfilePageContent() {
 
         {/* ── Next steps card ── */}
         {nextProfileSteps.length > 0 && (
-          <Card className="dark:border-white/10 dark:bg-[#181b1d]">
-            <CardContent className="p-3">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-bold text-ink dark:text-white">Next details to complete</p>
-                  <p className="mt-1 text-sm leading-6 text-ink/60 dark:text-white/58">
-                    These fields can improve your match score and recommendations.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {nextProfileSteps.map((item) => {
-                    const href = MISSING_FIELD_SECTION[item];
-                    return href ? (
-                      <a key={item} href={href} className="no-underline">
-                        <Badge tone="saffron">{item} ↓</Badge>
-                      </a>
-                    ) : (
-                      <Badge key={item} tone="saffron">{item}</Badge>
-                    );
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-saffron/20 bg-saffron/5 px-3 py-2 dark:border-saffron/15 dark:bg-saffron/5">
+            <span className="shrink-0 text-xs font-bold text-ink/50 dark:text-white/40">Fill next:</span>
+            {nextProfileSteps.map((item) => {
+              const href = MISSING_FIELD_SECTION[item];
+              return href ? (
+                <a key={item} href={href} className="no-underline">
+                  <Badge tone="saffron">{item} ↓</Badge>
+                </a>
+              ) : (
+                <Badge key={item} tone="saffron">{item}</Badge>
+              );
+            })}
+          </div>
         )}
 
         {/* ── Status messages ── */}
@@ -649,29 +596,21 @@ function ProfilePageContent() {
           </div>
         )}
 
-        {/* ── Sticky save bar ── */}
-        <Card className="sticky bottom-3 z-10 border-pine/15 bg-white/95 shadow-lg backdrop-blur dark:border-white/10 dark:bg-[#181b1d]/95">
-          <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-bold text-ink dark:text-white">Save your profile</p>
-              <p className="text-sm leading-6 text-ink/60 dark:text-white/58">
-                {hasUnsavedChanges
-                  ? "You have changes that are not saved yet."
-                  : "Better profile data improves matches and recommendations."}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <ButtonLink href="/dashboard" variant="outline">
-                Back to Dashboard
-              </ButtonLink>
-              <Button type="submit" disabled={saving}>
-                <Save size={16} aria-hidden="true" />
-                {saving ? "Saving..." : hasUnsavedChanges ? "Save Changes" : "Save Profile"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* ── Floating save bar ── */}
+        <div className="sticky bottom-3 z-10 flex justify-end">
+          <div className="flex items-center gap-2 rounded-2xl border border-pine/15 bg-white/95 px-3 py-2 shadow-lg backdrop-blur dark:border-white/10 dark:bg-[#181b1d]/95">
+            {hasUnsavedChanges && (
+              <span className="hidden text-xs font-medium text-saffron sm:inline">Unsaved changes</span>
+            )}
+            <ButtonLink href="/dashboard" variant="outline" className="h-8 px-3 text-xs">
+              Dashboard
+            </ButtonLink>
+            <Button type="submit" disabled={saving} className="h-8 px-3 text-xs">
+              <Save size={13} aria-hidden="true" />
+              {saving ? "Saving…" : hasUnsavedChanges ? "Save Changes" : "Save Profile"}
+            </Button>
+          </div>
+        </div>
       </form>
 
       {showCvAutofill && (
