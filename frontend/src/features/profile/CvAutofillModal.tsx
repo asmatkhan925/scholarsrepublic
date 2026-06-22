@@ -245,7 +245,7 @@ export function CvAutofillModal({ onClose, onApplied }: Props) {
           {step === "preview" && (
             <div className="grid gap-4">
               <p className="text-sm text-ink/70 dark:text-white/70">
-                Review what was found. Uncheck any field you don't want to apply.
+                Review what was found. Uncheck any field you don&apos;t want to apply.
               </p>
               <div className="max-h-72 overflow-y-auto rounded-2xl border border-pine/10 dark:border-white/10">
                 {Object.entries(extracted).map(([key, value], i) => (
