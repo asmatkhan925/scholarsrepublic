@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useParams } from "next/navigation";
 import {
   Users,
@@ -75,7 +76,7 @@ export default function AdminUserDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<string>("");
-  const didFetch = useRef(false);
+  const { loading: authLoading } = useAuth();
 
   async function load() {
     setLoading(true);
@@ -96,10 +97,9 @@ export default function AdminUserDetailPage() {
   }
 
   useEffect(() => {
-    if (didFetch.current) return;
-    didFetch.current = true;
+    if (authLoading) return;
     void load();
-  }, [userId]);
+  }, [authLoading, userId]);
 
   async function handleToggle(field: "email_verified" | "is_active") {
     if (!user) return;

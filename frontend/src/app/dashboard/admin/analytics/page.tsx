@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { BarChart2, RefreshCw } from "lucide-react";
 import {
   AdminAnalyticsResponse,
@@ -98,7 +99,7 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AdminAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const didFetch = useRef(false);
+  const { loading: authLoading } = useAuth();
 
   async function load() {
     setLoading(true);
@@ -114,10 +115,9 @@ export default function AdminAnalyticsPage() {
   }
 
   useEffect(() => {
-    if (didFetch.current) return;
-    didFetch.current = true;
+    if (authLoading) return;
     void load();
-  }, []);
+  }, [authLoading]);
 
   const s = data?.summary;
 

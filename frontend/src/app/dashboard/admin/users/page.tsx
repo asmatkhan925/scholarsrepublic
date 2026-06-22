@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Users, Search, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   AdminUser,
   getAdminUsers,
@@ -60,7 +61,7 @@ export default function AdminUsersPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [offset, setOffset] = useState(0);
   const [togglingId, setTogglingId] = useState<number | null>(null);
-  const isFirstRender = useRef(true);
+  const { loading: authLoading } = useAuth();
 
   const fetchUsers = useCallback(
     async (q: string, f: FilterKey, off: number) => {
@@ -91,15 +92,10 @@ export default function AdminUsersPage() {
   );
 
   useEffect(() => {
-    // No debounce on initial load — only debounce subsequent filter/search changes
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      void fetchUsers(search, filter, offset);
-      return;
-    }
+    if (authLoading) return; // wait for auth token to be ready
     const t = setTimeout(() => fetchUsers(search, filter, offset), 300);
     return () => clearTimeout(t);
-  }, [search, filter, offset, fetchUsers]);
+  }, [authLoading, search, filter, offset, fetchUsers]);
 
   async function toggleVerified(user: AdminUser) {
     setTogglingId(user.id);

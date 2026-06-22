@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ClipboardList, Search, RefreshCw } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { AdminApplication, getAdminApplications } from "@/lib/api/admin/users";
 import {
   AdminHero,
@@ -85,7 +86,7 @@ export default function AdminApplicationsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [offset, setOffset] = useState(0);
-  const isFirstRender = useRef(true);
+  const { loading: authLoading } = useAuth();
 
   const fetchApps = useCallback(
     async (q: string, s: string, off: number) => {
@@ -113,14 +114,10 @@ export default function AdminApplicationsPage() {
   );
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      void fetchApps(search, statusFilter, offset);
-      return;
-    }
+    if (authLoading) return;
     const t = setTimeout(() => fetchApps(search, statusFilter, offset), 300);
     return () => clearTimeout(t);
-  }, [search, statusFilter, offset, fetchApps]);
+  }, [authLoading, search, statusFilter, offset, fetchApps]);
 
   const selectedCount = apps.filter((a) => a.status === "selected").length;
   const activeCount = apps.filter((a) =>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { GraduationCap, Search, RefreshCw } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   AdminStudentProfile,
   getAdminStudentProfiles,
@@ -68,7 +69,7 @@ export default function AdminStudentsPage() {
   const [search, setSearch] = useState("");
   const [readiness, setReadiness] = useState<ReadinessFilter>("all");
   const [offset, setOffset] = useState(0);
-  const isFirstRender = useRef(true);
+  const { loading: authLoading } = useAuth();
 
   const fetchProfiles = useCallback(
     async (q: string, r: ReadinessFilter, off: number) => {
@@ -96,14 +97,10 @@ export default function AdminStudentsPage() {
   );
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      void fetchProfiles(search, readiness, offset);
-      return;
-    }
+    if (authLoading) return;
     const t = setTimeout(() => fetchProfiles(search, readiness, offset), 300);
     return () => clearTimeout(t);
-  }, [search, readiness, offset, fetchProfiles]);
+  }, [authLoading, search, readiness, offset, fetchProfiles]);
 
   const highCount = profiles.filter((p) => p.readiness_level === "High").length;
   const medCount = profiles.filter(
