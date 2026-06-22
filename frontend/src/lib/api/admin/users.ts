@@ -105,9 +105,38 @@ export async function getAdminApplications(params?: {
   search?: string;
   status?: string;
   priority?: string;
+  user_id?: number;
   limit?: number;
   offset?: number;
 }): Promise<AdminApplicationListResponse> {
   const res = await api.get<AdminApplicationListResponse>("/admin/applications/", { params });
+  return res.data;
+}
+
+export interface AnalyticsSeries { date: string; count: number }
+export interface AnalyticsStatusBreakdown { status: string; count: number }
+export interface AnalyticsTopScholarship { id: number; title: string; count: number }
+export interface AnalyticsTopCountry { country: string; count: number }
+
+export interface AdminAnalyticsResponse {
+  summary: {
+    total_users: number;
+    total_students: number;
+    new_users_30d: number;
+    total_applications: number;
+    new_applications_30d: number;
+    total_profiles: number;
+    published_scholarships: number;
+  };
+  signups_series: AnalyticsSeries[];
+  apps_series: AnalyticsSeries[];
+  status_breakdown: AnalyticsStatusBreakdown[];
+  top_scholarships: AnalyticsTopScholarship[];
+  readiness_distribution: { High: number; Medium: number; Low: number };
+  top_countries: AnalyticsTopCountry[];
+}
+
+export async function getAdminAnalytics(): Promise<AdminAnalyticsResponse> {
+  const res = await api.get<AdminAnalyticsResponse>("/admin/analytics/");
   return res.data;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { Users, Search, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import {
   AdminUser,
@@ -242,10 +243,12 @@ export default function AdminUsersPage() {
                     className={`hover:bg-pine/[0.02] transition-colors ${!user.is_active ? "opacity-50" : ""}`}
                   >
                     <td className="px-4 py-3">
-                      <div className="font-medium text-pine">
-                        {user.full_name || "—"}
-                      </div>
-                      <div className="text-xs text-pine/50">{user.email}</div>
+                      <Link href={`/dashboard/admin/users/${user.id}`} className="group">
+                        <div className="font-medium text-pine group-hover:underline">
+                          {user.full_name || "—"}
+                        </div>
+                        <div className="text-xs text-pine/50">{user.email}</div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3">{roleBadge(user.role)}</td>
                     <td className="px-4 py-3">

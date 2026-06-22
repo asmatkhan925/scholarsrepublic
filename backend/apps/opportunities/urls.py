@@ -7,6 +7,7 @@ from apps.applications.views import (
     ScholarshipStartApplicationView,
 )
 from apps.opportunities.views import (
+    AdminAnalyticsView,
     AdminApplicationListView,
     AdminOverviewView,
     AdminOpportunityCommentListView,
@@ -186,6 +187,11 @@ urlpatterns = [
         "admin/applications/",
         AdminApplicationListView.as_view(),
         name="admin-application-list",
+    ),
+    path(
+        "admin/analytics/",
+        AdminAnalyticsView.as_view(),
+        name="admin-analytics",
     ),
     path(
         "admin/social/scheduler-status/",

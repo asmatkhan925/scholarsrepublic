@@ -4,7 +4,7 @@ Admin CRUD views: opportunities, drafts, pathways, overview, comments, students,
 import logging
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, TruncDate, TruncWeek
 from django.utils import timezone
 
 from rest_framework import generics, permissions, status
@@ -540,6 +540,10 @@ class AdminApplicationListView(APIView):
                 | Q(opportunity__title__icontains=search)
             )
 
+        user_id = parse_positive_int(request.query_params.get("user_id"))
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+
         app_status = request.query_params.get("status", "")
         if app_status:
             qs = qs.filter(status=app_status)
@@ -579,3 +583,114 @@ class AdminApplicationListView(APIView):
             for a in apps
         ]
         return Response({"count": total, "results": data})
+
+
+class AdminAnalyticsView(APIView):
+    """GET /admin/analytics/ — platform-wide analytics snapshot."""
+
+    permission_classes = [IsPlatformAdmin]
+
+    def get(self, request):
+        today = timezone.localdate()
+        thirty_days_ago = today - timedelta(days=29)
+        User = get_user_model()
+
+        # --- Signups per day (last 30 days) ---
+        signup_qs = (
+            User.objects.filter(created_at__date__gte=thirty_days_ago)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=Count("id"))
+            .order_by("day")
+        )
+        # Fill in zeros for days with no signups
+        signup_map = {r["day"]: r["count"] for r in signup_qs}
+        signups_series = []
+        for i in range(30):
+            d = thirty_days_ago + timedelta(days=i)
+            signups_series.append({"date": d.isoformat(), "count": signup_map.get(d, 0)})
+
+        # --- Applications per day (last 30 days) ---
+        app_qs = (
+            OpportunityApplication.objects.filter(created_at__date__gte=thirty_days_ago)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=Count("id"))
+            .order_by("day")
+        )
+        app_map = {r["day"]: r["count"] for r in app_qs}
+        apps_series = []
+        for i in range(30):
+            d = thirty_days_ago + timedelta(days=i)
+            apps_series.append({"date": d.isoformat(), "count": app_map.get(d, 0)})
+
+        # --- Application status breakdown ---
+        status_qs = (
+            OpportunityApplication.objects.values("status")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        status_breakdown = [{"status": r["status"], "count": r["count"]} for r in status_qs]
+
+        # --- Top 10 scholarships by applications ---
+        top_scholarships = (
+            OpportunityApplication.objects.values(
+                "opportunity__id", "opportunity__title"
+            )
+            .annotate(count=Count("id"))
+            .order_by("-count")[:10]
+        )
+        top_scholarships_data = [
+            {
+                "id": r["opportunity__id"],
+                "title": r["opportunity__title"],
+                "count": r["count"],
+            }
+            for r in top_scholarships
+        ]
+
+        # --- Profile readiness distribution ---
+        from apps.profiles.models import StudentProfile
+        all_profiles = StudentProfile.objects.select_related("user").only("user__id")
+        readiness_counts = {"High": 0, "Medium": 0, "Low": 0}
+        for p in all_profiles:
+            level = p.readiness_level
+            if level in readiness_counts:
+                readiness_counts[level] += 1
+
+        # --- Top countries ---
+        top_countries = (
+            OpportunityApplication.objects.exclude(
+                Q(opportunity__country__isnull=True) | Q(opportunity__country="")
+            )
+            .values("opportunity__country")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:8]
+        )
+        top_countries_data = [
+            {"country": r["opportunity__country"], "count": r["count"]}
+            for r in top_countries
+        ]
+
+        # --- Summary totals ---
+        return Response({
+            "summary": {
+                "total_users": User.objects.count(),
+                "total_students": User.objects.filter(role=User.Role.STUDENT).count(),
+                "new_users_30d": User.objects.filter(created_at__date__gte=thirty_days_ago).count(),
+                "total_applications": OpportunityApplication.objects.count(),
+                "new_applications_30d": OpportunityApplication.objects.filter(
+                    created_at__date__gte=thirty_days_ago
+                ).count(),
+                "total_profiles": all_profiles.count(),
+                "published_scholarships": Opportunity.objects.filter(
+                    status=Opportunity.Status.PUBLISHED
+                ).count(),
+            },
+            "signups_series": signups_series,
+            "apps_series": apps_series,
+            "status_breakdown": status_breakdown,
+            "top_scholarships": top_scholarships_data,
+            "readiness_distribution": readiness_counts,
+            "top_countries": top_countries_data,
+        })

@@ -39,6 +39,7 @@ from .admin_core import (
     AdminOverviewView,
     AdminStudentProfileListView,
     AdminApplicationListView,
+    AdminAnalyticsView,
 )
 
 # Agent draft creation, research leads, social images
@@ -136,6 +137,7 @@ __all__ = [
     "AdminOverviewView",
     "AdminStudentProfileListView",
     "AdminApplicationListView",
+    "AdminAnalyticsView",
     # agent_core
     "AgentDebugAuthView",
     "AgentScholarshipValidateView",

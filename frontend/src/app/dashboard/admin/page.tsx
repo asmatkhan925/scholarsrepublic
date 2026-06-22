@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowRight,
+  BarChart2,
   Database,
   FileSearch,
   GraduationCap,
@@ -79,6 +80,12 @@ const adminHubs: AdminHub[] = [
     href: "/dashboard/admin/applications",
     icon: ClipboardList,
     badge: "New",
+  },
+  {
+    title: "Analytics",
+    description: "User growth, application funnel, top scholarships, readiness distribution, and country breakdown.",
+    href: "/dashboard/admin/analytics",
+    icon: BarChart2,
   },
   {
     title: "Settings / Tools",
