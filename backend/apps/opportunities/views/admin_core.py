@@ -573,9 +573,7 @@ class AdminApplicationListView(APIView):
                 "opportunity_deadline": (
                     a.opportunity.deadline.isoformat() if a.opportunity.deadline else None
                 ),
-                "country": (
-                    a.opportunity.country_ref.name if a.opportunity.country_ref else a.opportunity.country
-                ),
+                "country": a.opportunity.country_ref.name if a.opportunity.country_ref else "",
                 "status": a.status,
                 "priority": a.priority,
                 "created_at": a.created_at.isoformat(),
@@ -594,7 +592,6 @@ class AdminAnalyticsView(APIView):
     def get(self, request):
         today = timezone.localdate()
         thirty_days_ago = today - timedelta(days=29)
-        User = get_user_model()
 
         # --- Signups per day (last 30 days) ---
         signup_qs = (
@@ -651,7 +648,6 @@ class AdminAnalyticsView(APIView):
         ]
 
         # --- Profile readiness distribution ---
-        from apps.profiles.models import StudentProfile
         all_profiles = StudentProfile.objects.select_related("user").only("user__id")
         readiness_counts = {"High": 0, "Medium": 0, "Low": 0}
         for p in all_profiles:
@@ -660,17 +656,16 @@ class AdminAnalyticsView(APIView):
                 readiness_counts[level] += 1
 
         # --- Top countries ---
-        top_countries = (
-            OpportunityApplication.objects.exclude(
-                Q(opportunity__country__isnull=True) | Q(opportunity__country="")
-            )
-            .values("opportunity__country")
+        top_countries_qs = (
+            OpportunityApplication.objects
+            .filter(opportunity__country_ref__isnull=False)
+            .values("opportunity__country_ref__name")
             .annotate(count=Count("id"))
             .order_by("-count")[:8]
         )
         top_countries_data = [
-            {"country": r["opportunity__country"], "count": r["count"]}
-            for r in top_countries
+            {"country": r["opportunity__country_ref__name"], "count": r["count"]}
+            for r in top_countries_qs
         ]
 
         # --- Summary totals ---
