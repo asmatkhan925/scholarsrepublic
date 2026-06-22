@@ -450,6 +450,7 @@ export type OpportunityQueryParams = {
   no_application_fee?: boolean;
   hec_required?: boolean;
   remote?: boolean;
+  closing_within?: number;
   include_expired?: boolean;
   expired?: boolean;
   ordering?: string;

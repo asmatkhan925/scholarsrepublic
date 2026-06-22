@@ -4,7 +4,7 @@ views submodules.
 """
 import re
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -515,6 +515,16 @@ class OpportunityFilterMixin:
                 location_type=(
                     Opportunity.LocationType.REMOTE if remote else Opportunity.LocationType.ON_SITE
                 )
+            )
+
+        closing_within = parse_positive_int(params.get("closing_within"))
+        if closing_within:
+            from django.utils import timezone
+            today = timezone.localdate()
+            queryset = queryset.filter(
+                is_rolling_deadline=False,
+                deadline__gte=today,
+                deadline__lte=today + timedelta(days=closing_within),
             )
 
         search = params.get("search") or params.get("q")

@@ -57,6 +57,69 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+// Pipeline stages: each entry lists the statuses that belong to that stage
+const PIPELINE_STAGES: { label: string; statuses: ApplicationStatus[] }[] = [
+  { label: "Preparing", statuses: ["preparing", "documents_pending", "documents_ready"] },
+  { label: "Applied", statuses: ["applied"] },
+  { label: "In Review", statuses: ["interview", "result_waiting"] },
+  { label: "Decision", statuses: ["selected", "rejected", "withdrawn", "deferred"] },
+];
+
+const TERMINAL_POSITIVE: ApplicationStatus[] = ["selected"];
+const TERMINAL_NEGATIVE: ApplicationStatus[] = ["rejected", "withdrawn"];
+
+function StatusPipeline({ status }: { status: ApplicationStatus }) {
+  const currentStageIndex = PIPELINE_STAGES.findIndex((s) => s.statuses.includes(status));
+  const isPositive = TERMINAL_POSITIVE.includes(status);
+  const isNegative = TERMINAL_NEGATIVE.includes(status);
+
+  return (
+    <div className="flex items-center gap-0 overflow-x-auto pb-0.5">
+      {PIPELINE_STAGES.map((stage, idx) => {
+        const isDone = idx < currentStageIndex;
+        const isActive = idx === currentStageIndex;
+        const isLast = idx === PIPELINE_STAGES.length - 1;
+
+        let dotClass = "h-2 w-2 shrink-0 rounded-full border ";
+        let labelClass = "text-[10px] font-semibold leading-none ";
+        let lineClass = "h-px flex-1 min-w-[16px] mx-1 ";
+
+        if (isDone) {
+          dotClass += "border-pine bg-pine";
+          labelClass += "text-pine/70 dark:text-pine/60";
+          lineClass += "bg-pine/40";
+        } else if (isActive) {
+          if (isPositive) {
+            dotClass += "border-pine bg-pine ring-2 ring-pine/30";
+            labelClass += "text-pine font-bold";
+          } else if (isNegative) {
+            dotClass += "border-red-500 bg-red-500 ring-2 ring-red-300/40";
+            labelClass += "text-red-500 font-bold dark:text-red-400";
+          } else {
+            dotClass += "border-saffron bg-saffron ring-2 ring-saffron/30";
+            labelClass += "text-saffron font-bold";
+          }
+          lineClass += "bg-pine/15";
+        } else {
+          dotClass += "border-ink/15 bg-transparent dark:border-white/15";
+          labelClass += "text-ink/35 dark:text-white/30";
+          lineClass += "bg-ink/10 dark:bg-white/10";
+        }
+
+        return (
+          <div key={stage.label} className="flex min-w-0 items-center">
+            <div className="flex flex-col items-center gap-0.5">
+              <div className={dotClass} />
+              <span className={labelClass}>{stage.label}</span>
+            </div>
+            {!isLast && <div className={lineClass} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function toDateInputValue(value: string | null) {
   if (!value) {
     return "";
@@ -493,7 +556,11 @@ export function ApplicationCard({
                 <Badge tone={readinessTone}>{readinessScore}% ready</Badge>
               </div>
 
-              <h2 className="mt-3 text-lg font-bold leading-snug text-ink md:text-xl">
+              <div className="mt-3">
+                <StatusPipeline status={statusValue} />
+              </div>
+
+              <h2 className="mt-2.5 text-lg font-bold leading-snug text-ink md:text-xl">
                 {opportunity.title}
               </h2>
 

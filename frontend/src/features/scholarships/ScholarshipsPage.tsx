@@ -438,6 +438,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   }, []);
 
   const [fundingType, setFundingType] = useState("");
+  const [degreeLevel, setDegreeLevel] = useState("");
+  const [closingWithin, setClosingWithin] = useState(0);
   const [noIelts, setNoIelts] = useState(false);
   const [noApplicationFee, setNoApplicationFee] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -457,6 +459,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     if (nextFilters.country) params.set("country", String(nextFilters.country));
     if (nextFilters.field) params.set("field", String(nextFilters.field));
     if (nextFilters.funding_type) params.set("funding_type", String(nextFilters.funding_type));
+    if (nextFilters.degree_level) params.set("degree_level", String(nextFilters.degree_level));
+    if (nextFilters.closing_within) params.set("closing_within", String(nextFilters.closing_within));
     if (nextFilters.pathway) params.set("pathway", String(nextFilters.pathway));
     if (nextFilters.exact_pathway) params.set("exact_pathway", "true");
     if (nextFilters.no_ielts) params.set("no_ielts", "true");
@@ -481,6 +485,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     const initialCountry = params.get("country") ?? "";
     const initialField = params.get("field") ?? "";
     const initialFundingType = params.get("funding_type") ?? "";
+    const initialDegreeLevel = params.get("degree_level") ?? "";
+    const initialClosingWithin = parseInt(params.get("closing_within") ?? "0", 10) || 0;
     const initialPathway = params.get("pathway") ?? "";
     const initialExactPathway = params.get("exact_pathway") === "true";
     const initialNoIelts = params.get("no_ielts") === "true";
@@ -491,6 +497,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     setCountry(initialCountry);
     setField(initialField);
     setFundingType(initialFundingType);
+    setDegreeLevel(initialDegreeLevel);
+    setClosingWithin(initialClosingWithin);
     setSelectedPathwaySlug(initialPathway);
     setExactPathway(initialExactPathway);
     setNoIelts(initialNoIelts);
@@ -503,6 +511,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       country: initialCountry || undefined,
       field: initialField || undefined,
       funding_type: initialFundingType || undefined,
+      degree_level: initialDegreeLevel || undefined,
+      closing_within: initialClosingWithin || undefined,
       pathway: initialPathway || undefined,
       exact_pathway: initialExactPathway || undefined,
       no_ielts: initialNoIelts || undefined,
@@ -703,6 +713,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     filters.country ||
     filters.field ||
     filters.funding_type ||
+    filters.degree_level ||
+    filters.closing_within ||
     filters.pathway ||
     filters.exact_pathway ||
     filters.no_ielts ||
@@ -717,13 +729,15 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const activeAdvancedFilters = useMemo(() => {
     return [
       country,
+      degreeLevel,
       field,
       selectedFundingLabel,
+      closingWithin ? `Closing in ${closingWithin}d` : "",
       noIelts ? "No IELTS" : "",
       noApplicationFee ? "No application fee" : "",
       verified ? "Verified only" : "",
     ].filter(Boolean);
-  }, [country, field, noApplicationFee, noIelts, selectedFundingLabel, verified]);
+  }, [closingWithin, country, degreeLevel, field, noApplicationFee, noIelts, selectedFundingLabel, verified]);
 
   const activeFilterSummary = useMemo(() => {
     const pathwayName = selectedPathwayLabel || selectedPathwaySlug;
@@ -739,8 +753,10 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
   const filterChips = useMemo(() => {
     const chips: { label: string; onRemove: () => void }[] = [];
     if (country) chips.push({ label: country, onRemove: () => { setCountry(""); applyWithOverride({ country: undefined }); } });
+    if (degreeLevel) chips.push({ label: degreeLevel, onRemove: () => { setDegreeLevel(""); applyWithOverride({ degree_level: undefined }); } });
     if (field) chips.push({ label: field, onRemove: () => { setField(""); applyWithOverride({ field: undefined }); } });
     if (selectedFundingLabel) chips.push({ label: selectedFundingLabel, onRemove: () => { setFundingType(""); applyWithOverride({ funding_type: undefined }); } });
+    if (closingWithin) chips.push({ label: `Closing in ${closingWithin}d`, onRemove: () => { setClosingWithin(0); applyWithOverride({ closing_within: undefined }); } });
     if (noIelts) chips.push({ label: "No IELTS", onRemove: () => { setNoIelts(false); applyWithOverride({ no_ielts: undefined }); } });
     if (noApplicationFee) chips.push({ label: "No application fee", onRemove: () => { setNoApplicationFee(false); applyWithOverride({ no_application_fee: undefined }); } });
     if (verified) chips.push({ label: "Verified only", onRemove: () => { setVerified(false); applyWithOverride({ verified: undefined }); } });
@@ -754,7 +770,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     });
     return chips;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [country, field, selectedFundingLabel, noIelts, noApplicationFee, verified, selectedPathwayLabel, selectedPathwaySlug, exactPathway]);
+  }, [closingWithin, country, degreeLevel, field, selectedFundingLabel, noIelts, noApplicationFee, verified, selectedPathwayLabel, selectedPathwaySlug, exactPathway]);
 
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
@@ -765,6 +781,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       country: country || undefined,
       field: field || undefined,
       funding_type: fundingType || undefined,
+      degree_level: degreeLevel || undefined,
+      closing_within: closingWithin || undefined,
       pathway: selectedPathwaySlug || undefined,
       exact_pathway: exactPathway || undefined,
       no_ielts: noIelts || undefined,
@@ -783,6 +801,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       country: country || undefined,
       field: field || undefined,
       funding_type: fundingType || undefined,
+      degree_level: degreeLevel || undefined,
+      closing_within: closingWithin || undefined,
       pathway: selectedPathwaySlug || undefined,
       exact_pathway: exactPathway || undefined,
       no_ielts: noIelts || undefined,
@@ -799,6 +819,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
     setCountry("");
     setField("");
     setFundingType("");
+    setDegreeLevel("");
+    setClosingWithin(0);
     setNoIelts(false);
     setNoApplicationFee(false);
     setVerified(false);
@@ -824,6 +846,8 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
       country: country || undefined,
       field: field || undefined,
       funding_type: fundingType || undefined,
+      degree_level: degreeLevel || undefined,
+      closing_within: closingWithin || undefined,
       no_ielts: noIelts || undefined,
       no_application_fee: noApplicationFee || undefined,
       verified: verified || undefined,
@@ -953,7 +977,7 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
 
                 {advancedFiltersOpen ? (
                   <div className="grid gap-3 rounded-2xl border border-pine/10 bg-[#f7faf8] p-3 dark:border-white/10 dark:bg-white/5">
-                    <div className="grid gap-2 md:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
                       <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
                         Country
                         <select
@@ -966,6 +990,20 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                             <option key={item} value={item}>
                               {item}
                             </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5 text-xs font-semibold text-ink dark:text-white">
+                        Degree level
+                        <select
+                          value={degreeLevel}
+                          onChange={(event) => setDegreeLevel(event.target.value)}
+                          className="h-9 w-full min-w-0 truncate rounded-xl border border-pine/15 bg-white px-3 text-[13px] text-ink outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/10 dark:border-white/10 dark:bg-[#101214] dark:text-white"
+                        >
+                          <option value="">All degrees</option>
+                          {["Bachelor", "Master", "MS/MPhil", "PhD", "Postdoc", "Diploma/Certificate", "Exchange"].map((d) => (
+                            <option key={d} value={d}>{d}</option>
                           ))}
                         </select>
                       </label>
@@ -1001,6 +1039,31 @@ export default function ScholarshipsPage({ initialData = null }: ScholarshipsPag
                           ))}
                         </select>
                       </label>
+                    </div>
+
+                    {/* Deadline quick chips */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-semibold text-ink/50 dark:text-white/40">Closing:</span>
+                      {([
+                        { label: "Any time", value: 0 },
+                        { label: "7 days", value: 7 },
+                        { label: "30 days", value: 30 },
+                        { label: "60 days", value: 60 },
+                        { label: "90 days", value: 90 },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setClosingWithin(opt.value)}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                            closingWithin === opt.value
+                              ? "border-pine bg-pine/10 text-pine dark:border-pine dark:bg-pine/20 dark:text-pine"
+                              : "border-pine/15 bg-white text-ink/60 hover:border-pine/30 hover:bg-mint/30 dark:border-white/10 dark:bg-transparent dark:text-white/55 dark:hover:border-white/20"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
                     </div>
 
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
