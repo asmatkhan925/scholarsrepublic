@@ -13,37 +13,63 @@ import { getErrorMessage } from "@/lib/errors";
 
 // Human-readable labels for extracted field keys
 const FIELD_LABELS: Record<string, string> = {
+  // Location
   city: "City",
   province: "Province",
+  domicile: "Domicile",
+  phone_number: "Phone number",
+  // Education
   current_education_level: "Education level",
   current_institution: "Current institution",
   current_field_of_study: "Field of study",
   graduation_year: "Graduation year",
+  result_status: "Result status",
+  target_degree_level: "Target degree",
+  // Grades
   grading_system: "Grading system",
   cgpa: "CGPA",
   percentage: "Percentage",
-  has_ielts: "Has IELTS",
+  division: "Division",
+  // English tests
+  has_ielts: "IELTS",
   ielts_score: "IELTS score",
-  has_toefl: "Has TOEFL",
+  has_toefl: "TOEFL",
   toefl_score: "TOEFL score",
-  has_gre: "Has GRE",
-  gre_score: "GRE score",
-  has_gmat: "Has GMAT",
-  gmat_score: "GMAT score",
-  has_duolingo: "Has Duolingo",
-  duolingo_score: "Duolingo score",
-  has_pte: "Has PTE",
+  has_pte: "PTE",
   pte_score: "PTE score",
+  has_duolingo: "Duolingo",
+  duolingo_score: "Duolingo score",
+  english_proficiency_certificate: "English proficiency cert",
+  // Other tests
+  has_gre: "GRE",
+  gre_score: "GRE score",
+  has_gmat: "GMAT",
+  gmat_score: "GMAT score",
+  has_hsk: "HSK (Chinese)",
+  hsk_level: "HSK level",
+  // Research & work
   has_research_experience: "Research experience",
-  has_publications: "Has publications",
+  has_publications: "Publications",
   publications_count: "Publications count",
+  has_internship_experience: "Internship experience",
+  work_experience_years: "Work experience (years)",
   research_interests: "Research interests",
   skills: "Skills",
-  work_experience_years: "Work experience (years)",
-  has_internship_experience: "Internship experience",
+  // URLs
   linkedin_url: "LinkedIn URL",
   github_url: "GitHub URL",
   portfolio_url: "Portfolio URL",
+  // Documents
+  has_cnic: "Has CNIC",
+  has_passport: "Has passport",
+  has_transcript: "Has transcript",
+  has_degree: "Has degree certificate",
+  has_cv: "Has CV",
+  has_recommendation_letters: "Has recommendation letters",
+  recommendation_letters_count: "Recommendation letters count",
+  has_sop: "Has SOP",
+  has_study_plan: "Has study plan",
+  has_research_proposal: "Has research proposal",
 };
 
 function formatValue(value: string | number | boolean | string[]): string {
@@ -137,7 +163,7 @@ export function CvAutofillModal({ onClose, onApplied }: Props) {
             </span>
             <div>
               <h2 className="text-sm font-bold text-ink dark:text-white">Auto-fill from CV</h2>
-              <p className="text-[11px] text-ink/50 dark:text-white/50">AI extracts your profile fields</p>
+              <p className="text-[11px] text-ink/50 dark:text-white/50">Extracts your profile fields from CV</p>
             </div>
           </div>
           <button
@@ -235,7 +261,7 @@ export function CvAutofillModal({ onClose, onApplied }: Props) {
               <div>
                 <p className="font-semibold text-ink dark:text-white">Analysing your CV…</p>
                 <p className="mt-0.5 text-sm text-ink/50 dark:text-white/50">
-                  AI is extracting profile fields
+                  Scanning for profile fields…
                 </p>
               </div>
             </div>
