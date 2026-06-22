@@ -4,7 +4,8 @@ Admin CRUD views: opportunities, drafts, pathways, overview, comments, students,
 import logging
 from datetime import timedelta
 
-from django.db.models import Count, Q, TruncDate, TruncWeek
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from rest_framework import generics, permissions, status
