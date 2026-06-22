@@ -1,9 +1,8 @@
 import datetime
 import io
-import json
 import logging
 import math
-import os
+import re
 
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -344,51 +343,6 @@ class CVDownloadView(StudentProfileAccessMixin, APIView):
 # CV Auto-fill
 # ─────────────────────────────────────────────────────────────────────────────
 
-_EXTRACTION_PROMPT = """Extract profile information from this CV/resume text for a Pakistani student applying for international scholarships.
-
-Return ONLY a JSON object. Use null for any field you cannot confidently determine. Do not guess — only extract what is explicitly stated.
-
-CV text:
-{cv_text}
-
-Return JSON with these exact keys:
-{{
-  "city": string or null,
-  "province": one of ["Punjab","Sindh","Khyber Pakhtunkhwa","Balochistan","Gilgit-Baltistan","Azad Jammu and Kashmir","Islamabad Capital Territory","Other"] or null,
-  "current_education_level": one of ["Matric","FSc","A-Level","DAE/Diploma","Bachelor","Master","MS/MPhil","PhD","Other"] or null,
-  "current_institution": string or null,
-  "graduation_year": integer (4-digit year) or null,
-  "grading_system": one of ["CGPA_4","CGPA_5","Percentage","Division"] or null,
-  "cgpa": float or null,
-  "percentage": float or null,
-  "current_field_of_study": string or null,
-  "has_ielts": true/false or null,
-  "ielts_score": float or null,
-  "has_toefl": true/false or null,
-  "toefl_score": integer or null,
-  "has_gre": true/false or null,
-  "gre_score": integer or null,
-  "has_gmat": true/false or null,
-  "gmat_score": integer or null,
-  "has_duolingo": true/false or null,
-  "duolingo_score": integer or null,
-  "has_pte": true/false or null,
-  "pte_score": integer or null,
-  "has_research_experience": true/false or null,
-  "has_publications": true/false or null,
-  "publications_count": integer or null,
-  "research_interests": list of strings or null,
-  "skills": list of strings or null,
-  "work_experience_years": float or null,
-  "has_internship_experience": true/false or null,
-  "linkedin_url": string or null,
-  "github_url": string or null,
-  "portfolio_url": string or null
-}}
-
-Return only valid JSON, no explanation, no markdown code fences."""
-
-
 def _extract_pdf_text(file_bytes: bytes) -> str:
     try:
         from pypdf import PdfReader
@@ -401,34 +355,206 @@ def _extract_pdf_text(file_bytes: bytes) -> str:
         raise RuntimeError(f"Could not read PDF: {exc}") from exc
 
 
-def _call_anthropic(cv_text: str) -> dict:
-    import requests as http
+_CITIES = [
+    "Islamabad", "Lahore", "Karachi", "Rawalpindi", "Faisalabad", "Multan",
+    "Peshawar", "Quetta", "Sialkot", "Gujranwala", "Hyderabad", "Abbottabad",
+    "Bahawalpur", "Sargodha", "Larkana", "Gilgit", "Muzaffarabad", "Mirpur",
+    "Sukkur", "Mardan", "Swat", "Gwadar", "Skardu", "Hunza", "Jhelum",
+    "Gujrat", "Chakwal", "Attock", "Wah", "Hafizabad", "Kharian",
+]
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY is not configured on this server.")
+_PROVINCE_KEYWORDS = {
+    "Punjab": [r"Punjab"],
+    "Sindh": [r"Sindh"],
+    "Khyber Pakhtunkhwa": [r"Khyber\s+Pakhtunkhwa", r"\bKPK\b", r"\bKP\b"],
+    "Balochistan": [r"Balochistan"],
+    "Gilgit-Baltistan": [r"Gilgit.Baltistan", r"\bGB\b"],
+    "Azad Jammu and Kashmir": [r"Azad\s+Kashmir", r"\bAJK\b", r"Azad\s+Jammu"],
+    "Islamabad Capital Territory": [r"Islamabad\s+Capital"],
+}
 
-    prompt = _EXTRACTION_PROMPT.format(cv_text=cv_text[:8000])
-    resp = http.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        json={
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 1024,
-            "messages": [{"role": "user", "content": prompt}],
-        },
-        timeout=30,
+_INSTITUTIONS = [
+    (r"\bLUMS\b", "Lahore University of Management Sciences"),
+    (r"\bNUST\b", "National University of Sciences and Technology"),
+    (r"\bFAST\b", "FAST – National University"),
+    (r"\bIBA\b", "Institute of Business Administration"),
+    (r"\bNED\b", "NED University of Engineering and Technology"),
+    (r"\bUET\b", "University of Engineering and Technology"),
+    (r"\bCOMSATS\b", "COMSATS University"),
+    (r"\bQAU\b|Quaid.i.Azam University", "Quaid-i-Azam University"),
+    (r"Aga Khan University", "Aga Khan University"),
+    (r"Bahria University", "Bahria University"),
+    (r"Air University", "Air University"),
+    (r"\bSZABIST\b", "SZABIST"),
+    (r"\bGCU\b|Government College University", "Government College University"),
+    (r"University of Punjab|Punjab University", "University of Punjab"),
+    (r"University of Karachi|Karachi University", "University of Karachi"),
+    (r"University of Peshawar", "University of Peshawar"),
+    (r"Virtual University", "Virtual University of Pakistan"),
+    (r"Allama Iqbal Open University|\bAIOU\b", "Allama Iqbal Open University"),
+    (r"Riphah", "Riphah International University"),
+    (r"Forman Christian|FC College", "Forman Christian College"),
+]
+
+
+def _extract_by_rules(cv_text: str) -> dict:
+    result = {}
+
+    # ── CGPA / GPA ──────────────────────────────────────────────────────────
+    # e.g. "CGPA: 3.85/4.0", "GPA 3.6", "3.89 CGPA"
+    cgpa5 = re.search(r'(?:cgpa|gpa)[:\s]+([0-5](?:\.\d{1,2})?)\s*/\s*5(?:\.0)?', cv_text, re.I)
+    cgpa4 = re.search(r'(?:cgpa|gpa)[:\s]+([0-4](?:\.\d{1,2})?)\s*(?:/\s*4(?:\.0)?)?(?!\s*/\s*5)', cv_text, re.I)
+    cgpa4b = re.search(r'([0-4]\.\d{2})\s*(?:cgpa|gpa|/\s*4(?:\.0)?)', cv_text, re.I)
+    if cgpa5:
+        result['cgpa'] = round(float(cgpa5.group(1)), 2)
+        result['grading_system'] = 'CGPA_5'
+    elif cgpa4:
+        val = round(float(cgpa4.group(1)), 2)
+        if val <= 4.0:
+            result['cgpa'] = val
+            result['grading_system'] = 'CGPA_4'
+    elif cgpa4b:
+        val = round(float(cgpa4b.group(1)), 2)
+        if val <= 4.0:
+            result['cgpa'] = val
+            result['grading_system'] = 'CGPA_4'
+
+    # ── Percentage ──────────────────────────────────────────────────────────
+    if 'cgpa' not in result:
+        pct = re.search(
+            r'(?:percentage|marks|score)[:\s]+(\d{2,3}(?:\.\d{1,2})?)\s*%'
+            r'|(\d{2,3}(?:\.\d{1,2})?)\s*%',
+            cv_text, re.I,
+        )
+        if pct:
+            val = float(pct.group(1) or pct.group(2))
+            if 40 <= val <= 100:
+                result['percentage'] = round(val, 2)
+                result['grading_system'] = 'Percentage'
+
+    # ── Test scores ─────────────────────────────────────────────────────────
+    ielts = re.search(r'ielts[:\s]+([5-9](?:\.5)?)\b', cv_text, re.I)
+    if ielts:
+        result['has_ielts'] = True
+        result['ielts_score'] = float(ielts.group(1))
+
+    toefl = re.search(r'toefl[:\s]+(\d{2,3})\b', cv_text, re.I)
+    if toefl:
+        score = int(toefl.group(1))
+        if 0 <= score <= 120:
+            result['has_toefl'] = True
+            result['toefl_score'] = score
+
+    gre = re.search(r'\bgre[:\s]+(\d{3})\b', cv_text, re.I)
+    if gre:
+        score = int(gre.group(1))
+        if 260 <= score <= 340:
+            result['has_gre'] = True
+            result['gre_score'] = score
+
+    gmat = re.search(r'gmat[:\s]+(\d{3})\b', cv_text, re.I)
+    if gmat:
+        score = int(gmat.group(1))
+        if 200 <= score <= 800:
+            result['has_gmat'] = True
+            result['gmat_score'] = score
+
+    duo = re.search(r'duolingo[:\s]+(\d{2,3})\b', cv_text, re.I)
+    if duo:
+        score = int(duo.group(1))
+        if 10 <= score <= 160:
+            result['has_duolingo'] = True
+            result['duolingo_score'] = score
+
+    pte = re.search(r'\bpte[:\s]+(\d{2,3})\b', cv_text, re.I)
+    if pte:
+        score = int(pte.group(1))
+        if 10 <= score <= 90:
+            result['has_pte'] = True
+            result['pte_score'] = score
+
+    # ── Education level (highest found) ─────────────────────────────────────
+    edu_levels = [
+        (6, r'\bph\.?d\.?\b|\bdoctor(?:ate)?\b', 'PhD'),
+        (5, r'\bm\.?s\.?\b|\bm\.?phil\b|\bmphil\b', 'MS/MPhil'),
+        (4, r"\bmaster(?:'s|s)?\b|\bmba\b|\bm\.?sc\b|\bm\.?ed\b", 'Master'),
+        (3, r'\bb\.?sc\b|\bb\.?tech\b|\bb\.?eng\b|\bb\.?e\b|\bbachelor\b|\bundergraduate\b|\bb\.?com\b|\bb\.?ed\b|\bb\.?a\b', 'Bachelor'),
+        (2, r'\bdiploma\b|\bdae\b', 'DAE/Diploma'),
+        (1, r'\bfsc\b|\bf\.sc\b|\bintermediate\b', 'FSc'),
+    ]
+    best = (-1, None)
+    for priority, pattern, level in edu_levels:
+        if priority > best[0] and re.search(pattern, cv_text, re.I):
+            best = (priority, level)
+    if best[1]:
+        result['current_education_level'] = best[1]
+
+    # ── Graduation year (most recent year found) ─────────────────────────────
+    years = [int(y) for y in re.findall(r'\b(20\d{2})\b', cv_text) if 2010 <= int(y) <= 2030]
+    if years:
+        result['graduation_year'] = max(years)
+
+    # ── URLs ────────────────────────────────────────────────────────────────
+    linkedin = re.search(r'(?:https?://)?(?:www\.)?linkedin\.com/in/[\w\-]+', cv_text, re.I)
+    if linkedin:
+        url = linkedin.group(0)
+        result['linkedin_url'] = url if url.startswith('http') else 'https://' + url
+
+    github = re.search(r'(?:https?://)?(?:www\.)?github\.com/[\w\-]+', cv_text, re.I)
+    if github:
+        url = github.group(0)
+        result['github_url'] = url if url.startswith('http') else 'https://' + url
+
+    # ── Research / publications / internship ─────────────────────────────────
+    if re.search(r'research\s+(?:assistant|associate|intern(?:ship)?|fellow|officer|experience)', cv_text, re.I):
+        result['has_research_experience'] = True
+
+    pub_count = re.search(r'(\d+)\s+(?:peer.reviewed\s+)?publication', cv_text, re.I)
+    if pub_count or re.search(r'\bpublished\b|\bpublication[s]?\b', cv_text, re.I):
+        result['has_publications'] = True
+        if pub_count:
+            result['publications_count'] = int(pub_count.group(1))
+
+    if re.search(r'\bintern(?:ship)?\b', cv_text, re.I):
+        result['has_internship_experience'] = True
+
+    work_yrs = re.search(
+        r'(\d+(?:\.\d)?)\+?\s*years?\s+(?:of\s+)?(?:work|professional|industry|relevant)\s+experience',
+        cv_text, re.I,
     )
-    resp.raise_for_status()
-    raw = resp.json()["content"][0]["text"].strip()
-    # Strip markdown code fences if model wraps output anyway
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-    return json.loads(raw)
+    if work_yrs:
+        result['work_experience_years'] = float(work_yrs.group(1))
+
+    # ── City ────────────────────────────────────────────────────────────────
+    for city in _CITIES:
+        if re.search(r'\b' + re.escape(city) + r'\b', cv_text, re.I):
+            result['city'] = city
+            break
+
+    # ── Province ────────────────────────────────────────────────────────────
+    for province, patterns in _PROVINCE_KEYWORDS.items():
+        if any(re.search(p, cv_text, re.I) for p in patterns):
+            result['province'] = province
+            break
+
+    # ── Institution ─────────────────────────────────────────────────────────
+    for pattern, name in _INSTITUTIONS:
+        if re.search(pattern, cv_text, re.I):
+            result['current_institution'] = name
+            break
+
+    # ── Skills section ───────────────────────────────────────────────────────
+    skills_block = re.search(
+        r'(?:technical\s+)?skills?[:\s]+((?:[^\n]{2,60}\n?){1,10})',
+        cv_text, re.I,
+    )
+    if skills_block:
+        raw_skills = re.split(r'[,•·|\n/]', skills_block.group(1))
+        skills = [s.strip() for s in raw_skills if 2 <= len(s.strip()) <= 40 and not s.strip().isdigit()]
+        if skills:
+            result['skills'] = skills[:15]
+
+    return result
 
 
 class CVAutofillExtractView(StudentProfileAccessMixin, APIView):
@@ -475,13 +601,11 @@ class CVAutofillExtractView(StudentProfileAccessMixin, APIView):
             cv_text = raw_text
 
         try:
-            extracted = _call_anthropic(cv_text)
-        except RuntimeError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            extracted = _extract_by_rules(cv_text)
         except Exception as exc:
-            logger.exception("CV autofill AI extraction failed for user %s", request.user.pk)
+            logger.exception("CV autofill extraction failed for user %s", request.user.pk)
             return Response(
-                {"detail": "AI extraction failed. Please try again."},
+                {"detail": "Extraction failed. Please try again."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

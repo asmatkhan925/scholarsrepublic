@@ -317,8 +317,6 @@ DEFAULT_FROM_EMAIL = os.getenv(
 
 DESKTOP_WORKER_TOKEN = os.getenv("DESKTOP_WORKER_TOKEN", "")
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
