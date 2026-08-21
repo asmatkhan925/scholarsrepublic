@@ -161,8 +161,8 @@ from apps.users.models import User
 
 
 VALID_PNG_BYTES = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGNg"
-    "YPgPAAEDAQCqD6nFAAAAAElFTkSuQmCC"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4"
+    "//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
 )
 
 
@@ -2226,7 +2226,7 @@ class OpportunityAPITests(APITestCase):
         self.assert_json_response(response)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
-    def test_draft_social_image_endpoint_rejects_missing_openai_file_refs(self):
+    def test_draft_social_image_endpoint_rejects_missing_image_source(self):
         draft = self.create_agent_draft()
 
         response = self.client.post(
@@ -2239,8 +2239,61 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
             response.data["detail"],
-            "openaiFileIdRefs must contain exactly one image file.",
+            "Provide openaiFileIdRefs (list with one file), image_base64, or image_url.",
         )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_saves_base64_fallback(self):
+        draft = self.create_agent_draft()
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+                {
+                    "image_base64": base64.b64encode(VALID_PNG_BYTES).decode(),
+                    "image_filename": "fallback-image.png",
+                    "image_prompt": "Professional scholarship announcement.",
+                },
+                format="json",
+                **self.agent_headers(),
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            social_draft = OpportunitySocialDraft.objects.get(opportunity_draft=draft)
+            self.assertTrue(social_draft.facebook_image)
+            self.assertEqual(
+                social_draft.social_image_source,
+                OpportunitySocialDraft.SocialImageSource.GPT_BASE64,
+            )
+            self.assertIn("/media/", response.data["image_url"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_draft_social_image_endpoint_saves_url_fallback(self):
+        draft = self.create_agent_draft()
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            with patch(
+                "apps.opportunities.services.social_image_uploads.urlopen",
+                return_value=FakeImageResponse(),
+            ):
+                response = self.client.post(
+                    f"/api/admin/agent/scholarships/drafts/{draft.pk}/social-image/",
+                    {
+                        "image_url": "https://files.example/fallback.png",
+                        "image_prompt": "Professional scholarship announcement.",
+                    },
+                    format="json",
+                    **self.agent_headers(),
+                )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            social_draft = OpportunitySocialDraft.objects.get(opportunity_draft=draft)
+            self.assertTrue(social_draft.facebook_image)
+            self.assertEqual(
+                social_draft.social_image_source,
+                OpportunitySocialDraft.SocialImageSource.GPT_IMAGE_URL,
+            )
+            self.assertIn("/media/", response.data["image_url"])
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_draft_social_image_endpoint_rejects_multiple_openai_file_refs(self):

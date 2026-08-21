@@ -682,24 +682,39 @@ class AgentScholarshipDraftSocialImageView(AgentScholarshipBaseView):
         if notes:
             warnings.append("notes_not_stored")
 
+        # Accept image via openaiFileIdRefs, base64, or URL (in priority order)
+        image_base64 = str(request.data.get("image_base64") or "").strip()
+        image_url = str(request.data.get("image_url") or "").strip()
         file_refs = request.data.get("openaiFileIdRefs")
-        if not isinstance(file_refs, list):
-            return Response(
-                {"detail": "openaiFileIdRefs must contain exactly one image file."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if len(file_refs) != 1:
-            return Response(
-                {"detail": "openaiFileIdRefs must contain exactly one image file."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         try:
-            save_social_image_from_openai_file_ref(
-                social_draft,
-                file_refs[0],
-                filename=request.data.get("image_filename"),
-            )
+            if file_refs is not None:
+                if not isinstance(file_refs, list) or len(file_refs) != 1:
+                    return Response(
+                        {"detail": "openaiFileIdRefs must contain exactly one image file."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                save_social_image_from_openai_file_ref(
+                    social_draft,
+                    file_refs[0],
+                    filename=request.data.get("image_filename"),
+                )
+            elif image_base64:
+                save_social_image_from_base64(
+                    social_draft,
+                    image_base64,
+                    filename=request.data.get("image_filename"),
+                )
+            elif image_url:
+                save_social_image_from_url(
+                    social_draft,
+                    image_url,
+                )
+            else:
+                return Response(
+                    {"detail": "Provide openaiFileIdRefs (list with one file), image_base64, or image_url."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except SocialImageError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

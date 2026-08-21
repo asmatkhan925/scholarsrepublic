@@ -448,34 +448,34 @@ function ProfilePageContent() {
               </div>
 
               {/* Right: mini stats + actions */}
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 {[
                   { label: "Docs", value: `${preparedDocumentCount}/${DOCUMENT_OPTIONS.length}` },
                   { label: "Targets", value: form.target_countries.length },
                   { label: "Fields", value: form.target_fields.length },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-lg border border-pine/10 bg-white px-2 py-1 dark:border-white/10 dark:bg-white/5">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ink/35 dark:text-white/30">{s.label}</p>
-                    <p className="text-sm font-black leading-tight text-ink dark:text-white">{s.value}</p>
+                  <div key={s.label} className="rounded-xl border border-pine/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink/40 dark:text-white/35">{s.label}</p>
+                    <p className="text-base font-black leading-tight text-ink dark:text-white">{s.value}</p>
                   </div>
                 ))}
-                <div className="flex items-center gap-1.5 border-l border-pine/10 pl-1.5 dark:border-white/10">
+                <div className="flex items-center gap-2 border-l border-pine/10 pl-2 dark:border-white/10">
                   <button
                     type="button"
                     onClick={() => setShowCvAutofill(true)}
-                    className="flex items-center gap-1 rounded-lg border border-saffron/40 bg-saffron/10 px-2.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-saffron/20 dark:border-saffron/30 dark:text-white"
+                    className="flex items-center gap-1.5 rounded-xl border border-saffron/40 bg-saffron/10 px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-saffron/20 dark:border-saffron/30 dark:text-white"
                   >
-                    <Sparkles size={11} aria-hidden="true" />
-                    Auto-fill
+                    <Sparkles size={13} aria-hidden="true" />
+                    Auto-fill from CV
                   </button>
                   <button
                     type="button"
                     onClick={downloadCV}
                     disabled={cvDownloading}
-                    className="flex items-center gap-1 rounded-lg border border-pine/25 bg-white px-2.5 py-1.5 text-xs font-semibold text-pine transition-colors hover:bg-mint disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:hover:bg-pine/20"
+                    className="flex items-center gap-1.5 rounded-xl border border-pine/25 bg-white px-3.5 py-2 text-sm font-semibold text-pine transition-colors hover:bg-mint disabled:opacity-50 dark:border-pine/30 dark:bg-pine/10 dark:hover:bg-pine/20"
                   >
-                    <Download size={11} aria-hidden="true" />
-                    {cvDownloading ? "…" : "CV"}
+                    <Download size={13} aria-hidden="true" />
+                    {cvDownloading ? "Generating…" : "Download CV"}
                   </button>
                 </div>
               </div>
