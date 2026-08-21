@@ -212,6 +212,8 @@ class Opportunity(models.Model):
     verified_status = models.BooleanField(default=False, db_index=True)
     verification_note = models.CharField(max_length=255, blank=True)
     last_verified_at = models.DateTimeField(null=True, blank=True)
+    identity_key = models.CharField(max_length=64, blank=True, db_index=True)
+    application_cycle = models.CharField(max_length=40, blank=True, db_index=True)
 
     provider_name = models.CharField(max_length=255, blank=True)
     organization_type = models.CharField(
@@ -1266,6 +1268,42 @@ class OpportunitySourceLinkCorrectionLog(models.Model):
         return f"Source link correction for {self.opportunity}"
 
 
+class OpportunityRefreshLog(models.Model):
+    opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.CASCADE,
+        related_name="refresh_logs",
+    )
+    research_lead = models.ForeignKey(
+        "opportunities.ScholarshipResearchLead",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="refresh_logs",
+    )
+    application_cycle = models.CharField(max_length=40, blank=True, db_index=True)
+    old_values = models.JSONField(default=dict, blank=True)
+    new_values = models.JSONField(default=dict, blank=True)
+    applied_fields = models.JSONField(default=list, blank=True)
+    skipped_fields = models.JSONField(default=list, blank=True)
+    source_url = models.URLField(max_length=2000)
+    evidence_text = models.TextField()
+    identity_confidence = models.CharField(max_length=20, blank=True, db_index=True)
+    idempotency_key = models.CharField(max_length=64, unique=True)
+    applied_by = models.CharField(max_length=80, default="scholarship_agent")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["opportunity", "created_at"]),
+            models.Index(fields=["application_cycle"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Refresh for {self.opportunity} ({self.application_cycle or 'unspecified cycle'})"
+
+
 class ScholarshipResearchLead(models.Model):
     class DuplicateStatus(models.TextChoices):
         UNKNOWN = "unknown", "Unknown"
@@ -1279,6 +1317,12 @@ class ScholarshipResearchLead(models.Model):
         READY_FOR_DRAFT = "ready_for_draft", "Ready for draft"
         REJECTED = "rejected", "Rejected"
         IMPORTED = "imported", "Imported"
+
+    class Resolution(models.TextChoices):
+        NEW = "new", "New scholarship"
+        UNCHANGED_DUPLICATE = "unchanged_duplicate", "Unchanged duplicate"
+        UPDATE_EXISTING = "update_existing", "Update existing scholarship"
+        NEEDS_REVIEW = "needs_review", "Needs review"
 
     title = models.CharField(max_length=255)
     provider_name = models.CharField(max_length=255, blank=True)
@@ -1300,6 +1344,25 @@ class ScholarshipResearchLead(models.Model):
         db_index=True,
     )
     duplicate_matches = models.JSONField(default=list, blank=True)
+    resolution = models.CharField(
+        max_length=40,
+        choices=Resolution.choices,
+        default=Resolution.NEW,
+        db_index=True,
+    )
+    matched_opportunity = models.ForeignKey(
+        "opportunities.Opportunity",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="research_lead_matches",
+    )
+    identity_key = models.CharField(max_length=64, blank=True, db_index=True)
+    application_cycle = models.CharField(max_length=40, blank=True, db_index=True)
+    proposed_changes = models.JSONField(default=dict, blank=True)
+    resolution_reason = models.TextField(blank=True)
+    source_verified_at = models.DateTimeField(null=True, blank=True)
+    refresh_applied_at = models.DateTimeField(null=True, blank=True)
     review_status = models.CharField(
         max_length=40,
         choices=ReviewStatus.choices,
@@ -1315,6 +1378,7 @@ class ScholarshipResearchLead(models.Model):
         ordering = ("-created_at",)
         indexes = [
             models.Index(fields=["review_status", "duplicate_status"]),
+            models.Index(fields=["resolution", "review_status"]),
             models.Index(fields=["country"]),
             models.Index(fields=["degree_level"]),
             models.Index(fields=["provider_name"]),

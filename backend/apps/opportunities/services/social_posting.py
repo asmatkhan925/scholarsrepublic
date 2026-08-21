@@ -332,7 +332,10 @@ def regenerate_facebook_caption_for_opportunity(opportunity, *, force=False):
     return plan
 
 
-def mark_social_image_stale_for_deadline_change(opportunity):
+def mark_social_image_stale_for_deadline_change(
+    opportunity,
+    reason="Deadline changed. Uploaded social image may contain the old deadline.",
+):
     plan = (
         opportunity.social_post_plans.filter(platform=DEFAULT_PLATFORM)
         .order_by("-updated_at")
@@ -344,9 +347,7 @@ def mark_social_image_stale_for_deadline_change(opportunity):
     if plan.image or plan.image_url:
         plan.social_image_is_stale = True
         plan.social_image_status = plan.SocialImageStatus.FALLBACK
-        plan.social_image_error = (
-            "Deadline changed. Uploaded social image may contain the old deadline."
-        )
+        plan.social_image_error = reason
         plan.save(
             update_fields=[
                 "social_image_is_stale",

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Scholars Republic Admin Agent API
-  version: "1.5.0"
+  version: "1.6.0"
   description: GPT agent API for scholarship validation, private draft creation, social draft saving, and research lead drafting workflow.
 
 servers:
@@ -386,6 +386,55 @@ paths:
                     properties: {}
                   message:
                     type: string
+
+  /admin/agent/scholarships/{id}/refresh/:
+    post:
+      operationId: refreshExistingScholarship
+      summary: Refresh an existing scholarship cycle
+      description: Apply safe official-source changes when duplicate resolution returns update_existing. Do not create a second draft.
+      x-openai-isConsequential: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - candidate
+                - evidence_text
+                - source_url
+              properties:
+                candidate:
+                  type: object
+                  additionalProperties: true
+                evidence_text:
+                  type: string
+                  minLength: 20
+                source_url:
+                  type: string
+                lead_id:
+                  type: integer
+      responses:
+        "200":
+          description: Scholarship refresh result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Unsafe or conflicting refresh
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
 
 components:
   securitySchemes:

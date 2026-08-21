@@ -603,6 +603,17 @@ export type ScholarshipResearchLead = {
   pakistan_relevance_score: number;
   duplicate_status: "unknown" | "new" | "possible_duplicate" | "duplicate";
   duplicate_matches: Array<Record<string, unknown>>;
+  resolution: "new" | "unchanged_duplicate" | "update_existing" | "needs_review";
+  matched_opportunity_id: number | null;
+  identity_key: string;
+  application_cycle: string;
+  proposed_changes: Record<
+    string,
+    { old: unknown; new: unknown; automatic: boolean }
+  >;
+  resolution_reason: string;
+  source_verified_at: string | null;
+  refresh_applied_at: string | null;
   review_status: "new" | "needs_review" | "ready_for_draft" | "rejected" | "imported";
   notes: string;
   created_by_agent: boolean;
@@ -613,6 +624,8 @@ export type ScholarshipResearchLead = {
 export type ScholarshipResearchLeadResponse = {
   ok: boolean;
   count: number;
+  total_count: number;
+  offset: number;
   items: ScholarshipResearchLead[];
 };
 

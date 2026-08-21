@@ -465,6 +465,10 @@ export async function getAdminScholarshipResearchLeads(params?: {
   degree_level?: string;
   provider_name?: string;
   duplicate_status?: string;
+  resolution?: string;
+  application_cycle?: string;
+  q?: string;
+  offset?: number;
   limit?: number;
 }) {
   const response = await api.get<ScholarshipResearchLeadResponse>(

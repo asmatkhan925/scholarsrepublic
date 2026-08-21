@@ -56,6 +56,7 @@ from .agent_core import (
     AgentScholarshipResearchLeadCreateView,
     AgentScholarshipResearchLeadListView,
     AgentScholarshipResearchLeadMarkImportedView,
+    AgentScholarshipRefreshView,
     AdminScholarshipResearchLeadListView,
     AdminScholarshipResearchLeadActionView,
 )
@@ -151,6 +152,7 @@ __all__ = [
     "AgentScholarshipResearchLeadCreateView",
     "AgentScholarshipResearchLeadListView",
     "AgentScholarshipResearchLeadMarkImportedView",
+    "AgentScholarshipRefreshView",
     "AdminScholarshipResearchLeadListView",
     "AdminScholarshipResearchLeadActionView",
     # deadline

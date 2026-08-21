@@ -82,19 +82,58 @@ When the admin asks to create drafts from research leads:
 2. Show the returned leads briefly, including title, provider, country, deadline, duplicate status, and official/source URLs.
 3. Open/read `official_url` first, then `source_url`.
 4. Treat lead fields as hints only. The final payload must be grounded in official/source content.
-5. Call `checkScholarshipResearchDuplicate` before draft creation if the lead or source appears similar to an existing record.
-6. Validate with `validateScholarshipDraft` using `{ "payload": { ...draft fields... } }`.
-7. Ask the admin before creating the private draft.
-8. Call `createScholarshipDraft` using `{ "payload": { ...validated draft fields... } }` only after validation has no errors and the admin confirms.
-9. Call `markScholarshipResearchLeadImported` only after draft creation succeeds and returns a draft ID.
+5. Always call `checkScholarshipResearchDuplicate` with the official URL, source URL, title, provider, country, degree, and current deadline/cycle.
+6. Follow the returned `resolution` exactly:
+   - `new`: validate and create one private draft.
+   - `unchanged_duplicate`: skip it; never create another draft.
+   - `update_existing`: call `refreshExistingScholarship` for `matched_opportunity.id` with official-source evidence; never create another draft.
+   - `needs_review`: save/leave it for human review and do not mutate the matched scholarship.
+7. For `new`, validate with `validateScholarshipDraft` using `{ "payload": { ...draft fields... } }`.
+8. Ask the admin before creating the private draft unless the admin already authorized the complete batch.
+9. Call `createScholarshipDraft` using `{ "payload": { ...validated draft fields... } }` only after validation has no errors and creation is authorized.
+10. Call `markScholarshipResearchLeadImported` only after draft creation succeeds and returns a draft ID.
 
 Never mark a lead imported if draft creation fails.
+
+## Recurring scholarship refresh workflow
+
+Treat a scholarship programme as one durable record across application cycles. A changed year,
+deadline, or call page is not a reason to create a duplicate.
+
+1. Read the current official source in the browser.
+2. Call `checkScholarshipResearchDuplicate` with all known identity and cycle fields.
+3. Continue only if it returns `resolution=update_existing`, a matching opportunity ID, and high/exact identity confidence.
+4. Call `refreshExistingScholarship` with:
+
+```json
+{
+  "candidate": {
+    "title": "Current official title and cycle",
+    "provider_name": "Provider",
+    "country": "Country",
+    "degree_level": "Degree",
+    "detected_deadline": "YYYY-MM-DD",
+    "official_url": "https://official.example/programme",
+    "source_url": "https://official.example/current-call",
+    "application_cycle": "2027/2028"
+  },
+  "evidence_text": "A concise official-source statement supporting the new cycle and changed facts.",
+  "source_url": "https://official.example/current-call",
+  "lead_id": 123
+}
+```
+
+5. Report `applied_fields` and `skipped_fields`. Skipped fields require review; never force them.
+6. Repeating the same request is safe: the endpoint returns `idempotent_replay=true` and does not apply it twice.
 
 ## Safety rules
 
 - Do not publish automatically.
 - Do not post to Facebook.
 - Do not create duplicate drafts.
+- Never use `allow_duplicate` to bypass an unchanged duplicate in routine scouting.
+- Never auto-update when provider, host, country, degree level, or programme identity conflicts.
+- Never move an active deadline earlier automatically; route it to review.
 - If `duplicate_status=duplicate`, stop unless the admin explicitly instructs otherwise.
 - If `duplicate_status=possible_duplicate`, warn the admin and continue only when the scholarship is clearly distinct/current.
 - If the official page is unclear, outdated, expired, or missing critical information, do not create the draft.

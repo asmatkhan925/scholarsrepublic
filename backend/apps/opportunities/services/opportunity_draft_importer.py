@@ -8,7 +8,11 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.opportunities.models import Opportunity, OpportunityDraft, OpportunityPathway
-from apps.opportunities.services.duplicate_detector import find_duplicate_opportunities
+from apps.opportunities.services.duplicate_detector import (
+    build_scholarship_identity_key,
+    find_duplicate_opportunities,
+    infer_application_cycle,
+)
 from apps.opportunities.services.social_posting import promote_social_draft_to_plan
 from apps.reference_data.models import Country, Region, StudyField, StudyFieldCategory
 
@@ -435,6 +439,16 @@ def import_opportunity_draft(draft, user=None, update_existing=False):
     opportunity.tags = opportunity_data["tags"]
     opportunity.search_keywords = build_search_keywords(opportunity_data)
     opportunity.all_study_fields = cleaned["all_study_fields"]
+    identity_payload = {
+        "title": opportunity.title,
+        "provider_name": opportunity.provider_name,
+        "university_name": opportunity.university_name,
+        "country": opportunity.country_ref.name if opportunity.country_ref else "",
+        "degree_levels": opportunity.degree_levels,
+        "deadline": opportunity.deadline,
+    }
+    opportunity.identity_key = build_scholarship_identity_key(identity_payload)
+    opportunity.application_cycle = infer_application_cycle(identity_payload)
 
     try:
         opportunity.full_clean()

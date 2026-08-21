@@ -14,8 +14,9 @@ Use these rules when preparing payloads for `validateScholarshipDraft` and
 
 - Use `listScholarshipResearchLeads` with `review_status=ready_for_draft` and `limit=5` when asked to create drafts from research leads.
 - Treat `title`, `provider_name`, `country`, `degree_level`, `funding_type`, `detected_deadline`, and URLs as starting hints.
-- If `duplicate_status=duplicate`, do not create a draft unless the admin explicitly instructs you to continue.
-- If `duplicate_status=possible_duplicate`, warn the admin and proceed only if the official source shows it is clearly different or current.
+- Call `checkScholarshipResearchDuplicate` before drafting and follow `resolution`: create only `new`; skip `unchanged_duplicate`; call `refreshExistingScholarship` for `update_existing`; stop for `needs_review`.
+- Treat a changed application year or deadline for the same programme as a refresh, never as a second draft.
+- Do not bypass duplicate protection with `allow_duplicate` during routine ingestion.
 
 ## Required payload quality
 

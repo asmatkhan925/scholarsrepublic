@@ -3,9 +3,11 @@ Agent draft creation, research leads, and social image views.
 """
 import logging
 
+from django.db.models import Q
 from django.db.utils import DataError
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from rest_framework import parsers, permissions, status
@@ -20,9 +22,12 @@ from apps.opportunities.models import (
     ScholarshipResearchLead,
 )
 from apps.opportunities.services.duplicate_detector import (
+    build_scholarship_identity_key,
     find_duplicate_opportunities,
+    infer_application_cycle,
     normalize_key,
     normalize_url,
+    resolve_scholarship_candidate,
     title_similarity,
 )
 from apps.opportunities.services.opportunity_draft_importer import (
@@ -33,6 +38,10 @@ from apps.opportunities.services.social_posting import (
     scholarship_detail_url,
 )
 from apps.opportunities.services.social_scheduler import apply_social_priority
+from apps.opportunities.services.scholarship_refresh import (
+    ScholarshipRefreshError,
+    apply_scholarship_refresh,
+)
 from apps.opportunities.services.social_image_uploads import (
     SocialImageError,
     get_preferred_social_image_source,
@@ -175,6 +184,44 @@ def _research_duplicate_status(matches):
     return ScholarshipResearchLead.DuplicateStatus.NEW
 
 
+def _resolve_research_candidate(data):
+    resolution = resolve_scholarship_candidate(data)
+    lead_matches = [
+        match
+        for match in _find_research_lead_duplicates(data)
+        if match.get("type") == "research_lead"
+    ]
+    if resolution.get("resolution") == "new" and lead_matches:
+        exact = any(match.get("confidence") == "exact" for match in lead_matches)
+        resolution.update(
+            {
+                "resolution": "unchanged_duplicate" if exact else "needs_review",
+                "recommendation": "duplicate" if exact else "needs_review",
+                "identity_confidence": lead_matches[0].get("confidence", "low"),
+                "possible_matches": lead_matches,
+                "reason": (
+                    "The same scholarship is already present in the research queue."
+                    if exact
+                    else "A similar scholarship is already present in the research queue."
+                ),
+            }
+        )
+    elif lead_matches:
+        existing_ids = {
+            (match.get("type"), match.get("id"))
+            for match in resolution.get("possible_matches", [])
+        }
+        resolution["possible_matches"] = [
+            *resolution.get("possible_matches", []),
+            *[
+                match
+                for match in lead_matches
+                if (match.get("type"), match.get("id")) not in existing_ids
+            ],
+        ]
+    return resolution
+
+
 def _serialize_research_lead(lead):
     return {
         "id": lead.pk,
@@ -193,6 +240,14 @@ def _serialize_research_lead(lead):
         "pakistan_relevance_score": lead.pakistan_relevance_score,
         "duplicate_status": lead.duplicate_status,
         "duplicate_matches": lead.duplicate_matches,
+        "resolution": lead.resolution,
+        "matched_opportunity_id": lead.matched_opportunity_id,
+        "identity_key": lead.identity_key,
+        "application_cycle": lead.application_cycle,
+        "proposed_changes": lead.proposed_changes,
+        "resolution_reason": lead.resolution_reason,
+        "source_verified_at": lead.source_verified_at.isoformat() if lead.source_verified_at else None,
+        "refresh_applied_at": lead.refresh_applied_at.isoformat() if lead.refresh_applied_at else None,
         "review_status": lead.review_status,
         "notes": lead.notes,
         "created_by_agent": lead.created_by_agent,
@@ -201,7 +256,7 @@ def _serialize_research_lead(lead):
     }
 
 
-def _build_research_lead_defaults(data, duplicate_matches=None):
+def _build_research_lead_defaults(data, duplicate_matches=None, resolution=None):
     deadline = parse_date(str(data.get("detected_deadline") or ""))
     score = data.get("pakistan_relevance_score", 0)
     try:
@@ -209,14 +264,19 @@ def _build_research_lead_defaults(data, duplicate_matches=None):
     except (TypeError, ValueError):
         score = 0
     duplicate_matches = duplicate_matches or []
+    resolution = resolution or {}
     review_status = str(data.get("review_status") or "").strip()
     valid_review_statuses = {choice[0] for choice in ScholarshipResearchLead.ReviewStatus.choices}
     if review_status not in valid_review_statuses:
-        review_status = (
-            ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW
-            if duplicate_matches
-            else ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT
-        )
+        resolution_value = resolution.get("resolution", "new")
+        review_status = {
+            "new": ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT,
+            "update_existing": ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW,
+            "needs_review": ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW,
+            "unchanged_duplicate": ScholarshipResearchLead.ReviewStatus.REJECTED,
+        }.get(resolution_value, ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW)
+    matched = resolution.get("matched_opportunity") or {}
+    resolution_value = resolution.get("resolution") or ScholarshipResearchLead.Resolution.NEW
     return {
         "title": _clean_research_text(data, "title", 255),
         "provider_name": _clean_research_text(data, "provider_name", 255),
@@ -233,6 +293,13 @@ def _build_research_lead_defaults(data, duplicate_matches=None):
         "pakistan_relevance_score": score,
         "duplicate_status": _research_duplicate_status(duplicate_matches),
         "duplicate_matches": duplicate_matches,
+        "resolution": resolution_value,
+        "matched_opportunity_id": matched.get("id"),
+        "identity_key": resolution.get("identity_key") or build_scholarship_identity_key(data),
+        "application_cycle": resolution.get("application_cycle") or infer_application_cycle(data),
+        "proposed_changes": resolution.get("proposed_changes") or {},
+        "resolution_reason": resolution.get("reason") or "",
+        "source_verified_at": timezone.now() if parse_bool(data.get("source_verified")) is True else None,
         "review_status": review_status,
         "notes": _clean_research_text(data, "notes"),
         "created_by_agent": bool(data.get("created_by_agent", True)),
@@ -276,14 +343,15 @@ class AgentScholarshipResearchDuplicateView(AgentScholarshipBaseView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        matches = _find_research_lead_duplicates(request.data)
-        is_duplicate = any(match.get("confidence") == "exact" for match in matches)
-        recommendation = "duplicate" if is_duplicate else "needs_review" if matches else "new"
+        resolution = _resolve_research_candidate(request.data)
+        matches = resolution.get("possible_matches") or []
+        is_duplicate = resolution.get("resolution") == "unchanged_duplicate"
         return Response(
             {
                 "is_duplicate": is_duplicate,
                 "possible_matches": matches,
-                "recommendation": recommendation,
+                "recommendation": resolution.get("recommendation"),
+                **resolution,
             }
         )
 
@@ -321,8 +389,9 @@ class AgentScholarshipResearchLeadCreateView(AgentScholarshipBaseView):
         payload = dict(request.data)
         payload["official_url"] = official_url
         payload["source_url"] = source_url
-        matches = _find_research_lead_duplicates(payload)
-        exact_duplicate = any(match.get("confidence") == "exact" for match in matches)
+        resolution = _resolve_research_candidate(payload)
+        matches = resolution.get("possible_matches") or []
+        exact_duplicate = resolution.get("resolution") == "unchanged_duplicate"
         allow_duplicate = parse_bool(payload.get("allow_duplicate")) is True
         if exact_duplicate and not allow_duplicate:
             return Response(
@@ -330,13 +399,18 @@ class AgentScholarshipResearchLeadCreateView(AgentScholarshipBaseView):
                     "detail": "Duplicate research lead.",
                     "is_duplicate": True,
                     "possible_matches": matches,
-                    "recommendation": "duplicate",
+                    "recommendation": "skip",
+                    "resolution": resolution,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         lead = ScholarshipResearchLead.objects.create(
-            **_build_research_lead_defaults(payload, duplicate_matches=matches)
+            **_build_research_lead_defaults(
+                payload,
+                duplicate_matches=matches,
+                resolution=resolution,
+            )
         )
         return Response(
             {"ok": True, "lead": _serialize_research_lead(lead)},
@@ -351,18 +425,45 @@ class AgentScholarshipResearchLeadListView(AgentScholarshipBaseView):
             return auth_response
         data = request.data if isinstance(request.data, dict) else {}
         limit = min(parse_positive_int(data.get("limit")) or 20, 100)
+        offset = min(parse_positive_int(data.get("offset")) or 0, 100000)
         queryset = ScholarshipResearchLead.objects.all().order_by("-created_at")
         review_status = str(
             data.get("review_status") or data.get("status") or "ready_for_draft"
         ).strip()
         if review_status and review_status != "all":
             queryset = queryset.filter(review_status=review_status)
-        for field in ["country", "degree_level", "provider_name", "duplicate_status"]:
+        for field in [
+            "country",
+            "degree_level",
+            "provider_name",
+            "duplicate_status",
+            "resolution",
+            "application_cycle",
+        ]:
             value = str(data.get(field) or "").strip()
-            if value:
+            if value and value != "all":
                 queryset = queryset.filter(**{f"{field}__iexact": value})
-        items = [_serialize_research_lead(lead) for lead in queryset[:limit]]
-        return Response({"ok": True, "count": len(items), "items": items, "leads": items})
+        query = str(data.get("q") or data.get("search") or "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(title__icontains=query)
+                | Q(provider_name__icontains=query)
+                | Q(university__icontains=query)
+                | Q(official_url__icontains=query)
+                | Q(source_url__icontains=query)
+            )
+        total_count = queryset.count()
+        items = [_serialize_research_lead(lead) for lead in queryset[offset : offset + limit]]
+        return Response(
+            {
+                "ok": True,
+                "count": len(items),
+                "total_count": total_count,
+                "offset": offset,
+                "items": items,
+                "leads": items,
+            }
+        )
 
 
 class AgentScholarshipResearchLeadMarkImportedView(AgentScholarshipBaseView):
@@ -376,9 +477,51 @@ class AgentScholarshipResearchLeadMarkImportedView(AgentScholarshipBaseView):
                 {"detail": "Research lead not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if (
+            lead.resolution == ScholarshipResearchLead.Resolution.UPDATE_EXISTING
+            and not lead.refresh_applied_at
+        ):
+            return Response(
+                {"detail": "Apply the existing-scholarship refresh before marking this lead imported."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if lead.resolution == ScholarshipResearchLead.Resolution.UNCHANGED_DUPLICATE:
+            return Response(
+                {"detail": "An unchanged duplicate must be rejected, not imported."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         lead.review_status = ScholarshipResearchLead.ReviewStatus.IMPORTED
         lead.save(update_fields=["review_status", "updated_at"])
         return Response({"ok": True, "lead": _serialize_research_lead(lead)})
+
+
+class AgentScholarshipRefreshView(AgentScholarshipBaseView):
+    def post(self, request, opportunity_id):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        candidate = request.data.get("candidate")
+        if not isinstance(candidate, dict):
+            return Response(
+                {"detail": "candidate must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            result = apply_scholarship_refresh(
+                opportunity_id,
+                candidate,
+                evidence_text=request.data.get("evidence_text", ""),
+                source_url=request.data.get("source_url", ""),
+                lead_id=parse_positive_int(request.data.get("lead_id")),
+            )
+        except ScholarshipRefreshError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class AdminScholarshipResearchLeadListView(APIView):
@@ -386,6 +529,7 @@ class AdminScholarshipResearchLeadListView(APIView):
 
     def get(self, request):
         limit = min(parse_positive_int(request.query_params.get("limit")) or 50, 100)
+        offset = min(parse_positive_int(request.query_params.get("offset")) or 0, 100000)
         queryset = ScholarshipResearchLead.objects.all().order_by("-created_at")
         for field in [
             "review_status",
@@ -393,12 +537,32 @@ class AdminScholarshipResearchLeadListView(APIView):
             "degree_level",
             "provider_name",
             "duplicate_status",
+            "resolution",
+            "application_cycle",
         ]:
             value = str(request.query_params.get(field) or "").strip()
             if value and value != "all":
                 queryset = queryset.filter(**{f"{field}__iexact": value})
-        items = [_serialize_research_lead(lead) for lead in queryset[:limit]]
-        return Response({"ok": True, "count": len(items), "items": items})
+        query = str(request.query_params.get("q") or "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(title__icontains=query)
+                | Q(provider_name__icontains=query)
+                | Q(university__icontains=query)
+                | Q(official_url__icontains=query)
+                | Q(source_url__icontains=query)
+            )
+        total_count = queryset.count()
+        items = [_serialize_research_lead(lead) for lead in queryset[offset : offset + limit]]
+        return Response(
+            {
+                "ok": True,
+                "count": len(items),
+                "total_count": total_count,
+                "offset": offset,
+                "items": items,
+            }
+        )
 
 
 class AdminScholarshipResearchLeadActionView(APIView):

@@ -15,6 +15,7 @@ from apps.opportunities.models import (
     OpportunityPathway,
     OpportunityReelLog,
     OpportunityReelPlan,
+    OpportunityRefreshLog,
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
@@ -161,6 +162,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "display_study_fields",
         "funding_type",
         "deadline",
+        "application_cycle",
         "deadline_check_status",
         "deadline_last_checked_at",
         "status",
@@ -186,6 +188,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "study_field_refs",
         "deadline",
         "deadline_check_status",
+        "application_cycle",
     )
     search_fields = (
         "title",
@@ -199,6 +202,8 @@ class OpportunityAdmin(admin.ModelAdmin):
         "stipend_summary",
         "search_keywords",
         "tags",
+        "application_cycle",
+        "identity_key",
     )
     prepopulated_fields = {"slug": ("title",)}
     autocomplete_fields = (
@@ -219,6 +224,7 @@ class OpportunityAdmin(admin.ModelAdmin):
         "display_eligible_countries",
         "display_eligible_regions",
         "display_study_fields",
+        "identity_key",
     )
     fieldsets = (
         (
@@ -234,6 +240,8 @@ class OpportunityAdmin(admin.ModelAdmin):
                     "display_content_quality",
                     "verification_note",
                     "last_verified_at",
+                    "application_cycle",
+                    "identity_key",
                 )
             },
         ),
@@ -917,12 +925,16 @@ class ScholarshipResearchLeadAdmin(admin.ModelAdmin):
         "detected_deadline",
         "pakistan_relevance_score",
         "duplicate_status",
+        "resolution",
+        "application_cycle",
         "review_status",
         "created_at",
     )
     list_filter = (
         "review_status",
         "duplicate_status",
+        "resolution",
+        "application_cycle",
         "country",
         "degree_level",
         "created_by_agent",
@@ -937,8 +949,62 @@ class ScholarshipResearchLeadAdmin(admin.ModelAdmin):
         "source_url",
         "notes",
     )
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = (
+        "identity_key",
+        "proposed_changes",
+        "resolution_reason",
+        "source_verified_at",
+        "refresh_applied_at",
+        "created_at",
+        "updated_at",
+    )
+    raw_id_fields = ("matched_opportunity",)
     ordering = ("-created_at",)
+
+
+@admin.register(OpportunityRefreshLog)
+class OpportunityRefreshLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "opportunity",
+        "application_cycle",
+        "identity_confidence",
+        "display_applied_fields",
+        "display_skipped_fields",
+        "applied_by",
+        "created_at",
+    )
+    list_filter = ("application_cycle", "identity_confidence", "applied_by", "created_at")
+    search_fields = (
+        "opportunity__title",
+        "opportunity__provider_name",
+        "source_url",
+        "evidence_text",
+    )
+    raw_id_fields = ("opportunity", "research_lead")
+    readonly_fields = (
+        "opportunity",
+        "research_lead",
+        "application_cycle",
+        "old_values",
+        "new_values",
+        "applied_fields",
+        "skipped_fields",
+        "source_url",
+        "evidence_text",
+        "identity_confidence",
+        "idempotency_key",
+        "applied_by",
+        "created_at",
+    )
+    ordering = ("-created_at",)
+
+    @admin.display(description="Applied fields")
+    def display_applied_fields(self, obj):
+        return ", ".join(obj.applied_fields) or "-"
+
+    @admin.display(description="Review fields")
+    def display_skipped_fields(self, obj):
+        return ", ".join(obj.skipped_fields) or "-"
 
 
 @admin.register(OpportunityComment)

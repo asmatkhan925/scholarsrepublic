@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from difflib import SequenceMatcher
+import hashlib
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.utils.dateparse import parse_date
@@ -13,6 +15,29 @@ from apps.opportunities.models import Opportunity, OpportunityPathway
 TRACKING_QUERY_PREFIXES = ("utm_",)
 TRACKING_QUERY_PARAMS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 CONFIDENCE_RANK = {"low": 1, "medium": 2, "high": 3, "exact": 4}
+AUTO_REFRESH_FIELDS = {
+    "application_cycle",
+    "application_open_date",
+    "benefits",
+    "deadline",
+    "degree_levels",
+    "eligibility",
+    "english_proficiency_certificate_accepted",
+    "funding_type",
+    "how_to_apply",
+    "ielts_required",
+    "is_rolling_deadline",
+    "official_link",
+    "required_documents",
+    "short_description",
+    "source_url",
+    "stipend_summary",
+    "title",
+    "toefl_required",
+    "duolingo_required",
+}
+_CYCLE_RANGE_RE = re.compile(r"\b((?:19|20)\d{2})\s*[/\-–]\s*((?:19|20)?\d{2})\b")
+_YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
 
 
 @dataclass
@@ -45,14 +70,14 @@ def normalize_url(value) -> str:
         return ""
 
     parts = urlsplit(value)
-    query = [
+    query = sorted([
         (key, query_value)
         for key, query_value in parse_qsl(parts.query, keep_blank_values=True)
         if key.casefold() not in TRACKING_QUERY_PARAMS
         and not key.casefold().startswith(TRACKING_QUERY_PREFIXES)
-    ]
+    ])
     normalized_path = parts.path.rstrip("/") or ""
-    normalized_netloc = parts.netloc.casefold()
+    normalized_netloc = parts.netloc.casefold().removeprefix("www.")
     normalized_query = urlencode(query, doseq=True)
 
     return urlunsplit(
@@ -64,6 +89,62 @@ def normalize_url(value) -> str:
             "",
         )
     )
+
+
+def normalize_program_title(value) -> str:
+    """Normalize a recurring scholarship title without its application cycle."""
+    value = normalize_key(value).replace("–", "-")
+    value = _CYCLE_RANGE_RE.sub(" ", value)
+    value = _YEAR_RE.sub(" ", value)
+    value = re.sub(r"\b(spring|summer|autumn|fall|winter)\s+(intake|entry|call)?\b", " ", value)
+    value = re.sub(r"\b(intake|entry)\b", " ", value)
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return " ".join(value.split())
+
+
+def infer_application_cycle(data: dict) -> str:
+    explicit = normalize_text(data.get("application_cycle") or data.get("cycle"))
+    if explicit:
+        return explicit[:40]
+
+    title = normalize_text(data.get("title"))
+    match = _CYCLE_RANGE_RE.search(title)
+    if match:
+        first, second = match.groups()
+        if len(second) == 2:
+            second = first[:2] + second
+        return f"{first}/{second}"
+
+    title_years = _YEAR_RE.findall(title)
+    if title_years:
+        return title_years[-1]
+
+    deadline = parse_candidate_date(data.get("deadline") or data.get("detected_deadline"))
+    return str(deadline.year) if deadline else ""
+
+
+def _degree_values(data: dict) -> list[str]:
+    values = clean_string_list(data.get("degree_levels"))
+    if values:
+        return values
+    single = normalize_text(data.get("degree_level"))
+    return [single] if single else []
+
+
+def build_scholarship_identity_key(data: dict) -> str:
+    """Return a cycle-independent identity key for a scholarship programme."""
+    identity_parts = [
+        normalize_program_title(data.get("title")),
+        normalize_key(data.get("provider_name") or data.get("provider")),
+        normalize_key(data.get("university_name") or data.get("university")),
+        normalize_key(data.get("country")),
+        "|".join(sorted(normalize_key(value) for value in _degree_values(data))),
+    ]
+    if not any(identity_parts):
+        identity_parts.append(
+            normalize_url(data.get("official_link") or data.get("official_url") or data.get("source_url"))
+        )
+    return hashlib.sha256("\x1f".join(identity_parts).encode("utf-8")).hexdigest()
 
 
 def parse_candidate_date(value) -> date | None:
@@ -110,13 +191,13 @@ def build_duplicate_candidate(data: dict) -> DuplicateCandidate:
     return DuplicateCandidate(
         title=normalize_text(data.get("title")),
         slug=normalize_text(data.get("slug")) or slugify(normalize_text(data.get("title")))[:250],
-        official_link=normalize_text(data.get("official_link")),
+        official_link=normalize_text(data.get("official_link") or data.get("official_url")),
         source_url=normalize_text(data.get("source_url")),
-        provider_name=normalize_text(data.get("provider_name")),
-        university_name=normalize_text(data.get("university_name")),
+        provider_name=normalize_text(data.get("provider_name") or data.get("provider")),
+        university_name=normalize_text(data.get("university_name") or data.get("university")),
         country=normalize_text(data.get("country")),
-        deadline=parse_candidate_date(data.get("deadline")),
-        degree_levels=clean_string_list(data.get("degree_levels")),
+        deadline=parse_candidate_date(data.get("deadline") or data.get("detected_deadline")),
+        degree_levels=_degree_values(data),
         pathway_id=pathway_id,
         pathway=normalize_text(data.get("pathway")),
         exclude_id=exclude_id,
@@ -208,6 +289,12 @@ def serialize_match(match):
         "deadline": opportunity.deadline.isoformat() if opportunity.deadline else None,
         "country": country_name(opportunity),
         "provider_name": existing_provider(opportunity),
+        "university_name": opportunity.university_name,
+        "degree_levels": opportunity.degree_levels,
+        "official_link": opportunity.official_link,
+        "source_url": opportunity.source_url,
+        "application_cycle": opportunity.application_cycle,
+        "identity_key": opportunity.identity_key,
         "pathway_detail": (
             {
                 "id": pathway.id,
@@ -231,6 +318,7 @@ def find_duplicate_opportunities(data: dict, limit: int = 8) -> list[dict]:
     candidate_title_key = normalize_key(candidate.title)
     candidate_provider_key = normalize_key(candidate_provider(candidate))
     candidate_country_key = normalize_key(candidate.country)
+    candidate_identity_key = build_scholarship_identity_key(data)
     pathway_id = resolve_pathway_id(candidate)
     matches = {}
 
@@ -243,6 +331,8 @@ def find_duplicate_opportunities(data: dict, limit: int = 8) -> list[dict]:
             "status",
             "official_link",
             "source_url",
+            "application_cycle",
+            "identity_key",
             "provider_name",
             "university_name",
             "company_name",
@@ -261,6 +351,9 @@ def find_duplicate_opportunities(data: dict, limit: int = 8) -> list[dict]:
         queryset = queryset.exclude(pk=candidate.exclude_id)
 
     for opportunity in queryset:
+        if opportunity.identity_key and opportunity.identity_key == candidate_identity_key:
+            add_match(matches, opportunity, "exact", "Same cycle-independent identity key")
+
         if candidate.slug and opportunity.slug == candidate.slug:
             add_match(matches, opportunity, "exact", "Same slug")
 
@@ -310,3 +403,170 @@ def find_duplicate_opportunities(data: dict, limit: int = 8) -> list[dict]:
         )
     )
     return serialized[:limit]
+
+
+def _json_value(value):
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
+
+
+def _candidate_field(data: dict, *keys):
+    for key in keys:
+        if key in data and data.get(key) not in (None, ""):
+            return data.get(key)
+    return None
+
+
+def build_refresh_changes(data: dict, opportunity: Opportunity) -> dict:
+    """Build a field-level, JSON-safe diff against an existing opportunity."""
+    existing_cycle = opportunity.application_cycle or infer_application_cycle(
+        {"title": opportunity.title, "deadline": opportunity.deadline}
+    )
+    proposed = {
+        "title": _candidate_field(data, "title"),
+        "application_cycle": infer_application_cycle(data),
+        "deadline": parse_candidate_date(_candidate_field(data, "deadline", "detected_deadline")),
+        "application_open_date": parse_candidate_date(_candidate_field(data, "application_open_date")),
+        "is_rolling_deadline": data.get("is_rolling_deadline") if "is_rolling_deadline" in data else None,
+        "official_link": _candidate_field(data, "official_link", "official_url"),
+        "source_url": _candidate_field(data, "source_url"),
+        "funding_type": _candidate_field(data, "funding_type"),
+        "stipend_summary": _candidate_field(data, "stipend_summary"),
+        "benefits": _candidate_field(data, "benefits"),
+        "eligibility": _candidate_field(data, "eligibility", "eligibility_summary"),
+        "how_to_apply": _candidate_field(data, "how_to_apply"),
+        "short_description": _candidate_field(data, "short_description", "summary"),
+        "degree_levels": _degree_values(data) or None,
+        "required_documents": data.get("required_documents") if data.get("required_documents") else None,
+        "ielts_required": data.get("ielts_required") if "ielts_required" in data else None,
+        "toefl_required": data.get("toefl_required") if "toefl_required" in data else None,
+        "duolingo_required": data.get("duolingo_required") if "duolingo_required" in data else None,
+        "english_proficiency_certificate_accepted": (
+            data.get("english_proficiency_certificate_accepted")
+            if "english_proficiency_certificate_accepted" in data
+            else None
+        ),
+    }
+    changes = {}
+    for field_name, new_value in proposed.items():
+        if new_value in (None, "", []):
+            continue
+        old_value = (
+            existing_cycle
+            if field_name == "application_cycle"
+            else getattr(opportunity, field_name, None)
+        )
+        old_comparable = _json_value(old_value)
+        new_comparable = _json_value(new_value)
+        if isinstance(old_comparable, list) and isinstance(new_comparable, list):
+            if [normalize_key(v) for v in old_comparable] == [normalize_key(v) for v in new_comparable]:
+                continue
+        elif field_name in {"official_link", "source_url"}:
+            if normalize_url(old_comparable) == normalize_url(new_comparable):
+                continue
+        elif isinstance(old_comparable, str) and isinstance(new_comparable, str):
+            if old_comparable.strip() == new_comparable.strip():
+                continue
+        elif old_comparable == new_comparable:
+            continue
+
+        safe = field_name in AUTO_REFRESH_FIELDS
+        if field_name == "title":
+            safe = normalize_program_title(old_value) == normalize_program_title(new_value)
+        changes[field_name] = {
+            "old": old_comparable,
+            "new": new_comparable,
+            "automatic": safe,
+        }
+    return changes
+
+
+def resolve_scholarship_candidate(data: dict) -> dict:
+    """Classify a discovery as new, unchanged, refreshable, or uncertain."""
+    matches = find_duplicate_opportunities(data, limit=8)
+    identity_key = build_scholarship_identity_key(data)
+    application_cycle = infer_application_cycle(data)
+    if not matches:
+        return {
+            "resolution": "new",
+            "recommendation": "create_lead",
+            "identity_key": identity_key,
+            "application_cycle": application_cycle,
+            "identity_confidence": "none",
+            "matched_opportunity": None,
+            "possible_matches": [],
+            "proposed_changes": {},
+            "reason": "No matching scholarship identity was found.",
+        }
+
+    top = matches[0]
+    opportunity = Opportunity.objects.filter(pk=top["id"]).first()
+    if opportunity is None:
+        return {
+            "resolution": "needs_review",
+            "recommendation": "needs_review",
+            "identity_key": identity_key,
+            "application_cycle": application_cycle,
+            "identity_confidence": top.get("confidence", "low"),
+            "matched_opportunity": top,
+            "possible_matches": matches,
+            "proposed_changes": {},
+            "reason": "The top match could not be loaded.",
+        }
+
+    candidate_provider = normalize_key(data.get("provider_name") or data.get("provider"))
+    existing_provider_key = normalize_key(existing_provider(opportunity))
+    candidate_country = normalize_key(data.get("country"))
+    existing_country = normalize_key(country_name(opportunity))
+    candidate_university = normalize_key(data.get("university_name") or data.get("university"))
+    existing_university = normalize_key(opportunity.university_name)
+    candidate_degrees = _degree_values(data)
+    existing_degrees = opportunity.degree_levels if isinstance(opportunity.degree_levels, list) else []
+    same_title_identity = (
+        normalize_program_title(data.get("title"))
+        and normalize_program_title(data.get("title")) == normalize_program_title(opportunity.title)
+    )
+    exact_match = top.get("confidence") == "exact"
+    context_matches = (
+        (not candidate_provider or not existing_provider_key or candidate_provider == existing_provider_key)
+        and (not candidate_country or not existing_country or candidate_country == existing_country)
+        and (not candidate_university or not existing_university or candidate_university == existing_university)
+        and (
+            not candidate_degrees
+            or not existing_degrees
+            or degree_overlap(candidate_degrees, existing_degrees)
+        )
+    )
+    same_identity = context_matches and (
+        same_title_identity
+        or (exact_match and title_similarity(data.get("title"), opportunity.title) >= 0.72)
+    )
+    changes = build_refresh_changes(data, opportunity) if same_identity else {}
+
+    if not same_identity:
+        resolution = "needs_review"
+        recommendation = "needs_review"
+        reason = "A similar scholarship exists, but provider, host, country, or programme identity differs."
+    elif changes:
+        resolution = "update_existing"
+        recommendation = "refresh_existing"
+        reason = "The same scholarship identity was found with newer or changed official details."
+    else:
+        resolution = "unchanged_duplicate"
+        recommendation = "duplicate"
+        reason = "The scholarship and its supplied cycle details are already current."
+
+    return {
+        "resolution": resolution,
+        "recommendation": recommendation,
+        "identity_key": identity_key,
+        "application_cycle": application_cycle,
+        "identity_confidence": top.get("confidence", "low"),
+        "matched_opportunity": top,
+        "possible_matches": matches,
+        "proposed_changes": changes,
+        "automatic_fields": sorted(name for name, change in changes.items() if change["automatic"]),
+        "review_fields": sorted(name for name, change in changes.items() if not change["automatic"]),
+        "reason": reason,
+    }

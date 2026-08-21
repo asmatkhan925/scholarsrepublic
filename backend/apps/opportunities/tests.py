@@ -105,6 +105,7 @@ from apps.opportunities.models import (
     OpportunityDraft,
     OpportunityPathway,
     OpportunityReelPlan,
+    OpportunityRefreshLog,
     OpportunitySocialDraft,
     OpportunitySocialPostLog,
     OpportunitySocialPostPlan,
@@ -2960,6 +2961,249 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["is_duplicate"])
         self.assertEqual(response.data["possible_matches"][0]["type"], "research_lead")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_duplicate_resolves_new_cycle_as_update_existing(self):
+        opportunity = self.opportunity(
+            slug="daad-doctoral-2026",
+            title="DAAD Doctoral Programmes 2026/2027",
+            provider_name="DAAD",
+            country="Germany",
+            degree_levels=["PhD"],
+            deadline=date(2026, 8, 31),
+            official_link="https://www2.daad.de/scholarship/?detail=57135739",
+            source_url="https://www.daad.de/programme/57135739",
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/check-duplicate/",
+            {
+                "title": "DAAD Doctoral Programmes 2027/2028",
+                "provider_name": "DAAD",
+                "country": "Germany",
+                "degree_level": "PhD",
+                "official_url": "https://www2.daad.de/scholarship/?detail=57135739",
+                "source_url": "https://www.daad.de/programme/57135739",
+                "detected_deadline": "2027-08-31",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_duplicate"])
+        self.assertEqual(response.data["resolution"], "update_existing")
+        self.assertEqual(response.data["matched_opportunity"]["id"], opportunity.pk)
+        self.assertEqual(response.data["application_cycle"], "2027/2028")
+        self.assertEqual(
+            response.data["proposed_changes"]["deadline"],
+            {"old": "2026-08-31", "new": "2027-08-31", "automatic": True},
+        )
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_duplicate_resolves_unchanged_cycle_as_duplicate(self):
+        self.opportunity(
+            slug="same-cycle-scholarship",
+            title="Same Cycle Scholarship 2027",
+            provider_name="Example Foundation",
+            country="Italy",
+            degree_levels=["Master"],
+            deadline=date(2027, 3, 1),
+            official_link="https://example.org/same-cycle",
+            source_url="",
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/check-duplicate/",
+            {
+                "title": "Same Cycle Scholarship 2027",
+                "provider_name": "Example Foundation",
+                "country": "Italy",
+                "degree_level": "Master",
+                "official_url": "https://example.org/same-cycle/",
+                "detected_deadline": "2027-03-01",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_duplicate"])
+        self.assertEqual(response.data["resolution"], "unchanged_duplicate")
+        self.assertEqual(response.data["recommendation"], "duplicate")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_similar_programme_with_different_degree_needs_review(self):
+        self.opportunity(
+            slug="kaist-undergraduate-2027",
+            title="KAIST International Undergraduate Scholarship 2027",
+            provider_name="KAIST",
+            country="South Korea",
+            degree_levels=["Bachelor"],
+            official_link="https://kaist.example/undergraduate",
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/check-duplicate/",
+            {
+                "title": "KAIST International Graduate Scholarship Spring 2027",
+                "provider_name": "KAIST",
+                "country": "South Korea",
+                "degree_level": "PhD",
+                "official_url": "https://kaist.example/graduate",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["resolution"], "needs_review")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_refresh_applies_verified_new_cycle_and_is_idempotent(self):
+        opportunity = self.opportunity(
+            slug="renewable-foundation-scholarship",
+            title="Renewable Foundation Scholarship 2026/2027",
+            provider_name="Renewable Foundation",
+            country="Germany",
+            degree_levels=["Master"],
+            deadline=timezone.localdate() - timedelta(days=20),
+            benefits="Old benefits.",
+            official_link="https://foundation.example/scholarship",
+            source_url="https://foundation.example/call",
+        )
+        plan = self.ready_social_plan(opportunity)
+        candidate = {
+            "title": "Renewable Foundation Scholarship 2027/2028",
+            "provider_name": "Renewable Foundation",
+            "country": "Germany",
+            "degree_level": "Master",
+            "official_url": "https://foundation.example/scholarship",
+            "source_url": "https://foundation.example/call-2027",
+            "detected_deadline": (timezone.localdate() + timedelta(days=300)).isoformat(),
+            "benefits": "Updated official tuition and stipend benefits.",
+        }
+        payload = {
+            "candidate": candidate,
+            "source_url": candidate["source_url"],
+            "evidence_text": "The official 2027/2028 call confirms the new deadline and benefits.",
+        }
+
+        first = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/refresh/",
+            payload,
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+        second = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/refresh/",
+            payload,
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertTrue(first.data["applied"])
+        self.assertTrue(second.data["idempotent_replay"])
+        opportunity.refresh_from_db()
+        plan.refresh_from_db()
+        self.assertEqual(opportunity.application_cycle, "2027/2028")
+        self.assertEqual(opportunity.title, candidate["title"])
+        self.assertEqual(opportunity.deadline.isoformat(), candidate["detected_deadline"])
+        self.assertEqual(opportunity.benefits, candidate["benefits"])
+        self.assertTrue(opportunity.verified_status)
+        self.assertEqual(
+            opportunity.deadline_check_status,
+            Opportunity.DeadlineCheckStatus.VERIFIED_ACTIVE,
+        )
+        self.assertEqual(opportunity.deadline_check_source_url, candidate["source_url"])
+        self.assertIn(candidate["title"], plan.post_text)
+        self.assertTrue(plan.social_image_is_stale)
+        self.assertEqual(OpportunityRefreshLog.objects.filter(opportunity=opportunity).count(), 1)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_refresh_rejects_conflicting_identity(self):
+        opportunity = self.opportunity(
+            slug="identity-guard-scholarship",
+            title="Identity Guard Scholarship 2027",
+            provider_name="Original Foundation",
+            official_link="https://original.example/scholarship",
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/refresh/",
+            {
+                "candidate": {
+                    "title": "Identity Guard Scholarship 2028",
+                    "provider_name": "Different Foundation",
+                    "country": "China",
+                    "official_url": "https://original.example/scholarship",
+                    "detected_deadline": "2028-01-01",
+                },
+                "evidence_text": "Official-looking text with a conflicting provider identity.",
+                "source_url": "https://original.example/scholarship",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        opportunity.refresh_from_db()
+        self.assertEqual(opportunity.provider_name, "Original Foundation")
+        self.assertFalse(OpportunityRefreshLog.objects.filter(opportunity=opportunity).exists())
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_refresh_routes_earlier_active_deadline_to_review(self):
+        old_deadline = timezone.localdate() + timedelta(days=200)
+        opportunity = self.opportunity(
+            slug="deadline-safety-scholarship",
+            title="Deadline Safety Scholarship 2027",
+            provider_name="Safety Foundation",
+            country="France",
+            degree_levels=["Master"],
+            deadline=old_deadline,
+            official_link="https://safety.example/scholarship",
+        )
+        lead = ScholarshipResearchLead.objects.create(
+            title="Deadline Safety Scholarship 2027",
+            provider_name="Safety Foundation",
+            country="France",
+            degree_level="Master",
+            official_url="https://safety.example/scholarship",
+            resolution=ScholarshipResearchLead.Resolution.UPDATE_EXISTING,
+            matched_opportunity=opportunity,
+            review_status=ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW,
+        )
+
+        response = self.client.post(
+            f"/api/admin/agent/scholarships/{opportunity.pk}/refresh/",
+            {
+                "candidate": {
+                    "title": "Deadline Safety Scholarship 2027",
+                    "provider_name": "Safety Foundation",
+                    "country": "France",
+                    "degree_level": "Master",
+                    "official_url": "https://safety.example/scholarship",
+                    "detected_deadline": (
+                        timezone.localdate() + timedelta(days=100)
+                    ).isoformat(),
+                },
+                "lead_id": lead.pk,
+                "evidence_text": "The official page displays an earlier application deadline.",
+                "source_url": "https://safety.example/scholarship",
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["applied"])
+        self.assertEqual(response.data["skipped_fields"], ["deadline"])
+        opportunity.refresh_from_db()
+        lead.refresh_from_db()
+        self.assertEqual(opportunity.deadline, old_deadline)
+        self.assertEqual(lead.review_status, ScholarshipResearchLead.ReviewStatus.NEEDS_REVIEW)
+        self.assertIsNone(lead.refresh_applied_at)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_research_lead_created_and_listed_ready_for_draft(self):
@@ -8665,6 +8909,8 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(opportunity.application_track, Opportunity.ApplicationTrack.UNIVERSITY)
         self.assertEqual(opportunity.university_name, "Example University")
         self.assertTrue(opportunity.all_study_fields)
+        self.assertEqual(opportunity.application_cycle, "2026")
+        self.assertEqual(len(opportunity.identity_key), 64)
         self.assertEqual(list(opportunity.study_field_refs.all()), [])
         self.assertEqual(
             list(opportunity.eligible_country_refs.values_list("name", flat=True)),

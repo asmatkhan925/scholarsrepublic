@@ -9,7 +9,7 @@ import { ExternalLink, FilePlus2, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge, Button, ButtonLink, Card, CardContent } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardContent, Input } from "@/components/ui";
 import {
   getAdminScholarshipResearchLeads,
   updateAdminScholarshipResearchLeadStatus,
@@ -26,6 +26,14 @@ const reviewFilters = [
   { value: "all", label: "All" },
 ];
 
+const resolutionFilters = [
+  { value: "all", label: "All resolutions" },
+  { value: "new", label: "New scholarship" },
+  { value: "update_existing", label: "Update existing" },
+  { value: "unchanged_duplicate", label: "Unchanged duplicate" },
+  { value: "needs_review", label: "Identity review" },
+];
+
 function displayDate(value: string | null) {
   return value || "Not specified";
 }
@@ -34,21 +42,31 @@ export default function ScholarshipResearchLeadsPage() {
   const { loading: authLoading, user } = useAuth();
   const [items, setItems] = useState<ScholarshipResearchLead[]>([]);
   const [reviewStatus, setReviewStatus] = useState("ready_for_draft");
+  const [resolution, setResolution] = useState("all");
+  const [query, setQuery] = useState("");
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function loadLeads(status = reviewStatus) {
+  async function loadLeads(
+    status = reviewStatus,
+    nextResolution = resolution,
+    nextQuery = query,
+  ) {
     setLoading(true);
     setError("");
     setMessage("");
     try {
       const response = await getAdminScholarshipResearchLeads({
         review_status: status,
+        resolution: nextResolution,
+        q: nextQuery,
         limit: 100,
       });
       setItems(response.items);
+      setTotalCount(response.total_count);
     } catch (requestError) {
       setError(getErrorMessage(requestError) ?? "Could not load research leads.");
     } finally {
@@ -85,7 +103,7 @@ export default function ScholarshipResearchLeadsPage() {
 
   async function changeFilter(nextStatus: string) {
     setReviewStatus(nextStatus);
-    await loadLeads(nextStatus);
+    await loadLeads(nextStatus, resolution, query);
   }
 
   return (
@@ -98,8 +116,9 @@ export default function ScholarshipResearchLeadsPage() {
         <div className="grid gap-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="max-w-3xl text-sm leading-6 text-ink/65 dark:text-white/60">
-              Normal workflow: open the official URL, create a private draft from verified
-              source facts, then mark the lead imported only after the draft is saved.
+              New scholarships become private drafts. Recurring scholarships update the existing
+              record only after the official source confirms the new cycle; unchanged duplicates
+              are skipped.
             </div>
             <div className="flex flex-wrap gap-2">
               {reviewFilters.map((filter) => (
@@ -115,6 +134,44 @@ export default function ScholarshipResearchLeadsPage() {
                 </Button>
               ))}
             </div>
+            <form
+              className="flex w-full flex-wrap items-end gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void loadLeads(reviewStatus, resolution, query);
+              }}
+            >
+              <Input
+                label="Search title, provider, or URL"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="min-w-72 flex-1"
+              />
+              <label className="grid gap-1 text-xs font-semibold text-ink/65 dark:text-white/65">
+                Resolution
+                <select
+                  value={resolution}
+                  onChange={(event) => {
+                    const nextResolution = event.target.value;
+                    setResolution(nextResolution);
+                    void loadLeads(reviewStatus, nextResolution, query);
+                  }}
+                  className="h-11 rounded-xl border border-pine/15 bg-white px-3 text-sm text-ink dark:border-white/15 dark:bg-[#181b1d] dark:text-white"
+                >
+                  {resolutionFilters.map((filter) => (
+                    <option key={filter.value} value={filter.value}>
+                      {filter.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="submit" disabled={loading}>
+                Search
+              </Button>
+              <span className="pb-2 text-xs text-ink/55 dark:text-white/55">
+                {totalCount} matching lead{totalCount === 1 ? "" : "s"}
+              </span>
+            </form>
             <Button type="button" onClick={() => void loadLeads()} disabled={loading}>
               <RefreshCw size={15} className={loading ? "animate-spin" : ""} aria-hidden="true" />
               {loading ? "Loading..." : "Refresh"}
@@ -135,8 +192,9 @@ export default function ScholarshipResearchLeadsPage() {
                       <th className="px-4 py-3">Country</th>
                       <th className="px-4 py-3">Degree</th>
                       <th className="px-4 py-3">Deadline</th>
+                      <th className="px-4 py-3">Cycle</th>
                       <th className="px-4 py-3">Score</th>
-                      <th className="px-4 py-3">Duplicate</th>
+                      <th className="px-4 py-3">Resolution</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Actions</th>
                     </tr>
@@ -146,6 +204,16 @@ export default function ScholarshipResearchLeadsPage() {
                       <tr key={lead.id} className="align-top">
                         <td className="max-w-sm px-4 py-3">
                           <div className="font-semibold text-ink dark:text-white">{lead.title}</div>
+                          {lead.resolution_reason ? (
+                            <div className="mt-1 text-xs leading-5 text-ink/55 dark:text-white/55">
+                              {lead.resolution_reason}
+                            </div>
+                          ) : null}
+                          {Object.keys(lead.proposed_changes).length ? (
+                            <div className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                              Changes: {Object.keys(lead.proposed_changes).join(", ")}
+                            </div>
+                          ) : null}
                           <div className="mt-2 flex flex-wrap gap-2">
                             {lead.official_url ? (
                               <a
@@ -175,48 +243,64 @@ export default function ScholarshipResearchLeadsPage() {
                         <td className="px-4 py-3">{lead.country || "-"}</td>
                         <td className="px-4 py-3">{lead.degree_level || "-"}</td>
                         <td className="px-4 py-3">{displayDate(lead.detected_deadline)}</td>
+                        <td className="px-4 py-3">{lead.application_cycle || "-"}</td>
                         <td className="px-4 py-3">{lead.pakistan_relevance_score}</td>
                         <td className="px-4 py-3">
-                          <Badge>{lead.duplicate_status.replace(/_/g, " ")}</Badge>
+                          <Badge>{lead.resolution.replace(/_/g, " ")}</Badge>
                         </td>
                         <td className="px-4 py-3">
                           <Badge>{lead.review_status.replace(/_/g, " ")}</Badge>
                         </td>
                         <td className="min-w-56 px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => void updateLead(lead.id, "ready_for_draft")}
-                              disabled={actionId === lead.id}
-                            >
-                              Mark Ready for Draft
-                            </Button>
-                            <ButtonLink
-                              href="/dashboard/admin/scholarships/import"
-                              size="sm"
-                              variant="outline"
-                            >
-                              <FilePlus2 size={14} aria-hidden="true" />
-                              Create Draft
-                            </ButtonLink>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    "Mark this lead imported only if a private draft already exists. Continue?",
-                                  )
-                                ) {
-                                  void updateLead(lead.id, "imported");
-                                }
-                              }}
-                              disabled={actionId === lead.id}
-                            >
-                              Mark Imported
-                            </Button>
+                            {lead.resolution === "new" ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => void updateLead(lead.id, "ready_for_draft")}
+                                  disabled={actionId === lead.id}
+                                >
+                                  Mark Ready for Draft
+                                </Button>
+                                <ButtonLink
+                                  href="/dashboard/admin/scholarships/import"
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  <FilePlus2 size={14} aria-hidden="true" />
+                                  Create Draft
+                                </ButtonLink>
+                              </>
+                            ) : null}
+                            {lead.matched_opportunity_id ? (
+                              <ButtonLink
+                                href={`/dashboard/admin/scholarships/${lead.matched_opportunity_id}/edit`}
+                                size="sm"
+                                variant="outline"
+                              >
+                                Open existing
+                              </ButtonLink>
+                            ) : null}
+                            {lead.resolution === "new" || lead.refresh_applied_at ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "Mark this lead imported only if its draft or verified refresh exists. Continue?",
+                                    )
+                                  ) {
+                                    void updateLead(lead.id, "imported");
+                                  }
+                                }}
+                                disabled={actionId === lead.id}
+                              >
+                                Mark Imported
+                              </Button>
+                            ) : null}
                             <Button
                               type="button"
                               size="sm"
