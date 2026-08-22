@@ -260,6 +260,9 @@ paths:
                   type: string
                 detected_deadline:
                   type: string
+                exclude_lead_id:
+                  type: integer
+                  description: Saved lead ID to exclude from matching itself during a pre-draft duplicate check.
       responses:
         "200":
           description: Duplicate check result

@@ -184,11 +184,11 @@ def _research_duplicate_status(matches):
     return ScholarshipResearchLead.DuplicateStatus.NEW
 
 
-def _resolve_research_candidate(data):
+def _resolve_research_candidate(data, exclude_lead_id=None):
     resolution = resolve_scholarship_candidate(data)
     lead_matches = [
         match
-        for match in _find_research_lead_duplicates(data)
+        for match in _find_research_lead_duplicates(data, exclude_lead_id=exclude_lead_id)
         if match.get("type") == "research_lead"
     ]
     if resolution.get("resolution") == "new" and lead_matches:
@@ -343,7 +343,10 @@ class AgentScholarshipResearchDuplicateView(AgentScholarshipBaseView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resolution = _resolve_research_candidate(request.data)
+        resolution = _resolve_research_candidate(
+            request.data,
+            exclude_lead_id=parse_positive_int(request.data.get("exclude_lead_id")),
+        )
         matches = resolution.get("possible_matches") or []
         is_duplicate = resolution.get("resolution") == "unchanged_duplicate"
         return Response(

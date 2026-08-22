@@ -82,7 +82,7 @@ When the admin asks to create drafts from research leads:
 2. Show the returned leads briefly, including title, provider, country, deadline, duplicate status, and official/source URLs.
 3. Open/read `official_url` first, then `source_url`.
 4. Treat lead fields as hints only. The final payload must be grounded in official/source content.
-5. Always call `checkScholarshipResearchDuplicate` with the official URL, source URL, title, provider, country, degree, and current deadline/cycle.
+5. Always call `checkScholarshipResearchDuplicate` with the official URL, source URL, title, provider, country, degree, current deadline/cycle, and `exclude_lead_id` set to the saved lead being processed.
 6. Follow the returned `resolution` exactly:
    - `new`: validate and create one private draft.
    - `unchanged_duplicate`: skip it; never create another draft.

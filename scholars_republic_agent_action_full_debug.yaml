@@ -936,6 +936,9 @@ components:
           type: string
         application_cycle:
           type: string
+        exclude_lead_id:
+          type: integer
+          description: Saved research lead ID to exclude when rechecking that same lead before draft creation.
       required: []
 
     ScholarshipResearchDuplicateResponse:

@@ -2963,6 +2963,35 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["possible_matches"][0]["type"], "research_lead")
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_research_duplicate_recheck_can_exclude_current_lead(self):
+        lead = ScholarshipResearchLead.objects.create(
+            title="Lead Being Drafted",
+            provider_name="Example Foundation",
+            country="Germany",
+            degree_level="Master",
+            official_url="https://example.org/lead-being-drafted",
+            review_status=ScholarshipResearchLead.ReviewStatus.READY_FOR_DRAFT,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarship-research/check-duplicate/",
+            {
+                "title": lead.title,
+                "provider_name": lead.provider_name,
+                "country": lead.country,
+                "degree_level": lead.degree_level,
+                "official_url": lead.official_url,
+                "exclude_lead_id": lead.pk,
+            },
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["resolution"], "new")
+        self.assertFalse(response.data["is_duplicate"])
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_research_duplicate_resolves_new_cycle_as_update_existing(self):
         opportunity = self.opportunity(
             slug="daad-doctoral-2026",
