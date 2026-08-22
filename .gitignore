@@ -54,3 +54,6 @@ workers/facebook-poster/test-run-due-posts.json
 
 backend/.env.backup.*
 backend/.env
+
+# TypeScript incremental build cache
+frontend/tsconfig.tsbuildinfo
