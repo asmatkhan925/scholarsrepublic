@@ -64,6 +64,7 @@ from apps.opportunities.views import (
     AgentScholarshipResearchLeadListView,
     AgentScholarshipResearchLeadMarkImportedView,
     AgentScholarshipRefreshView,
+    AgentScholarshipDraftListView,
     AgentScholarshipSourceLinkCorrectionView,
     AgentScholarshipSocialDraftView,
     AgentScholarshipValidateView,
@@ -328,6 +329,11 @@ urlpatterns = [
         "admin/agent/scholarships/<int:opportunity_id>/refresh/",
         AgentScholarshipRefreshView.as_view(),
         name="agent-scholarship-refresh",
+    ),
+    path(
+        "admin/agent/scholarships/drafts/list/",
+        AgentScholarshipDraftListView.as_view(),
+        name="agent-scholarship-draft-list",
     ),
     path(
         "admin/agent/scholarships/<int:opportunity_id>/deadline-check-result/",

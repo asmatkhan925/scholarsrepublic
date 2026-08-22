@@ -256,6 +256,27 @@ def _serialize_research_lead(lead):
     }
 
 
+def _serialize_agent_draft(draft):
+    social_draft = next(iter(draft.social_drafts.all()), None)
+    return {
+        "id": draft.pk,
+        "title": draft.title,
+        "slug": draft.slug,
+        "status": draft.status,
+        "source_url": draft.source_url,
+        "source_name": draft.source_name,
+        "confidence": draft.confidence,
+        "validation_warnings": draft.validation_warnings,
+        "validation_errors": draft.validation_errors,
+        "created_opportunity_id": draft.created_opportunity_id,
+        "edit_url": _agent_admin_edit_url(draft),
+        "social_draft_id": social_draft.pk if social_draft else None,
+        "social_draft_status": social_draft.status if social_draft else None,
+        "created_at": draft.created_at.isoformat() if draft.created_at else None,
+        "updated_at": draft.updated_at.isoformat() if draft.updated_at else None,
+    }
+
+
 def _build_research_lead_defaults(data, duplicate_matches=None, resolution=None):
     deadline = parse_date(str(data.get("detected_deadline") or ""))
     score = data.get("pakistan_relevance_score", 0)
@@ -525,6 +546,39 @@ class AgentScholarshipRefreshView(AgentScholarshipBaseView):
         except ScholarshipRefreshError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result, status=status.HTTP_200_OK)
+
+
+class AgentScholarshipDraftListView(AgentScholarshipBaseView):
+    def post(self, request):
+        auth_response = self.authorize_agent(request)
+        if auth_response is not None:
+            return auth_response
+        data = request.data if isinstance(request.data, dict) else {}
+        limit = min(parse_positive_int(data.get("limit")) or 100, 100)
+        offset = min(parse_positive_int(data.get("offset")) or 0, 100000)
+        queryset = OpportunityDraft.objects.prefetch_related("social_drafts").order_by("-created_at")
+        draft_status = str(data.get("status") or "all").strip()
+        if draft_status and draft_status != "all":
+            queryset = queryset.filter(status=draft_status)
+        min_id = parse_positive_int(data.get("min_id"))
+        if min_id:
+            queryset = queryset.filter(pk__gte=min_id)
+        ids = data.get("ids")
+        if isinstance(ids, list):
+            parsed_ids = [value for value in (parse_positive_int(item) for item in ids) if value]
+            queryset = queryset.filter(pk__in=parsed_ids) if parsed_ids else queryset.none()
+        total_count = queryset.count()
+        items = [_serialize_agent_draft(draft) for draft in queryset[offset : offset + limit]]
+        return Response(
+            {
+                "ok": True,
+                "count": len(items),
+                "total_count": total_count,
+                "offset": offset,
+                "items": items,
+                "results": items,
+            }
+        )
 
 
 class AdminScholarshipResearchLeadListView(APIView):

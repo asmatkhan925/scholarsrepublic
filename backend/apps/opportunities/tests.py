@@ -1894,6 +1894,38 @@ class OpportunityAPITests(APITestCase):
             response.data["edit_url"],
         )
         self.assertEqual(Opportunity.objects.count(), 0)
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    def test_agent_draft_list_supports_exact_ids_and_social_status(self):
+        payload = self.draft_payload(slug="agent-draft-list-opportunity")
+        first = OpportunityDraft.objects.create(
+            title="Older Agent Draft",
+            slug="older-agent-draft",
+            raw_payload=payload,
+        )
+        second = OpportunityDraft.objects.create(
+            title="Requested Agent Draft",
+            slug="requested-agent-draft",
+            raw_payload=payload,
+            status=OpportunityDraft.Status.VALIDATED,
+        )
+        social = OpportunitySocialDraft.objects.create(
+            opportunity_draft=second,
+            status=OpportunitySocialDraft.Status.DRAFT,
+        )
+
+        response = self.client.post(
+            "/api/admin/agent/scholarships/drafts/list/",
+            {"ids": [second.pk], "limit": 100},
+            format="json",
+            HTTP_X_AGENT_TOKEN="test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_count"], 1)
+        self.assertEqual(response.data["items"][0]["id"], second.pk)
+        self.assertEqual(response.data["items"][0]["social_draft_id"], social.pk)
+        self.assertNotEqual(response.data["items"][0]["id"], first.pk)
         self.assert_json_response(response)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
