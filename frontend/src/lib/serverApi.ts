@@ -128,6 +128,24 @@ export async function getPublicScholarshipsInitial() {
   });
 }
 
+export const SCHOLARSHIP_INDEX_PAGE_SIZE = 48;
+
+/**
+ * Server-rendered, crawlable page of scholarships.
+ *
+ * `include_expired` keeps closed scholarships reachable as archive pages so the
+ * full catalogue is discoverable by search engines rather than only the subset
+ * with an open deadline.
+ */
+export async function getPublicScholarshipsPage(page: number) {
+  return serverFetchJson<OpportunityListResponse>("/scholarships/", {
+    ordering: "-published_at",
+    page,
+    page_size: SCHOLARSHIP_INDEX_PAGE_SIZE,
+    include_expired: "true",
+  });
+}
+
 export async function getPublicScholarshipInitial(slug: string) {
   return serverFetchJson<OpportunityDetail>(`/scholarships/${encodeURIComponent(slug)}/`);
 }

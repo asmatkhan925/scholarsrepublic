@@ -15,6 +15,17 @@ type DiscoveryRoutePageProps = {
   }>;
 };
 
+/**
+ * These landing pages are rendered from a shared template with only a small
+ * amount of per-slug copy, so they are kept out of the search index while
+ * still passing link equity through to /scholarships and /guides.
+ */
+const DISCOVERY_ROBOTS = {
+  index: false,
+  follow: true,
+  googleBot: { index: false, follow: true },
+} as const;
+
 export function generateStaticParams() {
   return discoveryLandingPageSlugs.map((slug) => ({ slug }));
 }
@@ -28,6 +39,7 @@ export async function generateMetadata({ params }: DiscoveryRoutePageProps): Pro
       title: "Scholarship Search - Scholars Republic",
       description:
         "Explore popular scholarship search paths and browse matching opportunities on Scholars Republic.",
+      robots: DISCOVERY_ROBOTS,
     };
   }
 
@@ -43,6 +55,7 @@ export async function generateMetadata({ params }: DiscoveryRoutePageProps): Pro
     alternates: {
       canonical: `/discover/${page.slug}`,
     },
+    robots: DISCOVERY_ROBOTS,
   };
 }
 

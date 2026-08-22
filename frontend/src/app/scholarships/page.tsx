@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { JsonLd } from "@/components/seo/JsonLd";
 import ScholarshipsPage from "@/features/scholarships/ScholarshipsPage";
@@ -41,6 +42,19 @@ export default async function ScholarshipsRoutePage() {
         ]}
       />
       <ScholarshipsPage initialData={initialScholarships.data} />
+      {/*
+        Crawlable entry point into the paginated scholarship index. The filtered
+        list above is client-rendered, so this link is what lets search engines
+        reach every scholarship detail page.
+      */}
+      <div className="mx-auto w-full max-w-6xl px-4 pb-10 sm:px-6 lg:px-8">
+        <Link
+          className="text-sm font-medium text-slate-700 underline hover:text-slate-900"
+          href="/scholarships/browse"
+        >
+          Browse all scholarships A–Z
+        </Link>
+      </div>
     </>
   );
 }

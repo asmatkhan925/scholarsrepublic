@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -123,6 +124,24 @@ export default async function ScholarshipRoutePage({ params }: ScholarshipRouteP
             ]),
           ]}
         />
+      ) : null}
+      {scholarship?.is_expired ? (
+        <div className="mx-auto w-full max-w-6xl px-4 pt-6 sm:px-6 lg:px-8">
+          <div
+            className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+            role="status"
+          >
+            <p className="font-semibold">Applications for this scholarship are closed.</p>
+            <p className="mt-1">
+              This page is kept as an archive record. Many scholarships reopen for the next intake,
+              so check the official source for updated dates, or{" "}
+              <Link className="font-medium underline" href="/scholarships">
+                browse scholarships that are currently open
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
       ) : null}
       <ScholarshipDetailPage initialScholarship={scholarship} slug={slug} />
     </>

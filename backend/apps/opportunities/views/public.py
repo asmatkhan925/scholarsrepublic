@@ -8,6 +8,7 @@ from django.db.models import F, Prefetch, Q
 from django.utils import timezone
 
 from rest_framework import generics, permissions, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
@@ -93,9 +94,22 @@ class PublicOpportunityPathwayDetailView(generics.RetrieveAPIView):
         return public_pathway_queryset()
 
 
+class PublicOpportunityPagination(PageNumberPagination):
+    """
+    Public list pagination that honours an explicit ``page_size`` query parameter.
+
+    The default DRF paginator ignores ``page_size``, which capped every public
+    response (and therefore the sitemap) at 20 records regardless of the request.
+    """
+
+    page_size_query_param = "page_size"
+    max_page_size = 200
+
+
 class PublicOpportunityListView(OpportunityFilterMixin, generics.ListAPIView):
     serializer_class = OpportunityListSerializer
     permission_classes = [permissions.AllowAny]
+    pagination_class = PublicOpportunityPagination
 
     def _has_public_search_query(self):
         params = self.request.query_params
