@@ -30,6 +30,7 @@ const coreRoutes: SitemapRoute[] = [
 ] as const satisfies SitemapRoute[];
 
 const guideRoutes = [
+  "/guides/uk-chevening-commonwealth-scholarships-for-pakistani-students",
   "/guides/fully-funded-scholarships-for-pakistani-students-2026",
   "/guides/scholarships-without-ielts-for-pakistani-students",
   "/guides/china-scholarships-for-pakistani-students",

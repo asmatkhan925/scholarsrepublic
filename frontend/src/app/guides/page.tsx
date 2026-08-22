@@ -73,6 +73,15 @@ const guides: Guide[] = [
     icon: CalendarCheck,
   },
   {
+    title: "UK Scholarships: Chevening and Commonwealth",
+    description:
+      "Chevening, Commonwealth via HEC, GREAT and university awards, English rules, documents, timeline, and common mistakes.",
+    href: "/guides/uk-chevening-commonwealth-scholarships-for-pakistani-students",
+    category: "Country Guides",
+    badge: "Popular",
+    icon: Landmark,
+  },
+  {
     title: "China Scholarships for Pakistani Students",
     description:
       "CSC, HEC routes, university scholarships, documents, application steps, and planning tips.",
@@ -148,6 +157,7 @@ const categories = [
     description:
       "Plan around country-specific routes, documents, funding systems, and provider rules.",
     items: [
+      "/guides/uk-chevening-commonwealth-scholarships-for-pakistani-students",
       "/guides/china-scholarships-for-pakistani-students",
       "/guides/daad-scholarships-for-pakistani-students",
       "/guides/turkiye-burslari-guide-for-pakistani-students",
