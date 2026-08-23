@@ -8,6 +8,7 @@ import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://scholarsrepublic.org";
 const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT?.trim();
+const gaMeasurementId = process.env.NEXT_PUBLIC_GA_ID?.trim();
 const siteDescription =
   "Find verified scholarships, save opportunities, track applications, and prepare stronger scholarship documents.";
 
@@ -43,6 +44,23 @@ export default function RootLayout({
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
             crossOrigin="anonymous"
           />
+        ) : null}
+        {gaMeasurementId ? (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+            />
+            <script
+              // Google Analytics 4 (gtag.js) initialisation.
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${gaMeasurementId}');`,
+              }}
+            />
+          </>
         ) : null}
       </head>
       <body>
