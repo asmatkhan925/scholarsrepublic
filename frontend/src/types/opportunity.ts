@@ -66,6 +66,7 @@ export type OpportunityListItem = {
   deadline: string | null;
   is_rolling_deadline: boolean;
   application_fee_required: boolean;
+  application_fee_status: "unknown" | "free" | "paid";
   hec_required: boolean;
   ielts_required: boolean;
   english_proficiency_certificate_accepted: boolean;

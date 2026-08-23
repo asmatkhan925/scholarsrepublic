@@ -197,6 +197,7 @@ class OpportunityListSerializer(serializers.ModelSerializer):
             "deadline",
             "is_rolling_deadline",
             "application_fee_required",
+            "application_fee_status",
             "hec_required",
             "ielts_required",
             "english_proficiency_certificate_accepted",

@@ -502,8 +502,12 @@ class OpportunityFilterMixin:
             queryset = queryset.filter(ielts_required=not no_ielts)
 
         no_application_fee = parse_bool(params.get("no_application_fee"))
-        if no_application_fee is not None:
-            queryset = queryset.filter(application_fee_required=not no_application_fee)
+        if no_application_fee is True:
+            # Only surface scholarships confirmed to have no application fee.
+            # "Unknown" must never be treated as free.
+            queryset = queryset.filter(application_fee_status="free")
+        elif no_application_fee is False:
+            queryset = queryset.filter(application_fee_status="paid")
 
         hec_required = parse_bool(params.get("hec_required"))
         if hec_required is not None:

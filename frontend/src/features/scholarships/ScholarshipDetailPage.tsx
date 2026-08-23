@@ -599,7 +599,15 @@ export default function ScholarshipDetailPage({
       },
       {
         label: "Application fee",
-        value: scholarship.application_fee_required ? "Required" : "No fee listed",
+        // Honestly reflect the three-state fee status: "free" only when
+        // confirmed, "Required" when a fee is known, and "Not confirmed" when
+        // we have no verified information (never claim "no fee" on a guess).
+        value:
+          scholarship.application_fee_status === "free"
+            ? "No fee"
+            : scholarship.application_fee_status === "paid" || scholarship.application_fee_required
+              ? "Required"
+              : "Not confirmed",
         helper: scholarship.application_fee_amount
           ? `${scholarship.application_fee_amount} ${scholarship.application_fee_currency}`
           : undefined,

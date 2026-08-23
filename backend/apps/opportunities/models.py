@@ -291,7 +291,20 @@ class Opportunity(models.Model):
     funding_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     funding_currency = models.CharField(max_length=10, blank=True)
     stipend_summary = models.CharField(max_length=255, blank=True, default="")
+    class ApplicationFeeStatus(models.TextChoices):
+        UNKNOWN = "unknown", "Unknown / not stated"
+        FREE = "free", "Confirmed free"
+        PAID = "paid", "Application fee required"
+
+    # Kept for backward compatibility; `application_fee_status` is the source of
+    # truth. A boolean cannot distinguish "confirmed free" from "not stated",
+    # which previously caused every unpopulated record to read as free.
     application_fee_required = models.BooleanField(default=False)
+    application_fee_status = models.CharField(
+        max_length=10,
+        choices=ApplicationFeeStatus.choices,
+        default=ApplicationFeeStatus.UNKNOWN,
+    )
     application_fee_amount = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
