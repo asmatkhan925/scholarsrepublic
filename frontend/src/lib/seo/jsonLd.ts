@@ -75,6 +75,61 @@ export function createWebPageJsonLd(options: {
   };
 }
 
+/**
+ * Structured data for a single scholarship.
+ *
+ * Modelled as a schema.org MonetaryGrant (the closest standard type for a
+ * scholarship award of money), enriched with the provider, deadline, host
+ * country, and degree levels when that data is present. Every optional field is
+ * only emitted when it has a value, so pages never ship empty or misleading
+ * properties.
+ */
+export function createScholarshipJsonLd(options: {
+  name: string;
+  description: string;
+  path: string;
+  providerName?: string | null;
+  providerUrl?: string | null;
+  fundingType?: string | null;
+  country?: string | null;
+  deadline?: string | null;
+  degreeLevels?: string[] | null;
+  officialLink?: string | null;
+}) {
+  const funder = options.providerName
+    ? {
+        "@type": "Organization",
+        name: options.providerName,
+        ...(options.providerUrl ? { url: options.providerUrl } : {}),
+      }
+    : undefined;
+
+  const eligibleRegion = options.country
+    ? { "@type": "Place", name: options.country }
+    : undefined;
+
+  const degrees = (options.degreeLevels ?? []).filter(Boolean);
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "MonetaryGrant",
+    name: options.name,
+    description: options.description,
+    url: absoluteUrl(options.path),
+    ...(funder ? { funder } : {}),
+    ...(options.fundingType ? { additionalType: options.fundingType } : {}),
+    ...(eligibleRegion ? { spatialCoverage: eligibleRegion } : {}),
+    ...(options.deadline ? { validThrough: options.deadline } : {}),
+    ...(degrees.length ? { keywords: degrees.join(", ") } : {}),
+    ...(options.officialLink ? { sameAs: options.officialLink } : {}),
+    provider: {
+      "@type": "Organization",
+      name: "Scholars Republic",
+      url: SITE_URL,
+    },
+  };
+}
+
 export function createArticleJsonLd(options: {
   headline: string;
   description: string;

@@ -5,7 +5,11 @@ import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/seo/JsonLd";
 import ScholarshipDetailPage from "@/features/scholarships/ScholarshipDetailPage";
 import { getPublicScholarshipInitial } from "@/lib/serverApi";
-import { createBreadcrumbJsonLd, createWebPageJsonLd } from "@/lib/seo/jsonLd";
+import {
+  createBreadcrumbJsonLd,
+  createScholarshipJsonLd,
+  createWebPageJsonLd,
+} from "@/lib/seo/jsonLd";
 import { fetchScholarshipForSocialPreview } from "@/lib/seo/scholarshipMetadataFetch";
 import { getScholarshipSocialMetadata } from "@/lib/seo/scholarshipSocial";
 
@@ -116,6 +120,17 @@ export default async function ScholarshipRoutePage({ params }: ScholarshipRouteP
               name: scholarship.title,
               description,
               path: `/scholarships/${slug}`,
+            }),
+            createScholarshipJsonLd({
+              name: scholarship.title,
+              description,
+              path: `/scholarships/${slug}`,
+              providerName: scholarship.university_name || scholarship.provider_name,
+              fundingType: scholarship.funding_type,
+              country: scholarship.country,
+              deadline: scholarship.is_rolling_deadline ? null : scholarship.deadline,
+              degreeLevels: scholarship.degree_levels,
+              officialLink: scholarship.official_link || scholarship.source_url,
             }),
             createBreadcrumbJsonLd([
               { name: "Home", path: "/" },
