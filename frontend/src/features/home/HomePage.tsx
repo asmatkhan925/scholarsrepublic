@@ -165,14 +165,15 @@ export function HomePage() {
                 </Badge>
 
                 <h1 className="max-w-4xl text-2xl font-bold tracking-tight text-ink sm:text-3xl md:text-4xl">
-                  Your scholarship search, profile, documents, and applications — organized in one
-                  workspace.
+                  Verified scholarships for Pakistani students — and one place to manage every
+                  application.
                 </h1>
 
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/70 md:text-base">
-                  Scholars Republic helps students move from random scholarship searching to a clear
-                  application plan, with tools to find opportunities, save shortlists, track
-                  progress, and prepare stronger documents.
+                  Scholars Republic is built for Pakistani students applying abroad. Every listing is
+                  checked against official university and government sources, so you can move from
+                  random searching to a clear application plan — find opportunities, save shortlists,
+                  track progress, and prepare stronger documents.
                 </p>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -227,15 +228,15 @@ export function HomePage() {
                 <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ink/65 sm:text-sm">
                   <span className="inline-flex items-center gap-2">
                     <ShieldCheck size={15} className="text-pine" aria-hidden="true" />
-                    Student-first workspace
+                    Checked against official sources
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <BadgeCheck size={15} className="text-pine" aria-hidden="true" />
-                    Save and track
+                    Last-verified dates shown
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <BookOpenCheck size={15} className="text-pine" aria-hidden="true" />
-                    Practical guides
+                    Direct links to official applications
                   </span>
                 </div>
               </div>
