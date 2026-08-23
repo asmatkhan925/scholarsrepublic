@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  ArrowRight,
-  BadgeCheck,
-  BookOpenCheck,
-  ClipboardCheck,
-  FileText,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  UserRoundCheck,
-} from "lucide-react";
+import { ArrowRight, BadgeCheck, BookOpenCheck, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -18,6 +8,8 @@ import { Badge, ButtonLink, Card, CardContent } from "@/components/ui";
 
 interface PlatformStats {
   scholarships_listed: number;
+  countries_covered?: number;
+  guides_published?: number;
   students_registered: number;
   applications_tracked: number;
 }
@@ -33,56 +25,44 @@ function useStats() {
   return stats;
 }
 
+interface FeaturedScholarship {
+  slug: string;
+  title: string;
+  country: string;
+  funding_type: string;
+  deadline: string | null;
+  is_rolling_deadline: boolean;
+  application_fee_status?: "unknown" | "free" | "paid";
+}
+
+function useFeaturedScholarships() {
+  const [items, setItems] = useState<FeaturedScholarship[]>([]);
+  useEffect(() => {
+    // Soonest upcoming deadlines make the strongest homepage showcase.
+    fetch("/api/scholarships/?ordering=deadline&page_size=6")
+      .then((r) => r.json())
+      .then((d: { results?: FeaturedScholarship[] }) => setItems(d.results ?? []))
+      .catch(() => {});
+  }, []);
+  return items;
+}
+
+function humanizeFunding(value: string): string {
+  return (value || "").replace(/_/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function shortDeadline(item: FeaturedScholarship): string {
+  if (item.is_rolling_deadline) return "Rolling";
+  if (!item.deadline) return "See details";
+  const d = new Date(item.deadline);
+  if (Number.isNaN(d.getTime())) return "See details";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 function fmt(n: number): string {
   if (n >= 1000) return `${Math.floor(n / 100) / 10}k+`;
   return String(n);
 }
-
-const loggedOutSteps = [
-  {
-    title: "Search with purpose",
-    description: "Explore scholarships by destination, degree level, field, and funding type.",
-    icon: Search,
-  },
-  {
-    title: "Build your profile",
-    description: "Turn your academic background and goals into a reusable student profile.",
-    icon: UserRoundCheck,
-  },
-  {
-    title: "Save what matters",
-    description: "Shortlist serious opportunities instead of losing links in tabs or screenshots.",
-    icon: ClipboardCheck,
-  },
-  {
-    title: "Prepare to apply",
-    description: "Use guides and AI-assisted tools to improve documents before submission.",
-    icon: FileText,
-  },
-];
-
-const loggedInSteps = [
-  {
-    title: "Complete your profile",
-    description: "Keep your background, goals, preferred countries, and fields up to date.",
-    icon: UserRoundCheck,
-  },
-  {
-    title: "Review your shortlist",
-    description: "Compare saved scholarships and focus on realistic, high-value options.",
-    icon: BadgeCheck,
-  },
-  {
-    title: "Track every application",
-    description: "Manage statuses, priorities, next actions, notes, and personal deadlines.",
-    icon: ClipboardCheck,
-  },
-  {
-    title: "Improve documents",
-    description: "Draft, review, and polish SOPs, CVs, study plans, and emails carefully.",
-    icon: FileText,
-  },
-];
 
 const loggedOutHelpItems = [
   {
@@ -145,11 +125,11 @@ const guideLinks = [
 export function HomePage() {
   const { isAuthenticated, loading, user } = useAuth();
   const stats = useStats();
+  const featured = useFeaturedScholarships();
 
   const isLoggedIn = isAuthenticated && !loading;
   const isAuthLoading = loading;
   const dashboardHref = user?.role === "admin" ? "/admin" : "/dashboard";
-  const steps = isLoggedIn ? loggedInSteps : loggedOutSteps;
   const helpItems = isLoggedIn ? loggedInHelpItems : loggedOutHelpItems;
 
   return (
@@ -265,37 +245,61 @@ export function HomePage() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {steps.map((item, index) => {
-              const Icon = item.icon;
+          {featured.length > 0 && (
+            <div className="mt-6">
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-pine">
+                    Closing soon
+                  </p>
+                  <h2 className="mt-1 text-lg font-bold text-ink sm:text-xl">
+                    Scholarships with upcoming deadlines
+                  </h2>
+                </div>
+                <ButtonLink href="/scholarships/browse" variant="ghost" className="shrink-0">
+                  View all
+                  <ArrowRight size={15} aria-hidden="true" />
+                </ButtonLink>
+              </div>
 
-              return (
-                <Card key={item.title} className="bg-white/95">
-                  <CardContent className="flex gap-3 p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine">
-                      <Icon size={18} aria-hidden="true" />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {featured.slice(0, 6).map((item) => (
+                  <a
+                    key={item.slug}
+                    href={`/scholarships/${item.slug}`}
+                    className="group flex h-full flex-col rounded-2xl border border-pine/10 bg-white/95 p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-pine/25 hover:shadow-lg"
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {item.funding_type && (
+                        <Badge tone="mint">{humanizeFunding(item.funding_type)}</Badge>
+                      )}
+                      {item.application_fee_status === "free" && <Badge tone="sky">No fee</Badge>}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink/35">
-                          0{index + 1}
-                        </span>
-                        <h2 className="text-sm font-bold text-ink">{item.title}</h2>
-                      </div>
-                      <p className="mt-1 text-sm leading-5 text-ink/65">{item.description}</p>
+                    <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-ink group-hover:text-pine">
+                      {item.title}
+                    </h3>
+                    <div className="mt-auto flex items-center justify-between pt-3 text-xs text-ink/55">
+                      {item.country && <span>{item.country}</span>}
+                      <span className="font-semibold text-ink/70">📅 {shortDeadline(item)}</span>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {stats && (
             <div className="mt-4 grid grid-cols-3 divide-x divide-pine/10 overflow-hidden rounded-2xl border border-pine/10 bg-white/90 shadow-soft">
               {[
-                { value: fmt(stats.scholarships_listed), label: "Scholarships listed" },
-                { value: fmt(stats.students_registered), label: "Students registered" },
-                { value: fmt(stats.applications_tracked), label: "Applications tracked" },
+                { value: fmt(stats.scholarships_listed), label: "Verified scholarships" },
+                {
+                  value: stats.countries_covered ? `${stats.countries_covered}+` : "40+",
+                  label: "Countries covered",
+                },
+                {
+                  value: stats.guides_published ? `${stats.guides_published}+` : "20+",
+                  label: "Application guides",
+                },
               ].map(({ value, label }) => (
                 <div key={label} className="flex flex-col items-center gap-0.5 px-4 py-3 text-center">
                   <span className="text-xl font-black tabular-nums text-pine sm:text-2xl">{value}</span>

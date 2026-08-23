@@ -598,10 +598,18 @@ class PlatformStatsView(APIView):
         if cached:
             return Response(cached)
 
-        scholarships_listed = Opportunity.objects.filter(
+        published_scholarships = Opportunity.objects.filter(
             status=Opportunity.Status.PUBLISHED,
             opportunity_type=Opportunity.OpportunityType.SCHOLARSHIP,
-        ).count()
+        )
+        scholarships_listed = published_scholarships.count()
+
+        countries_covered = (
+            published_scholarships.exclude(country_ref__isnull=True)
+            .values("country_ref")
+            .distinct()
+            .count()
+        )
 
         students_registered = User.objects.filter(
             role=User.Role.STUDENT,
@@ -612,6 +620,9 @@ class PlatformStatsView(APIView):
 
         data = {
             "scholarships_listed": scholarships_listed,
+            "countries_covered": countries_covered,
+            # Static count of published /guides pages; update when guides change.
+            "guides_published": 21,
             "students_registered": students_registered,
             "applications_tracked": applications_tracked,
         }
