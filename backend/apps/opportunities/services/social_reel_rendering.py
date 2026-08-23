@@ -23,10 +23,15 @@ from apps.opportunities.models import (
 
 WIDTH = 1080
 HEIGHT = 1920
-SINGLE_REEL_TARGET_SECONDS = 5.0
-SINGLE_REEL_MAX_SECONDS = 6.0
-MULTI_REEL_TARGET_SECONDS = 8.0
-MULTI_REEL_MAX_SECONDS = 9.0
+# Reels need enough on-screen time to be read on a phone and to earn watch-time
+# from the algorithm. The previous 5-8s targets gave each scholarship ~1.9s,
+# which is too fast to read three lines. These give a single scholarship real
+# breathing room and a 3-scholarship reel ~3-3.5s per card plus a proper hook
+# and CTA.
+SINGLE_REEL_TARGET_SECONDS = 9.0
+SINGLE_REEL_MAX_SECONDS = 11.0
+MULTI_REEL_TARGET_SECONDS = 16.0
+MULTI_REEL_MAX_SECONDS = 20.0
 MAX_SCENES = 5
 MAX_AUTO_TITLE_CHARS = 42
 ELEGANT_LIGHT_TITLE_CHARS = 120
@@ -475,24 +480,29 @@ def calculate_scene_durations(reel_type, scene_count):
     if scene_count > MAX_SCENES:
         raise ReelRenderError(f"Reels support at most {MAX_SCENES} scenes.")
 
+    # A hook that flashes past cannot stop a scroll, and a scholarship card the
+    # viewer cannot finish reading is wasted. Give the hook and CTA ~2.4s each
+    # and let the scholarship scenes take the rest (capped so a single card does
+    # not linger too long).
+    HOOK_SECONDS = 2.4
+    CTA_SECONDS = 2.4
+    MAX_SCHOLARSHIP_SECONDS = 4.0
+
     if reel_type == OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP:
-        if scene_count == 1:
-            durations = [SINGLE_REEL_TARGET_SECONDS]
-        elif scene_count == 2:
-            durations = [1.2, 3.8]
-        else:
-            middle_count = scene_count - 2
-            middle_duration = min(2.0, (SINGLE_REEL_TARGET_SECONDS - 2.4) / middle_count)
-            durations = [1.2] + [middle_duration] * middle_count + [1.2]
+        target = SINGLE_REEL_TARGET_SECONDS
     else:
-        if scene_count == 1:
-            durations = [min(MULTI_REEL_TARGET_SECONDS, MULTI_REEL_MAX_SECONDS)]
-        elif scene_count == 2:
-            durations = [1.2, 2.0]
-        else:
-            middle_count = scene_count - 2
-            middle_duration = min(2.0, (MULTI_REEL_TARGET_SECONDS - 2.2) / middle_count)
-            durations = [1.1] + [middle_duration] * middle_count + [1.1]
+        target = MULTI_REEL_TARGET_SECONDS
+
+    if scene_count == 1:
+        durations = [min(target, max_reel_duration(reel_type))]
+    elif scene_count == 2:
+        # Hook + one content scene.
+        durations = [HOOK_SECONDS, max(target - HOOK_SECONDS, 3.0)]
+    else:
+        middle_count = scene_count - 2
+        remaining = target - HOOK_SECONDS - CTA_SECONDS
+        middle_duration = max(2.6, min(MAX_SCHOLARSHIP_SECONDS, remaining / middle_count))
+        durations = [HOOK_SECONDS] + [middle_duration] * middle_count + [CTA_SECONDS]
 
     max_seconds = max_reel_duration(reel_type)
     total = round(sum(durations), 2)

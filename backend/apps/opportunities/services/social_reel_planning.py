@@ -385,6 +385,91 @@ def select_single_candidate(candidates, *, run_date, template_key=""):
     )
 
 
+def reel_hashtags(candidates):
+    """Dynamic, discoverable hashtags derived from the reel's scholarships.
+
+    Reuses the same targeting as the Facebook posts (Pakistan focus + country +
+    degree) instead of a single hardcoded string on every reel.
+    """
+    from apps.opportunities.services.social_posting import _post_hashtags
+
+    tag_order = []
+    for candidate in candidates[:3]:
+        opportunity = candidate.get("opportunity")
+        if not opportunity:
+            continue
+        funding = funding_label(opportunity) if "funding_label" in globals() else (
+            opportunity.funding_type or ""
+        )
+        for tag in _post_hashtags(opportunity, funding).split():
+            if tag not in tag_order:
+                tag_order.append(tag)
+    if not tag_order:
+        tag_order = ["#ScholarshipsForPakistanis", "#StudyAbroad", "#ScholarsRepublic"]
+    return " ".join(tag_order[:8])
+
+
+def reel_hook(reel_type, candidates):
+    """A specific, stakes-driven hook line built from the actual selection."""
+    count = len(candidates)
+    fully_funded = sum(
+        1
+        for c in candidates
+        if "full" in (str(c.get("opportunity") and c["opportunity"].funding_type) or "").lower()
+    )
+    soonest = None
+    for c in candidates:
+        d = c.get("days_until_deadline")
+        if d is not None and d >= 0 and (soonest is None or d < soonest):
+            soonest = d
+
+    if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
+        title = f"{count} scholarships worth preparing for now" if count > 1 else "Start this before the rush"
+        sub = "Get your documents ready early"
+        return title, sub
+
+    # closing_soon (and default)
+    if fully_funded == count and count > 1:
+        title = f"{count} fully-funded scholarships closing soon"
+    elif fully_funded >= 1 and count > 1:
+        title = f"{count} scholarships closing soon"
+    elif count > 1:
+        title = f"{count} scholarships closing soon"
+    else:
+        title = "This scholarship closes soon"
+
+    if soonest == 0:
+        sub = "One closes today — save this reel"
+    elif soonest == 1:
+        sub = "One closes tomorrow — save this reel"
+    elif soonest is not None and soonest <= 7:
+        sub = f"Closing in {soonest} days — save this reel"
+    else:
+        sub = "Check the deadlines before you scroll on"
+    return title, sub
+
+
+def reel_action_line(candidate, index):
+    """Vary the per-scholarship action line by the record and its position."""
+    opportunity = candidate.get("opportunity")
+    days = candidate.get("days_until_deadline")
+    fee_status = getattr(opportunity, "application_fee_status", "unknown") if opportunity else "unknown"
+    funding = (str(opportunity.funding_type) if opportunity else "").lower()
+
+    if days == 0:
+        return "Closes today"
+    if days == 1:
+        return "Closes tomorrow"
+    if days is not None and 2 <= days <= 7:
+        return f"Deadline in {days} days"
+    if fee_status == "free":
+        return "No application fee"
+    if "full" in funding:
+        return "Fully funded"
+    # Rotate a couple of generic-but-varied nudges.
+    return ["Check eligibility", "Details on Scholars Republic", "Save for later"][index % 3]
+
+
 def build_selection(*, reel_type, title, candidates, run_date=None, template_key=""):
     source_ids = [item["id"] for item in candidates]
     priority_score = sum(item["priority_score"] for item in candidates)
@@ -408,7 +493,7 @@ def build_selection(*, reel_type, title, candidates, run_date=None, template_key
         "source_opportunities": [serialize_candidate(item) for item in candidates],
         "scenes_json": scenes,
         "caption_text": build_caption_text(reel_type, candidates),
-        "hashtags": "#ScholarsRepublic #Scholarships #StudyAbroad #InternationalStudents #ScholarshipAlert",
+        "hashtags": reel_hashtags(candidates),
         "priority_score": priority_score,
         "deadline_window": deadline_window,
         "expected_duration_seconds": expected_duration,
@@ -421,11 +506,19 @@ def build_auto_scenes(reel_type, candidates, template_key=""):
         candidate = candidates[0]
         opportunity = candidate["opportunity"]
         info_line = opportunity_info_line(opportunity)
+        funding = (str(opportunity.funding_type) or "").lower()
+        fee_status = getattr(opportunity, "application_fee_status", "unknown")
+        if "full" in funding:
+            hook_title = "Fully funded scholarship"
+        elif fee_status == "free":
+            hook_title = "Free to apply — scholarship"
+        else:
+            hook_title = "Scholarship for Pakistani students"
         return [
             {
                 "scene_type": "hook",
                 "label": "Alert",
-                "title": "Scholarship alert",
+                "title": hook_title,
                 "subheadline": info_line,
                 "blocks": [],
             },
@@ -435,29 +528,24 @@ def build_auto_scenes(reel_type, candidates, template_key=""):
                 "label": "Deadline",
                 "title": short_title(opportunity.title, template_key=template_key),
                 "blocks": [info_line, f"Deadline: {readable_deadline(opportunity.deadline)}"],
-                "action_line": "Check eligibility",
+                "action_line": reel_action_line(candidate, 0),
             },
             {
                 "scene_type": "cta",
                 "label": "Next step",
-                "title": "Read official details",
-                "subheadline": "Scholars Republic",
+                "title": "Save & apply",
+                "subheadline": "Full details & link in bio",
                 "blocks": ["ScholarsRepublic.org"],
             },
         ]
 
+    hook, subheadline = reel_hook(reel_type, candidates)
     if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
-        hook = "Start before the rush"
-        subheadline = "Scholarships to prepare early"
-        action_line = "Prepare documents early"
-        cta = "Plan your application"
-        cta_subheadline = "Requirements + official links"
+        cta = "Save this — start early"
+        cta_subheadline = "Full details & links in bio"
     else:
-        hook = "Scholarships Closing Soon"
-        subheadline = "Check these before the deadline"
-        action_line = "Check eligibility today"
-        cta = "Apply before deadlines"
-        cta_subheadline = "Official links on Scholars Republic"
+        cta = "Don't miss the deadline"
+        cta_subheadline = "Full details & links in bio"
 
     scenes = [
         {
@@ -472,7 +560,7 @@ def build_auto_scenes(reel_type, candidates, template_key=""):
         scholarship_scene(
             candidate,
             rank=f"{index:02d}",
-            action_line=action_line,
+            action_line=reel_action_line(candidate, index - 1),
             template_key=template_key,
         )
         for index, candidate in enumerate(candidates[:3], start=1)
@@ -566,27 +654,42 @@ def text_shorten(value, width):
 
 def build_caption_text(reel_type, candidates=None):
     candidates = candidates or []
+    # Note: raw URLs are not clickable in Instagram/Facebook Reels captions, so
+    # we drop them and drive to the profile link instead. We open with a hook,
+    # list the scholarships concisely, and ask for a save/share (both are
+    # signals the Reels algorithm rewards).
     if reel_type == OpportunityReelPlan.ReelType.CLOSING_SOON:
-        lines = ["Scholarships closing soon for international students."]
-        for index, candidate in enumerate(candidates[:3], start=1):
+        picked = candidates[:3]
+        if len(picked) > 1:
+            lines = [f"⏳ {len(picked)} scholarships closing soon — for Pakistani students 👇"]
+        else:
+            lines = ["⏳ This scholarship is closing soon — for Pakistani students 👇"]
+        lines.append("")
+        for index, candidate in enumerate(picked, start=1):
             opportunity = candidate["opportunity"]
             lines.append(f"{index}. {shorten_reel_title(opportunity.title, 72)}")
-            lines.append(f"Deadline: {readable_deadline(opportunity.deadline)}")
+            bits = [f"📅 {readable_deadline(opportunity.deadline)}"]
             funding_line = funding_or_stipend_line(opportunity)
             if funding_line:
-                lines.append(funding_line)
-            lines.append(f"Apply/Details: {scholarship_detail_url(opportunity)}")
-        if len(lines) == 1:
-            lines.append("Check eligibility, deadlines, and official links before applying.")
+                bits.append(funding_line)
+            lines.append("   " + "  ·  ".join(bits))
+        lines.extend(
+            [
+                "",
+                "🔗 Full details & official links on Scholars Republic (link in bio).",
+                "💾 Save this so you don't miss the deadline — and share it with a friend who's applying.",
+            ]
+        )
         return "\n".join(lines)
     if reel_type == OpportunityReelPlan.ReelType.PREPARE_EARLY:
         return (
-            "Start preparing early for these scholarship opportunities. Review requirements "
-            "and official links on Scholars Republic."
+            "🎯 Start early — these scholarships reward students who prepare ahead.\n\n"
+            "🔗 Requirements & official links on Scholars Republic (link in bio).\n"
+            "💾 Save this and get your documents ready."
         )
     return (
-        "Scholarship opportunity for international students. Check eligibility, deadline, "
-        "and official application details on Scholars Republic."
+        "🎓 Scholarship for Pakistani students — check eligibility, deadline, and the official "
+        "application on Scholars Republic (link in bio).\n💾 Save this so you don't lose it."
     )
 
 
