@@ -12,6 +12,14 @@ export const metadata: Metadata = {
   title: "Scholarships for Pakistani Students - Scholars Republic",
   description:
     "Search verified scholarship opportunities by country, funding, deadline, IELTS requirements, and application fees on Scholars Republic.",
+  // The filters on this page are applied client-side, so ?country=…&funding=…
+  // permutations all render the same server HTML. Canonicalize every variant to
+  // the bare /scholarships URL so search engines consolidate them here instead
+  // of indexing parameter URLs with mismatched default results. Topic-specific
+  // organic pages live under /discover/* and stay independently indexable.
+  alternates: {
+    canonical: "/scholarships",
+  },
   openGraph: {
     title: "Scholarships for Pakistani Students - Scholars Republic",
     description:

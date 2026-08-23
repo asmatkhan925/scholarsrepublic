@@ -283,6 +283,15 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
     : null;
   const lastUpdated = scholarship.updated_at ? formatDate(scholarship.updated_at) : null;
 
+  // `verification_note` is also used internally as an ingestion placeholder for
+  // imported drafts. That internal text must never be shown to the public, so
+  // only surface a genuine, admin-authored note here.
+  const rawNote = scholarship.verification_note?.trim() ?? "";
+  const isInternalPlaceholder = /imported draft|admin must verify|verify before publishing/i.test(
+    rawNote,
+  );
+  const publicVerificationNote = isInternalPlaceholder ? "" : rawNote;
+
   return (
     <Card className="dark:border-white/10 dark:bg-[#181b1d]">
       <CardContent className="p-3">
@@ -335,12 +344,12 @@ function TrustSidebarCard({ scholarship }: { scholarship: OpportunityDetail }) {
             </div>
           ) : null}
 
-          {scholarship.verification_note ? (
+          {publicVerificationNote ? (
             <p
               className="col-span-2 truncate rounded-xl border border-pine/10 bg-[#f7faf8] px-2.5 py-1.5 text-xs font-semibold dark:border-white/10 dark:bg-white/5"
-              title={scholarship.verification_note}
+              title={publicVerificationNote}
             >
-              Note: {scholarship.verification_note}
+              Note: {publicVerificationNote}
             </p>
           ) : null}
 
@@ -541,9 +550,16 @@ export default function ScholarshipDetailPage({
       return "Not listed";
     }
 
-    return (
-      formatFundingAmount(scholarship.funding_amount, scholarship.funding_currency) || "Not listed"
-    );
+    // Prefer explicit structured stipend data, then the funding amount. When the
+    // structured fields are empty but the Benefits text describes the stipend,
+    // point the reader there instead of showing a misleading "Not listed".
+    const structured =
+      scholarship.stipend_summary?.trim() ||
+      formatFundingAmount(scholarship.funding_amount, scholarship.funding_currency);
+    if (structured) {
+      return structured;
+    }
+    return scholarship.benefits?.trim() ? "See benefits below" : "Not listed";
   }, [scholarship]);
 
   const facts = useMemo(() => {
@@ -603,7 +619,9 @@ export default function ScholarshipDetailPage({
         label: "Apply method",
         value: scholarship.application_method
           ? humanize(scholarship.application_method)
-          : "Not listed",
+          : scholarship.how_to_apply?.trim()
+            ? "See how to apply below"
+            : "Not listed",
       },
     ];
   }, [scholarship, stipendFact]);
