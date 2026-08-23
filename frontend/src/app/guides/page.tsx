@@ -82,6 +82,88 @@ const guides: Guide[] = [
     icon: Landmark,
   },
   {
+    title: "USA Scholarships: Fulbright and Funded Study",
+    description:
+      "Fulbright via USEFP, PhD assistantships, GRE and TOEFL, the two-year return rule, documents, timeline, and mistakes.",
+    href: "/guides/usa-fulbright-scholarships-for-pakistani-students",
+    category: "Country Guides",
+    badge: "Popular",
+    icon: Landmark,
+  },
+  {
+    title: "Australia Scholarships: Australia Awards and RTP",
+    description:
+      "Australia Awards (DFAT) vs the Research Training Program, finding a supervisor, English rules, documents, and mistakes.",
+    href: "/guides/australia-awards-rtp-scholarships-for-pakistani-students",
+    category: "Country Guides",
+    icon: Landmark,
+  },
+  {
+    title: "South Korea: GKS (Global Korea Scholarship)",
+    description:
+      "Embassy vs university track, the Korean-language year, GPA and age rules, document legalization, timeline, and mistakes.",
+    href: "/guides/south-korea-gks-scholarships-for-pakistani-students",
+    category: "Country Guides",
+    icon: MapPinned,
+  },
+  {
+    title: "Canada Scholarships: Vanier and University Funding",
+    description:
+      "Vanier, the federal doctoral system, Trudeau, and the realistic route of university funding and supervisors.",
+    href: "/guides/canada-vanier-scholarships-for-pakistani-students",
+    category: "Country Guides",
+    icon: Landmark,
+  },
+  {
+    title: "Japan MEXT Scholarship",
+    description:
+      "Embassy vs university recommendation, finding a professor, the research plan, embassy exams, documents, and mistakes.",
+    href: "/guides/japan-mext-scholarship-for-pakistani-students",
+    category: "Country Guides",
+    icon: MapPinned,
+  },
+  {
+    title: "Studying in Germany: No Tuition and Funding",
+    description:
+      "Tuition-free public universities, the blocked account, the APS certificate, funding beyond DAAD, and salaried PhD posts.",
+    href: "/guides/studying-in-germany-for-pakistani-students",
+    category: "Country Guides",
+    icon: Landmark,
+  },
+  {
+    title: "How to Get Strong Recommendation Letters",
+    description:
+      "Who to ask, how to brief them, handling the draft-your-own-letter situation ethically, logistics, and mistakes.",
+    href: "/guides/how-to-get-strong-recommendation-letters-for-scholarships",
+    category: "Application Documents",
+    icon: FileText,
+  },
+  {
+    title: "Student Visa and Next Steps After Winning",
+    description:
+      "Accepting the offer, student visas by destination, proof of funds, interviews, the TB test, and pre-departure steps.",
+    href: "/guides/student-visa-and-next-steps-after-winning-scholarship",
+    category: "Application Planning",
+    icon: CalendarCheck,
+  },
+  {
+    title: "How to Find Funded PhD Positions in Europe",
+    description:
+      "Why a European PhD is a paid job, country norms, MSCA and Erasmus Mundus, where to search, and contacting supervisors.",
+    href: "/guides/how-to-find-funded-phd-positions-in-europe",
+    category: "Research Supervision",
+    icon: SearchCheck,
+  },
+  {
+    title: "Scholarship Interview Preparation",
+    description:
+      "What panels assess, common questions, the return-home question, video setup, mock practice, and mistakes to avoid.",
+    href: "/guides/scholarship-interview-preparation-for-pakistani-students",
+    category: "Application Planning",
+    badge: "Recommended",
+    icon: BookOpenCheck,
+  },
+  {
     title: "China Scholarships for Pakistani Students",
     description:
       "CSC, HEC routes, university scholarships, documents, application steps, and planning tips.",
@@ -158,6 +240,12 @@ const categories = [
       "Plan around country-specific routes, documents, funding systems, and provider rules.",
     items: [
       "/guides/uk-chevening-commonwealth-scholarships-for-pakistani-students",
+      "/guides/usa-fulbright-scholarships-for-pakistani-students",
+      "/guides/australia-awards-rtp-scholarships-for-pakistani-students",
+      "/guides/south-korea-gks-scholarships-for-pakistani-students",
+      "/guides/canada-vanier-scholarships-for-pakistani-students",
+      "/guides/japan-mext-scholarship-for-pakistani-students",
+      "/guides/studying-in-germany-for-pakistani-students",
       "/guides/china-scholarships-for-pakistani-students",
       "/guides/daad-scholarships-for-pakistani-students",
       "/guides/turkiye-burslari-guide-for-pakistani-students",
@@ -170,17 +258,25 @@ const categories = [
       "/guides/how-to-write-sop-for-scholarship",
       "/guides/how-to-write-study-plan-for-scholarship",
       "/guides/scholarship-cv-format-for-pakistani-students",
+      "/guides/how-to-get-strong-recommendation-letters-for-scholarships",
     ],
   },
   {
     title: "Research Supervision",
-    description: "Contact supervisors and research groups with concise, respectful emails.",
-    items: ["/guides/how-to-email-professor-for-research-supervision"],
+    description: "Contact supervisors and research groups, and find funded research positions.",
+    items: [
+      "/guides/how-to-email-professor-for-research-supervision",
+      "/guides/how-to-find-funded-phd-positions-in-europe",
+    ],
   },
   {
     title: "Application Planning",
-    description: "Use deadlines, document lists, and review steps to avoid last-minute mistakes.",
-    items: ["/guides/scholarship-application-checklist"],
+    description: "Use deadlines, document lists, interviews, and visa steps to avoid last-minute mistakes.",
+    items: [
+      "/guides/scholarship-application-checklist",
+      "/guides/scholarship-interview-preparation-for-pakistani-students",
+      "/guides/student-visa-and-next-steps-after-winning-scholarship",
+    ],
   },
 ];
 

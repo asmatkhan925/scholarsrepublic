@@ -31,6 +31,16 @@ const coreRoutes: SitemapRoute[] = [
 
 const guideRoutes = [
   "/guides/uk-chevening-commonwealth-scholarships-for-pakistani-students",
+  "/guides/usa-fulbright-scholarships-for-pakistani-students",
+  "/guides/australia-awards-rtp-scholarships-for-pakistani-students",
+  "/guides/south-korea-gks-scholarships-for-pakistani-students",
+  "/guides/canada-vanier-scholarships-for-pakistani-students",
+  "/guides/japan-mext-scholarship-for-pakistani-students",
+  "/guides/studying-in-germany-for-pakistani-students",
+  "/guides/how-to-get-strong-recommendation-letters-for-scholarships",
+  "/guides/student-visa-and-next-steps-after-winning-scholarship",
+  "/guides/how-to-find-funded-phd-positions-in-europe",
+  "/guides/scholarship-interview-preparation-for-pakistani-students",
   "/guides/fully-funded-scholarships-for-pakistani-students-2026",
   "/guides/scholarships-without-ielts-for-pakistani-students",
   "/guides/china-scholarships-for-pakistani-students",
