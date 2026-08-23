@@ -502,10 +502,22 @@ class OpportunityFilterMixin:
             queryset = queryset.filter(ielts_required=not no_ielts)
 
         no_application_fee = parse_bool(params.get("no_application_fee"))
+        prioritize_free = False
         if no_application_fee is True:
-            # Only surface scholarships confirmed to have no application fee.
-            # "Unknown" must never be treated as free.
-            queryset = queryset.filter(application_fee_status="free")
+            # Surface scholarships confirmed fee-free first, then those whose fee
+            # status is unknown; scholarships that definitely charge a fee are
+            # excluded. "Unknown" is never presented as confirmed-free -- it is
+            # ordered after the confirmed-free listings (see _fee_priority below).
+            from django.db.models import Case, IntegerField, Value, When
+
+            queryset = queryset.exclude(application_fee_status="paid").annotate(
+                _fee_priority=Case(
+                    When(application_fee_status="free", then=Value(0)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            )
+            prioritize_free = True
         elif no_application_fee is False:
             queryset = queryset.filter(application_fee_status="paid")
 
@@ -562,16 +574,23 @@ class OpportunityFilterMixin:
                     output_field=IntegerField(),
                 )
             )
+            fee_prefix = ["_fee_priority"] if prioritize_free else []
             ordering = params.get("ordering")
             if ordering in self.allowed_ordering:
-                return queryset.order_by("-_search_rank", self.allowed_ordering[ordering])
-            return queryset.order_by("-_search_rank", "-featured", F("deadline").asc(nulls_last=True))
+                return queryset.order_by(
+                    *fee_prefix, "-_search_rank", self.allowed_ordering[ordering]
+                )
+            return queryset.order_by(
+                *fee_prefix, "-_search_rank", "-featured", F("deadline").asc(nulls_last=True)
+            )
 
+        fee_prefix = ["_fee_priority"] if prioritize_free else []
         ordering = params.get("ordering")
         if ordering in self.allowed_ordering:
-            return queryset.order_by(self.allowed_ordering[ordering])
+            return queryset.order_by(*fee_prefix, self.allowed_ordering[ordering])
 
         return queryset.order_by(
+            *fee_prefix,
             "-featured",
             F("deadline").asc(nulls_last=True),
             "-published_at",
