@@ -235,7 +235,42 @@ def deadline_reminder_line(opportunity, today=None):
     return f"Reminder: deadline is in {days_left} days."
 
 
+def _is_fully_funded(funding):
+    return "full" in (funding or "").lower()
+
+
+def _post_hashtags(opportunity, funding):
+    """Targeted, discoverable hashtags: broad reach + Pakistan focus + specifics."""
+    tags = ["#ScholarshipsForPakistanis", "#StudyAbroad", "#ScholarsRepublic"]
+    if _is_fully_funded(funding):
+        tags.insert(0, "#FullyFunded")
+    country = (opportunity.country or "").strip()
+    if country:
+        # e.g. "United Kingdom" -> "#StudyInUnitedKingdom"; keep it short.
+        slug = "".join(part.capitalize() for part in country.split())
+        tags.append(f"#StudyIn{slug}")
+    degrees = [d.lower() for d in (opportunity.degree_levels or [])]
+    if any("phd" in d or "doctor" in d for d in degrees):
+        tags.append("#PhDScholarship")
+    if any("master" in d for d in degrees):
+        tags.append("#MastersScholarship")
+    tags.append("#ScholarshipAlert")
+    # De-duplicate while preserving order, cap at 7.
+    seen = []
+    for tag in tags:
+        if tag not in seen:
+            seen.append(tag)
+    return " ".join(seen[:7])
+
+
 def generate_facebook_post_text(opportunity, link_url=None, include_reminder=False):
+    """Fallback Facebook caption used when GPT has not written one.
+
+    Engineered for engagement rather than as a field dump: a benefit-led hook,
+    a plain-language line, a few scannable payoffs, a clear call to action, and
+    targeted hashtags. GPT-authored `facebook_post_text` always takes priority
+    over this (see ensure_plan_post_text / sync_plan_from_social_draft).
+    """
     if not opportunity or not str(getattr(opportunity, "title", "") or "").strip():
         return ""
 
@@ -243,57 +278,64 @@ def generate_facebook_post_text(opportunity, link_url=None, include_reminder=Fal
     if not link_url:
         return ""
 
+    title = opportunity.title.strip()
     provider = provider_label(opportunity)
     degree = degree_label(opportunity)
     funding = funding_label(opportunity)
     deadline = deadline_label(opportunity)
-    deadline_window = "missing"
+    country = (opportunity.country or "").strip()
+    fully_funded = _is_fully_funded(funding)
+    fee_status = getattr(opportunity, "application_fee_status", "unknown")
+
+    days_left = None
     if opportunity.deadline and not opportunity.is_rolling_deadline:
-        deadline_window = get_deadline_window(opportunity.deadline, timezone.localdate())
+        days_left = deadline_days_left(opportunity, timezone.localdate())
 
-    lines = [
-        f"Scholars Republic opportunity: {opportunity.title.strip()}",
-        "",
-        build_deadline_window_caption_intro(deadline_window, "opportunity"),
-    ]
-    reminder = deadline_reminder_line(opportunity) if include_reminder else ""
-    if reminder:
-        lines.extend(["", reminder])
-    sentence_parts = []
-    if provider:
-        sentence_parts.append(f"{provider} is offering this opportunity")
+    # --- Hook: lead with the strongest benefit, add urgency when relevant. ---
+    if days_left is not None and 0 <= days_left <= 10:
+        hook = f"⏳ Closing soon — {title}"
+    elif fully_funded and country:
+        hook = f"🎓 Fully funded in {country} — {title}"
+    elif fully_funded:
+        hook = f"🎓 Fully funded — {title}"
+    elif country:
+        hook = f"🎓 Scholarship in {country} — {title}"
     else:
-        sentence_parts.append("This scholarship opportunity is available")
+        hook = f"🎓 New scholarship — {title}"
 
-    context_bits = []
-    if opportunity.country:
-        context_bits.append(f"in {opportunity.country}")
-    if degree:
-        context_bits.append(f"for {degree} students")
-    if funding:
-        context_bits.append(f"with {funding.lower()} funding")
-
-    paragraph = sentence_parts[0]
-    if context_bits:
-        paragraph += " " + ", ".join(context_bits)
-    paragraph += ". Review the full details before applying."
-    lines.extend(["", paragraph, "", "Key Details:"])
-
-    detail_lines = []
-    if opportunity.country:
-        detail_lines.append(f"• Country: {opportunity.country}")
+    # --- One plain-language sentence: who it is for. ---
+    audience = f"for {degree} students" if degree else "for international students"
     if provider:
-        detail_lines.append(f"• Provider: {provider}")
-    if degree:
-        detail_lines.append(f"• Degree Level: {degree}")
-    if funding:
-        detail_lines.append(f"• Funding: {funding}")
-    if deadline:
-        detail_lines.append(f"• Deadline: {deadline}")
+        intro = f"{provider} is offering this opportunity {audience}, open to applicants from Pakistan."
+    else:
+        intro = f"This scholarship is available {audience}, open to applicants from Pakistan."
 
-    lines.extend(detail_lines)
-    lines.extend(["", "Read full details and apply through Scholars Republic:", link_url])
-    return "\n".join(line for line in lines if line.strip())
+    # --- Scannable payoffs: only the lines that carry weight. ---
+    payoffs = []
+    if fully_funded:
+        payoffs.append("✅ Fully funded")
+    elif funding:
+        payoffs.append(f"💰 {funding}")
+    if fee_status == "free":
+        payoffs.append("🆓 No application fee")
+    if country:
+        payoffs.append(f"🌍 {country}")
+    if opportunity.is_rolling_deadline:
+        payoffs.append("📅 Rolling deadline — apply anytime")
+    elif deadline:
+        if days_left is not None and 0 <= days_left <= 30:
+            payoffs.append(f"📅 Deadline: {deadline} ({days_left} days left)")
+        else:
+            payoffs.append(f"📅 Deadline: {deadline}")
+
+    cta = f"👉 Full details & how to apply: {link_url}"
+    hashtags = _post_hashtags(opportunity, funding)
+
+    lines = [hook, "", intro]
+    if payoffs:
+        lines.extend(["", *payoffs])
+    lines.extend(["", cta, "", hashtags])
+    return "\n".join(line for line in lines if line.strip() or line == "").strip()
 
 
 fallback_social_post_text = generate_facebook_post_text
