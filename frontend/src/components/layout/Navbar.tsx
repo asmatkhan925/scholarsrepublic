@@ -327,10 +327,10 @@ export function Navbar({ variant = "default" }: NavbarProps) {
             <Button onClick={handleLogout}>Logout</Button>
           ) : (
             <>
-              <ButtonLink href={loginHref} variant="outline">
+              <ButtonLink href={loginHref} variant="outline" rel="nofollow">
                 Login
               </ButtonLink>
-              <ButtonLink href={registerHref}>
+              <ButtonLink href={registerHref} rel="nofollow">
                 <Sparkles size={16} aria-hidden="true" />
                 Create Free Profile
               </ButtonLink>
@@ -384,10 +384,15 @@ export function Navbar({ variant = "default" }: NavbarProps) {
               <Button onClick={handleLogout}>Logout</Button>
             ) : (
               <>
-                <ButtonLink href={loginHref} variant="outline" onClick={() => setMobileOpen(false)}>
+                <ButtonLink
+                  href={loginHref}
+                  variant="outline"
+                  rel="nofollow"
+                  onClick={() => setMobileOpen(false)}
+                >
                   Login
                 </ButtonLink>
-                <ButtonLink href={registerHref} onClick={() => setMobileOpen(false)}>
+                <ButtonLink href={registerHref} rel="nofollow" onClick={() => setMobileOpen(false)}>
                   Create Free Profile
                 </ButtonLink>
               </>

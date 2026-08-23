@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   title: "Scholars Republic | Find Scholarships and Track Applications",
   description:
     "Discover scholarships, build your student profile, save opportunities, track applications, and prepare stronger scholarship documents with Scholars Republic.",
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function Home() {

@@ -208,7 +208,7 @@ export function HomePage() {
                     </>
                   ) : (
                     <>
-                      <ButtonLink href="/register" className="w-full sm:w-auto" size="md">
+                      <ButtonLink href="/register" className="w-full sm:w-auto" size="md" rel="nofollow">
                         Create Free Profile
                         <ArrowRight size={17} aria-hidden="true" />
                       </ButtonLink>
@@ -394,7 +394,7 @@ export function HomePage() {
               </>
             ) : (
               <>
-                <ButtonLink href="/register" className="w-full sm:w-auto" variant="secondary">
+                <ButtonLink href="/register" className="w-full sm:w-auto" variant="secondary" rel="nofollow">
                   Create Free Profile
                 </ButtonLink>
                 <ButtonLink
