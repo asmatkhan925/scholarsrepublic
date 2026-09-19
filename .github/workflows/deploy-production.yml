@@ -42,7 +42,6 @@ jobs:
 
       - name: Verify Tailscale SSH access
         run: |
-          tailscale ping scholarsrepublic
           tailscale ssh scholarsrepublic@scholarsrepublic 'echo GITHUB_TAILSCALE_SSH_OK'
 
       - name: Run production deployment script
