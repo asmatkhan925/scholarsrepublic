@@ -104,6 +104,7 @@ from apps.opportunities.models import (
     OpportunityDeadlineCheckLog,
     OpportunityDraft,
     OpportunityPathway,
+    OpportunityReelLog,
     OpportunityReelPlan,
     OpportunityRefreshLog,
     OpportunitySocialDraft,
@@ -1955,7 +1956,7 @@ class OpportunityAPITests(APITestCase):
         max_length = OpportunityDraft._meta.get_field("source_url").max_length
 
         with patch(
-            "apps.opportunities.views.OpportunityDraft.objects.create",
+            "apps.opportunities.views.agent_core.OpportunityDraft.objects.create",
             side_effect=DataError("value too long for type character varying"),
         ):
             response = self.client.post(
@@ -6727,7 +6728,7 @@ class OpportunityAPITests(APITestCase):
         def fake_prepare(item):
             raise RuntimeError("fetch failed")
 
-        with patch("apps.opportunities.views.prepare_deadline_verification_package", side_effect=fake_prepare):
+        with patch("apps.opportunities.views.deadline.prepare_deadline_verification_package", side_effect=fake_prepare):
             response = self.client.post(
                 "/api/admin/agent/scholarships/deadline-verification-batch-package/",
                 {"ids": [opportunity.pk, 999999]},
