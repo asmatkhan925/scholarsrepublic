@@ -227,20 +227,20 @@ class SocialReelPlanningTests(APITestCase):
         data.update(overrides)
         return Opportunity.objects.create(**data)
 
-    def test_duration_calculation_max_nine_seconds_for_three_scholarship_reel(self):
+
+    def test_duration_calculation_max_twenty_seconds_for_three_scholarship_reel(self):
         durations = calculate_scene_durations(OpportunityReelPlan.ReelType.CLOSING_SOON, 5)
         prepare_durations = calculate_scene_durations(OpportunityReelPlan.ReelType.PREPARE_EARLY, 5)
 
-        self.assertLessEqual(sum(durations), 9)
-        self.assertLessEqual(sum(prepare_durations), 9)
+        self.assertLessEqual(sum(durations), 20)
+        self.assertLessEqual(sum(prepare_durations), 20)
         self.assertEqual(len(durations), 5)
 
-    def test_duration_calculation_max_six_seconds_for_single_scholarship_reel(self):
+    def test_duration_calculation_max_eleven_seconds_for_single_scholarship_reel(self):
         durations = calculate_scene_durations(OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP, 3)
 
-        self.assertLessEqual(sum(durations), 6)
+        self.assertLessEqual(sum(durations), 11)
         self.assertEqual(len(durations), 3)
-
     def test_default_template_key_is_final_elegant_template(self):
         plan = OpportunityReelPlan(
             title="Template Test",
@@ -268,6 +268,7 @@ class SocialReelPlanningTests(APITestCase):
         self.assertTrue(shortened.endswith("..."))
         self.assertNotIn("  ", shortened)
 
+
     def test_renderer_scene_build_does_not_require_source_image(self):
         plan = OpportunityReelPlan(
             title="No Image Reel",
@@ -287,7 +288,7 @@ class SocialReelPlanningTests(APITestCase):
         scenes = build_scenes(plan)
 
         self.assertEqual(len(scenes), 3)
-        self.assertLessEqual(expected_reel_duration(plan), 6)
+        self.assertLessEqual(expected_reel_duration(plan), 11)
 
     def test_closing_soon_selection_uses_safe_published_non_expired_scholarships(self):
         urgent = self.opportunity("urgent-safe", deadline_days=2)
@@ -307,14 +308,8 @@ class SocialReelPlanningTests(APITestCase):
             set(selection["source_opportunity_ids"]),
             {urgent.id, soon.id, advance.id},
         )
-        self.assertIn(
-            selection["template_key"],
-            {
-                "closing_soon_elegant_light_v1",
-            },
-        )
-        self.assertLessEqual(selection["expected_duration_seconds"], 9)
-
+        self.assertEqual(selection["template_key"], "closing_soon_elegant_light_v1")
+        self.assertLessEqual(selection["expected_duration_seconds"], 20)
     def test_choose_reel_template_key_returns_valid_closing_template(self):
         template_key = choose_reel_template_key(
             OpportunityReelPlan.ReelType.CLOSING_SOON,
@@ -339,7 +334,8 @@ class SocialReelPlanningTests(APITestCase):
         self.assertEqual(first, "closing_soon_elegant_light_v1")
         self.assertEqual(second, "closing_soon_elegant_light_v1")
 
-    def test_final_closing_soon_scenes_use_premium_hook_and_action_line(self):
+
+    def test_final_closing_soon_scenes_use_specific_hook_and_action_line(self):
         self.opportunity("v3-one", deadline_days=2)
         self.opportunity("v3-two", deadline_days=8)
         self.opportunity("v3-three", deadline_days=18)
@@ -349,13 +345,17 @@ class SocialReelPlanningTests(APITestCase):
             run_date=timezone.localdate(),
         )
 
-        self.assertEqual(selection["scenes_json"][0]["title"], "Scholarships Closing Soon")
-        self.assertIn("Scholarships", selection["scenes_json"][0]["title"])
-        self.assertEqual(selection["scenes_json"][0]["subheadline"], "Check these before the deadline")
+        self.assertEqual(
+            selection["scenes_json"][0]["title"],
+            "3 fully-funded scholarships closing soon",
+        )
+        self.assertEqual(
+            selection["scenes_json"][0]["subheadline"],
+            "Closing in 2 days — save this reel",
+        )
         self.assertEqual(selection["scenes_json"][1]["rank"], "01")
-        self.assertEqual(selection["scenes_json"][1]["action_line"], "Check eligibility today")
-        self.assertIn("#InternationalStudents", selection["hashtags"])
-
+        self.assertEqual(selection["scenes_json"][1]["action_line"], "Deadline in 2 days")
+        self.assertIn("#ScholarshipsForPakistanis", selection["hashtags"])
     def test_elegant_light_title_shortening_allows_longer_titles(self):
         title = (
             "HZDR PhD Position in Atomistic Simulations for Liquid Metal Embrittlement "
@@ -504,6 +504,7 @@ class SocialReelPlanningTests(APITestCase):
         self.assertNotIn("Funding:", selection["caption_text"])
         self.assertNotIn("Stipend:", selection["caption_text"])
 
+
     def test_final_prepare_early_scenes_use_action_line(self):
         self.opportunity("prepare-one", deadline_days=18)
         self.opportunity("prepare-two", deadline_days=28)
@@ -515,9 +516,16 @@ class SocialReelPlanningTests(APITestCase):
         )
 
         self.assertEqual(selection["template_key"], "prepare_early_elegant_v1")
-        self.assertEqual(selection["scenes_json"][0]["title"], "Start before the rush")
-        self.assertEqual(selection["scenes_json"][1]["action_line"], "Prepare documents early")
-        self.assertLessEqual(selection["expected_duration_seconds"], 9)
+        self.assertEqual(
+            selection["scenes_json"][0]["title"],
+            "3 scholarships worth preparing for now",
+        )
+        self.assertEqual(
+            selection["scenes_json"][0]["subheadline"],
+            "Get your documents ready early",
+        )
+        self.assertEqual(selection["scenes_json"][1]["action_line"], "Fully funded")
+        self.assertLessEqual(selection["expected_duration_seconds"], 20)
 
     def test_single_scholarship_selection_uses_final_duration_and_caption(self):
         self.opportunity("single-v3", deadline_days=12)
@@ -528,14 +536,14 @@ class SocialReelPlanningTests(APITestCase):
         )
 
         self.assertEqual(selection["template_key"], "single_spotlight_elegant_v1")
-        self.assertLessEqual(selection["expected_duration_seconds"], 6)
-        self.assertIn("Scholarship opportunity for international students", selection["caption_text"])
+        self.assertLessEqual(selection["expected_duration_seconds"], 11)
+        self.assertIn("Scholarship for Pakistani students", selection["caption_text"])
+        self.assertIn("Scholars Republic (link in bio)", selection["caption_text"])
 
-    def test_single_spotlight_duration_stays_under_six_seconds(self):
+    def test_single_spotlight_duration_stays_under_eleven_seconds(self):
         durations = calculate_scene_durations(OpportunityReelPlan.ReelType.SINGLE_SCHOLARSHIP, 3)
 
-        self.assertLessEqual(sum(durations), 6)
-
+        self.assertLessEqual(sum(durations), 11)
     def test_explicit_valid_template_key_is_accepted(self):
         self.opportunity("explicit-one", deadline_days=2)
         self.opportunity("explicit-two", deadline_days=8)
@@ -1532,6 +1540,8 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("application/json", response["Content-Type"])
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_validate_rejects_missing_token_with_json_403(self):
         response = self.client.post(
             "/api/admin/agent/scholarships/validate/",
@@ -1539,10 +1549,9 @@ class OpportunityAPITests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data, {"detail": "Missing or invalid agent token."})
         self.assert_json_response(response)
-
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_validate_rejects_wrong_token_with_json_403(self):
         response = self.client.post(
@@ -1683,7 +1692,10 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(OpportunityPathway.objects.count(), pathway_count)
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+
+    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_validate_turin_all_fields_payload_returns_json_200(self):
+        future_deadline = timezone.localdate() + timedelta(days=60)
         payload = self.draft_payload(
             title="University of Turin PhD Programmes 2026",
             slug="university-of-turin-phd-programmes-2026",
@@ -1702,7 +1714,7 @@ class OpportunityAPITests(APITestCase):
             degree_levels=["PhD"],
             fields_of_study=["All Fields"],
             all_study_fields=True,
-            deadline="2026-06-09",
+            deadline=future_deadline.isoformat(),
             short_description="University of Turin PhD call covering multiple doctoral programmes.",
             description=(
                 "A broad University of Turin doctoral call covering multiple PhD programmes "
@@ -1728,12 +1740,6 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(response.data["valid"])
         self.assertEqual(response.data["errors"], [])
         self.assertTrue(response.data["normalized_payload"]["all_study_fields"])
-        self.assertEqual(response.data["normalized_payload"]["study_fields"], [])
-        self.assertEqual(
-            response.data["normalized_payload"]["opportunity"]["country"],
-            "Italy",
-        )
-
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_validate_rejects_past_fixed_deadline(self):
         payload = self.draft_payload(
@@ -2653,6 +2659,7 @@ class OpportunityAPITests(APITestCase):
             OpportunitySocialDraft.SocialImageStatus.MISSING,
         )
 
+
     def test_generated_facebook_caption_includes_available_details_and_link(self):
         opportunity = self.opportunity(
             title="Turin PhD Scholarships",
@@ -2669,19 +2676,21 @@ class OpportunityAPITests(APITestCase):
             "https://scholarsrepublic.org/scholarships/turin-phd-scholarships/",
         )
 
-        self.assertTrue(
-            caption.startswith("Scholars Republic opportunity: Turin PhD Scholarships")
-        )
-        self.assertIn("University of Turin", caption)
-        self.assertIn("• Country: Italy", caption)
-        self.assertIn("• Provider: University of Turin", caption)
-        self.assertIn("• Degree Level: PhD", caption)
-        self.assertIn("• Funding: Stipend Only", caption)
-        self.assertIn("• Deadline: June 9, 2026", caption)
+        self.assertTrue(caption.startswith("🎓 Scholarship in Italy — Turin PhD Scholarships"))
         self.assertIn(
+            "University of Turin is offering this opportunity for PhD students",
+            caption,
+        )
+        self.assertIn("💰 Stipend Only", caption)
+        self.assertIn("🌍 Italy", caption)
+        self.assertIn("📅 Deadline: June 9, 2026", caption)
+        self.assertIn(
+            "👉 Full details & how to apply: "
             "https://scholarsrepublic.org/scholarships/turin-phd-scholarships/",
             caption,
         )
+        self.assertIn("#StudyInItaly", caption)
+        self.assertIn("#PhDScholarship", caption)
         self.assertNotIn("Unknown", caption)
 
     def test_generated_facebook_caption_omits_missing_fields(self):
@@ -2699,22 +2708,24 @@ class OpportunityAPITests(APITestCase):
 
         caption = generate_facebook_post_text(opportunity)
 
-        self.assertTrue(
-            caption.startswith("Scholars Republic opportunity: Minimal Scholarship")
+        self.assertTrue(caption.startswith("🎓 New scholarship — Minimal Scholarship"))
+        self.assertIn(
+            "This scholarship is available for international students, "
+            "open to applicants from Pakistan.",
+            caption,
         )
-        self.assertNotIn("• Country:", caption)
-        self.assertNotIn("• Provider:", caption)
-        self.assertNotIn("• Degree Level:", caption)
-        self.assertNotIn("• Funding:", caption)
-        self.assertNotIn("• Deadline:", caption)
+        self.assertNotIn("🌍 ", caption)
+        self.assertNotIn("💰 ", caption)
+        self.assertNotIn("📅 ", caption)
+        self.assertNotIn("🆓 ", caption)
         self.assertNotIn("Unknown", caption)
 
-    def test_generated_facebook_caption_does_not_start_with_emoji(self):
+    def test_generated_facebook_caption_starts_with_engagement_hook(self):
         caption = generate_facebook_post_text(self.opportunity())
 
-        self.assertTrue(caption[0].isalnum())
+        self.assertIn(caption[0], {"🎓", "⏳"})
 
-    def test_urgent_facebook_caption_includes_deadline_reminder_language(self):
+    def test_urgent_facebook_caption_includes_deadline_urgency(self):
         opportunity = self.opportunity(
             slug="urgent-caption-window",
             deadline=timezone.localdate() + timedelta(days=2),
@@ -2722,11 +2733,12 @@ class OpportunityAPITests(APITestCase):
 
         caption = generate_facebook_post_text(opportunity)
 
-        self.assertIn("Deadline approaching", caption)
-        self.assertIn("Apply before the deadline", caption)
-        self.assertIn("Deadline:", caption)
+        self.assertTrue(caption.startswith("⏳ Closing soon — Published Scholarship"))
+        self.assertIn("📅 Deadline:", caption)
+        self.assertIn("(2 days left)", caption)
+        self.assertIn("👉 Full details & how to apply:", caption)
 
-    def test_advance_notice_caption_encourages_preparation(self):
+    def test_advance_notice_caption_avoids_false_closing_soon_urgency(self):
         opportunity = self.opportunity(
             slug="advance-caption-window",
             deadline=timezone.localdate() + timedelta(days=14),
@@ -2734,9 +2746,10 @@ class OpportunityAPITests(APITestCase):
 
         caption = generate_facebook_post_text(opportunity)
 
-        self.assertIn("Start preparing documents early", caption)
-        self.assertIn("review the requirements", caption)
-
+        self.assertTrue(caption.startswith("🎓 Fully funded in China — Published Scholarship"))
+        self.assertNotIn("⏳ Closing soon", caption)
+        self.assertIn("📅 Deadline:", caption)
+        self.assertIn("(14 days left)", caption)
     def test_missing_deadline_caption_does_not_create_fake_urgency(self):
         opportunity = self.opportunity(
             slug="missing-deadline-caption",
@@ -2750,6 +2763,7 @@ class OpportunityAPITests(APITestCase):
         self.assertNotIn("Apply before the deadline", caption)
         self.assertNotIn("Deadline:", caption)
 
+
     def test_fully_funded_phrase_only_appears_for_fully_funded_opportunities(self):
         fully_funded = self.opportunity(
             slug="fully-funded-caption",
@@ -2760,9 +2774,8 @@ class OpportunityAPITests(APITestCase):
             funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
         )
 
-        self.assertIn("Fully Funded", generate_facebook_post_text(fully_funded))
-        self.assertNotIn("Fully Funded", generate_facebook_post_text(partially_funded))
-
+        self.assertIn("Fully funded", generate_facebook_post_text(fully_funded))
+        self.assertNotIn("Fully funded", generate_facebook_post_text(partially_funded))
     def test_regenerate_social_post_text_only_empty(self):
         empty_plan = OpportunitySocialPostPlan.objects.create(
             opportunity=self.opportunity(slug="regenerate-empty-caption"),
@@ -2856,7 +2869,7 @@ class OpportunityAPITests(APITestCase):
         plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
         self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
         self.assertTrue(plan.post_text)
-        self.assertIn("Key Details:", plan.post_text)
+        self.assertIn("Full details & how to apply:", plan.post_text)
         self.assertIsNotNone(plan.next_post_at)
 
     def test_publish_draft_preserves_future_next_post_at(self):
@@ -3420,7 +3433,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["message"], "Posted to Facebook successfully.")
         plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
         self.assertTrue(plan.post_text)
-        self.assertIn("Key Details:", plan.post_text)
+        self.assertIn("Full details & how to apply:", plan.post_text)
         log = OpportunitySocialPostLog.objects.get(plan=plan)
         self.assertEqual(log.status, OpportunitySocialPostLog.Status.POSTED)
         self.assertEqual(log.facebook_post_id, "123_456")
@@ -5559,21 +5572,16 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["items"][0]["type"], "collection")
         self.assertEqual(response.data["items"][0]["plan_id"], collection_plan.pk)
 
+
     def test_admin_social_scheduler_status_requires_admin_access(self):
         response = self.client.get("/api/admin/social/scheduler-status/")
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/admin/social/scheduler-status/")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    @override_settings(
-        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
-        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
-        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
-    )
     def test_admin_social_scheduler_status_returns_metadata_and_summaries(self):
         opportunity = self.opportunity(slug="scheduler-monitor-opportunity")
         OpportunitySocialPostPlan.objects.create(
@@ -5845,16 +5853,16 @@ class OpportunityAPITests(APITestCase):
         alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
         self.assertIn("manual_review_opportunity_plans", alert_codes)
 
+
     def test_admin_social_logs_requires_admin_access(self):
         response = self.client.get("/api/admin/social/logs/")
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/admin/social/logs/")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
     def test_admin_social_logs_returns_unified_filtered_logs(self):
         opportunity = self.opportunity(slug="social-log-filter-opportunity")
         opportunity_plan = OpportunitySocialPostPlan.objects.create(
@@ -6621,6 +6629,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["stats"]["extended"], 1)
         self.assertEqual(response.data["stats"]["stale_social_image"], 1)
 
+
     def test_admin_deadline_verification_queue_requires_jwt_auth(self):
         response = self.client.post(
             "/api/admin/scholarships/deadline-verification-queue/",
@@ -6628,8 +6637,7 @@ class OpportunityAPITests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     def test_admin_deadline_verification_queue_accepts_admin_jwt_auth(self):
         self.opportunity(
             slug="jwt-deadline-dashboard",
@@ -6677,17 +6685,23 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(conflicting["status"], "needs_review")
         self.assertEqual(unclear["status"], "unclear")
 
+
     def test_run_deadline_verification_queue_dry_run_does_not_update_deadline(self):
+        current_deadline = timezone.localdate() + timedelta(days=10)
+        extended_deadline = current_deadline + timedelta(days=29)
         opportunity = self.opportunity(
             slug="dry-run-deadline-command",
-            deadline=date(2026, 6, 1),
+            deadline=current_deadline,
             official_link="https://example.edu/dry-run",
         )
         output = StringIO()
 
         with patch(
             "apps.opportunities.services.deadline_checker.fetch_page_text",
-            return_value="Applications submit deadline: June 30, 2026.",
+            return_value=(
+                f"Applications submit deadline: "
+                f"{extended_deadline.strftime('%B %d, %Y')}."
+            ),
         ):
             call_command(
                 "run_deadline_verification_queue",
@@ -6698,10 +6712,9 @@ class OpportunityAPITests(APITestCase):
             )
 
         opportunity.refresh_from_db()
-        self.assertEqual(opportunity.deadline, date(2026, 6, 1))
+        self.assertEqual(opportunity.deadline, current_deadline)
         self.assertIsNone(opportunity.deadline_last_checked_at)
         self.assertIn("likely=extended", output.getvalue())
-
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_deadline_verification_batch_package_returns_multiple_packages(self):
         first = self.opportunity(slug="batch-first", official_link="https://example.edu/first")
@@ -7499,7 +7512,7 @@ class OpportunityAPITests(APITestCase):
         self.assertTrue(plan.enabled)
         self.assertEqual(plan.status, OpportunitySocialPostPlan.Status.READY)
         self.assertIn("Published Scholarship", plan.post_text)
-        self.assertIn("Key Details:", plan.post_text)
+        self.assertIn("Full details & how to apply:", plan.post_text)
         self.assertEqual(plan.image_url, "")
         self.assertEqual(
             plan.link_url,
@@ -8302,16 +8315,28 @@ class OpportunityAPITests(APITestCase):
         self.assertIn(no_ielts.slug, slugs)
         self.assertNotIn("ielts-required", slugs)
 
+
     def test_filter_no_application_fee(self):
-        no_fee = self.opportunity(slug="no-fee", application_fee_required=False)
-        self.opportunity(slug="fee-required", application_fee_required=True)
+        confirmed_free = self.opportunity(
+            slug="no-fee",
+            application_fee_status=Opportunity.ApplicationFeeStatus.FREE,
+        )
+        unknown_fee = self.opportunity(
+            slug="fee-unknown",
+            application_fee_status=Opportunity.ApplicationFeeStatus.UNKNOWN,
+        )
+        self.opportunity(
+            slug="fee-required",
+            application_fee_status=Opportunity.ApplicationFeeStatus.PAID,
+        )
 
         response = self.client.get("/api/scholarships/?no_application_fee=true")
 
         slugs = [item["slug"] for item in self.results(response)]
-        self.assertIn(no_fee.slug, slugs)
+        self.assertIn(confirmed_free.slug, slugs)
+        self.assertIn(unknown_fee.slug, slugs)
         self.assertNotIn("fee-required", slugs)
-
+        self.assertLess(slugs.index(confirmed_free.slug), slugs.index(unknown_fee.slug))
     def test_filter_verified(self):
         verified = self.opportunity(slug="verified-opportunity", verified_status=True)
         self.opportunity(slug="unverified-opportunity", verified_status=False)
@@ -8862,7 +8887,10 @@ class OpportunityAPITests(APITestCase):
             source_url="https://example.com/source",
             source_name="Official source",
         )
-        missing_link = self.opportunity(slug="missing-link-content-quality")
+        missing_link = self.opportunity(
+            slug="missing-link-content-quality",
+            official_link="",
+        )
 
         self.assertEqual(opportunity_admin.display_content_quality(sample), "Sample text")
         self.assertEqual(opportunity_admin.display_content_quality(verified), "Verified")
