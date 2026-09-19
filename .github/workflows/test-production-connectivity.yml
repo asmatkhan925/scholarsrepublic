@@ -24,7 +24,7 @@ jobs:
           ping: scholarsrepublic
 
       - name: Verify production server reachability
-        run: tailscale ping scholarsrepublic
+        run: tailscale ping --until-direct=false --c=1 scholarsrepublic
 
       - name: Verify Tailscale SSH
         run: |
