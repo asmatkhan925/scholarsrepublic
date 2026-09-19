@@ -27,33 +27,25 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
-      - name: Prepare SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+      - name: Join Tailscale as ephemeral GitHub runner
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:github-ci
+          ping: scholarsrepublic
+
+      - name: Verify Tailscale SSH access
         run: |
-          test -n "$SSH_PRIVATE_KEY" || { echo "PRODUCTION_SSH_KEY is not configured"; exit 1; }
-          test -n "$SSH_KNOWN_HOSTS" || { echo "PRODUCTION_SSH_KNOWN_HOSTS is not configured"; exit 1; }
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
+          tailscale ping scholarsrepublic
+          tailscale ssh scholarsrepublic@scholarsrepublic 'echo GITHUB_TAILSCALE_SSH_OK'
 
       - name: Run production deployment script
-        env:
-          PROD_HOST: ${{ secrets.PRODUCTION_HOST }}
-          PROD_USER: ${{ secrets.PRODUCTION_USER }}
-          PROD_PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
         run: |
-          test -n "$PROD_HOST" || { echo "PRODUCTION_HOST is not configured"; exit 1; }
-          test -n "$PROD_USER" || { echo "PRODUCTION_USER is not configured"; exit 1; }
-          PROD_PORT="${PROD_PORT:-22}"
-          ssh -p "$PROD_PORT" \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" \
+          tailscale ssh scholarsrepublic@scholarsrepublic \
             'cd /home/scholarsrepublic/scholarsrepublic && BRANCH=main ./deploy/deploy_scholarsrepublic.sh'
