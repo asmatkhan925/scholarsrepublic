@@ -9911,7 +9911,45 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["breakdown"]["language_test"], 10)
 
 
-class ScholarshipCommentThrottleTests(OpportunityAPITests):
+class ScholarshipCommentThrottleTests(APITestCase):
+    def setUp(self):
+        create_reference_data(self)
+        self.student = User.objects.create_user(
+            email="comments-student@example.com",
+            password="StrongPassword123!",
+            full_name="Comments Student",
+        )
+        self.admin = User.objects.create_superuser(
+            email="comments-admin@example.com",
+            password="StrongPassword123!",
+            full_name="Comments Admin",
+        )
+
+    def opportunity(self, **overrides):
+        data = {
+            "title": "Comment Test Scholarship",
+            "slug": "comment-test-scholarship",
+            "opportunity_type": Opportunity.OpportunityType.SCHOLARSHIP,
+            "status": Opportunity.Status.PUBLISHED,
+            "country": "China",
+            "provider_name": "Sample Provider",
+            "funding_type": Opportunity.FundingType.FULLY_FUNDED,
+            "eligible_countries": ["Pakistan"],
+            "degree_levels": ["Master"],
+            "fields_of_study": ["Computer Science"],
+            "deadline": timezone.localdate() + timedelta(days=10),
+            "short_description": "A complete scholarship summary.",
+            "description": "A complete scholarship description for applicants.",
+            "how_to_apply": "Apply through the official scholarship portal.",
+            "official_link": "https://example.edu/scholarship",
+            "source_url": "https://example.edu/scholarship/source",
+            "university_name": "Sample University",
+            "required_documents": ["Passport", "Transcript"],
+            "tags": ["Sample Data", "Fully Funded"],
+        }
+        data.update(overrides)
+        return Opportunity.objects.create(**data)
+
     def test_public_can_read_comments_without_auth(self):
         opportunity = self.opportunity(slug="comments-public-read")
         response = self.client.get(f"/api/scholarships/{opportunity.slug}/comments/")
