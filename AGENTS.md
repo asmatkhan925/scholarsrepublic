@@ -370,53 +370,86 @@ PY
 
 ## Deployment workflow
 
-Production deploy:
+Production deployment is manual and must remain gated by tests.
 
-ssh scholarsrepublic@scholarsrepublic.org
+Preferred flow:
 
-cd /home/scholarsrepublic/scholarsrepublic
-git pull origin main
+development branch
+→ relevant tests
+→ pull request
+→ green CI
+→ merge to main
+→ explicit human authorization
+→ manual production deployment workflow
 
-cd backend
-source venv/bin/activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py check
+Production deployment script:
 
-cd ../frontend
-npm run lint
-npm run build
+deploy/deploy_scholarsrepublic.sh
 
-sudo systemctl restart scholars-backend
-sudo systemctl restart scholars-frontend
+The deployment script is responsible for the production update sequence, including database backup, backend dependency/setup work, migrations, collectstatic, frontend build, Nginx validation, service restarts, and health checks.
 
-curl -sS https://scholarsrepublic.org/api/health/
-curl -I https://scholarsrepublic.org/register
-curl -I https://scholarsrepublic.org/login
-curl -I https://scholarsrepublic.org/verify-email
+GitHub Actions reaches production through Tailscale:
 
-Use scholarsctl if available and known to work. Otherwise use the systemd services above.
+GitHub Actions
+→ OIDC workload identity
+→ tag:github-ci
+→ Tailscale SSH
+→ tag:scholars-prod
+→ scholarsrepublic
+
+Production machine:
+
+scholarsrepublic
+
+Production Tailscale tag:
+
+tag:scholars-prod
+
+GitHub Actions ephemeral tag:
+
+tag:github-ci
+
+A connectivity-only workflow exists at:
+
+.github/workflows/test-production-connectivity.yml
+
+Do not deploy merely because code changed.
+
+Before production deployment:
+1. Relevant tests must pass.
+2. Required CI must be green.
+3. Review migration implications.
+4. Review production impact.
+5. Obtain explicit human authorization.
+
+Do not bypass the CI gate by weakening tests or changing expected values without evidence.
 
 ## Git workflow
 
-Before starting:
+For substantial work, prefer a dedicated branch and pull request.
+
+Before starting local work:
 
 cd ~/work/scholarsrepublic
-git pull origin main
 git status --short
+git fetch origin
 
 Before commit:
 
 git status --short
 git diff --stat
 
-Commit:
+Commit only relevant files:
 
 git add <only relevant files>
 git commit -m "Clear message"
-git push origin main
+
+Push the current working branch, not main, unless the human explicitly requested a direct main update for a safe administrative change.
 
 Never use git add . unless the diff has been carefully reviewed.
+
+Do not merge a pull request while required CI is failing.
+Do not overwrite unrelated user work.
 
 ## Local WSL workflow
 
@@ -586,6 +619,88 @@ When user pastes an error:
 
 Do not give vague advice like “edit this file.”
 Give exact patches or exact commands.
+
+
+## Repository source of truth
+
+The connected GitHub repository `asmatkhan925/scholarsrepublic` is the source of truth.
+
+Before substantial engineering work:
+1. Read the current root `AGENTS.md`.
+2. Read `docs/PROJECT_STATUS.md` if it exists.
+3. Inspect the current implementation and related tests before editing.
+4. Prefer current GitHub content over stale copied/uploaded documentation.
+
+Keep `AGENTS.md` focused on stable engineering rules.
+Keep `docs/PROJECT_STATUS.md` focused on changing project state, active failures, current priorities, and verified deployment status.
+
+## Debugging and test-failure policy
+
+Treat test failures as evidence to investigate, not something to silence.
+
+For each failure, classify it as one of:
+- real application bug
+- stale test expectation
+- incorrect fixture or test data
+- environment/configuration issue
+- flaky behavior
+- missing dependency or migration
+
+For a real bug:
+1. Reproduce or identify the failing path.
+2. Find the root cause.
+3. Make the smallest correct fix.
+4. Add or update a regression test when appropriate.
+5. Run targeted tests first.
+6. Run the broader relevant suite.
+7. Inspect GitHub Actions before considering the work complete.
+
+Never blindly change expected values just to make CI green.
+
+## Current CI/CD baseline
+
+CI/CD setup work is tracked on:
+
+`ops/github-actions-ci-deploy`
+
+Pull request:
+
+PR #2 — Set up reliable CI and manual production deployment
+
+CI now includes:
+- PostgreSQL 16 service
+- Django system check
+- migration consistency check
+- migrations
+- full Django test suite
+- frontend lint
+- Next.js production build
+- Playwright E2E tests
+
+The first full baseline exposed legacy failures. See `docs/PROJECT_STATUS.md` for the current counts and triage state.
+
+GitHub-to-production Tailscale connectivity has been tested successfully through the connectivity-only workflow.
+
+## Production authorization boundary
+
+Normal development work can proceed when the human says "go ahead", including:
+- code inspection
+- debugging
+- code edits
+- test edits supported by evidence
+- commits to a working branch
+- CI inspection
+- log inspection
+- pull-request updates
+
+Stop for explicit user action when required for:
+- secrets
+- external authentication
+- protected environment approval
+- Tailscale admin-console changes
+- irreversible/high-risk production operations
+- production deployment authorization
+
 
 ## Final reminder
 
