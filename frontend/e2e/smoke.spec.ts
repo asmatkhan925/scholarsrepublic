@@ -141,10 +141,15 @@ const adminUser = {
 
 async function mockStudentAuth(page: Page) {
   await page.addInitScript((user) => {
-    window.localStorage.setItem("scholars_republic_access_token", "e2e-access-token");
     window.localStorage.setItem("scholars_republic_refresh_token", "e2e-refresh-token");
     window.localStorage.setItem("scholars_republic_user", JSON.stringify(user));
   }, studentUser);
+
+  await page.route("**/api/auth/token/refresh/**", async (route) => {
+    await route.fulfill({
+      json: { access: "e2e-access-token", refresh: "e2e-refresh-token" },
+    });
+  });
 
   await page.route("**/api/auth/me/**", async (route) => {
     await route.fulfill({ json: studentUser });
@@ -157,10 +162,15 @@ async function mockStudentAuth(page: Page) {
 
 async function mockAdminAuth(page: Page) {
   await page.addInitScript((user) => {
-    window.localStorage.setItem("scholars_republic_access_token", "e2e-admin-access-token");
     window.localStorage.setItem("scholars_republic_refresh_token", "e2e-admin-refresh-token");
     window.localStorage.setItem("scholars_republic_user", JSON.stringify(user));
   }, adminUser);
+
+  await page.route("**/api/auth/token/refresh/**", async (route) => {
+    await route.fulfill({
+      json: { access: "e2e-admin-access-token", refresh: "e2e-admin-refresh-token" },
+    });
+  });
 
   await page.route("**/api/auth/me/**", async (route) => {
     await route.fulfill({ json: adminUser });
@@ -257,7 +267,7 @@ test("home page loads", async ({ page }) => {
   await expect(page.getByText("Scholars Republic").first()).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: /Your scholarship search, profile, documents, and applications/i,
+      name: /Verified scholarships for Pakistani students/i,
     }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Browse Scholarships" }).first()).toBeVisible();
@@ -285,7 +295,7 @@ test("public footer includes main and trust links", async ({ page }) => {
   const footer = page.locator("footer");
   const footerLinks = [
     { name: "Scholarships", href: "/scholarships" },
-    { name: "Guides", href: "/blog" },
+    { name: "Guides", href: "/guides" },
     { name: "About", href: "/about" },
     { name: "Contact", href: "/contact" },
     { name: "Privacy Policy", href: "/privacy-policy" },
