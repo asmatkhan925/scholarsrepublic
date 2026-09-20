@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   COOKIE_CONSENT_CHANGED_EVENT,
   type CookieConsentState,
+  type CookieConsentValue,
   readCookieConsent,
 } from "@/lib/cookie-consent";
 
@@ -13,6 +14,10 @@ type ConsentScriptsProps = {
   adsenseClient?: string;
   gaMeasurementId?: string;
 };
+
+function isConsentValue(value: unknown): value is CookieConsentValue {
+  return value === "accepted" || value === "declined";
+}
 
 export function ConsentScripts({
   adsenseClient,
@@ -23,8 +28,12 @@ export function ConsentScripts({
   useEffect(() => {
     setConsent(readCookieConsent());
 
-    function handleConsentChange() {
-      setConsent(readCookieConsent());
+    function handleConsentChange(event: Event) {
+      const nextConsent =
+        event instanceof CustomEvent && isConsentValue(event.detail)
+          ? event.detail
+          : readCookieConsent();
+      setConsent(nextConsent);
     }
 
     window.addEventListener(COOKIE_CONSENT_CHANGED_EVENT, handleConsentChange);
