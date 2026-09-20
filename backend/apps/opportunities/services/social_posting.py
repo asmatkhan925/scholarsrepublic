@@ -741,10 +741,14 @@ def count_blocked_reasons(reasons, reason_counts):
             reason_counts[reason] = reason_counts.get(reason, 0) + 1
 
 
-def serialize_due_plan(plan):
+def serialize_due_plan(plan, persist_changes=True):
     opportunity = plan.opportunity
     link_url = plan.link_url or scholarship_detail_url(opportunity)
-    message = ensure_plan_post_text(plan)
+    message = (
+        ensure_plan_post_text(plan)
+        if persist_changes
+        else str(plan.post_text or "").strip()
+    )
     if is_near_deadline(opportunity) and latest_successful_facebook_log(plan):
         reminder = deadline_reminder_line(opportunity)
         if reminder and reminder not in message:
@@ -777,17 +781,18 @@ def serialize_due_plan(plan):
     }
 
 
-def serialize_due_collection_plan(plan):
+def serialize_due_collection_plan(plan, persist_changes=True):
     collection = plan.collection
     link_url = plan.link_url or collection_public_url(collection)
-    if not plan.link_url:
+    if not plan.link_url and persist_changes:
         plan.link_url = link_url
         plan.save(update_fields=["link_url", "updated_at"])
     message = str(plan.post_text or "").strip()
     if not message:
         message = build_collection_social_post_text(collection)
-        plan.post_text = message
-        plan.save(update_fields=["post_text", "updated_at"])
+        if persist_changes:
+            plan.post_text = message
+            plan.save(update_fields=["post_text", "updated_at"])
 
     return {
         "type": "collection",
@@ -1453,7 +1458,7 @@ def select_balanced_deadline_candidates(candidates, available_slots):
     return selected
 
 
-def build_ranked_facebook_post_candidates(now=None):
+def build_ranked_facebook_post_candidates(now=None, persist_changes=True):
     now = now or timezone.now()
     today = timezone.localtime(now).date()
     candidates = []
@@ -1470,13 +1475,14 @@ def build_ranked_facebook_post_candidates(now=None):
     for plan in plans:
         if plan.status == OpportunitySocialPostPlan.Status.READY and plan.enabled and is_opportunity_expired_for_social(plan.opportunity, today=today):
             count_blocked_reasons(["expired"], blocked_reason_counts)
-            record_skipped_expired_automatic_post(plan)
+            if persist_changes:
+                record_skipped_expired_automatic_post(plan)
             continue
         eligibility = evaluate_opportunity_auto_post_eligibility(plan, now=now)
         if not eligibility["auto_post_eligible"]:
             count_blocked_reasons(eligibility["hard_blocking_reasons"], blocked_reason_counts)
             continue
-        apply_social_priority(plan)
+        apply_social_priority(plan, save=persist_changes)
         eligibility = evaluate_opportunity_auto_post_eligibility(plan, now=now)
         post_check = can_post_opportunity_today(plan.opportunity, plan, today=today)
         if not post_check["can_post"]:
@@ -1572,16 +1578,23 @@ def build_due_posts_response(
     }
 
 
-def get_due_facebook_post_plan_response(limit=10, now=None):
-    return get_due_facebook_post_plans(limit=limit, now=now)
+def get_due_facebook_post_plan_response(limit=10, now=None, persist_changes=True):
+    return get_due_facebook_post_plans(
+        limit=limit,
+        now=now,
+        persist_changes=persist_changes,
+    )
 
 
-def get_due_facebook_post_plans(limit=10, now=None):
+def get_due_facebook_post_plans(limit=10, now=None, persist_changes=True):
     limit = parse_due_post_limit(limit)
     now = now or timezone.now()
     cap_status = facebook_posting_cap_status(now=now)
     effective_limit = min(limit, cap_status["per_run_cap"], cap_status["daily_remaining"])
-    candidate_data = build_ranked_facebook_post_candidates(now=now)
+    candidate_data = build_ranked_facebook_post_candidates(
+        now=now,
+        persist_changes=persist_changes,
+    )
     candidates = candidate_data["candidates"]
     blocked_reason_counts = candidate_data["blocked_reason_counts"]
     candidate_counts_by_tier = candidate_data["candidate_counts_by_tier"]
@@ -1631,7 +1644,12 @@ def get_due_facebook_post_plans(limit=10, now=None):
                 plan.opportunity.deadline_last_checked_at
                 and plan.opportunity.deadline_last_checked_at >= now - timedelta(hours=24)
             )
-            if days_left is not None and 0 <= days_left <= 3 and not recently_checked:
+            if (
+                persist_changes
+                and days_left is not None
+                and 0 <= days_left <= 3
+                and not recently_checked
+            ):
                 plan.opportunity.deadline_check_status = Opportunity.DeadlineCheckStatus.NEEDS_REVIEW
                 plan.opportunity.deadline_check_note = (
                     "Near-deadline social post is due, but the deadline has not been "
@@ -1651,9 +1669,12 @@ def get_due_facebook_post_plans(limit=10, now=None):
                     plan.pk,
                     days_left,
                 )
-            item = serialize_due_plan(plan)
+            item = serialize_due_plan(plan, persist_changes=persist_changes)
         else:
-            item = serialize_due_collection_plan(candidate["plan"])
+            item = serialize_due_collection_plan(
+                candidate["plan"],
+                persist_changes=persist_changes,
+            )
         item.update(
             {
                 "auto_post_tier": eligibility["auto_post_tier"],
