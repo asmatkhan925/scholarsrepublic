@@ -3,44 +3,24 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "sr_cookie_consent";
-
-type ConsentState = "accepted" | "declined" | null;
-
-function readConsent(): ConsentState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === "accepted" || raw === "declined") return raw;
-  } catch {
-    // localStorage unavailable
-  }
-  return null;
-}
-
-function writeConsent(value: "accepted" | "declined") {
-  try {
-    localStorage.setItem(STORAGE_KEY, value);
-  } catch {
-    // localStorage unavailable
-  }
-}
+import { readCookieConsent, writeCookieConsent } from "@/lib/cookie-consent";
 
 export function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (readConsent() === null) {
+    if (readCookieConsent() === null) {
       setVisible(true);
     }
   }, []);
 
   function accept() {
-    writeConsent("accepted");
+    writeCookieConsent("accepted");
     setVisible(false);
   }
 
   function decline() {
-    writeConsent("declined");
+    writeCookieConsent("declined");
     setVisible(false);
   }
 
@@ -55,7 +35,7 @@ export function CookieConsent() {
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-6 text-slate-700 dark:text-slate-300">
-          We use cookies to serve ads and improve the site.{" "}
+          Optional analytics and advertising scripts stay off unless you accept.{" "}
           <Link
             href="/privacy-policy"
             className="font-semibold text-pine underline underline-offset-2 hover:text-pine/80"
@@ -66,12 +46,14 @@ export function CookieConsent() {
         </p>
         <div className="flex shrink-0 gap-2">
           <button
+            type="button"
             onClick={decline}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Decline
           </button>
           <button
+            type="button"
             onClick={accept}
             className="rounded-lg bg-pine px-4 py-2 text-sm font-semibold text-white transition hover:bg-pine/90"
           >
