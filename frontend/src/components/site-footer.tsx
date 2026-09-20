@@ -34,7 +34,7 @@ type SiteFooterProps = {
 };
 
 const footerLinkClassName =
-  "inline-flex min-h-9 items-center rounded-lg py-1 text-sm font-semibold text-ink/60 transition-colors hover:text-pine focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7faf8]";
+  "inline-flex min-h-9 items-center rounded-lg py-1 text-sm font-semibold text-ink/60 transition-colors hover:text-pine focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-2 focus-visible:ring-offset-cream";
 
 export function SiteFooter({ variant = "default" }: SiteFooterProps) {
   if (variant === "auth") {
@@ -67,7 +67,7 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
           <div className="max-w-xl lg:col-span-5">
             <Link
               href="/"
-              className="group inline-flex items-center gap-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-4 focus-visible:ring-offset-[#f7faf8]"
+              className="group inline-flex items-center gap-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-4 focus-visible:ring-offset-cream"
               aria-label="Scholars Republic home"
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine transition-transform group-hover:-translate-y-0.5">
