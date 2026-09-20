@@ -38,6 +38,8 @@ export default defineConfig({
     env: {
       ...process.env,
       NEXT_PUBLIC_API_BASE_URL: `${baseURL}/api`,
+      NEXT_PUBLIC_ADSENSE_CLIENT: "ca-pub-0000000000000000",
+      NEXT_PUBLIC_GA_ID: "G-CONSENTTEST",
     },
     url: baseURL,
     reuseExistingServer: false,
