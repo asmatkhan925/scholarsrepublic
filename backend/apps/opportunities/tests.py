@@ -4241,7 +4241,10 @@ class OpportunityAPITests(APITestCase):
             items_by_plan[far_plan.pk]["quality_warnings"],
         )
 
-    @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
+    @override_settings(
+        SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token",
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
     def test_social_worker_daily_rule_for_deadline_within_7_days(self):
         recent = self.opportunity(
             slug="near-deadline-posted-today-skip",
@@ -9519,6 +9522,8 @@ class OpportunityAPITests(APITestCase):
             provider_name="Example University",
             country_ref=self.china,
             deadline=timezone.localdate() + timedelta(days=30),
+            official_link="https://example.edu/existing-similar-draft-warning",
+            source_url="https://example.edu/existing-similar-draft-warning/source",
         )
         draft = OpportunityDraft.objects.create(
             title="Draft Similar Warning",
@@ -9527,6 +9532,8 @@ class OpportunityAPITests(APITestCase):
                 slug="draft-similar-warning-opportunity",
                 title="Existing Similar Draft Warning 2026",
                 provider_name="Example University",
+                official_link="https://example.edu/draft-similar-warning",
+                source_url="https://example.edu/draft-similar-warning/source",
             ),
             created_by=self.admin,
         )
