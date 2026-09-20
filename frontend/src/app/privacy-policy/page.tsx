@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
     <LegalPageShell
       label="Legal"
       title="Privacy Policy"
-      updated="Last updated: May 2026"
+      updated="Last updated: September 2026"
       intro={
         <p>
           Scholars Republic helps students discover scholarships, save opportunities, track
@@ -63,22 +63,25 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection title="Cookies, Local Storage, and Similar Technologies">
         <p>
-          Scholars Republic may use cookies, local storage, and similar browser technologies for
-          essential login and session functionality, remembering preferences, security, and site
-          features. You can control cookies and site storage through your browser settings.
-          Disabling essential storage may prevent login, saved opportunities, or other account
-          features from working correctly.
+          Scholars Republic uses browser storage and similar technologies for account access,
+          remembering preferences, security, and site features. Optional analytics and advertising
+          scripts are not loaded unless you accept them through the consent banner. You can also
+          control cookies and site storage through your browser settings. Disabling essential
+          storage may prevent login, saved opportunities, or other account features from working
+          correctly.
         </p>
       </LegalSection>
 
-      <LegalSection title="Google AdSense and Third-Party Advertising Cookies">
+      <LegalSection title="Optional Analytics and Advertising">
         <p>
-          Scholars Republic uses Google AdSense. Third-party vendors, including Google, use cookies
-          to serve ads based on a user&apos;s prior visits to this website or other websites.
+          If you accept optional analytics and advertising, Scholars Republic may load Google
+          Analytics and Google AdSense scripts. Until you accept, those optional third-party scripts
+          remain disabled.
         </p>
         <p>
-          Google&apos;s use of advertising cookies enables Google and its partners to serve ads to
-          users based on visits to Scholars Republic and/or other websites on the Internet.
+          When enabled, Google and its partners may use cookies or similar technologies for
+          analytics, advertising, measurement, and ad personalization according to their own
+          settings and policies.
         </p>
         <p>
           Users may opt out of personalized advertising by visiting{" "}
