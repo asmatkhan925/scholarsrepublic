@@ -1540,8 +1540,6 @@ class OpportunityAPITests(APITestCase):
         self.assertIn("application/json", response["Content-Type"])
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
-
-    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_validate_rejects_missing_token_with_json_403(self):
         response = self.client.post(
             "/api/admin/agent/scholarships/validate/",
@@ -1690,8 +1688,6 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(Country.objects.count(), country_count)
         self.assertEqual(StudyField.objects.count(), field_count)
         self.assertEqual(OpportunityPathway.objects.count(), pathway_count)
-
-    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
 
     @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
     def test_agent_validate_turin_all_fields_payload_returns_json_200(self):
