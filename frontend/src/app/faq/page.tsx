@@ -256,9 +256,9 @@ const faqSections: FaqSection[] = [
         question: "Does Scholars Republic use cookies?",
         answer: (
           <>
-            Yes. Scholars Republic uses cookies for authentication, site functionality, and
-            advertising (Google AdSense). You can manage cookie preferences using the consent
-            banner. See the{" "}
+            Scholars Republic uses browser storage for account and site functionality. Optional
+            Google Analytics and Google AdSense scripts are not loaded unless you accept them in the
+            consent banner. See the{" "}
             <Link href="/privacy-policy" className="font-semibold text-pine hover:text-pine/80">
               Privacy Policy
             </Link>{" "}
@@ -269,7 +269,7 @@ const faqSections: FaqSection[] = [
       {
         question: "Does Scholars Republic show ads?",
         answer:
-          "Yes. Scholars Republic uses Google AdSense to display advertisements that help support the platform. You can opt out of personalized ads via Google Ads Settings.",
+          "Scholars Republic may use Google AdSense to support the platform, but the optional advertising script is not loaded unless you accept optional analytics and advertising in the consent banner.",
       },
     ],
   },
