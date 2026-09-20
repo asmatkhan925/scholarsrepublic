@@ -11,17 +11,17 @@ const footerGroups = [
     ],
   },
   {
-    label: "Help & trust",
+    label: "Support",
     links: [
       { label: "About", href: "/about" },
-      { label: "Verification Policy", href: "/verification-policy" },
       { label: "FAQ", href: "/faq" },
       { label: "Contact", href: "/contact" },
     ],
   },
   {
-    label: "Legal",
+    label: "Trust & legal",
     links: [
+      { label: "Verification Policy", href: "/verification-policy" },
       { label: "Privacy Policy", href: "/privacy-policy" },
       { label: "Terms", href: "/terms" },
       { label: "Disclaimer", href: "/disclaimer" },
@@ -34,7 +34,7 @@ type SiteFooterProps = {
 };
 
 const footerLinkClassName =
-  "inline-flex min-h-9 items-center rounded-lg py-1 text-sm font-semibold text-ink/60 transition-colors hover:text-pine focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-2 focus-visible:ring-offset-cream";
+  "inline-flex min-h-9 items-center rounded-lg py-1 text-sm font-medium text-ink/60 transition-colors hover:text-pine focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white/55 dark:hover:text-pine dark:focus-visible:ring-offset-[#101214]";
 
 export function SiteFooter({ variant = "default" }: SiteFooterProps) {
   if (variant === "auth") {
@@ -61,75 +61,63 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
   }
 
   return (
-    <footer className="border-t border-pine/10 bg-[#f7faf8] text-ink">
-      <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-12 md:px-8 lg:py-14">
-        <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
-          <div className="max-w-xl lg:col-span-5">
+    <footer className="border-t border-pine/10 bg-white/80 text-ink backdrop-blur-sm dark:border-white/10 dark:bg-[#101214] dark:text-white">
+      <div className="mx-auto max-w-7xl px-5 py-9 sm:px-6 sm:py-10 md:px-8">
+        <div className="grid gap-9 lg:grid-cols-[minmax(0,1.35fr)_repeat(3,minmax(0,0.7fr))] lg:gap-10">
+          <div className="max-w-lg">
             <Link
               href="/"
-              className="group inline-flex items-center gap-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-4 focus-visible:ring-offset-cream"
+              className="group inline-flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/25 focus-visible:ring-offset-4 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#101214]"
               aria-label="Scholars Republic home"
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-mint text-pine transition-transform group-hover:-translate-y-0.5">
-                <GraduationCap size={22} aria-hidden="true" />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pine text-white shadow-sm transition group-hover:bg-ink dark:group-hover:bg-white/10">
+                <GraduationCap size={21} aria-hidden="true" />
               </span>
-              <span>
-                <span className="block text-base font-bold tracking-[-0.01em] text-ink sm:text-lg">
+              <span className="leading-tight">
+                <span className="block text-base font-bold tracking-[-0.01em] sm:text-lg">
                   Scholars Republic
                 </span>
-                <span className="mt-0.5 block text-[11px] font-bold uppercase tracking-[0.18em] text-pine/70">
+                <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-[0.2em] text-pine/70">
                   Let&apos;s grow together
                 </span>
               </span>
             </Link>
 
-            <p className="mt-5 max-w-md text-sm leading-6 text-ink/60 sm:text-[15px] sm:leading-7">
-              Find scholarships, understand the requirements, save opportunities, and keep your
-              applications moving forward.
+            <p className="mt-4 max-w-md text-sm leading-6 text-ink/58 dark:text-white/55">
+              Find reliable scholarship opportunities, understand the requirements, and keep your
+              applications organized in one place.
             </p>
 
-            <div className="mt-5 inline-flex max-w-md items-start gap-2.5 rounded-2xl border border-pine/10 bg-white/70 px-3.5 py-3 text-xs leading-5 text-ink/55 shadow-sm dark:bg-white/5">
-              <BadgeCheck className="mt-0.5 shrink-0 text-pine" size={16} aria-hidden="true" />
-              <span>
-                We prioritize clear sourcing and verification so you can judge each opportunity with
-                better context.
-              </span>
+            <div className="mt-4 flex max-w-md items-start gap-2 text-xs leading-5 text-ink/48 dark:text-white/45">
+              <BadgeCheck className="mt-0.5 shrink-0 text-pine" size={15} aria-hidden="true" />
+              <span>Source context and verification notes are shown where available.</span>
             </div>
           </div>
 
-          <nav
-            className="grid grid-cols-2 gap-x-8 gap-y-9 sm:grid-cols-3 lg:col-span-7 lg:justify-self-end lg:gap-x-14 xl:gap-x-20"
-            aria-label="Footer navigation"
-          >
-            {footerGroups.map((group) => (
-              <div key={group.label} className="min-w-0">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink/40">
-                  {group.label}
-                </h2>
-                <ul className="mt-3 space-y-0.5">
-                  {group.links.map((link) => (
-                    <li key={link.href}>
-                      <Link href={link.href} className={footerLinkClassName}>
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </nav>
+          {footerGroups.map((group) => (
+            <nav key={group.label} aria-label={`${group.label} footer links`}>
+              <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink/35 dark:text-white/35">
+                {group.label}
+              </h2>
+              <ul className="mt-2.5 space-y-0.5">
+                {group.links.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className={footerLinkClassName}>
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        <div className="mt-10 border-t border-pine/10 pt-5 sm:mt-12">
-          <div className="flex flex-col gap-3 text-xs leading-5 text-ink/50 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-            <p className="max-w-2xl">
-              Always confirm deadlines, eligibility, and application requirements on the official
-              scholarship page before applying.
-            </p>
-            <p className="shrink-0">
-              &copy; {new Date().getFullYear()} Scholars Republic. All rights reserved.
-            </p>
-          </div>
+        <div className="mt-8 flex flex-col gap-2.5 border-t border-pine/10 pt-5 text-xs leading-5 text-ink/45 dark:border-white/10 dark:text-white/40 sm:mt-9 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+          <p>&copy; {new Date().getFullYear()} Scholars Republic. All rights reserved.</p>
+          <p className="max-w-2xl sm:text-right">
+            Always confirm deadlines, eligibility, and requirements on the official scholarship
+            page before applying.
+          </p>
         </div>
       </div>
     </footer>
