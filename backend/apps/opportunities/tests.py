@@ -2206,7 +2206,10 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["detail"], "image_base64 must be valid base64.")
         self.assert_json_response(response)
 
-    @override_settings(SCHOLARS_AGENT_TOKEN="test-token")
+    @override_settings(
+        SCHOLARS_AGENT_TOKEN="test-token",
+        DATA_UPLOAD_MAX_MEMORY_SIZE=16 * 1024 * 1024,
+    )
     def test_agent_social_draft_rejects_oversized_image(self):
         draft = self.create_agent_draft()
         oversized = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * (10 * 1024 * 1024 + 1)).decode()
@@ -2618,6 +2621,10 @@ class OpportunityAPITests(APITestCase):
                 format="multipart",
             )
             self.assertEqual(upload_response.status_code, status.HTTP_200_OK)
+
+            plan = OpportunitySocialPostPlan.objects.get(opportunity=opportunity)
+            plan.post_text = "Reviewed caption for uploaded image."
+            plan.save(update_fields=["post_text", "updated_at"])
 
             self.client.force_authenticate(user=None)
             due_response = self.client.post(
@@ -3578,7 +3585,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["image_source"], plan.SocialImageSource.GPT_UPLOADED)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
-    def test_admin_facebook_post_now_falls_back_to_og_image(self):
+    def test_admin_facebook_post_now_does_not_treat_og_fallback_as_social_image(self):
         opportunity = self.opportunity(slug="post-now-og-image")
         self.client.force_authenticate(self.admin)
 
@@ -3593,11 +3600,8 @@ class OpportunityAPITests(APITestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("/scholarships/post-now-og-image/opengraph-image", response.data["image_url"])
-        self.assertEqual(
-            response.data["image_source"],
-            OpportunitySocialPostPlan.SocialImageSource.OG_FALLBACK,
-        )
+        self.assertEqual(response.data["image_url"], "")
+        self.assertEqual(response.data["image_source"], "")
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_admin_facebook_post_now_blocks_duplicate_by_default(self):
@@ -4013,7 +4017,17 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response["blocked_reason_counts"]["expired"], 1)
 
     def test_due_queue_allows_non_individual_decision_as_fallback(self):
-        opportunity = self.opportunity(slug="non-individual-policy")
+        opportunity = self.opportunity(
+            slug="non-individual-policy",
+            funding_type=Opportunity.FundingType.PARTIALLY_FUNDED,
+            deadline=None,
+            verified_status=False,
+            official_link="",
+            source_url="",
+            university_name="",
+            degree_levels=[],
+            published_at=timezone.now() - timedelta(days=20),
+        )
         plan = self.ready_social_plan(
             opportunity,
             auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.WEBSITE_ONLY,
@@ -4163,7 +4177,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.data["items"][0]["plan_id"], plan.pk)
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
-    def test_social_worker_weekly_rule_for_no_deadline_and_far_deadline(self):
+    def test_social_worker_allows_safe_far_and_missing_deadline_fallbacks(self):
         no_deadline_recent = self.opportunity(
             slug="no-deadline-recent-social-skip",
             status=Opportunity.Status.PUBLISHED,
@@ -4218,12 +4232,18 @@ class OpportunityAPITests(APITestCase):
             HTTP_X_SOCIAL_WORKER_TOKEN="worker-token",
         )
 
-        plan_ids = [item["plan_id"] for item in response.data["items"]]
+        items_by_plan = {item["plan_id"]: item for item in response.data["items"]}
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotIn(no_deadline_plan.pk, plan_ids)
-        self.assertNotIn(far_plan.pk, plan_ids)
-        self.assertEqual(response.data["blocked_reason_counts"]["deadline_missing"], 1)
-        self.assertEqual(response.data["blocked_reason_counts"]["deadline_not_near"], 1)
+        self.assertIn(no_deadline_plan.pk, items_by_plan)
+        self.assertIn(far_plan.pk, items_by_plan)
+        self.assertIn(
+            "deadline_missing",
+            items_by_plan[no_deadline_plan.pk]["quality_warnings"],
+        )
+        self.assertIn(
+            "deadline_not_near",
+            items_by_plan[far_plan.pk]["quality_warnings"],
+        )
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
     def test_social_worker_daily_rule_for_deadline_within_7_days(self):
@@ -4239,13 +4259,20 @@ class OpportunityAPITests(APITestCase):
             deadline=timezone.localdate() + timedelta(days=2),
             deadline_last_checked_at=timezone.now(),
         )
-        OpportunitySocialPostPlan.objects.create(
+        recent_plan = OpportunitySocialPostPlan.objects.create(
             opportunity=recent,
             status=OpportunitySocialPostPlan.Status.READY,
             last_posted_at=timezone.now(),
             post_text="Recent caption.",
             image_url="https://example.com/recent.jpg",
             auto_social_decision=OpportunitySocialPostPlan.AutoSocialDecision.INDIVIDUAL,
+        )
+        OpportunitySocialPostLog.objects.create(
+            opportunity=recent,
+            plan=recent_plan,
+            platform="facebook",
+            status=OpportunitySocialPostLog.Status.POSTED,
+            posted_at=timezone.now(),
         )
         due_plan = OpportunitySocialPostPlan.objects.create(
             opportunity=due,
@@ -4583,7 +4610,7 @@ class OpportunityAPITests(APITestCase):
         SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
         SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
     )
-    def test_social_worker_due_posts_excludes_non_individual_decisions(self):
+    def test_social_worker_due_posts_allows_safe_non_individual_fallbacks(self):
         individual = self.opportunity(slug="due-individual-decision")
         collection_candidate = self.opportunity(
             slug="due-collection-candidate-decision",
@@ -4622,10 +4649,17 @@ class OpportunityAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        items_by_slug = {item["slug"]: item for item in response.data["items"]}
         self.assertEqual(
-            [item["slug"] for item in response.data["items"]],
-            ["due-individual-decision"],
+            set(items_by_slug),
+            {
+                "due-individual-decision",
+                "due-collection-candidate-decision",
+                "due-website-only-decision",
+            },
         )
+        self.assertTrue(items_by_slug["due-collection-candidate-decision"]["fallback_eligible"])
+        self.assertTrue(items_by_slug["due-website-only-decision"]["fallback_eligible"])
         decisions = dict(
             OpportunitySocialPostPlan.objects.filter(
                 opportunity__slug__in=[
@@ -5582,6 +5616,11 @@ class OpportunityAPITests(APITestCase):
         response = self.client.get("/api/admin/social/scheduler-status/")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    @override_settings(
+        SCHOLARS_FACEBOOK_DAILY_POST_CAP=20,
+        SCHOLARS_FACEBOOK_PER_RUN_POST_CAP=5,
+        SCHOLARS_FACEBOOK_MIN_POST_SPACING_MINUTES=0,
+    )
     def test_admin_social_scheduler_status_returns_metadata_and_summaries(self):
         opportunity = self.opportunity(slug="scheduler-monitor-opportunity")
         OpportunitySocialPostPlan.objects.create(
@@ -5837,7 +5876,7 @@ class OpportunityAPITests(APITestCase):
 
     def test_admin_social_scheduler_status_manual_review_plans_create_health_alert(self):
         opportunity = self.opportunity(slug="scheduler-alert-manual-review")
-        OpportunitySocialPostPlan.objects.create(
+        plan = OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             platform="facebook",
             status=OpportunitySocialPostPlan.Status.READY,
@@ -5852,6 +5891,11 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         alert_codes = {alert["code"] for alert in response.data["health_alerts"]}
         self.assertIn("manual_review_opportunity_plans", alert_codes)
+        plan.refresh_from_db()
+        self.assertEqual(
+            plan.auto_social_decision,
+            OpportunitySocialPostPlan.AutoSocialDecision.MANUAL_REVIEW,
+        )
 
 
     def test_admin_social_logs_requires_admin_access(self):
@@ -6044,7 +6088,7 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(plan.auto_social_decision, result["decision"])
 
     @override_settings(SCHOLARS_SOCIAL_WORKER_TOKEN="worker-token")
-    def test_social_worker_due_posts_orders_by_deadline_urgency(self):
+    def test_social_worker_due_posts_uses_balanced_deadline_windows(self):
         far = self.opportunity(
             slug="ordering-far-deadline",
             status=Opportunity.Status.PUBLISHED,
@@ -6087,9 +6131,10 @@ class OpportunityAPITests(APITestCase):
         self.assertEqual(
             [item["slug"] for item in response.data["items"]],
             [
-                "ordering-today-deadline",
                 "ordering-soon-deadline",
+                "ordering-today-deadline",
                 "ordering-far-deadline",
+                "ordering-no-deadline",
             ],
         )
 
@@ -6260,6 +6305,7 @@ class OpportunityAPITests(APITestCase):
         plan = OpportunitySocialPostPlan.objects.create(
             opportunity=opportunity,
             status=OpportunitySocialPostPlan.Status.READY,
+            post_text="Reviewed caption for future opportunity.",
         )
 
         response = self.client.post(
@@ -9339,6 +9385,7 @@ class OpportunityAPITests(APITestCase):
         )
 
     def test_opportunity_draft_validation_warns_when_amount_or_currency_missing(self):
+        pathway = self.pathway().full_path
         amount_only = OpportunityDraft.objects.create(
             title="Draft Import Amount Only",
             slug="draft-import-amount-only",
@@ -9346,6 +9393,7 @@ class OpportunityAPITests(APITestCase):
                 slug="draft-import-amount-only-opportunity",
                 funding_amount="1200",
                 funding_currency="",
+                pathway=pathway,
             ),
             created_by=self.admin,
         )
@@ -9356,6 +9404,7 @@ class OpportunityAPITests(APITestCase):
                 slug="draft-import-currency-only-opportunity",
                 funding_amount=None,
                 funding_currency="EUR",
+                pathway=pathway,
             ),
             created_by=self.admin,
         )
@@ -9473,7 +9522,7 @@ class OpportunityAPITests(APITestCase):
             slug="existing-similar-draft-warning",
             provider_name="Example University",
             country_ref=self.china,
-            deadline=date(2026, 3, 15),
+            deadline=timezone.localdate() + timedelta(days=30),
         )
         draft = OpportunityDraft.objects.create(
             title="Draft Similar Warning",
@@ -9852,7 +9901,7 @@ class OpportunityAPITests(APITestCase):
 
         self.assertIn("Deadline is very close.", response.data["warnings"])
 
-    def test_expired_opportunity_match_warns_student(self):
+    def test_expired_opportunity_match_is_not_available(self):
         self.profile()
         opportunity = self.opportunity(
             slug="expired-match",
@@ -9862,8 +9911,7 @@ class OpportunityAPITests(APITestCase):
 
         response = self.client.get(f"/api/scholarships/{opportunity.slug}/match/")
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("This opportunity appears expired.", response.data["warnings"])
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_recommended_scholarships_sorted_by_score(self):
         self.profile()
