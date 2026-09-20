@@ -274,7 +274,7 @@ test("home page loads", async ({ page }) => {
 });
 
 const trustPages = [
-  { path: "/privacy-policy", heading: "Privacy Policy", text: "Last updated: May 2026" },
+  { path: "/privacy-policy", heading: "Privacy Policy", text: "Last updated: September 2026" },
   { path: "/terms", heading: "Terms of Use", text: "No Guarantees" },
   { path: "/contact", heading: "Contact Scholars Republic", text: "support@scholarsrepublic.org" },
   { path: "/disclaimer", heading: "Disclaimer", text: "Official Source Rule" },
