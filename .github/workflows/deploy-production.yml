@@ -1,0 +1,50 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY to confirm production deployment'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scholars-republic-production
+  cancel-in-progress: false
+
+jobs:
+  quality-gate:
+    name: Run full CI before deployment
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to production
+    needs: quality-gate
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'DEPLOY'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Join Tailscale as ephemeral GitHub runner
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:github-ci
+          ping: scholarsrepublic
+
+      - name: Verify Tailscale SSH access
+        run: |
+          tailscale ssh scholarsrepublic@scholarsrepublic 'echo GITHUB_TAILSCALE_SSH_OK'
+
+      - name: Run production deployment script
+        run: |
+          tailscale ssh scholarsrepublic@scholarsrepublic \
+            'cd /home/scholarsrepublic/scholarsrepublic && BRANCH=main ./deploy/deploy_scholarsrepublic.sh'
