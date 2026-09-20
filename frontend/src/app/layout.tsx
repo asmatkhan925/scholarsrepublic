@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ConsentScripts } from "@/components/ConsentScripts";
 import { AppChrome } from "@/components/layout/AppChrome";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -37,33 +38,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {adsenseClient ? (
-          <script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
-            crossOrigin="anonymous"
-          />
-        ) : null}
-        {gaMeasurementId ? (
-          <>
-            <script
-              async
-              src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
-            />
-            <script
-              // Google Analytics 4 (gtag.js) initialisation.
-              dangerouslySetInnerHTML={{
-                __html: `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${gaMeasurementId}');`,
-              }}
-            />
-          </>
-        ) : null}
-      </head>
       <body>
+        <ConsentScripts adsenseClient={adsenseClient} gaMeasurementId={gaMeasurementId} />
         <ThemeProvider>
           <AuthProvider>
             <AppChrome>{children}</AppChrome>
