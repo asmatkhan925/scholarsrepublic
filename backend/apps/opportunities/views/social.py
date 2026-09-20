@@ -1214,7 +1214,11 @@ class AdminSocialSchedulerStatusView(APIView):
             timezone.get_current_timezone(),
         )
         tomorrow_start = today_start + timedelta(days=1)
-        due_response = get_due_facebook_post_plan_response(limit=10, now=now)
+        due_response = get_due_facebook_post_plan_response(
+            limit=10,
+            now=now,
+            persist_changes=False,
+        )
 
         opportunity_today = OpportunitySocialPostLog.objects.filter(
             created_at__gte=today_start,
